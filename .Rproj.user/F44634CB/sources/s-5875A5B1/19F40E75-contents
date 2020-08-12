@@ -1,0 +1,45 @@
+library(hypeR)
+library(dplyr)
+library(magrittr)
+
+# readGsetList()----------
+#' @title readGsetList()
+#' @description read geneset from a txt file,
+#' e.g. a file downloaded from Enrichr https://amp.pharm.mssm.edu/Enrichr/#stats#'
+#' @param file A txt file with geneset inside. each line should be a gene set.
+#'  first value be the gene set name.
+#'  genes should be tab seperated.
+#' @return A list
+#'
+
+readGsetList <- function(file = NULL) {
+  x <- scan(file, what = "list", sep = "\n")
+  y <- strsplit(x, "\t")
+  names(y) <- lapply(y, function(x) x[[1]])
+  y <- lapply(y, function(x) {
+    x <- x[c(2:length(x))]
+    x <- x[x != ""]
+  })
+  return(y)
+}
+
+hypeRWrap <- function(signatureDF, seperateDirection = TRUE, geneset, test, fdr = 0.05) {
+  if (is(signatureDF, "data.frame") && seperateDirection) {
+    signatureDF <- replaceSigCol(signatureDF, ObjtoGeneral = T)
+    signatureDirection <- unique(signatureDF$direction)
+    tempSigList <- signatureDF %>% group_split(direction)
+    sigList <- lapply(tempSigList, function(x) {
+      x$symbol
+    })
+    names(sigList) <- signatureDirection
+  } else if (is(signatureDF, "data.frame")) {
+    signatureDF <- replaceSigCol(signatureDF, ObjtoGeneral = T)
+    sigList <- signatureDF$symbol
+  } else {
+    sigList <- signatureDF
+  }
+  mhyp <- hypeR(sigList, geneset, test = test, background = 50000, fdr = fdr)
+  data <- bind_rows(mhyp$as.list(), .id = "direction")
+  result <- list("data" = data, "plot" = hyp_dots(mhyp))
+  return(result)
+}

@@ -1,0 +1,26 @@
+url: https://Vanessa104.github.io/SigRepoR
+
+template:
+  params:
+    bootswatch: flatly
+
+home:
+  title: "R Package Skeleton"
+  type: inverse
+
+navbar:
+  title: "SigRepoR"
+  left:
+    - text: "Home"
+      href: index.html
+    - text: "Docs"
+      menu:
+      - text: "maybe Basic Usage"
+        href: articles/docs/basics.html
+    - text: "Reference"
+      href: reference/index.html
+  right:
+    - text: "Change Log"
+      href: news/index.html
+    - icon: fa-github
+      href: https://github.com/Vanessa104/OmicSig_Shiny/SigRepoR

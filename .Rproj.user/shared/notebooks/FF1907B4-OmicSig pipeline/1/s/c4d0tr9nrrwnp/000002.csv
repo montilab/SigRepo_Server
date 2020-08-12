@@ -1,0 +1,2 @@
+"0","signatures <- data.frame(rbind(temp_upsig, temp_dnsig))"
+"0","colnames(signatures) <- c(""signature_symbol"", ""signature_score"", ""signature_direction"")"

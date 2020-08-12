@@ -1,0 +1,7 @@
+"0","OmicObj <- OmicSignature$new("
+"0","  metadata = metadata,"
+"0","  signature = signatures,"
+"0","  difexp = difexp"
+"0",")"
+"1","  [Success] OmicSignature object Myc_reduce_mice_adipose_24m created.
+"
