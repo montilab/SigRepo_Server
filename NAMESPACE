@@ -1,1 +1,4 @@
 exportPattern("^[[:alpha:]]+")
+importFrom("methods", "is")
+    importFrom("stats", "complete.cases", "ks.test", "p.adjust", "phyper")
+    importFrom("utils", "head")

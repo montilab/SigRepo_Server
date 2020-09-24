@@ -13,4 +13,6 @@ RoxygenNote: 7.1.1
 Imports:
 	dplyr,
 	magrittr,
-	ontologyIndex
+	ontologyIndex,
+	methods
+
