@@ -2,7 +2,7 @@
 title: "OmicSig-vignette"
 output: rmarkdown::html_vignette
 author: "Vanessa Mengze Li"
-date: "Aug 12th 2020"
+date: "Sept 24th 2020"
 vignette: >
   %\VignetteIndexEntry{OmicSig-vignette}
   %\VignetteEngine{knitr::rmarkdown}
@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-Load our library first! If you haven't installed `SigRepoR` yet, please contact vmli@bu.edu for instruction.
+If you haven't installed `SigRepoR` yet, please contact vmli@bu.edu for instruction.
 ```{r message=FALSE, warning=FALSE}
 devtools::document()
 library(SigRepoR)
@@ -45,7 +45,7 @@ One option is to create metadata list by hand, similar as follows:
 metadata <- list(
   "signature_name" = Myc_reduce_mice_liver_24m,
   "organism" = "Mus Musculus",
-  "sample_type" = "C57BL/6",
+  "sample_type" = "liver",
   "phenotype" = "Myc_reduce",
   "direction_type" = "bi-directional",
   "platform" = "GPL6246",
@@ -61,7 +61,7 @@ Or use our build-in function `createMetadata` (recommended):
 metadata <- createMetadata(
   signature_name = "Myc_reduce_mice_liver_24m",
   organism = "Mus Musculus",
-  sample_type = "C57BL/6",
+  sample_type = "liver",
   phenotype = "Myc_reduce",
   direction_type = "bi-directional",
   platform = "GPL6246",
@@ -69,7 +69,8 @@ metadata <- createMetadata(
   score_cutoff = 7,
   keywords = c("Myc", "KO", "longevity"),
   PMID = 25619689,
-  year = 2015)
+  year = 2015
+)
 ```
 
 If "sample_type" is not a BRENDA ontology name or "platform" is not a valid GEO platform accession ID, you will receive warnings when creating the OmicSignature object. See more info about these two fields below.
@@ -79,11 +80,11 @@ In this example, the sample_type is a mouse strain and not a BRENDA tissue ontol
 You can find the correct ontology term to use by `BRENDASearch()` function.  
 For example, search for ontology terms contain "SUM" and "cell":
 ```{r}
-BRENDASearch("SUM cell") 
+BRENDASearch("SUM cell")
 ```
 
 In addition, we use GEO platform accession ID, e.g. "GPL6246", in our *SigRepo database*. If you are not sure about your GEO platform accession ID, you can search by using function `GEOPlatformSearch()`.  
-For example, search for platform names contains “illumina” and species name contains "homo":
+For example, search for platform names contains "illumina" and species name contains "homo":
 ```{r}
 GEOPlatformSearch("illumina", species = "homo")
 ```
@@ -94,8 +95,9 @@ The differential expression analysis in this example was performed using a stand
 pipeline from lm package. Available columns are logFC, AveExpr, t score, P.Value, 
 adj.P.Val, B score, Probe.ID, gene_symbol and gene_name.
 ```{r}
-difexp <- read.table(file = "difmatrix_Myc_mice_liver_24m_raw.txt", 
-    header = TRUE, sep="\t", stringsAsFactors = FALSE)
+difexp <- read.table(file.path(system.file("extdata", package = "SigRepoR"), "difmatrix_Myc_mice_liver_24m_raw.txt"),
+  header = TRUE, sep = "\t", stringsAsFactors = FALSE
+)
 head(difexp)
 ```
 To be saved into a OmicSignature object, the required columns for
@@ -126,8 +128,8 @@ temp_upsig <- cbind(
 head(temp_upsig)
 
 temp_dnsig <- cbind(
-  dplyr::filter(difexp, score < (-1)*metadata$score_cutoff & fdr < metadata$fdr_cutoff) %>% pull(symbol),
-  dplyr::filter(difexp, score < (-1)*metadata$score_cutoff & fdr < metadata$fdr_cutoff) %>% pull(score),
+  dplyr::filter(difexp, score < (-1) * metadata$score_cutoff & fdr < metadata$fdr_cutoff) %>% pull(symbol),
+  dplyr::filter(difexp, score < (-1) * metadata$score_cutoff & fdr < metadata$fdr_cutoff) %>% pull(score),
   "-"
 )
 head(temp_dnsig)
@@ -199,18 +201,16 @@ writeJson(OmicObj, "Myc_reduce_mice_liver_24m.json")
 ```
 
 We can also read in a OmicSignature object from a `.json` file.  
-The following example OmicSignature objects were generated from Sum149 cell line 
-with AhR and CYP1B1 gene KO.  
+The following two examples are from the same Myc reduce study in mice, with muscle and adipose tissue.  
 ```{r}
-OmicObjSum149AhR <- readJson("Sum149_AhR_obj.json")
-OmicObjSum149CYP1B1 <- readJson("Sum149_CYP1B1_obj.json")
+OmicObj1 <- readJson(file.path(system.file("extdata", package = "SigRepoR"), "Myc_reduce_mice_muscle_24m_obj.json"))
+OmicObj2 <- readJson(file.path(system.file("extdata", package = "SigRepoR"), "Myc_reduce_mice_adipose_24m_obj.json"))
 ```
 
 ## Create an OmicSignatureCollection Object
-We have two OmicSignature objects: "Sum149_CYP1B1" and "Sum149_AhR".  
 An `OmicSignatureCollection` object contains two parts:  
  - metadata  
- - OmicSigList, for a list of OmicSignature Objects  
+ - OmicSigList, a list of OmicSignature Objects  
 
 ### Specify metadata for the collection
 The required fields for **metadata** are:  
@@ -218,9 +218,9 @@ The required fields for **metadata** are:
 fields.  
 ```{r}
 ColMeta <- list(
-  "collection_name" = "Sum149_collection",
-  "description" = "A collection for Sum149 gene KO",
-  "organism" = "Homo Sapiens",
+  "collection_name" = "Myc_mice_collection",
+  "description" = "A collection for Myc reduced mice 24 month",
+  "organism" = "Mus Musculus",
   "author" = "me"
 )
 ```
@@ -230,7 +230,7 @@ Use `OmicSignatureCollection$new()` and provide our metadata and a list of
 `OmicSignature` objects: 
 ```{r}
 OmicCol <- OmicSignatureCollection$new(
-  OmicSigList = list(OmicObjSum149AhR, OmicObjSum149CYP1B1),
+  OmicSigList = list(OmicObj, OmicObj1, OmicObj2),
   metadata = ColMeta,
   print_message = FALSE
 )
@@ -245,16 +245,16 @@ new criterias.
 By default, the features are ranked by score.  
 By default, `bind` is set to be `TRUE` to output results from all *OmicSignature* 
 objects as a single dataframe.  
+For example, extract all features with a absolute score > 20 and fdr < 0.005.  
 ```{r}
-OmicCol$extract.signature("score < -25; fdr < 0.005", bind = TRUE)
+OmicCol$extract.signature("abs(score) > 20; fdr < 0.005", bind = TRUE)
 ```
 
 If `bind` is set to be `FALSE`, the output of each *OmicSignature* objects are 
 provided individually as one element in a list.
 ```{r}
-OmicCol$extract.signature("score < -25; fdr < 0.005", bind = FALSE)
+OmicCol$extract.signature("abs(score) > 20; fdr < 0.005", bind = FALSE)
 ```
-
 
 Thank you! Please contact vmli@bu.edu if you have any questions.
 
