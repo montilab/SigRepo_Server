@@ -21,6 +21,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-verbose"></a>}}
+\if{latex}{\out{\hypertarget{method-verbose}{}}}
 \subsection{Method \code{verbose()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$verbose(v, ...)}\if{html}{\out{</div>}}
@@ -29,6 +30,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
+\if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$new(metadata, OmicSigList, print_message = FALSE)}\if{html}{\out{</div>}}
@@ -37,6 +39,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
+\if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$print(...)}\if{html}{\out{</div>}}
@@ -45,6 +48,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-extract.signature"></a>}}
+\if{latex}{\out{\hypertarget{method-extract.signature}{}}}
 \subsection{Method \code{extract.signature()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$extract.signature(conditions, bind = TRUE)}\if{html}{\out{</div>}}
@@ -53,6 +57,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-checkCollectionMetadata"></a>}}
+\if{latex}{\out{\hypertarget{method-checkCollectionMetadata}{}}}
 \subsection{Method \code{checkCollectionMetadata()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$checkCollectionMetadata(metadata, v = FALSE)}\if{html}{\out{</div>}}
@@ -61,6 +66,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-checkCollectionOmicSigList"></a>}}
+\if{latex}{\out{\hypertarget{method-checkCollectionOmicSigList}{}}}
 \subsection{Method \code{checkCollectionOmicSigList()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$checkCollectionOmicSigList(OmicSigList, v = FALSE)}\if{html}{\out{</div>}}
@@ -69,6 +75,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}
+\if{latex}{\out{\hypertarget{method-clone}{}}}
 \subsection{Method \code{clone()}}{
 The objects of this class are cloneable with this method.
 \subsection{Usage}{
