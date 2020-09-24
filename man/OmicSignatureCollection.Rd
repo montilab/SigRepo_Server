@@ -14,6 +14,7 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \item \href{#method-new}{\code{OmicSignatureCollection$new()}}
 \item \href{#method-print}{\code{OmicSignatureCollection$print()}}
 \item \href{#method-extract.signature}{\code{OmicSignatureCollection$extract.signature()}}
+\item \href{#method-metadataSummary}{\code{OmicSignatureCollection$metadataSummary()}}
 \item \href{#method-checkCollectionMetadata}{\code{OmicSignatureCollection$checkCollectionMetadata()}}
 \item \href{#method-checkCollectionOmicSigList}{\code{OmicSignatureCollection$checkCollectionOmicSigList()}}
 \item \href{#method-clone}{\code{OmicSignatureCollection$clone()}}
@@ -52,6 +53,15 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \subsection{Method \code{extract.signature()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$extract.signature(conditions, bind = TRUE)}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-metadataSummary"></a>}}
+\if{latex}{\out{\hypertarget{method-metadataSummary}{}}}
+\subsection{Method \code{metadataSummary()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$metadataSummary(only_shared = TRUE)}\if{html}{\out{</div>}}
 }
 
 }

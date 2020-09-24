@@ -394,6 +394,20 @@ OmicSignatureCollection <- R6Class(
         return(a)
       }
     },
+    metadataSummary = function(only_shared = TRUE) {
+      if (only_shared == TRUE) {
+        col <- Reduce(intersect, sapply(OmicCol$OmicSigList, function(x) {
+          names(x$metadata)
+        }))
+      } else {
+        col <- Reduce(union, sapply(OmicCol$OmicSigList, function(x) {
+          names(x$metadata)
+        }))
+      }
+      sapply(self$OmicSigList, function(x) {
+        x$metadata[col]
+      }, simplify = T)
+    },
     checkCollectionMetadata = function(metadata, v = FALSE) {
       ## metadata should be a list with required attributes
       if (class(metadata)[1] == "OmicSignatureCollection") {

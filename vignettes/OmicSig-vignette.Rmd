@@ -239,6 +239,16 @@ By default, `print_message` is set to `FALSE`. You can change it to `TRUE` to
 see the messages. During the creation of OmicSignatureCollection object, all 
 input `OmicSignature` objects will be re-created to make sure they are all valid.  
 
+### See a summary of the metadata of the OmicSignature objects in the Collection
+`$metadataSummary()` will print out the metadata fields in all _OmicSignature_ 
+objects stored in the _OmicSignatureCollection_.  
+When parameter "only_shared" is set to be `TRUE`, only shared metadata fields 
+among all _OmicSignature_ objects will be included. Otherwise, all metadata 
+fields will be included.
+```{r}
+OmicCol$metadataSummary(only_shared = TRUE)
+```
+
 ### Extract new signatures from the `OmicSignatureCollection` object
 We can extract new signatures from the `OmicSignatureCollection` object using 
 new criterias.  
