@@ -51,17 +51,17 @@ jobs:
       #    tag_with_sha: true
       #    tags: latest
 
-      - name: Build pkgdown
-        run: |
-           PATH=$PATH:$HOME/bin/ Rscript -e 'pkgdown::build_site("."); file.copy("README_files", "docs", recursive=TRUE)'
+      # - name: Build pkgdown
+      #  run: |
+      #     PATH=$PATH:$HOME/bin/ Rscript -e 'pkgdown::build_site("."); file.copy("README_files", "docs", recursive=TRUE)'
       # deploy needs rsync? Seems so.
-      - name: Install deploy dependencies
-        run: |
-          apt-get update
-          apt-get -y install rsync
-      - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v3
-        with:
-          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-          BRANCH: gh-pages # The branch the action should deploy to.
-          FOLDER: docs # The folder the action should deploy.
+      #- name: Install deploy dependencies
+      #  run: |
+      #    apt-get update
+      #    apt-get -y install rsync
+      #- name: Deploy 🚀
+      #  uses: JamesIves/github-pages-deploy-action@releases/v3
+      #  with:
+      #    ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      #    BRANCH: gh-pages # The branch the action should deploy to.
+      #    FOLDER: docs # The folder the action should deploy.
