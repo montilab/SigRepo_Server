@@ -255,16 +255,106 @@ new criterias.
 By default, the features are ranked by score.  
 By default, `bind` is set to be `TRUE` to output results from all *OmicSignature* 
 objects as a single dataframe.  
-For example, extract all features with a absolute score > 20 and fdr < 0.005.  
-```{r}
-OmicCol$extract.signature("abs(score) > 20", bind = TRUE)
+For example, extract all features with a absolute score > 20 and fdr < 0.001.  
+```
+OmicCol$extract.signature("abs(score) > 20 & fdr < 0.001", bind = TRUE)
+```
+```
+  sig_name        symbol             score direction
+15 Myc_reduce_mice_adipose_24m        Crisp1           85.2374         +
+16 Myc_reduce_mice_adipose_24m        Akr1b7           49.0361         +
+17 Myc_reduce_mice_adipose_24m          Pcp4           40.2846         +
+19 Myc_reduce_mice_adipose_24m        Spink8           36.2846         +
+2    Myc_reduce_mice_liver_24m          Cpa1  34.6200756063927         +
+20 Myc_reduce_mice_adipose_24m           Kap           30.6262         +
+21 Myc_reduce_mice_adipose_24m         Ces5a           30.0132         +
+5    Myc_reduce_mice_liver_24m          Zg16  28.5156178872557         +
+23 Myc_reduce_mice_adipose_24m        Defb26           27.7851         +
+24 Myc_reduce_mice_adipose_24m          Smcp           27.3482         +
+25 Myc_reduce_mice_adipose_24m       Sprr2a2           27.2045         +
+26 Myc_reduce_mice_adipose_24m     Serpina1f           25.5037         +
+7    Myc_reduce_mice_liver_24m 2210010C04Rik  24.5444574823074         +
+9    Myc_reduce_mice_liver_24m         Cidec  23.3957330874696         +
+28 Myc_reduce_mice_adipose_24m         Ptgs2           23.0415         +
+29 Myc_reduce_mice_adipose_24m          Gm46           22.9144         +
+10   Myc_reduce_mice_liver_24m        Amy2a5  22.9129404550606         +
+30 Myc_reduce_mice_adipose_24m           Npy           22.5157         +
+31 Myc_reduce_mice_adipose_24m        Tmem27           22.4873         +
+12   Myc_reduce_mice_liver_24m           Pf4  21.7125952561703         +
+14   Myc_reduce_mice_liver_24m          Cpb1  20.9805702547365         +
+36 Myc_reduce_mice_adipose_24m        Defb39           20.3322         +
+37 Myc_reduce_mice_adipose_24m          Miox           20.2977         +
+38 Myc_reduce_mice_adipose_24m      Ceacam10           20.2184         +
+18 Myc_reduce_mice_adipose_24m          Mmp7          -36.8727         -
+1    Myc_reduce_mice_liver_24m          Saa1 -35.2999683556117         -
+3    Myc_reduce_mice_liver_24m       Sult3a1 -31.7552657607558         -
+4    Myc_reduce_mice_liver_24m        Isyna1  -29.932550857117         -
+22 Myc_reduce_mice_adipose_24m       Ighv3-5          -29.0765         -
+6    Myc_reduce_mice_liver_24m         Chil1 -25.4131776388419         -
+27 Myc_reduce_mice_adipose_24m       Fam183b          -24.8649         -
+8    Myc_reduce_mice_liver_24m          Saa2 -23.8145207179964         -
+11   Myc_reduce_mice_liver_24m       Sult1e1 -22.7634504761229         -
+32 Myc_reduce_mice_adipose_24m          Sntn          -22.0401         -
+33 Myc_reduce_mice_adipose_24m      Atp6v0d2          -21.7473         -
+13   Myc_reduce_mice_liver_24m          Orm3 -21.2508766114784         -
+34 Myc_reduce_mice_adipose_24m          Spp1          -20.9817         -
+35 Myc_reduce_mice_adipose_24m         Plet1          -20.3752         -
 ```
 
 If `bind` is set to be `FALSE`, the output of each *OmicSignature* objects are 
 provided individually as one element in a list.
-```{r}
-OmicCol$extract.signature("abs(score) > 20", bind = FALSE)
 ```
+OmicCol$extract.signature("abs(score) > 20 & fdr < 0.001", bind = FALSE)
+```
+```
+$Myc_reduce_mice_liver_24m
+          symbol             score direction
+1           Saa1 -35.2999683556117         -
+2           Cpa1  34.6200756063927         +
+3        Sult3a1 -31.7552657607558         -
+4         Isyna1  -29.932550857117         -
+5           Zg16  28.5156178872557         +
+6          Chil1 -25.4131776388419         -
+7  2210010C04Rik  24.5444574823074         +
+8           Saa2 -23.8145207179964         -
+9          Cidec  23.3957330874696         +
+10        Amy2a5  22.9129404550606         +
+11       Sult1e1 -22.7634504761229         -
+12           Pf4  21.7125952561703         +
+13          Orm3 -21.2508766114784         -
+14          Cpb1  20.9805702547365         +
+
+$Myc_reduce_mice_muscle_24m
+NULL
+
+$Myc_reduce_mice_adipose_24m
+      symbol    score direction
+1     Crisp1  85.2374         +
+2     Akr1b7  49.0361         +
+3       Pcp4  40.2846         +
+4       Mmp7 -36.8727         -
+5     Spink8  36.2846         +
+6        Kap  30.6262         +
+7      Ces5a  30.0132         +
+8    Ighv3-5 -29.0765         -
+9     Defb26  27.7851         +
+10      Smcp  27.3482         +
+11   Sprr2a2  27.2045         +
+12 Serpina1f  25.5037         +
+13   Fam183b -24.8649         -
+14     Ptgs2  23.0415         +
+15      Gm46  22.9144         +
+16       Npy  22.5157         +
+17    Tmem27  22.4873         +
+18      Sntn -22.0401         -
+19  Atp6v0d2 -21.7473         -
+20      Spp1 -20.9817         -
+21     Plet1 -20.3752         -
+22    Defb39  20.3322         +
+23      Miox  20.2977         +
+24  Ceacam10  20.2184         +
+```
+
 
 Thank you! Please contact vmli@bu.edu if you have any questions.
 
