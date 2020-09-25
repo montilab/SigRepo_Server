@@ -24,6 +24,4 @@ updated 07/2020
 BRENDACurrentName("BTO:0005475") # valid current name, output itself
 BRENDACurrentName("SUM149 cell") # valid synonym; change to current name
 BRENDACurrentName("BTO:0005388") # valid synonym; change to current name
-BRENDACurrentName("BTO:1234567") # input invalid
-BRENDACurrentName("my new cell") # input invalid
 }

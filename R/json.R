@@ -8,8 +8,10 @@
 #' @param file export file name
 #' @return a "finished" message
 #'
-#' @example
-#' writeJson(OmicObj, file = "Omic.json")
+#' @examples
+#' OmicObj <- readJson(file.path(system.file("extdata", package = "SigRepoR"),
+#' "Myc_reduce_mice_muscle_24m_obj.json"))
+#' writeJson(OmicObj, file = "my_obj.json")
 #'
 
 writeJson <- function(OmicObj, file) {
@@ -40,7 +42,8 @@ writeJson <- function(OmicObj, file) {
 #' @return OmicSignature object
 #'
 #' @example
-#' readJson(filename = "Omic.json")
+#' OmicObj <- readJson(file.path(system.file("extdata", package = "SigRepoR"),
+#' "Myc_reduce_mice_muscle_24m_obj.json"))
 #'
 readJson <- function(filename) {
   readJson <- jsonlite::fromJSON(txt = filename)

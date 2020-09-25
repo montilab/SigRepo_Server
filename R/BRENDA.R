@@ -1,4 +1,3 @@
-library(ontologyIndex)
 #' @title BRENDACurrentName
 #' @description Get the current BRENDA term id and name from a term id,
 #' term name, or synonym.
@@ -12,8 +11,6 @@ library(ontologyIndex)
 #' BRENDACurrentName("BTO:0005475") # valid current name, output itself
 #' BRENDACurrentName("SUM149 cell") # valid synonym; change to current name
 #' BRENDACurrentName("BTO:0005388") # valid synonym; change to current name
-#' BRENDACurrentName("BTO:1234567") # input invalid
-#' BRENDACurrentName("my new cell") # input invalid
 BRENDACurrentName <- function(x, obo = BRENDAobo) {
   # if input is a current term id:
   if (startsWith(x, "BTO:") & x %in% obo$id) {
@@ -53,7 +50,7 @@ BRENDACurrentName <- function(x, obo = BRENDAobo) {
 #' updated 07/2020
 #' @param x A string or character vector to search for.
 #' x will be divided into different search patterns by space. See examples below.
-#' @param allName The ontology file or a character vector of all possible term names. Optional. BRENDA OBO file will be loaded if not provided.
+#' @param obo The ontology file or a character vector of all possible term names. Optional. BRENDA OBO file will be loaded if not provided.
 #' @param contain_all if TRUE, will only return the results contain all search terms.
 #' if FALSE, will return results contain any of the given pattern.
 #' @return matrix including search result
@@ -62,25 +59,25 @@ BRENDACurrentName <- function(x, obo = BRENDAobo) {
 #' BRENDASearch("MDA MB cell", contain_all = TRUE) # search for results that contain "MDA" "MB" and "cell"
 #' BRENDASearch(c("MDA MB", "cell"), contain_all = TRUE) # same as above
 #' BRENDASearch(c("MDA-MB", "SUM"), contain_all = FALSE) # search for results that contain either "MDA-MB" or "SUM"
-BRENDASearch <- function(x, allName = BRENDAobo, contain_all = TRUE) {
+BRENDASearch <- function(x, obo = BRENDAobo, contain_all = TRUE) {
   x <- unlist(strsplit(x, split = " "))
-  if (is(allName, "ontology_index")) {
-    allName <- allName$name[!allName$obsolete]
+  if (is(obo, "ontology_index")) {
+    obo <- obo$name[!obo$obsolete]
   }
   if (contain_all) {
-    result <- c(1:length(allName))
+    result <- c(1:length(obo))
     for (i in x) {
-      result0 <- grep(i, allName)
+      result0 <- grep(i, obo)
       result <- intersect(result0, result)
     }
   } else {
     result <- numeric(0)
     for (i in x) {
-      result0 <- grep(i, allName)
+      result0 <- grep(i, obo)
       result <- union(result0, result)
     }
   }
-  result <- allName[result]
+  result <- obo[result]
   result_df <- cbind(names(result), result)
   colnames(result_df) <- c("ID", "Name")
   return(result_df)
@@ -99,8 +96,6 @@ BRENDASearch <- function(x, allName = BRENDAobo, contain_all = TRUE) {
 #' BRENDADevelopFrom("BTO:0000150")
 #' BRENDADevelopFrom("BTO:0000187") # input is a valid BRENDA term but
 #' # it is not developed from any other tissues, gives character0
-#' BRENDADevelopFrom("breast cancer cell line") # input invalid
-#' BRENDADevelopFrom("my cell") # input invalid
 BRENDADevelopFrom <- function(x, obo = BRENDAobo) {
   id <- BRENDACurrentName(x, obo)[1]
   result <- c(obo$develops_from[[id]], obo$name[obo$develops_from[[id]]])
@@ -128,8 +123,6 @@ BRENDADevelopFrom <- function(x, obo = BRENDAobo) {
 #' BRENDAPartOf("BTO:0000187")
 #' BRENDAPartOf("myeloblast")
 #' BRENDAPartOf("BTO:0001732")
-#' BRENDAPartOf("BTO:0000214") # input valid but no result, gives character0
-#' BRENDAPartOf("my cell") # input invalid
 BRENDAPartOf <- function(x, obo = BRENDAobo) {
   id <- BRENDACurrentName(x, obo)[1]
   result <- matrix(c(obo$part_of[[id]], obo$name[obo$part_of[[id]]]),
@@ -155,7 +148,6 @@ BRENDAPartOf <- function(x, obo = BRENDAobo) {
 #' BRENDAAncestors("BTO:0000034")
 #' BRENDAAncestors("SUM149 cell") # synonym; function will change it to the current name
 #' BRENDAAncestors("BTO:0000216") # input valid but no result, gives character0
-#' BRENDAAncestors("my cell") # input invalid
 BRENDAAncestors <- function(x, obo = BRENDAobo) {
   x <- BRENDACurrentName(x, obo)
   result <- ontologyIndex::get_ancestors(obo, terms = x[1])
@@ -180,7 +172,6 @@ BRENDAAncestors <- function(x, obo = BRENDAobo) {
 #' @examples
 #' BRENDADescendants("BTO:0000034")
 #' BRENDADescendants("BTO:0000004") # input valid but no result, gives character0
-#' BRENDADescendants("my cell") # input invalid
 BRENDADescendants <- function(x, obo = BRENDAobo) {
   x <- BRENDACurrentName(x, obo)
   result <- ontologyIndex::get_descendants(obo, roots = x[1])

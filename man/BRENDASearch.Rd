@@ -4,13 +4,13 @@
 \alias{BRENDASearch}
 \title{BRENDASearch}
 \usage{
-BRENDASearch(x, allName = BRENDAobo, contain_all = TRUE)
+BRENDASearch(x, obo = BRENDAobo, contain_all = TRUE)
 }
 \arguments{
 \item{x}{A string or character vector to search for.
 x will be divided into different search patterns by space. See examples below.}
 
-\item{allName}{The ontology file or a character vector of all possible term names. Optional. BRENDA OBO file will be loaded if not provided.}
+\item{obo}{The ontology file or a character vector of all possible term names. Optional. BRENDA OBO file will be loaded if not provided.}
 
 \item{contain_all}{if TRUE, will only return the results contain all search terms.
 if FALSE, will return results contain any of the given pattern.}

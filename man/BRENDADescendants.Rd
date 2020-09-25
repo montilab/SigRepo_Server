@@ -23,5 +23,4 @@ updated 07/2020
 \examples{
 BRENDADescendants("BTO:0000034")
 BRENDADescendants("BTO:0000004") # input valid but no result, gives character0
-BRENDADescendants("my cell") # input invalid
 }

@@ -28,6 +28,4 @@ updated 07/2020
 BRENDAPartOf("BTO:0000187")
 BRENDAPartOf("myeloblast")
 BRENDAPartOf("BTO:0001732")
-BRENDAPartOf("BTO:0000214") # input valid but no result, gives character0
-BRENDAPartOf("my cell") # input invalid
 }

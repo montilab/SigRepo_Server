@@ -24,6 +24,4 @@ BRENDADevelopFrom("BTO:0000995")
 BRENDADevelopFrom("BTO:0000150")
 BRENDADevelopFrom("BTO:0000187") # input is a valid BRENDA term but
 # it is not developed from any other tissues, gives character0
-BRENDADevelopFrom("breast cancer cell line") # input invalid
-BRENDADevelopFrom("my cell") # input invalid
 }

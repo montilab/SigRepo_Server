@@ -3,12 +3,12 @@
 \name{createMetadata}
 \alias{createMetadata}
 \title{template for creating a metadata list for an OmicSignature R6 object
-updated 08/2020}
+updated 09/2020}
 \usage{
 createMetadata(
   signature_name,
   organism,
-  phenotype = "Unknown",
+  phenotype = "unknown",
   platform,
   direction_type,
   sample_type = NULL,
@@ -17,11 +17,13 @@ createMetadata(
   PMID = NULL,
   keywords = NULL,
   description = NULL,
+  category_num = NULL,
   logFC_cutoff = NULL,
   p_value_cutoff = NULL,
   fdr_cutoff = NULL,
   score_cutoff = NULL,
-  cutoff_description = NULL
+  cutoff_description = NULL,
+  other = NULL
 )
 }
 \arguments{
@@ -50,6 +52,8 @@ createMetadata(
 
 \item{description}{optional. free text to describe the signature.}
 
+\item{category_num}{optional, specifically used for multi-directional signature to specify how many categories or class the signature contains.}
+
 \item{logFC_cutoff}{optional. log fold change cutoff used to generate the signature, if applicable.}
 
 \item{p_value_cutoff}{optional. p value cutoff used to generate the signature, if applicable.}
@@ -60,12 +64,12 @@ createMetadata(
 
 \item{cutoff_description}{optional. discription of the cutoff, if applicable.}
 
-\item{category_num}{optional, specifically used for multi-directional signature to specify how many categories or class the signature contains.}
+\item{other}{optional. a `list` to specify any other user-defined metadata fields.}
 }
 \value{
 a metadata list to create an OmicSignature R6 object
 }
 \description{
 template for creating a metadata list for an OmicSignature R6 object
-updated 08/2020
+updated 09/2020
 }

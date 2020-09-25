@@ -24,5 +24,4 @@ updated 07/2020
 BRENDAAncestors("BTO:0000034")
 BRENDAAncestors("SUM149 cell") # synonym; function will change it to the current name
 BRENDAAncestors("BTO:0000216") # input valid but no result, gives character0
-BRENDAAncestors("my cell") # input invalid
 }

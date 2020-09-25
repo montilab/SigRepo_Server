@@ -4,9 +4,7 @@
 #'
 #' @param num A number
 #' @return A list
-#' @example
-#' repoFun(10)
-repoFun <- function(num=NULL) {
+testRepo <- function(num=NULL) {
 	cat("Hello! Welcome to SigRepo package. -- developing version\n")
   if (is(num, "numeric")){
   res <- list("square" = num^2, "cubic" = num^3)

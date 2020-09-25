@@ -1,5 +1,5 @@
 #' @title template for creating a metadata list for an OmicSignature R6 object
-#' updated 08/2020
+#' updated 09/2020
 #'
 #' @param signature_name name of the signature.
 #' @param organism organism. e.g. "Homo Sapiens", "Mus Musculus".
@@ -21,18 +21,21 @@
 #' @param fdr_cutoff optional. fdr cutoff used to generate the signature, if applicable.
 #' @param score_cutoff optional. score cutoff used to generate the signature, if applicable.
 #' @param cutoff_description optional. discription of the cutoff, if applicable.
+#' @param other optional. a `list` to specify any other user-defined metadata fields.
 #' @return a metadata list to create an OmicSignature R6 object
 #'
 
-createMetadata <- function(signature_name, organism, phenotype = "Unknown",
+createMetadata <- function(signature_name, organism, phenotype = "unknown",
                            platform, direction_type, sample_type = NULL,
                            author = NULL, year = NULL, PMID = NULL,
-                           keywords = NULL, description = NULL,
+                           keywords = NULL, description = NULL, category_num = NULL,
                            logFC_cutoff = NULL, p_value_cutoff = NULL,
                            fdr_cutoff = NULL, score_cutoff = NULL,
-                           cutoff_description = NULL) {
+                           cutoff_description = NULL, other = NULL) {
+  
   organism <- tools::toTitleCase(organism)
-  platform <- toupper(platform)
+  
+  # check direction type
   direction_type <- direction_type %>%
     tolower() %>%
     dplyr::recode(
@@ -58,10 +61,12 @@ createMetadata <- function(signature_name, organism, phenotype = "Unknown",
   }
 
   # check if platform is a valid GPL platform
+  platform <- toupper(platform)
   if (!platform %in% GEOplatform$Accession) {
     warning("platform in metadata is not a valid GEO platform accession. Please see `View(GEOplatform)`, or use GEOPlatformSearch() function to search for the correct platform id.")
   }
 
+  # create metadata list
   result <- list(
     "signature_name" = signature_name,
     "organism" = organism,
@@ -78,6 +83,12 @@ createMetadata <- function(signature_name, organism, phenotype = "Unknown",
     "score_cutoff" = score_cutoff,
     "cutoff_description" = cutoff_description
   )
+
+  # remove empty entries
   result <- result[-which(sapply(result, is.null))]
+
+  # bind other user defined metadata fields
+  result <- c(result, other)
+
   return(result)
 }
