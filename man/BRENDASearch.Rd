@@ -24,7 +24,10 @@ of all ontology term name
 updated 07/2020
 }
 \examples{
-BRENDASearch("MDA MB cell", contain_all = TRUE) # search for results that contain "MDA" "MB" and "cell"
-BRENDASearch(c("MDA MB", "cell"), contain_all = TRUE) # same as above
-BRENDASearch(c("MDA-MB", "SUM"), contain_all = FALSE) # search for results that contain either "MDA-MB" or "SUM"
+BRENDASearch("MDA MB cell", contain_all = TRUE) 
+# search for results that contain "MDA" "MB" and "cell"
+BRENDASearch(c("MDA MB", "cell"), contain_all = TRUE) 
+# same as above
+BRENDASearch(c("MDA-MB", "SUM"), contain_all = FALSE) 
+# search for results that contain either "MDA-MB" or "SUM"
 }

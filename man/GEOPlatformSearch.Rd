@@ -33,5 +33,5 @@ updated 08/2020
 \examples{
 GEOPlatformSearch("illumina")
 GEOPlatformSearch("illumina", species = "homo sapiens")
-GEOPlatformSearch(c("Affymetrix", "Transcriptome"), species = "mus", contain_all = T)
+GEOPlatformSearch(c("Affymetrix", "Transcriptome"), species = "mus", contain_all = TRUE)
 }

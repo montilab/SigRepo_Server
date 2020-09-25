@@ -12,9 +12,10 @@ contact: `vmli@bu.edu`
 
 ### description
 **Please go to "/vignettes/OmicSig-vignette.Rmd" to see the vignettes of _OmicSignature_ and _OmicSignatureCollection_ R6 objects**
-As high-throughput technology evolves, a large number of omics-signatures are being derived.  
-This package contains _OmicSignature_ and _OmicSignatureCollection_ R6 objects to store signatures efficiently and retrieve them conveniently.
+As high-throughput technology evolves, a large number of omics-signatures are being derived. This package contains _OmicSignature_ and _OmicSignatureCollection_ R6 objects to store signatures efficiently and retrieve them conveniently.
 
 ### development notes
-Run `devtools::document()`, and `.Rd` description will be automatically generated. Do not manually edit `.Rd` files. 
-Run `devtools::build()` to build the package locally.
+Run `devtools::document()`, and `.Rd` description will be automatically generated. Do not manually edit `.Rd` files.  
+Run `devtools::check()` to check the package.  
+Run `devtools::build()` to build the package locally.  
+

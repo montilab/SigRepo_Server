@@ -1,6 +1,6 @@
 #' @title template for creating a metadata list for an OmicSignature R6 object
 #' updated 09/2020
-#'
+#' @importFrom dplyr recode %>%
 #' @param signature_name name of the signature.
 #' @param organism organism. e.g. "Homo Sapiens", "Mus Musculus".
 #' @param platform GEO platform. e.g. "GPL11154" is for Illumina HiSeq 2000 Homo sapiens, "GPL570" is for Affymetrix Human Genome U133 Plus 2.0 Array
@@ -49,7 +49,7 @@ createMetadata <- function(signature_name, organism, phenotype = "unknown",
 
   # check if sample_type is a valid BRENDA term
   if (!is.null(sample_type)) {
-    tempSampleType <- try(SigRepoR::BRENDACurrentName(sample_type), silent = T)
+    tempSampleType <- try(SigRepoR::BRENDACurrentName(sample_type), silent = TRUE)
     if (is(tempSampleType, "character")) {
       sample_type <- tempSampleType[2]
     } else {

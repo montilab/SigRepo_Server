@@ -1,6 +1,7 @@
 #' @title rename the columns of a signature dataframe
 #' updated 07/2020
 #'
+#' @importFrom dplyr recode %>%
 #' @param sigdf signature dataframe
 #' @param ObjtoGeneral if TRUE, will replace columns in OmicSignature object, 
 #' e.g. "signature_symbol", to general name, e.g. "symbol". if FALSE, will replace
@@ -11,7 +12,7 @@
 replaceSigCol <- function(sigdf, ObjtoGeneral = TRUE) {
   if (ObjtoGeneral) {
     # can't do rename() here since it requires the df to have the column specified
-    colnames(sigdf) <- recode(colnames(sigdf),
+    colnames(sigdf) <- dplyr::recode(colnames(sigdf),
       "signature_symbol" = "symbol", "signature_score" = "score",
       "signature_direction" = "direction"
     )

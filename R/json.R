@@ -7,12 +7,6 @@
 #' @param OmicObj A OmicSignature object
 #' @param file export file name
 #' @return a "finished" message
-#'
-#' @examples
-#' OmicObj <- readJson(file.path(system.file("extdata", package = "SigRepoR"),
-#' "Myc_reduce_mice_muscle_24m_obj.json"))
-#' writeJson(OmicObj, file = "my_obj.json")
-#'
 
 writeJson <- function(OmicObj, file) {
   # drop the previous signature_direction column, to save space:
@@ -40,10 +34,6 @@ writeJson <- function(OmicObj, file) {
 #'
 #' @param filename json file name to read in
 #' @return OmicSignature object
-#'
-#' @example
-#' OmicObj <- readJson(file.path(system.file("extdata", package = "SigRepoR"),
-#' "Myc_reduce_mice_muscle_24m_obj.json"))
 #'
 readJson <- function(filename) {
   readJson <- jsonlite::fromJSON(txt = filename)

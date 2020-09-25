@@ -19,9 +19,3 @@ a "finished" message
 write OmicSignature object into json txt format
 updated 01/2020
 }
-\examples{
-OmicObj <- readJson(file.path(system.file("extdata", package = "SigRepoR"),
-"Myc_reduce_mice_muscle_24m_obj.json"))
-writeJson(OmicObj, file = "my_obj.json")
-
-}

@@ -11,12 +11,12 @@
 #' @examples
 #' GEOPlatformSearch("illumina")
 #' GEOPlatformSearch("illumina", species = "homo sapiens")
-#' GEOPlatformSearch(c("Affymetrix", "Transcriptome"), species = "mus", contain_all = T)
+#' GEOPlatformSearch(c("Affymetrix", "Transcriptome"), species = "mus", contain_all = TRUE)
 
 GEOPlatformSearch <- function(x, species = NULL, file = GEOplatform, contain_all = TRUE, accession_only = FALSE) {
   # x <- unlist(strsplit(x, split = " "))
   if (!is.null(species)) {
-    file <- file[grep(species, file$Taxonomy, ignore.case = T), ]
+    file <- file[grep(species, file$Taxonomy, ignore.case = TRUE), ]
   }
   if (contain_all) {
     result <- c(1:nrow(file))

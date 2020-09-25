@@ -56,9 +56,12 @@ BRENDACurrentName <- function(x, obo = BRENDAobo) {
 #' @return matrix including search result
 #'
 #' @examples
-#' BRENDASearch("MDA MB cell", contain_all = TRUE) # search for results that contain "MDA" "MB" and "cell"
-#' BRENDASearch(c("MDA MB", "cell"), contain_all = TRUE) # same as above
-#' BRENDASearch(c("MDA-MB", "SUM"), contain_all = FALSE) # search for results that contain either "MDA-MB" or "SUM"
+#' BRENDASearch("MDA MB cell", contain_all = TRUE) 
+#' # search for results that contain "MDA" "MB" and "cell"
+#' BRENDASearch(c("MDA MB", "cell"), contain_all = TRUE) 
+#' # same as above
+#' BRENDASearch(c("MDA-MB", "SUM"), contain_all = FALSE) 
+#' # search for results that contain either "MDA-MB" or "SUM"
 BRENDASearch <- function(x, obo = BRENDAobo, contain_all = TRUE) {
   x <- unlist(strsplit(x, split = " "))
   if (is(obo, "ontology_index")) {

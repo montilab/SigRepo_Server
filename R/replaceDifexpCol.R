@@ -1,6 +1,7 @@
 #' @title rename the columns of a differential analysis matrix for OmicSignature R6 object
 #' updated 08/2020
-#'
+#' 
+#' @importFrom dplyr %>%
 #' @param colname a character vector, especially the column name of the differential analysis matrix, i.e. colnames(difexp)
 #' or, if it's the difexp matrix itself, its column name will be modified and the matrix will be returned.
 #' @return standardized column names of the difexp matrix before creating the OmicSignature R6 object

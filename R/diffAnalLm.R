@@ -5,13 +5,7 @@
 #' @param trt_columns column names (character vector) or column numbers (numeric vector) of treatment samples. input type need to be consistant with ctrl_columns.
 #' @param id the id for the features, usually probe id. either the column name of the input dataframe contains the id, or character vector of the actual ids for all features.
 #' @return dataframe of differential analysis
-#'
-#' @examples
-#' diffAnalLm(data,
-#'   ctrl_columns = c(1:3),
-#'   trt_columns = c(4:6),
-#'   id = "ID_REF"
-#' )
+
 diffAnalLm <- function(dat, ctrl_columns = c(2:4), trt_columns = c(5:7), id = "ID_REF") {
   if (length(id) == 1) {
     rownames(dat) <- dat[, id]
@@ -20,7 +14,6 @@ diffAnalLm <- function(dat, ctrl_columns = c(2:4), trt_columns = c(5:7), id = "I
   } else {
     stop("Input id invalid")
   }
-  print("ho")
   design_mat <- data.frame(cbind(
     rep(1, (length(ctrl_columns) + length(trt_columns))),
     c(rep(0, length(ctrl_columns)), rep(1, length(trt_columns)))
