@@ -5,5 +5,6 @@ importFrom("methods", "is")
     import(dplyr)
     import(magrittr)
     import(ontologyIndex)
-
-
+    import(knitr)
+    importFrom("jsonlite", "toJSON", "fromJSON")
+    importFrom("limma", "lmFit", "eBayes", "topTable")
