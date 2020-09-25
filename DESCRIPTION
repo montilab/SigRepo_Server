@@ -20,5 +20,6 @@ Imports:
 	knitr,
 	limma
 Suggests:
-	rmarkdown
+	rmarkdown,
+	pkgdown
 VignetteBuilder: knitr
