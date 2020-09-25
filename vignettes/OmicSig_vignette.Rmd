@@ -257,13 +257,13 @@ By default, `bind` is set to be `TRUE` to output results from all *OmicSignature
 objects as a single dataframe.  
 For example, extract all features with a absolute score > 20 and fdr < 0.005.  
 ```{r}
-OmicCol$extract.signature("abs(score) > 20; fdr < 0.005", bind = TRUE)
+OmicCol$extract.signature("abs(score) > 20 & fdr < 0.005", bind = TRUE)
 ```
 
 If `bind` is set to be `FALSE`, the output of each *OmicSignature* objects are 
 provided individually as one element in a list.
 ```{r}
-OmicCol$extract.signature("abs(score) > 20; fdr < 0.005", bind = FALSE)
+OmicCol$extract.signature("abs(score) > 20 & fdr < 0.005", bind = FALSE)
 ```
 
 Thank you! Please contact vmli@bu.edu if you have any questions.

@@ -358,7 +358,7 @@ OmicSignatureCollection <- R6Class(
     },
     extract.signature = function(conditions, bind = TRUE) {
       a <- mapply(function(x) {
-        try_temp <- try(x$extract.signature(conditions), silent = T)
+        try_temp <- try(x$extract.signature(conditions), silent = TRUE)
         if (class(try_temp) == "try-error") {
           cat(paste("  Warning: OmicSignature", x$metadata$signature_name, "does not have diffexp matrix or does not have the specified column. \n"))
           try_temp <- NULL
