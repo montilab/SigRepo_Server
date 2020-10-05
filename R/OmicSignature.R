@@ -1,34 +1,31 @@
 library(R6)
 library(dplyr)
+library(jsonlite)
 
 #### OmicSigObj ####
 
 #' @title OmicSignature R6 object
 #' @description a R6 object to store signatures generated from experiments. In cluding metadata, signature, and an optional differential expression matrix.
 #' @importFrom R6 R6Class
-#' @importFrom dplyr filter pull %>%
+#' @importxFrom dplyr filter pull %>%
+#' @importxFrom jsonlite toJSON fromJSON
 #' @export
 
 OmicSignature <-
   R6Class(
     "OmicSignature",
-    list(
-      metadata = NULL,
-      signature = NULL,
-      difexp = NULL,
-      verbose = function(v, ...) {
-        if (v) cat(...)
-      },
+    #### public of OmicSig ####
+    public = list(
       initialize = function(metadata, signature, difexp = NULL, print_message = FALSE) {
         if (!is.null(difexp)) {
-          difexp <- self$checkDifexp(difexp, v = print_message)
+          difexp <- private$checkDifexp(difexp, v = print_message)
         }
-        self$metadata <- self$checkMetadata(metadata, v = print_message)
-        self$signature <- self$checkSignature(signature, signatureType = metadata$direction_type, v = print_message)
-        self$difexp <- difexp
+        private$.metadata <- private$checkMetadata(metadata, v = print_message)
+        private$.signature <- private$checkSignature(signature, signatureType = metadata$direction_type, v = print_message)
+        private$.difexp <- difexp
         cat(paste(
           "  [Success] OmicSignature object",
-          self$metadata$signature_name, "created.\n"
+          private$.metadata$signature_name, "created.\n"
         ))
       },
       print = function(...) {
@@ -36,24 +33,24 @@ OmicSignature <-
         cat("  Metadata: \n")
         sh <- mapply(function(k, v) {
           cat("   ", k, "=", paste(v, collapse = ", "), "\n")
-        }, names(self$metadata), self$metadata)
+        }, names(private$.metadata), private$.metadata)
         cat("  signature: \n")
         sh <- mapply(
           function(k, v) {
             cat("    ", k, " (", v, ")", "\n", sep = "")
-          }, names(summary(self$signature$signature_direction)),
-          summary(self$signature$signature_direction)
+          }, names(summary(private$.signature$signature_direction)),
+          summary(private$.signature$signature_direction)
         )
         cat("  Differential Expression Data: \n")
-        cat("    ", nrow(self$difexp), " x ", ncol(self$difexp), "\n", sep = "")
+        cat("    ", nrow(private$.difexp), " x ", ncol(private$.difexp), "\n", sep = "")
         invisible(self)
       },
       extract.signature = function(conditions) {
-        if (is.null(self$difexp)) {
+        if (is.null(private$.difexp)) {
           stop("Error: Difexp matrix not found in OmicSignature object.")
         }
         v <- rlang::parse_exprs(conditions)
-        res <- self$difexp %>%
+        res <- private$.difexp %>%
           dplyr::filter(!!!v) %>%
           dplyr::select(symbol, score) %>%
           dplyr::mutate(direction = ifelse(score < 0, "-", "+")) %>%
@@ -64,33 +61,120 @@ OmicSignature <-
         res <- res[order(abs(as.numeric(as.character(res$score))), decreasing = T), ]
         res <- distinct(res, res$symbol, .keep_all = T)[, c(1:3)]
         return(res)
+      }
+    ),
+
+    #### active of OmicSig ####
+    active = list(
+      metadata = function(value, print_message = FALSE) {
+        if (missing(value)) {
+          private$.metadata
+        } else {
+          private$.metadata <- private$checkMetadata(value, print_message)
+        }
+      },
+      signature = function(value, print_message = FALSE) {
+        if (missing(value)) {
+          private$.signature
+        } else {
+          private$.signature <- private$checkSignature(value, print_message)
+        }
+      },
+      difexp = function(value, print_message = FALSE) {
+        if (missing(value)) {
+          private$.difexp
+        } else {
+          private$.difexp <- private$checkDifexp(value, print_message)
+        }
+      }
+    ),
+
+    #### private of OmicSig ####
+    private = list(
+      .metadata = NULL,
+      .signature = NULL,
+      .difexp = NULL,
+      verbose = function(v, ...) {
+        if (v) cat(...)
+      },
+      checkDifexp = function(difexp, v = FALSE) {
+        if (is(difexp, "OmicSignature")) {
+          difexp <- difexp$difexp
+        }
+        stopifnot(is(difexp, "data.frame"))
+
+        ## check if it's empty:
+        if (nrow(difexp) == 0) {
+          stop("Differential Matrix (lv1 data) is empty. ")
+        }
+
+        ## check column names:
+        difexpColRequired <- c("probe_id", "symbol", "score", "p_value", "fdr")
+        if ("id" %in% colnames(difexp)) {
+          difexpColRequired <- c("id", "symbol", "score", "p_value", "fdr")
+        }
+        if ("q_value" %in% colnames(difexp)) {
+          difexpColRequired <- c("probe_id", "symbol", "score", "p_value", "q_value")
+        }
+        difexpColMissing <- setdiff(difexpColRequired, colnames(difexp))
+        difexpColAdditional <- setdiff(colnames(difexp), difexpColRequired)
+        private$verbose(v, paste(
+          "  --Required columns for Differential Matrix (lv1 data): ",
+          paste(difexpColRequired, collapse = ", "), " --\n",
+          sep = ""
+        ))
+
+        if (length(difexpColMissing) != 0) {
+          stop("Differential Matrix (lv1 data) does not contain required column(s): ",
+            paste(difexpColMissing, collapse = ", "), ".",
+            sep = ""
+          )
+        }
+        if (length(difexpColAdditional) > 0) {
+          private$verbose(v, paste("  difexp: additional columns found: ",
+            paste(difexpColAdditional, collapse = ", "), ". \n",
+            sep = ""
+          ))
+        }
+
+        ## check column type:
+        ## "logfc","score","p_value","fdr" should be numerical
+        for (difexpColNumeric in c("logfc", "score", "p_value", "fdr", "q_value", "aveexpr")) {
+          if (difexpColNumeric %in% colnames(difexp)) {
+            if (!is(difexp[, difexpColNumeric], "numeric")) {
+              stop(paste("difexp:", difexpColNumeric, "is not numeric."))
+            }
+          }
+        }
+        ## "symbol" should be character
+        if ("symbol" %in% colnames(difexp)) {
+          if (!is(difexp$symbol, "character") && !is(difexp$symbol, "factor")) {
+            stop("difexp: signature symbol is not character.")
+          }
+        }
+        private$verbose(v, "  [Success] difexp matrix is valid. \n")
+        return(difexp)
       },
       checkMetadata = function(metadata, v = FALSE) {
         ## metadata should be a list with required attributes
         if (is(metadata, "OmicSignature")) {
           metadata <- metadata$metadata
         }
-        if (is(metadata, "list")) {
-          self$verbose(v, "  Metadata: Checked; is a list. \n")
-        } else {
-          stop("Metadata not found or metadata is not a list. ")
-        }
+        stopifnot(is(metadata, "list"))
+
         metadataRequired <- c(
           "signature_name", "organism", "platform",
           "direction_type", "phenotype"
         )
         metadataMissing <- setdiff(metadataRequired, names(metadata))
-        self$verbose(v, paste("  --Required attributes for metadata: ",
+        private$verbose(v, paste("  --Required attributes for metadata: ",
           paste(metadataRequired, collapse = ", "), " --\n",
           sep = ""
         ))
 
-        if (length(metadataMissing) == 0) {
-          self$verbose(v, paste("  Metadata: Checked; contains all the essential attributes. \n"))
-        } else {
+        if (length(metadataMissing) != 0) {
           stop("Metadata does not contain attribute(s): ",
-            paste(metadataMissing, collapse = ", "),
-            ". This can cause problem when retriving data.",
+            paste(metadataMissing, collapse = ", "), ".",
             sep = ""
           )
         }
@@ -101,8 +185,10 @@ OmicSignature <-
           if (is(tempSampleType, "character")) {
             metadata$sample_type <- tempSampleType[2]
           } else {
-            warning(paste("sample_type in metadata is not a valid BRENDA ontology term. Ignore this message if you intend to input other sample types, such as animal strains.",
-              "  Otherwise, please consider using BRENDASearch() function to search for the correct BRENDA ontology term to use.",
+            warning(paste(
+              "sample_type in metadata is not a valid BRENDA ontology term.",
+              "Please consider using BRENDASearch() function to 
+            	search for the correct BRENDA ontology term to use.",
               sep = "\n"
             ))
           }
@@ -110,10 +196,14 @@ OmicSignature <-
 
         # check if platform is a valid GPL platform
         if (!metadata$platform %in% GEOplatform$Accession) {
-          warning("platform in metadata is not a valid GEO platform accession. Please see `View(GEOplatform)`.")
+          warning(paste(
+            "platform in metadata is not a valid GEO platform accession.",
+            "Please consider using GEOSearch() function to 
+            	search for the correct platform assession to use.",
+            sep = "\n"
+          ))
         }
-
-        self$verbose(v, "  [Success] Metadata is saved. \n")
+        private$verbose(v, "  [Success] Metadata is saved. \n")
         metadata <- metadata[order(names(metadata))]
         return(metadata)
       },
@@ -154,11 +244,8 @@ OmicSignature <-
         if (!c("signature_symbol") %in% colnames(signature)) {
           stop("Signature dataframe does not contain \"signature_symbol\" column.")
         }
-        if (c("signature_score") %in% colnames(signature)) {
-          self$verbose(v, "  Signature: contains lv2 data. \n")
-        } else {
-          warning("Feature score not found, please make sure column
-                    \"signature_score\" presents if you have score for the features. \n")
+        if (!c("signature_score") %in% colnames(signature)) {
+          warning("Signature score not found. \n")
         }
 
         ## check if the direction match with signature type:
@@ -189,38 +276,27 @@ OmicSignature <-
           ## check direction:
           summaryDirection <- summary(signature$signature_direction)
           if (isTRUE(all.equal(c("-", "+"), names(summary(signature$signature_direction))))) {
-            self$verbose(v, "  Signature: Checked, signature is bi-directional
-                        with - (Dn) and + (Up) directions. \n")
+            private$verbose(v, "  Signature: Checked, signature is bi-directional
+  						with - (Dn) and + (Up) directions. \n")
           } else if (names(summaryDirection) == c("-") | names(summaryDirection) == c("+")) {
-            self$verbose(v, "  Signature: Checked, signature is bi-directional,
-                        but only one direction is found. \n")
+            private$verbose(v, "  Signature: Checked, signature is bi-directional,
+  						but only one direction is found. \n")
           } else {
             stop("Direction info in bi-directional signature is not valid.
-                        Direction should be marked with \"-\" and \"+\".")
+  						Direction should be marked with \"-\" and \"+\".")
           }
         }
 
         ## uni-directional signature:
         else if (signatureType == "uni-directional") {
-          if (!"signature_direction" %in% colnames(signature)) {
-            self$verbose(v, "  Checked. signature is uni-directional. \n")
-          } else {
-            warning("signature is specified as uni-directional but
-                        additional direction information found. \n")
-          }
+          signature$signature_direction <- NULL
         }
-
         ## multi-directional signature:
         else if (signatureType == "multi-directional") {
           summaryDirection <- summary(signature$signature_direction)
-          if (length(summaryDirection) == categoryNum) {
-            self$verbose(v, paste("  Checked. signature is multi-directional with",
-              category_num, "samples. \n",
-              sep = " "
-            ))
-          } else {
-            warning("Sample number in metadata does not match with the number of
-                        categories in the signature.")
+          if (length(summaryDirection) != categoryNum) {
+            warning("Category number in metadata does not match with the number of
+  						categories in the signature.")
           }
         }
 
@@ -228,78 +304,8 @@ OmicSignature <-
         else {
           stop("Error: Signature information invalid.")
         }
-        self$verbose(v, "  [Success] Signature is valid. \n")
+        private$verbose(v, "  [Success] Signature is valid. \n")
         return(signature)
-      },
-
-      checkDifexp = function(difexp, v = FALSE) {
-        if (is(difexp, "OmicSignature")) {
-          difexp <- difexp$difexp
-        }
-        if (!is(difexp, "data.frame")) {
-          stop("Input difexp is not a dataframe. ")
-        }
-        ## check if it's empty:
-        if (nrow(difexp) == 0) {
-          stop("Differential Matrix (lv1 data) is empty. ")
-        } else {
-          self$verbose(v, "  difexp: Checked. Differential Matrix (lv1 data)
-                    is a data frame. \n")
-        }
-
-        ## check column names:
-        difexpColRequired <- c("probe_id", "symbol", "score", "p_value", "fdr")
-        if ("q_value" %in% colnames(difexp)) {
-          difexpColRequired <- c("probe_id", "symbol", "score", "p_value", "q_value")
-        }
-        if ("id" %in% colnames(difexp)) {
-          difexpColRequired <- c("id", "symbol", "score", "p_value", "fdr")
-        }
-        difexpColMissing <- setdiff(difexpColRequired, colnames(difexp))
-        difexpColAdditional <- setdiff(colnames(difexp), difexpColRequired)
-        self$verbose(v, paste(
-          "  --Required columns for Differential Matrix (lv1 data): ",
-          paste(difexpColRequired, collapse = ", "), " --\n",
-          sep = ""
-        ))
-
-        if (length(difexpColMissing) == 0) {
-          self$verbose(v, "  difexp: Checked. Differential Matrix (lv1 data)
-                    contain all the essential columns. \n")
-        } else {
-          stop("Differential Matrix (lv1 data) does not contain required column(s): ",
-            paste(difexpColMissing, collapse = ", "), ".",
-            sep = ""
-          )
-        }
-        if (length(difexpColAdditional) > 0) {
-          self$verbose(v, paste("  difexp: additional columns found: ",
-            paste(difexpColAdditional, collapse = ", "), ". \n",
-            sep = ""
-          ))
-        }
-        ## check column type:
-        ## "logfc","score","p_value","fdr" should be numerical
-        for (difexpColNumeric in c("logfc", "score", "p_value", "fdr", "q_value", "aveexpr")) {
-          if (difexpColNumeric %in% colnames(difexp)) {
-            if (is(difexp[, difexpColNumeric], "numeric")) {
-              self$verbose(v, paste("  difexp: Checked.", difexpColNumeric, "is numeric. \n"))
-            } else {
-              stop(paste("difexp:", difexpColNumeric, "is not numeric."))
-            }
-          }
-        }
-        ## "symbol" should be character
-        if ("symbol" %in% colnames(difexp)) {
-          if (is(difexp$symbol, "character") | is(difexp$symbol, "factor")) {
-            difexp$symbol <- as.character(difexp$symbol)
-            self$verbose(v, "  difexp: Checked. symbol is character. \n")
-          } else {
-            stop("difexp: signature symbol is not character.")
-          }
-        }
-        self$verbose(v, "  [Success] difexp matrix is valid. \n")
-        return(difexp)
       }
     )
   )
@@ -315,22 +321,19 @@ OmicSignature <-
 #' @export
 OmicSignatureCollection <- R6Class(
   "OmicSignatureCollection",
-  list(
-    metadata = NULL,
-    OmicSigList = NULL,
-    verbose = function(v, ...) {
-      if (v) cat(...)
-    },
+
+  #### public of OmicSigCol ####
+  public = list(
     initialize = function(metadata, OmicSigList, print_message = FALSE) {
-      self$metadata <- self$checkCollectionMetadata(metadata, v = print_message)
-      self$OmicSigList <- self$checkCollectionOmicSigList(OmicSigList, v = print_message)
+      private$.metadata <- private$checkCollectionMetadata(metadata, v = print_message)
+      private$.OmicSigList <- private$checkCollectionOmicSigList(OmicSigList, v = print_message)
       # a list of OmicSig Obj, contains everything
-      names(self$OmicSigList) <- mapply(function(k) {
+      names(private$.OmicSigList) <- mapply(function(k) {
         k$metadata$signature_name
-      }, self$OmicSigList)
+      }, private$.OmicSigList)
       cat(paste(
         "  [Success] OmicSignature Collection",
-        self$metadata$collection_name, "created.\n"
+        private$.metadata$collection_name, "created.\n"
       ))
     },
     print = function(...) {
@@ -338,9 +341,9 @@ OmicSignatureCollection <- R6Class(
       cat("  Metadata: \n")
       sh <- mapply(function(k, v) {
         cat("   ", k, "=", v, "\n")
-      }, names(self$metadata), self$metadata)
+      }, names(private$.metadata), private$.metadata)
       cat("  OmicSignature Objects: \n")
-      cat("   ", paste(names(self$OmicSigList), collapse = "\n    "))
+      cat("   ", paste(names(private$.OmicSigList), collapse = "\n    "))
       cat("\n  Available Difexp columns: \n")
       sh <- mapply(function(k) {
         cat("   ", k$metadata$signature_name, " (", paste(
@@ -353,19 +356,25 @@ OmicSignatureCollection <- R6Class(
           },
           collapse = ", "
         ), ") \n")
-      }, self$OmicSigList)
+      }, private$.OmicSigList)
       invisible(self)
     },
     extract.signature = function(conditions, bind = TRUE) {
       a <- mapply(function(x) {
-        try_temp <- try(x$extract.signature(conditions), silent = TRUE)
+        try_temp <- try(x$extract.signature(conditions), silent = T)
         if (class(try_temp) == "try-error") {
-          cat(paste("  Warning: OmicSignature", x$metadata$signature_name, "does not have diffexp matrix or does not have the specified column. \n"))
+          cat(paste(
+            "  Warning: OmicSignature", x$metadata$signature_name,
+            "does not have diffexp matrix or does not have the specified column. \n"
+          ))
           try_temp <- NULL
         }
         return(try_temp)
-      }, self$OmicSigList)
+      }, private$.OmicSigList)
       if (class(a) == "matrix") {
+        rownames(a) <- sapply(X = private$.OmicSigList, function(x) {
+          print(x$metadata$signature_name)
+        })
         a <- apply(a, 2, function(x) {
           data.frame(matrix(unlist(x), nrow = length(x[[1]]), byrow = F), stringsAsFactors = F)
         })
@@ -396,48 +405,73 @@ OmicSignatureCollection <- R6Class(
     },
     metadataSummary = function(only_shared = TRUE) {
       if (only_shared == TRUE) {
-        col <- Reduce(intersect, sapply(OmicCol$OmicSigList, function(x) {
+        col <- Reduce(intersect, sapply(private$.OmicSigList, function(x) {
           names(x$metadata)
-        }))
+        }, simplify = F))
       } else {
-        col <- Reduce(union, sapply(OmicCol$OmicSigList, function(x) {
+        col <- Reduce(union, sapply(private$.OmicSigList, function(x) {
           names(x$metadata)
-        }))
+        }, simplify = F))
       }
-      sapply(self$OmicSigList, function(x) {
+      res <- sapply(private$.OmicSigList, function(x) {
         x$metadata[col]
       }, simplify = T)
+      rownames(res) <- col
+      colnames(res) <- sapply(private$.OmicSigList, function(x) {
+        x$metadata$signature_name
+      }, simplify = T)
+      return(res)
+    }
+  ),
+
+  #### active of OmicSigCol ####
+  active = list(
+    metadata = function(value, print_message = FALSE) {
+      if (missing(value)) {
+        private$.metadata
+      } else {
+        private$.metadata <- private$checkCollectionMetadata(value, print_message)
+      }
+    },
+    OmicSigList = function(value, print_message = FALSE) {
+      if (missing(value)) {
+        private$.OmicSigList
+      } else {
+        private$.OmicSigList <- private$checkCollectionOmicSigList(value, print_message)
+      }
+    }
+  ),
+
+  #### private of OmicSigCol ####
+  private = list(
+    .metadata = NULL,
+    .OmicSigList = NULL,
+    verbose = function(v, ...) {
+      if (v) cat(...)
     },
     checkCollectionMetadata = function(metadata, v = FALSE) {
       ## metadata should be a list with required attributes
       if (class(metadata)[1] == "OmicSignatureCollection") {
         metadata <- metadata$metadata
       }
-      if (class(metadata) == "list") {
-        self$verbose(v, "  Metadata: Checked; is a list. \n")
-      } else {
-        stop("Metadata not found or metadata is not a list. ")
-      }
-
+      stopifnot(is(metadata, "list"))
       metadataRequired <- c(
         "collection_name", "description"
       )
-      self$verbose(v, paste("  --Required attributes for metadata: ",
+      private$verbose(v, paste("  --Required attributes for metadata: ",
         paste(metadataRequired, collapse = ", "), " --\n",
         sep = ""
       ))
       metadataMissing <- setdiff(metadataRequired, names(metadata))
-      if (length(metadataMissing) == 0) {
-        self$verbose(v, paste("  Metadata: Checked; contains all the essential attributes. \n"))
-      } else {
+      if (length(metadataMissing) != 0) {
         stop(
           "Metadata for this Collection does not contain attribute(s): ",
           paste(metadataMissing, collapse = ", "),
           ". Please check your input."
         )
       }
-      self$verbose(v, "  [Success] Metadata is saved. \n")
       metadata <- metadata[order(names(metadata))]
+      private$verbose(v, "  [Success] Metadata is saved. \n")
       return(metadata)
     },
     checkCollectionOmicSigList = function(OmicSigList, v = FALSE) {
@@ -445,28 +479,13 @@ OmicSignatureCollection <- R6Class(
       if (class(OmicSigList)[1] == "OmicSignatureCollection") {
         OmicSigList <- OmicSigList$OmicSigList
       }
-      if (class(OmicSigList) == "list") {
-        self$verbose(v, "  OmicSigList: Checked; is a list. \n")
-      } else {
-        stop("OmicSigList not found or OmicSigList is not a list. ")
-      }
+      stopifnot(is(OmicSigList, "list"))
+      stopifnot(length(OmicSigList) != 0)
 
-      if (length(OmicSigList) == 0) {
-        stop("OmicSigList is empty. ")
-      }
-
-      # re-create all your input OmicSignature Objects to make sure everything is valid.
       for (OmicObj in OmicSigList) {
         if (class(OmicObj)[1] != "OmicSignature") {
           stop("Element in OmicSigList is not an OmicSignature object. Please check your input.")
         }
-        OmicObj <- OmicSignature$new(
-          metadata = OmicObj$metadata,
-          signature = OmicObj$signature,
-          difexp = OmicObj$difexp,
-          print_message = v
-        )
-        self$verbose(v, paste(" - OmicObj", OmicObj$metadata$signature_name, "checked. \n"))
       }
       return(OmicSigList)
     }
