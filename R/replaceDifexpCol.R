@@ -5,7 +5,7 @@
 #' @param colname a character vector, especially the column name of the differential analysis matrix, i.e. colnames(difexp)
 #' or, if it's the difexp matrix itself, its column name will be modified and the matrix will be returned.
 #' @return standardized column names of the difexp matrix before creating the OmicSignature R6 object
-
+#' @export
 replaceDifexpCol <- function(colname) {
 	difexp=NULL
 	if(is(colname, "matrix") | is(colname, "data.frame")){
