@@ -9,24 +9,11 @@ a R6 object to store signatures generated from experiments. In cluding metadata,
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-verbose}{\code{OmicSignature$verbose()}}
 \item \href{#method-new}{\code{OmicSignature$new()}}
 \item \href{#method-print}{\code{OmicSignature$print()}}
 \item \href{#method-extract.signature}{\code{OmicSignature$extract.signature()}}
-\item \href{#method-checkMetadata}{\code{OmicSignature$checkMetadata()}}
-\item \href{#method-checkSignature}{\code{OmicSignature$checkSignature()}}
-\item \href{#method-checkDifexp}{\code{OmicSignature$checkDifexp()}}
 \item \href{#method-clone}{\code{OmicSignature$clone()}}
 }
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-verbose"></a>}}
-\if{latex}{\out{\hypertarget{method-verbose}{}}}
-\subsection{Method \code{verbose()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignature$verbose(v, ...)}\if{html}{\out{</div>}}
-}
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
@@ -52,38 +39,6 @@ a R6 object to store signatures generated from experiments. In cluding metadata,
 \subsection{Method \code{extract.signature()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignature$extract.signature(conditions)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-checkMetadata"></a>}}
-\if{latex}{\out{\hypertarget{method-checkMetadata}{}}}
-\subsection{Method \code{checkMetadata()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignature$checkMetadata(metadata, v = FALSE)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-checkSignature"></a>}}
-\if{latex}{\out{\hypertarget{method-checkSignature}{}}}
-\subsection{Method \code{checkSignature()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignature$checkSignature(
-  omicObj,
-  signatureType = NULL,
-  category_num = 0,
-  v = FALSE
-)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-checkDifexp"></a>}}
-\if{latex}{\out{\hypertarget{method-checkDifexp}{}}}
-\subsection{Method \code{checkDifexp()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignature$checkDifexp(difexp, v = FALSE)}\if{html}{\out{</div>}}
 }
 
 }

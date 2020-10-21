@@ -6,7 +6,7 @@
 contact: `vmli@bu.edu`
 
 ### installation
-`devtools::install_github(repo = "Vanessa104/SigRepoR", auth_token = "...")`  
+`devtools::install_github(repo = "montilab/SigRepoR", auth_token = "...")`  
 `library(SigRepoR)`  
 `SigRepoR::testRepo(10) # a simple function to test if it’s working`  
 

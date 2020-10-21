@@ -18,8 +18,7 @@ knitr::opts_chunk$set(
 
 If you haven't installed `SigRepoR` yet, please contact vmli@bu.edu for instruction.
 ```{r message=FALSE, warning=FALSE}
-# devtools::document()
-library(SigRepoR)
+devtools::load_all(".")
 library(dplyr)
 ```
 
@@ -60,6 +59,8 @@ Or use our build-in function `createMetadata` (recommended):
 ```{r}
 metadata <- createMetadata(
   signature_name = "Myc_reduce_mice_liver_24m",
+  signature_collection = "Aging",
+  covariates = "none",
   organism = "Mus Musculus",
   sample_type = "liver",
   phenotype = "Myc_reduce",

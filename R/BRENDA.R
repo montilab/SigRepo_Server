@@ -54,7 +54,7 @@ BRENDACurrentName <- function(x, obo = BRENDAobo) {
 #' @param contain_all if TRUE, will only return the results contain all search terms.
 #' if FALSE, will return results contain any of the given pattern.
 #' @return matrix including search result
-#'
+#' @importFrom methods is
 #' @examples
 #' BRENDASearch("MDA MB cell", contain_all = TRUE) 
 #' # search for results that contain "MDA" "MB" and "cell"

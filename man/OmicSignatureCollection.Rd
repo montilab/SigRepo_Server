@@ -10,24 +10,12 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
-\item \href{#method-verbose}{\code{OmicSignatureCollection$verbose()}}
 \item \href{#method-new}{\code{OmicSignatureCollection$new()}}
 \item \href{#method-print}{\code{OmicSignatureCollection$print()}}
 \item \href{#method-extract.signature}{\code{OmicSignatureCollection$extract.signature()}}
 \item \href{#method-metadataSummary}{\code{OmicSignatureCollection$metadataSummary()}}
-\item \href{#method-checkCollectionMetadata}{\code{OmicSignatureCollection$checkCollectionMetadata()}}
-\item \href{#method-checkCollectionOmicSigList}{\code{OmicSignatureCollection$checkCollectionOmicSigList()}}
 \item \href{#method-clone}{\code{OmicSignatureCollection$clone()}}
 }
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-verbose"></a>}}
-\if{latex}{\out{\hypertarget{method-verbose}{}}}
-\subsection{Method \code{verbose()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$verbose(v, ...)}\if{html}{\out{</div>}}
-}
-
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-new"></a>}}
@@ -62,24 +50,6 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \subsection{Method \code{metadataSummary()}}{
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$metadataSummary(only_shared = TRUE)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-checkCollectionMetadata"></a>}}
-\if{latex}{\out{\hypertarget{method-checkCollectionMetadata}{}}}
-\subsection{Method \code{checkCollectionMetadata()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$checkCollectionMetadata(metadata, v = FALSE)}\if{html}{\out{</div>}}
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-checkCollectionOmicSigList"></a>}}
-\if{latex}{\out{\hypertarget{method-checkCollectionOmicSigList}{}}}
-\subsection{Method \code{checkCollectionOmicSigList()}}{
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$checkCollectionOmicSigList(OmicSigList, v = FALSE)}\if{html}{\out{</div>}}
 }
 
 }

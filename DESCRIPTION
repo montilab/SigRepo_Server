@@ -18,8 +18,14 @@ Imports:
 	methods,
 	jsonlite,
 	knitr,
-	limma
+	limma,
+	R6,
+	stats,
+	utils
 Suggests:
 	rmarkdown,
-	pkgdown
+	pkgdown,
+	devtools,
+	RMySQL,
+	getPass
 VignetteBuilder: knitr
