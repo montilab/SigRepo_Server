@@ -12,6 +12,7 @@
 #' GEOPlatformSearch("illumina")
 #' GEOPlatformSearch("illumina", species = "homo sapiens")
 #' GEOPlatformSearch(c("Affymetrix", "Transcriptome"), species = "mus", contain_all = TRUE)
+#' @export
 
 GEOPlatformSearch <- function(x, species = NULL, file = GEOplatform, contain_all = TRUE, accession_only = FALSE) {
   # x <- unlist(strsplit(x, split = " "))
