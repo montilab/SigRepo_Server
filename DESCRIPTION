@@ -25,7 +25,5 @@ Imports:
 Suggests:
 	rmarkdown,
 	pkgdown,
-	devtools,
-	RMySQL,
-	getPass
+	devtools
 VignetteBuilder: knitr
