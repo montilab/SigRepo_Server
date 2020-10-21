@@ -2,6 +2,7 @@
 #' updated 08/2020
 #'
 #' @importFrom dplyr distinct %>%
+#' @importFrom stats complete.cases
 #' @param sigdf signature dataframe
 #' @return signature dataframe with empty, duplicate rows removed and ordered by score
 

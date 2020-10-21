@@ -24,7 +24,6 @@ diffAnalLm <- function(dat, ctrl_columns = c(2:4), trt_columns = c(5:7), id = "I
   } else {
     rownames(design_mat) <- c(ctrl_columns, trt_columns)
   }
-  print(design_mat)
 
   fit_lm <- limma::lmFit(dat[, c(ctrl_columns, trt_columns)], design_mat)
   fit_lm <- limma::eBayes(fit_lm)
@@ -33,6 +32,5 @@ diffAnalLm <- function(dat, ctrl_columns = c(2:4), trt_columns = c(5:7), id = "I
     sort.by = "t", number = nrow(dat)
   )
   toptable_lm <- cbind(toptable_lm, "probe_id" = rownames(toptable_lm))
-  print(head(toptable_lm))
   return(toptable_lm)
 }
