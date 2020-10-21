@@ -9,9 +9,11 @@ createMetadata(
   signature_name,
   organism,
   phenotype = "unknown",
+  covariates = "none",
   platform,
   direction_type,
   sample_type = NULL,
+  signature_collection = NULL,
   author = NULL,
   year = NULL,
   PMID = NULL,
@@ -31,7 +33,9 @@ createMetadata(
 
 \item{organism}{organism. e.g. "Homo Sapiens", "Mus Musculus".}
 
-\item{phenotype}{the phenotype of the signature. e.g. "Akt KO", "Ketodiet", "Parkinson disease", "Unknown".}
+\item{phenotype}{the phenotype of the signature. e.g. "Gene KO", "Ketodiet", "Parkinson disease", "unknown".}
+
+\item{covariates}{optional but highly recommended. any covariates used in the study. e.g. a signature of aging with covariate "gender".}
 
 \item{platform}{GEO platform. e.g. "GPL11154" is for Illumina HiSeq 2000 Homo sapiens, "GPL570" is for Affymetrix Human Genome U133 Plus 2.0 Array}
 
@@ -40,7 +44,9 @@ createMetadata(
 "bi" or "bi-directional" if signature contains "up" and "down" regulated features.
 "multi" or "multi-directional" if the signature contains more categories.}
 
-\item{sample_type}{optional but highly recommended if applicable. a cell line or tissue from BRENDA ontology, or a animal strain, e.g. "C57BL/6" for C57BL/6 mice strain.}
+\item{sample_type}{optional but highly recommended. a cell line or tissue from BRENDA ontology.}
+
+\item{signature_collection}{optional. collection of which the signature belongs to.}
 
 \item{author}{optional. the author name if the signature is from a published article.}
 

@@ -1,18 +1,18 @@
-library(R6)
-library(dplyr)
-library(jsonlite)
+#library(R6)
+#library(dplyr)
+#library(jsonlite)
 
 #### OmicSigObj ####
 
 #' @title OmicSignature R6 object
 #' @description a R6 object to store signatures generated from experiments. In cluding metadata, signature, and an optional differential expression matrix.
 #' @importFrom R6 R6Class
-#' @importxFrom dplyr filter pull %>%
-#' @importxFrom jsonlite toJSON fromJSON
+#' @importFrom dplyr filter pull %>%
+#' @importFrom jsonlite toJSON fromJSON
 #' @export
 
 OmicSignature <-
-  R6Class(
+  R6::R6Class(
     "OmicSignature",
     #### public of OmicSig ####
     public = list(
@@ -156,22 +156,24 @@ OmicSignature <-
         return(difexp)
       },
       checkMetadata = function(metadata, v = FALSE) {
-        ## metadata should be a list with required attributes
-        if (is(metadata, "OmicSignature")) {
-          metadata <- metadata$metadata
-        }
         stopifnot(is(metadata, "list"))
+        if(is.null(metadata$covariates)){
+          metadata$covariates <- "none"
+        }
+        if(is.null(metadata$phenotype)){
+          metadata$phenotype <- "unknown"
+        }
 
+        # check required metadata fields
         metadataRequired <- c(
           "signature_name", "organism", "platform",
-          "direction_type", "phenotype"
+          "direction_type", "phenotype", "covariates"
         )
         metadataMissing <- setdiff(metadataRequired, names(metadata))
         private$verbose(v, paste("  --Required attributes for metadata: ",
           paste(metadataRequired, collapse = ", "), " --\n",
           sep = ""
         ))
-
         if (length(metadataMissing) != 0) {
           stop("Metadata does not contain attribute(s): ",
             paste(metadataMissing, collapse = ", "), ".",
