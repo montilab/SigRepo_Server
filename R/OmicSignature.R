@@ -10,7 +10,6 @@
 #' @importFrom dplyr filter pull %>%
 #' @importFrom jsonlite toJSON fromJSON
 #' @export
-
 OmicSignature <-
   R6::R6Class(
     "OmicSignature",
