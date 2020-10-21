@@ -5,7 +5,7 @@
 #' @importFrom stats complete.cases
 #' @param sigdf signature dataframe
 #' @return signature dataframe with empty, duplicate rows removed and ordered by score
-
+#' @export
 standardezeSigDF <- function(sigdf){
 	sigdf <- replaceSigCol(sigdf, ObjtoGeneral = F)
 	sigdf <- sigdf[complete.cases(sigdf), ]

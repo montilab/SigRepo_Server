@@ -25,6 +25,7 @@
 #' @param cutoff_description optional. discription of the cutoff, if applicable.
 #' @param other optional. a `list` to specify any other user-defined metadata fields.
 #' @return a metadata list to create an OmicSignature R6 object
+#' @export
 createMetadata <- function(signature_name, organism, phenotype = "unknown",
                            covariates = "none", platform, direction_type,
                            sample_type = NULL, signature_collection = NULL,
