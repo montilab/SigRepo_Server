@@ -1,6 +1,6 @@
-#library(R6)
-#library(dplyr)
-#library(jsonlite)
+# library(R6)
+# library(dplyr)
+# library(jsonlite)
 
 #### OmicSigObj ####
 
@@ -15,6 +15,13 @@ OmicSignature <-
     "OmicSignature",
     #### public of OmicSig ####
     public = list(
+      #' @description
+      #' Create a new OmicSignature object
+      #' @param metadata required, must be a list
+      #' @param signature required, must be a dataframe
+      #' @param difexp optional
+      #' @param print_message use TRUE if want to see all messages printed
+      #' @export
       initialize = function(metadata, signature, difexp = NULL, print_message = FALSE) {
         if (!is.null(difexp)) {
           difexp <- private$checkDifexp(difexp, v = print_message)
@@ -27,6 +34,9 @@ OmicSignature <-
           private$.metadata$signature_name, "created.\n"
         ))
       },
+      #' @description
+      #' Print an OmicSignature object
+      #' @export
       print = function(...) {
         cat("Signature Object: \n")
         cat("  Metadata: \n")
@@ -44,6 +54,9 @@ OmicSignature <-
         cat("    ", nrow(private$.difexp), " x ", ncol(private$.difexp), "\n", sep = "")
         invisible(self)
       },
+      #' @param conditions conditions for new signatures
+      #' @return a dataframe of new signatures
+      #' @export
       extract.signature = function(conditions) {
         if (is.null(private$.difexp)) {
           stop("Error: Difexp matrix not found in OmicSignature object.")
@@ -65,6 +78,7 @@ OmicSignature <-
 
     #### active of OmicSig ####
     active = list(
+      #' @field metadata a list to describe the metadata
       metadata = function(value, print_message = FALSE) {
         if (missing(value)) {
           private$.metadata
@@ -72,6 +86,7 @@ OmicSignature <-
           private$.metadata <- private$checkMetadata(value, print_message)
         }
       },
+      #' @field signature a dataframe contains symbol, score (optional) and direction (optional)
       signature = function(value, print_message = FALSE) {
         if (missing(value)) {
           private$.signature
@@ -79,6 +94,7 @@ OmicSignature <-
           private$.signature <- private$checkSignature(value, print_message)
         }
       },
+      #' @field difexp a dataframe for differential expression result
       difexp = function(value, print_message = FALSE) {
         if (missing(value)) {
           private$.difexp
@@ -156,10 +172,10 @@ OmicSignature <-
       },
       checkMetadata = function(metadata, v = FALSE) {
         stopifnot(is(metadata, "list"))
-        if(is.null(metadata$covariates)){
+        if (is.null(metadata$covariates)) {
           metadata$covariates <- "none"
         }
-        if(is.null(metadata$phenotype)){
+        if (is.null(metadata$phenotype)) {
           metadata$phenotype <- "unknown"
         }
 
@@ -315,16 +331,20 @@ OmicSignature <-
 #' @title OmicSignatureCollection R6 object
 #' @description a R6 object to store a collection of OmicSignature objects.
 #' In cluding metadata, OmicSigList which is a list of OmicSignature object.
-#'
 #' @importFrom R6 R6Class
 #' @importFrom dplyr filter pull %>%
-#'
 #' @export
 OmicSignatureCollection <- R6Class(
   "OmicSignatureCollection",
 
   #### public of OmicSigCol ####
   public = list(
+    #' @description
+    #' Create an OmicSignatureCollection object
+    #' @param metadata required, must be a list
+    #' @param OmicSigList required, a list of OmicSignature R6 objects
+    #' @param print_message use TRUE if want to see all messages printed
+    #' @export
     initialize = function(metadata, OmicSigList, print_message = FALSE) {
       private$.metadata <- private$checkCollectionMetadata(metadata, v = print_message)
       private$.OmicSigList <- private$checkCollectionOmicSigList(OmicSigList, v = print_message)
@@ -337,6 +357,9 @@ OmicSignatureCollection <- R6Class(
         private$.metadata$collection_name, "created.\n"
       ))
     },
+    #' @description
+    #' Print an OmicSignatureCollection object
+    #' @export
     print = function(...) {
       cat("Signature Collection: \n")
       cat("  Metadata: \n")
@@ -360,6 +383,10 @@ OmicSignatureCollection <- R6Class(
       }, private$.OmicSigList)
       invisible(self)
     },
+    #' @param conditions conditions for new signatures
+    #' @param bind use TRUE to return all results in a single dataframe. Otherwise, will return a list contains the result of each OmicSignature individually
+    #' @return a dataframe or a list of new signatures
+    #' @export
     extract.signature = function(conditions, bind = TRUE) {
       a <- mapply(function(x) {
         try_temp <- try(x$extract.signature(conditions), silent = T)
@@ -404,6 +431,9 @@ OmicSignatureCollection <- R6Class(
         return(a)
       }
     },
+    #' @param only_shared use TRUE to only print the shared metadata fields in the OmicSignatures
+    #' @return a dataframe of the summary of the metadata
+    #' @export
     metadataSummary = function(only_shared = TRUE) {
       if (only_shared == TRUE) {
         col <- Reduce(intersect, sapply(private$.OmicSigList, function(x) {
@@ -427,6 +457,7 @@ OmicSignatureCollection <- R6Class(
 
   #### active of OmicSigCol ####
   active = list(
+    #' @field metadata a list to describe the metadata
     metadata = function(value, print_message = FALSE) {
       if (missing(value)) {
         private$.metadata
@@ -434,6 +465,7 @@ OmicSignatureCollection <- R6Class(
         private$.metadata <- private$checkCollectionMetadata(value, print_message)
       }
     },
+    #' @field OmicSigList a list of OmicSignature object(s)
     OmicSigList = function(value, print_message = FALSE) {
       if (missing(value)) {
         private$.OmicSigList

@@ -1,15 +1,18 @@
 #' @title rename the columns of a signature dataframe
-#' updated 07/2020
+#' updated 10/2020
 #'
 #' @importFrom dplyr recode %>%
 #' @param sigdf signature dataframe
-#' @param ObjtoGeneral if TRUE, will replace columns in OmicSignature object, 
+#' @param ObjtoGeneral if TRUE, will replace columns in OmicSignature object,
 #' e.g. "signature_symbol", to general name, e.g. "symbol". if FALSE, will replace
 #' general name, e.g. "name", to names in OmicSignature object, e.g. "signature_symbol".
 #' @return signature dataframe with column names changed to standard
-#' 
+#'
 
 replaceSigCol <- function(sigdf, ObjtoGeneral = TRUE) {
+  if (!is(sigdf, "data.frame")) {
+    stop("Input signature is not a dataframe.")
+  }
   if (ObjtoGeneral) {
     # can't do rename() here since it requires the df to have the column specified
     colnames(sigdf) <- dplyr::recode(colnames(sigdf),

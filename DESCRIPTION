@@ -21,7 +21,15 @@ Imports:
 	limma,
 	R6,
 	stats,
-	utils
+	utils,
+	DBI,
+	rlist,
+	stringr,
+	tibble,
+	xfun,
+	RMySQL,
+	getPass,
+	plyr
 Suggests:
 	rmarkdown,
 	pkgdown,

@@ -6,6 +6,17 @@
 \description{
 a R6 object to store signatures generated from experiments. In cluding metadata, signature, and an optional differential expression matrix.
 }
+\section{Active bindings}{
+\if{html}{\out{<div class="r6-active-bindings">}}
+\describe{
+\item{\code{metadata}}{a list to describe the metadata}
+
+\item{\code{signature}}{a dataframe contains symbol, score (optional) and direction (optional)}
+
+\item{\code{difexp}}{a dataframe for differential expression result}
+}
+\if{html}{\out{</div>}}
+}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
@@ -19,15 +30,30 @@ a R6 object to store signatures generated from experiments. In cluding metadata,
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
+Create a new OmicSignature object
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignature$new(metadata, signature, difexp = NULL, print_message = FALSE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{metadata}}{required, must be a list}
+
+\item{\code{signature}}{required, must be a dataframe}
+
+\item{\code{difexp}}{optional}
+
+\item{\code{print_message}}{use TRUE if want to see all messages printed}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
 \if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
+Print an OmicSignature object
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignature$print(...)}\if{html}{\out{</div>}}
 }
@@ -41,6 +67,16 @@ a R6 object to store signatures generated from experiments. In cluding metadata,
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignature$extract.signature(conditions)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{conditions}}{conditions for new signatures}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+a dataframe of new signatures
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}

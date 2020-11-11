@@ -4,6 +4,7 @@
 #'
 #' @param num A number
 #' @return A list
+#' @export
 testRepo <- function(num=NULL) {
 	cat("Hello! Welcome to SigRepo package. -- developing version\n")
   if (is(num, "numeric")){
