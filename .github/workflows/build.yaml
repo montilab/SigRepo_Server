@@ -21,6 +21,13 @@ jobs:
           restore-keys: ${{ runner.os }}-r-1-
 
       # This lets us augment with additional dependencies
+      - name: Install DB dependencies
+        if: runner.os == 'Linux'
+        env:
+          RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install libmariadb-client-lgpl-dev
       - name: Install system dependencies
         if: runner.os == 'Linux'
         env:
