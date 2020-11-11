@@ -1,0 +1,15 @@
+#' @title retrieve OmicSig obj from VM file system
+#' @param signatureName name of the signature
+#' @param signatureDir directory which the signature file is in
+#' @return OmicSignature object
+#' @export
+retrieveOmicSigObj <-
+  function(signatureName, signatureDir = SigRepoSignatureDir) {
+    return(readJson(
+      paste0(
+        signatureDir,
+        signatureName,
+        "_obj.json"
+      )
+    ))
+  }

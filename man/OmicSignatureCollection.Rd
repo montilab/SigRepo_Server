@@ -7,6 +7,15 @@
 a R6 object to store a collection of OmicSignature objects.
 In cluding metadata, OmicSigList which is a list of OmicSignature object.
 }
+\section{Active bindings}{
+\if{html}{\out{<div class="r6-active-bindings">}}
+\describe{
+\item{\code{metadata}}{a list to describe the metadata}
+
+\item{\code{OmicSigList}}{a list of OmicSignature object(s)}
+}
+\if{html}{\out{</div>}}
+}
 \section{Methods}{
 \subsection{Public methods}{
 \itemize{
@@ -21,15 +30,28 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \if{html}{\out{<a id="method-new"></a>}}
 \if{latex}{\out{\hypertarget{method-new}{}}}
 \subsection{Method \code{new()}}{
+Create an OmicSignatureCollection object
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$new(metadata, OmicSigList, print_message = FALSE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{metadata}}{required, must be a list}
+
+\item{\code{OmicSigList}}{required, a list of OmicSignature R6 objects}
+
+\item{\code{print_message}}{use TRUE if want to see all messages printed}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-print"></a>}}
 \if{latex}{\out{\hypertarget{method-print}{}}}
 \subsection{Method \code{print()}}{
+Print an OmicSignatureCollection object
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$print(...)}\if{html}{\out{</div>}}
 }
@@ -43,6 +65,18 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$extract.signature(conditions, bind = TRUE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{conditions}}{conditions for new signatures}
+
+\item{\code{bind}}{use TRUE to return all results in a single dataframe. Otherwise, will return a list contains the result of each OmicSignature individually}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+a dataframe or a list of new signatures
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-metadataSummary"></a>}}
@@ -52,6 +86,16 @@ In cluding metadata, OmicSigList which is a list of OmicSignature object.
 \if{html}{\out{<div class="r">}}\preformatted{OmicSignatureCollection$metadataSummary(only_shared = TRUE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{only_shared}}{use TRUE to only print the shared metadata fields in the OmicSignatures}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+a dataframe of the summary of the metadata
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-clone"></a>}}
