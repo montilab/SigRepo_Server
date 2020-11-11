@@ -7,8 +7,7 @@
 #' e.g. "signature_symbol", to general name, e.g. "symbol". if FALSE, will replace
 #' general name, e.g. "name", to names in OmicSignature object, e.g. "signature_symbol".
 #' @return signature dataframe with column names changed to standard
-#'
-
+#' @export
 replaceSigCol <- function(sigdf, ObjtoGeneral = TRUE) {
   if (!is(sigdf, "data.frame")) {
     stop("Input signature is not a dataframe.")
