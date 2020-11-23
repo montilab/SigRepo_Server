@@ -125,8 +125,8 @@ OmicSignature <-
 
         ## check column names:
         ## if id is not included, then use probe_id as id
-        if (!("id" %in% colname) && "probe_id" %in% colname) {
-          colname <- colname %>%
+        if (!("id" %in% colnames(difexp)) && "probe_id" %in% colnames(difexp)) {
+            colnames(difexp) <- colnames(difexp) %>%
             dplyr::recode("probe_id" = "id")
         }
         ## require only one of adj_p, p_value, and q_value
