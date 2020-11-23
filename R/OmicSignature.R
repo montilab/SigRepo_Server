@@ -124,22 +124,24 @@ OmicSignature <-
         }
 
         ## check column names:
-        difexpColRequired <- c("probe_id", "symbol", "score", "p_value", "fdr")
-        if ("id" %in% colnames(difexp)) {
-          difexpColRequired <- c("id", "symbol", "score", "p_value", "fdr")
+        ## if id is not included, then use probe_id as id
+        if (!("id" %in% colname) && "probe_id" %in% colname) {
+          colname <- colname %>%
+            dplyr::recode("probe_id" = "id")
         }
-        if ("q_value" %in% colnames(difexp)) {
-          difexpColRequired <- c("probe_id", "symbol", "score", "p_value", "q_value")
+        ## require only one of adj_p, p_value, and q_value
+        if ("adj_p" %in% colnames(difexp)) {
+          difexpColRequired <- c("id", "symbol", "score", "adj_p")
+        } else if ("p_value" %in% colnames(difexp)) {
+          difexpColRequired <- c("id", "symbol", "score", "p_value")
+        } else if ("q_value" %in% colnames(difexp)) {
+          difexpColRequired <- c("id", "symbol", "score", "q_value")
         }
+        
         difexpColMissing <- setdiff(difexpColRequired, colnames(difexp))
         difexpColAdditional <- setdiff(colnames(difexp), difexpColRequired)
-        private$verbose(v, paste(
-          "  --Required columns for Differential Matrix (lv1 data): ",
-          paste(difexpColRequired, collapse = ", "), " --\n",
-          sep = ""
-        ))
 
-        if (length(difexpColMissing) != 0) {
+        if (length(difexpColMissing) > 0) {
           stop("Differential Matrix (lv1 data) does not contain required column(s): ",
             paste(difexpColMissing, collapse = ", "), ".",
             sep = ""
@@ -153,8 +155,8 @@ OmicSignature <-
         }
 
         ## check column type:
-        ## "logfc","score","p_value","fdr" should be numerical
-        for (difexpColNumeric in c("logfc", "score", "p_value", "fdr", "q_value", "aveexpr")) {
+        ## "logfc","score","p_value","adj_p" should be numerical
+        for (difexpColNumeric in c("logfc", "score", "p_value", "adj_p", "q_value", "aveexpr")) {
           if (difexpColNumeric %in% colnames(difexp)) {
             if (!is(difexp[, difexpColNumeric], "numeric")) {
               stop(paste("difexp:", difexpColNumeric, "is not numeric."))
