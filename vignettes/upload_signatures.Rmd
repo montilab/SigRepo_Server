@@ -16,8 +16,6 @@ knitr::opts_chunk$set(
 If you haven't installed `SigRepoR` yet, please contact vmli@bu.edu for instruction.
 ```{r message=FALSE, warning=FALSE}
 devtools::load_all(".")
-library(dplyr)
-library(pool)
 ```
 
 
