@@ -23,6 +23,7 @@ Imports:
 	stats,
 	utils,
 	DBI,
+	RMariaDB,
 	rlist,
 	stringr,
 	tibble,

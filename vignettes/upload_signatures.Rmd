@@ -1,5 +1,5 @@
 ---
-title: "SigRepo: Uploading Signatures"
+title: "Upload Signatures"
 output: rmarkdown::html_vignette
 vignette: >
  %\VignetteIndexEntry{Upload Signatures}
