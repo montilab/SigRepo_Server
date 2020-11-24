@@ -26,6 +26,7 @@ jobs:
         env:
           RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
         run: |
+          sudo apt-get install -f
           sudo apt-get -y update 
           sudo apt-get install -y libmysqlclient-dev libmariadb-dev default-libmysqlclient-dev
       - name: Install system dependencies
