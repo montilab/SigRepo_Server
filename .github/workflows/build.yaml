@@ -28,7 +28,8 @@ jobs:
         run: |
           sudo apt-get install -f
           sudo apt-get -y update 
-          sudo apt-get install -y libmysqlclient-dev libmariadb-dev default-libmysqlclient-dev
+          sudo apt autoremove
+          sudo apt-get install -y libmysqlclient-dev default-libmysqlclient-dev
       - name: Install system dependencies
         if: runner.os == 'Linux'
         env:
