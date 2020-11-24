@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo apt-get install -f
           sudo apt-get -y update 
-          sudo apt autoremove
+          sudo apt -y autoremove
           sudo apt-get install -y libmysqlclient-dev default-libmysqlclient-dev
       - name: Install system dependencies
         if: runner.os == 'Linux'
