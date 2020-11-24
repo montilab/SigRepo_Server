@@ -27,7 +27,6 @@ Imports:
 	stringr,
 	tibble,
 	xfun,
-	RMySQL,
 	getPass,
 	plyr
 Suggests:
