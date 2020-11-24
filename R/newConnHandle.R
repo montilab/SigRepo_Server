@@ -5,7 +5,7 @@
 #' newConnHandle("You", thisPassword = NULL)
 #' will prompt you to enter password for user "You"
 #' @importFrom DBI dbConnect
-#' @importFrom RMariaDB MariaDB
+#' @importFrom RSQLite SQLite
 #' @param db character: the schema to which you want the handle to point.
 #' @param databaseHost character: the server you to which you want to connect
 #' @param databasePort integer: the Port you wish to use. Our server currently uses
@@ -37,7 +37,7 @@ newConnHandle <- function(db = "sigrepo",
     thisPassword <- getPass::getPass()
   }
   dbConnect(
-    drv = RMariaDB::MariaDB(),
+    drv = RSQLite::SQLite(),
     dbname = db,
     host = databaseHost,
     port = databasePort,
