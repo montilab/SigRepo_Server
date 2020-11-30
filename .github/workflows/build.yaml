@@ -23,18 +23,9 @@ jobs:
       # This lets us augment with additional dependencies
       - name: Install DB dependencies
         if: runner.os == 'Linux'
-        env:
-          RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
         run: |
-          sudo apt-get install -f
-          sudo apt-get -y update 
-          sudo apt -y autoremove
           sudo apt-get install -y libmysqlclient-dev default-libmysqlclient-dev
-      - name: Install system dependencies
-        if: runner.os == 'Linux'
-        env:
-          RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
-        run: |
+          sudo apt-get install -y libmariadb-client-lgpl-dev
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"
