@@ -5,6 +5,8 @@
 #' newConnHandle("You", thisPassword = NULL)
 #' will prompt you to enter password for user "You"
 #' @importFrom DBI dbConnect
+#' @importFrom RMySQL MySQL
+#' @importFrom getPass getPass
 #' @param db character: the schema to which you want the handle to point.
 #' @param databaseHost character: the server you to which you want to connect
 #' @param databasePort integer: the Port you wish to use. Our server currently uses
