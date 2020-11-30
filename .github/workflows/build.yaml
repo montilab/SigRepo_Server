@@ -24,6 +24,8 @@ jobs:
       # This lets us augment with additional dependencies
       - name: Install system and DB dependencies
         if: runner.os == 'Linux'
+        env:
+          GITHUB_PAT: ${{ secrets.ACCESS_TOKEN }}
         run: |
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
