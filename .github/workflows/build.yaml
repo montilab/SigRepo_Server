@@ -1,7 +1,7 @@
 on: [push]
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-16.04
     container: bioconductor/bioconductor_docker:devel
     steps:
       - uses: actions/checkout@v1
@@ -24,7 +24,8 @@ jobs:
       - name: Install DB dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y libmariadb-client-lgpl-dev
+          sudo apt-get update -y
+          sudo apt-get install -y libmysqlclient-dev
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"
