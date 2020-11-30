@@ -6,7 +6,7 @@ Author: Mengze Li, Callen Bragdon
 Maintainer: Mengze Li <vmli@bu.edu>
 Description: As high-throughput technology evolves, a large number of omics-signatures are being derived. 
     This package contains OmicSignature and OmicSignatureCollection R6 objects, and can help to store signatures efficiently and retrieve them conveniently.
-Depends: R (>= 3.6.0), dplyr
+Depends: R (>= 3.6.0)
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -14,6 +14,7 @@ RoxygenNote: 7.1.1
 SystemRequirements: libmariadb-client-dev | libmariadb-client-lgpl-dev | libmysqlclient-dev (deb)
 Imports:
 	magrittr,
+	dplyr,
 	ontologyIndex,
 	methods,
 	jsonlite,
