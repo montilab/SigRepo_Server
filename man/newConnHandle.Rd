@@ -6,6 +6,7 @@
 \usage{
 newConnHandle(
   db = "sigrepo",
+  driver = RMySQL::MySQL(),
   databaseHost = Sys.getenv("databaseServer"),
   databasePort = as.integer(Sys.getenv("databasePort")),
   thisUser = "guest",

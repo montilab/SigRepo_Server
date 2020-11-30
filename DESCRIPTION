@@ -29,8 +29,7 @@ Imports:
 	xfun,
 	knitr,
 	getPass,
-	plyr,
-	RMySQL
+	plyr
 Suggests:
 	rmarkdown,
 	pkgdown,

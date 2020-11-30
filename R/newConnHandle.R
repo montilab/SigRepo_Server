@@ -5,7 +5,6 @@
 #' newConnHandle("You", thisPassword = NULL)
 #' will prompt you to enter password for user "You"
 #' @importFrom DBI dbConnect
-#' @importFrom RMySQL MySQL
 #' @importFrom getPass getPass
 #' @param db character: the schema to which you want the handle to point.
 #' @param databaseHost character: the server you to which you want to connect
@@ -21,6 +20,7 @@
 #' @return a MySQL connection Handle.
 #' @export
 newConnHandle <- function(db = "sigrepo",
+                          driver = RMySQL::MySQL(),
                           databaseHost = Sys.getenv("databaseServer"),
                           databasePort = as.integer(Sys.getenv("databasePort")),
                           thisUser = "guest",
@@ -38,7 +38,7 @@ newConnHandle <- function(db = "sigrepo",
     thisPassword <- getPass::getPass()
   }
   dbConnect(
-    drv = RMySQL::MySQL(),
+    drv = driver,
     dbname = db,
     host = databaseHost,
     port = databasePort,
