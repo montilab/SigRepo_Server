@@ -23,7 +23,6 @@ Imports:
 	stats,
 	utils,
 	DBI,
-	RSQLite,
 	rlist,
 	stringr,
 	tibble,
@@ -33,5 +32,6 @@ Imports:
 Suggests:
 	rmarkdown,
 	pkgdown,
-	devtools
+	devtools,
+	RMySQL
 VignetteBuilder: knitr
