@@ -5,8 +5,7 @@ jobs:
     container: bioconductor/bioconductor_docker:devel
     steps:
       - uses: actions/checkout@v1
-        with:
-          repo-token: ${{ secrets.ACCESS_TOKEN }}
+
       - name: Query dependencies
         run: |
           install.packages('remotes')
@@ -22,10 +21,10 @@ jobs:
           restore-keys: ${{ runner.os }}-r-1-
 
       # This lets us augment with additional dependencies
-      - name: Install system and DB dependencies
+      - name: Install system dependencies
         if: runner.os == 'Linux'
         env:
-          GITHUB_PAT: ${{ secrets.ACCESS_TOKEN }}
+          RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
         run: |
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
