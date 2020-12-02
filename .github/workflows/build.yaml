@@ -5,7 +5,8 @@ jobs:
     container: bioconductor/bioconductor_docker:devel
     steps:
       - uses: actions/checkout@v1
-
+        with:
+          repo-token: ${{ secrets.ACCESS_TOKEN }}
       - name: Query dependencies
         run: |
           install.packages('remotes')
@@ -24,12 +25,15 @@ jobs:
       - name: Install system dependencies
         if: runner.os == 'Linux'
         env:
+          GITHUB_PAT: ${{ secrets.ACCESS_TOKEN }}
           RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
         run: |
-          sudo apt-get install libmariadb-client-lgpl-dev
+          sudo apt-get upgrade -y
+          sudo apt-get install -y libmariadb-client-lgpl-dev
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"
+      
       - name: Install dependencies
         run: |
           remotes::install_deps(dependencies = TRUE, repos = BiocManager::repositories())
