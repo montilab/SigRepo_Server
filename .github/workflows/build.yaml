@@ -28,8 +28,6 @@ jobs:
           GITHUB_PAT: ${{ secrets.ACCESS_TOKEN }}
           RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
         run: |
-          sudo apt-get upgrade -y
-          sudo apt-get install -y libmariadb-client-lgpl-dev
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"
