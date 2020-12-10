@@ -59,7 +59,7 @@ jobs:
           install.packages("plyr");
           if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager");
           BiocManager::install("limma");
-          devtools::install_github(repo="Vanessa104/OmicSignature");'
+          devtools::install_github(repo="montilab/OmicSignature");'
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"

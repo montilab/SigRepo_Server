@@ -3,15 +3,15 @@ README
 Callen & Vanessa
 12/10/2020
 
-SigRepo
-=======
+SigRepoR
+========
 
 ### Last update
 
 12/10/2020
 
-Contact
--------
+Contacts
+--------
 
 Callen Bragdon - `cjoseph@bu.edu`
 
@@ -21,19 +21,18 @@ SigRepo Components
 ------------------
 
 -   Back-end: MariaDB
--   R functions & R6 object: This package and `OmicSignature` package (see **Installation** below)
+-   R functions to interact with DB: **This package `SigRepoR`**. See *Installation* below.
+-   R6 objects: `OmicSignature` and `OmicSignatureCollection` designed to store signatures. See *Installation* below. Click [here for the vignette](https://montilab.github.io/OmicSignature/articles/OmicSig_vignette.html)
+-   User-control API
 -   Front-end: R-Shiny interface
--   API
 
 *See our developing [Shiny app server](http://sigrepo.bu.edu:3838/app) ! (BU VPN required)*
 
-**Installation**
-----------------
+*Installation*
+--------------
 
+`devtools::install_github(repo = "montilab/OmicSignature")`
 `devtools::install_github(repo = "montilab/SigRepoR", auth_token = "...")`
-`devtools::install_github(repo = "Vanessa104/OmicSignature")`
-
-Please also install `OmicSignature`, which includes the R6 object of `OmicSignature` and `OmicSignatureCollection` to store signatures. Click here for the [vignette](https://vanessa104.github.io/OmicSignature/articles/OmicSig_vignette.html) of `OmicSignature` R6 object.
 
 ------------------------------------------------------------------------
 
