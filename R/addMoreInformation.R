@@ -2,6 +2,9 @@
 #' @description adds a JSON typed value into the DB associated with
 #' a signature of interest
 #' @importFrom stringr str_replace_all
+#' @importFrom OmicSignature readJson
+#' @importFrom jsonlite toJSON
+#' @importFrom dplyr %>%
 #' @param signature_name name of the signature
 #' @param connHandle connection to the DB
 #' @param rootDir directory of the signatures

@@ -1,5 +1,6 @@
 #' @title objectUploadQC
 #' @description conducts Quality checking of the OmicSignature file to be uploaded
+#' @importFrom OmicSignature readJson
 #' @param objectFile rds or json file representing your OmicSignature Object
 #' @export
 objectUploadQC <- function(objectFile) {

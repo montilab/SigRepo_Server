@@ -33,3 +33,7 @@ po/*~
 .Rproj.user
 SigRepoR.Rproj
 .DS_Store
+doc
+Meta
+Icon
+Jel*.md
