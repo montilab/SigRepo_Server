@@ -5,7 +5,7 @@
 #' @param signatureDirectory where your signature files will be
 #' @param databaseServer where your database is
 #' @param databasePort which port to use to connect to your database
-#'
+#' @export
 configureSigRepo <- function(signatureDirectory,
                              databaseServer,
                              databasePort) {

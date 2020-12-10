@@ -15,6 +15,6 @@ configureSigRepo(signatureDirectory, databaseServer, databasePort)
 }
 \description{
 configures your instance of Sigrepo to have all its
-functions point to the server of your choice by setting System level 
+functions point to the server of your choice by setting System level
 variable assignments
 }
