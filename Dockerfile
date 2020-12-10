@@ -1,4 +1,4 @@
-FROM bioconductor/bioconductor_docker:latest
+FROM bioconductor/bioconductor_docker:devel
  
 #COPY --chown=rstudio:rstudio . /home/rstudio/
 RUN apt-get update && \
@@ -6,46 +6,34 @@ RUN apt-get update && \
     apt-utils \
     build-essential \
     libglpk-dev \
-    libnode-dev \
+    libcurl4-openssl-dev \
     libmysqlclient-dev \
+    libxml2-dev \
+    libssl-dev \
     openssh-server \
     openssh-client && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* &&\
     Rscript -e \
     'install.packages("devtools"); \
-     install.packages("tidyverse"); \
-     install.packages("ggplot2"); \
-     install.packages("ggforce"); \
-     install.packages("heatmaply"); \
-     install.packages("R6"); \
-     install.packages("magrittr"); \
-     install.packages("dplyr"); \
-     install.packages("purrr"); \
-     install.packages("stringr"); \
-     install.packages("scales"); \
-     install.packages("httr"); \
-     install.packages("openxlsx"); \
-     install.packages("reshape2"); \
-     install.packages("reactable"); \
-     install.packages("msigdbr"); \
-     install.packages("kableExtra"); \
-     install.packages("rmarkdown"); \
-     install.packages("igraph"); \
-     install.packages("visNetwork"); \
-     install.packages("RMySQL");\
-     install.packages("V8");\
-     install.packages("plotly");\
-     install.packages("markdown");\
-     install.packages("DT");\
-     install.packages("DBI");\
-     install.packages("ontologyIndex");\
-     install.packages("pool");\
-     install.packages("gridExtra");\
-     install.packages("getPass");\
-     install.packages("plyr");\ 
-     devtools::install_github("montilab/hypeR"); \
-     devtools::install_github(repo = "Vanessa104/OmicSignature");'
+    install.packages("R6"); \
+    install.packages("magrittr"); \
+    install.packages("dplyr"); \
+    install.packages("stringr"); \
+    install.packages("msigdbr"); \
+    install.packages("rmarkdown"); \
+    install.packages("RMySQL");\
+    install.packages("markdown");\
+    install.packages("DBI");\
+    install.packages("ontologyIndex");\
+    install.packages("pool");\
+    install.packages("getPass");\
+    install.packages("plyr");\
+    if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager");\
+    BiocManager::install("limma");\
+    devtools::install_github(repo="Vanessa104/OmicSignature");\
+    devtools::install_github(repo="montilab/SigRepoR",auth_token="4a30c79965d4df0faf415747531f129b0864b3ce");'
+
 #COPY Shiny /srv/shiny-server/sigrepo/Shiny/
 #COPY R /srv/shiny-server/sigrepo/R
 #COPY miscellanea /srv/shiny-server/sigrepo/miscellanea
