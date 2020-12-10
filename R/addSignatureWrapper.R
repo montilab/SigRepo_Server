@@ -2,6 +2,7 @@
 #' @description Function that executes all required inserts and uploads of a signature
 #' @importFrom xfun file_ext
 #' @importFrom utils write.table
+#' @importFrom OmicSignature readJson writeJson
 #' @param objectFile a json or rds file, formatted in the way of an
 #' OmicSignature Object. It can also be a variable that is the object itself.
 #' @param thisHandle Database connection handle

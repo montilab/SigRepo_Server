@@ -6,7 +6,7 @@
 \usage{
 newConnHandle(
   db = "sigrepo",
-  driver = RMySQL::MySQL(),
+  driver = NULL,
   databaseHost = Sys.getenv("databaseServer"),
   databasePort = as.integer(Sys.getenv("databasePort")),
   thisUser = "guest",
@@ -16,6 +16,8 @@ newConnHandle(
 }
 \arguments{
 \item{db}{character: the schema to which you want the handle to point.}
+
+\item{driver}{driver of the database, by default is MySQL()}
 
 \item{databaseHost}{character: the server you to which you want to connect}
 

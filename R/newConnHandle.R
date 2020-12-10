@@ -6,7 +6,9 @@
 #' will prompt you to enter password for user "You"
 #' @importFrom DBI dbConnect
 #' @importFrom getPass getPass
+#' @importFrom RMySQL MySQL
 #' @param db character: the schema to which you want the handle to point.
+#' @param driver driver of the database, by default is MySQL()
 #' @param databaseHost character: the server you to which you want to connect
 #' @param databasePort integer: the Port you wish to use. Our server currently uses
 #' port 4253
@@ -20,12 +22,15 @@
 #' @return a MySQL connection Handle.
 #' @export
 newConnHandle <- function(db = "sigrepo",
-                          driver = RMySQL::MySQL(),
+                          driver = NULL,
                           databaseHost = Sys.getenv("databaseServer"),
                           databasePort = as.integer(Sys.getenv("databasePort")),
                           thisUser = "guest",
                           thisPassword = "guest",
                           usePassword = "YES") {
+  if (is.null(driver)) {
+    driver <- RMySQL::MySQL()
+  }
   if (is.null(databaseHost) || is.null(databasePort)) {
     stop(paste("Cannot establish a connection, configuration settings are not set",
       "Please first use",

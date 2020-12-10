@@ -1,2 +1,9 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^doc$
+^Meta$
+Icon
+Dockerfile
+pkgdown
+\.git
+\.github
