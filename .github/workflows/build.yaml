@@ -28,6 +28,37 @@ jobs:
           GITHUB_PAT: ${{ secrets.ACCESS_TOKEN }}
           RHUB_PLATFORM: linux-x86_64-ubuntu-gcc
         run: |
+          apt-get update && \
+          apt-get install -y --no-install-recommends \
+          apt-utils \
+          build-essential \
+          libglpk-dev \
+          libcurl4-openssl-dev \
+          libmysqlclient-dev \
+          libxml2-dev \
+          libssl-dev \
+          openssh-server \
+          openssh-client && \
+          apt-get clean && \
+          rm -rf /var/lib/apt/lists/*
+          Rscript -e \
+          'install.packages("devtools"); \
+          install.packages("R6"); \
+          install.packages("magrittr"); \
+          install.packages("dplyr"); \
+          install.packages("stringr"); \
+          install.packages("msigdbr"); \
+          install.packages("rmarkdown"); \
+          install.packages("RMySQL");\
+          install.packages("markdown");\
+          install.packages("DBI");\
+          install.packages("ontologyIndex");\
+          install.packages("pool");\
+          install.packages("getPass");\
+          install.packages("plyr");\
+          if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager");\
+          BiocManager::install("limma");\
+          devtools::install_github(repo="Vanessa104/OmicSignature");'
           Rscript -e "remotes::install_github('r-hub/sysreqs')"
           sysreqs=$(Rscript -e "cat(sysreqs::sysreq_commands('DESCRIPTION'))")
           sudo -s eval "$sysreqs"
