@@ -31,7 +31,7 @@ RUN apt-get update && \
     install.packages("plyr");\
     if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager");\
     BiocManager::install("limma");\
-    devtools::install_github(repo="Vanessa104/OmicSignature");\
+    devtools::install_github(repo="montilab/OmicSignature");\
     devtools::install_github(repo="montilab/SigRepoR",auth_token="4a30c79965d4df0faf415747531f129b0864b3ce");'
 
 #COPY Shiny /srv/shiny-server/sigrepo/Shiny/
