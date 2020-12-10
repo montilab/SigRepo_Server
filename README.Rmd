@@ -16,19 +16,22 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Contact
 Callen Bragdon - `cjoseph@bu.edu`  
+
 Vanessa Mengze Li - `vmli@bu.edu`  
 
 ## SigRepo Components
 - Back-end: MariaDB  
-- R functions & R6 object: This package and `OmicSignature` package (see *Installation* below)  
+- R functions & R6 object: This package and `OmicSignature` package (see **Installation** below)  
 - Front-end: R-Shiny interface  
 - API  
 
-## *Installation*
+*See our developing [Shiny app server](http://sigrepo.bu.edu:3838/app) ! (BU VPN required)*
+
+## **Installation**
 `devtools::install_github(repo = "montilab/SigRepoR", auth_token = "...")`  
 `devtools::install_github(repo = "Vanessa104/OmicSignature")`  
 
-Please also install `OmicSignature`, which includes the R6 object of `OmicSignature` and `OmicSignatureCollection` to store signatures. Go to https://vanessa104.github.io/OmicSignature/articles/OmicSig_vignette.html to view the vignette of `OmicSignature` R6 object.  
+Please also install `OmicSignature`, which includes the R6 object of `OmicSignature` and `OmicSignatureCollection` to store signatures. Click here for the [vignette ](https://vanessa104.github.io/OmicSignature/articles/OmicSig_vignette.html) of `OmicSignature` R6 object.  
 
 -----------------------------------------------------------------
 
