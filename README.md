@@ -32,6 +32,7 @@ SigRepo Components
 --------------
 
 `devtools::install_github(repo = "montilab/OmicSignature")`
+
 `devtools::install_github(repo = "montilab/SigRepoR", auth_token = "...")`
 
 ------------------------------------------------------------------------
@@ -49,6 +50,12 @@ configureSigRepo(
     databaseServer="put your database server (IP) address here", 
     databasePort="put your port here. default 3306"
 )
+```
+
+Configure to our database:
+
+``` r
+configureSigRepo("sigrepo.bu.edu:3838/signatures/", "sigrepo.bu.edu", "4253")
 ```
 
 Now, for downstream queries, you'll be able to establish connections in the future without needing to specify which server to query repeatedly.
