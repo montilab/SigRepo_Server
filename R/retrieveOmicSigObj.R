@@ -8,7 +8,7 @@ retrieveOmicSigObj <-
   function(signatureName, signatureDir = SigRepoSignatureDir) {
     return(readJson(
       paste0(
-        signatureDir,
+        Sys.getenv(signatureDirectory),
         signatureName,
         "_obj.json"
       )
