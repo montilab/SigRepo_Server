@@ -6,8 +6,7 @@ createLink <-
   function(signatureName, repoLink = SigRepoLink) {
     paste0(
       '<a href="',
-      repoLink,
-      "signatures/",
+      Sys.getenv(signatureDirectory),
       signatureName,
       "_obj.json",
       '"',
