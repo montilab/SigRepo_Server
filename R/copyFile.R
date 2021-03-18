@@ -1,5 +1,4 @@
 #' @title copyFile
-#' @importFrom base system
 #' @param objectFile input file object
 #' @param signatureServer server hosting the signature files. Defaults to
 #' configuration settings

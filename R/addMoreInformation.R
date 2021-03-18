@@ -8,6 +8,8 @@
 #' @param signatureName name of the signature
 #' @param connHandle connection to the DB
 #' @param rootDir directory of the signatures
+#' @param objectExtension extension of object file. Important when you're saving
+#' multiple different files of different natures about the same signature.
 #' @param verbose default to FALSE. use TRUE to print messages
 #' @export
 addMoreInformation <- function(signatureName, 

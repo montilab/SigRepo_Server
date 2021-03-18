@@ -7,7 +7,7 @@
 getFeatures(nicely = F)
 }
 \arguments{
-\item{nicely:}{boolean: whether to query a feature view that looks nicer.}
+\item{nicely}{boolean: whether to query a feature view that looks nicer.}
 }
 \description{
 obtains the assay platforms within the database.

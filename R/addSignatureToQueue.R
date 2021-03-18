@@ -1,12 +1,21 @@
-addSignatureToQueue <- function(signature_name, signatureObject, verdict=NULL, verbose=F){
+#' @title addSignatureToQueue
+#' @importFrom OmicSignature writeJson
+#' @param signatureName name of the signature
+#' @param signatureObject an OmicSignature Object.
+#' @param verdict whether to add a signature to your system, or to remove it 
+#' from your queue
+#' @param verbose verbosity of the command
+#' @export
+addSignatureToQueue <- function(signatureName, signatureObject, 
+																verdict=NULL, verbose=F){
 	query=paste0(
 		"INSERT INTO sigrepo.signature_queue(signature_name) VALUES(",
-		singleQuote(signature_name),");"
+		singleQuote(signatureName),");"
 	)
 	if(!is.null(verdict)){
 		query=paste0(
 			"INSERT INTO sigrepo.signature_queue(signature_name, verdict) VALUES(",
-			singleQuote(signature_name),",", verdict, ");"
+			singleQuote(signatureName),",", verdict, ");"
 		)
 	}
 	if(verbose){
@@ -18,5 +27,5 @@ addSignatureToQueue <- function(signature_name, signatureObject, verdict=NULL, v
 	thisPath = "sigrepo.bu.edu:3838/signatures/queue/"
 	writeJson(signatureObject, 
 						paste0("/data_files/signatures/queue/",
-									 signature_name, "_obj.json"))
+									 signatureName, "_obj.json"))
 }

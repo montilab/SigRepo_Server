@@ -7,10 +7,10 @@
 getSignatures(signatureNames = c("ALL"), withLevel2 = F)
 }
 \arguments{
-\item{signatureNames:}{A character vector with the signature Names. By default,
+\item{signatureNames}{A character vector with the signature Names. By default,
 setting this parameter to "ALL" gets every signature's metadata.}
 
-\item{withLevel2:}{Boolean denoting whether you want to}
+\item{withLevel2}{Boolean denoting whether you want to}
 }
 \value{
 a named list of dataframes. "metadata" holds the signatures' metadata.

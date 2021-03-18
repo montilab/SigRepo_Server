@@ -4,9 +4,9 @@
 #'in the database. If desired, you can obtain the level2 information for your signatures.
 #'Level2 signature data is simply the list of significant features and their corresponding
 #'weight and direction for a given signature.
-#'@param signatureNames: A character vector with the signature Names. By default,
+#'@param signatureNames A character vector with the signature Names. By default,
 #'setting this parameter to "ALL" gets every signature's metadata.
-#'@param withLevel2: Boolean denoting whether you want to 
+#'@param withLevel2 Boolean denoting whether you want to 
 #'@returns a named list of dataframes. "metadata" holds the signatures' metadata.
 #'"level2" holds the level2 representation.
 getSignatures <- function(signatureNames=c("ALL"), withLevel2=F){

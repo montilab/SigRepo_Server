@@ -19,6 +19,9 @@ addMoreInformation(
 
 \item{rootDir}{directory of the signatures}
 
+\item{objectExtension}{extension of object file. Important when you're saving
+multiple different files of different natures about the same signature.}
+
 \item{verbose}{default to FALSE. use TRUE to print messages}
 }
 \description{

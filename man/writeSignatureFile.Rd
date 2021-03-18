@@ -9,7 +9,7 @@ writeSignatureFile(fileObject, userName)
 \arguments{
 \item{fileObject}{signature object}
 
-\item{fileName}{name of the file}
+\item{userName}{name of the user uploading}
 }
 \description{
 writeSignatureFile
