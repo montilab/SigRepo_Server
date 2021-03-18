@@ -22,9 +22,9 @@ configureSigRepo <- function(signatureDirectory,
   Sys.setenv(databaseServer=databaseServer)
   Sys.setenv(databasePort=databasePort)
   Sys.setenv(signatureServer=signatureServer)
-  Sys.getenv(applicationPort=applicationPort)
-  if (!is.null(signatureHost) && !signatureHost == "") {
-    Sys.getenv(signatureServer=databaseServer)
+  Sys.setenv(applicationPort=applicationPort)
+  if (is.null(signatureServer) || signatureServer == "") {
+    Sys.setenv(signatureServer=databaseServer)
   }
   paste(
     "SigRepo has been Reconfigured to the following",

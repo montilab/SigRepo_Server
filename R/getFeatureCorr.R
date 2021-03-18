@@ -1,5 +1,5 @@
 getFeatureCorr <- function(featureNames) {
-	assertthat::are_equal(length(featureNamess), 2)
+	assertthat::are_equal(length(featureNames), 2)
 	sqlGeneric(paste0(
 		"CALL featurePaired(",
 		singleQuote(featureNames[1]),

@@ -1,6 +1,6 @@
 #' @title writeSignatureFile
 #' @param fileObject signature object
-#' @param fileName name of the file
+#' @param userName name of the user uploading
 #' @export
 writeSignatureFile <- function(fileObject, userName) {
   copyFile(fileObject, userName)
