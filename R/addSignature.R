@@ -15,8 +15,8 @@
 #' all fields are usually obtained from input values from application
 #' @export
 addSignature <- function(sig_name, species_name, platform_name,
-                         cell_line, phenotype = NULL, uploader, uploadHandle,
-                         verbose = F, disconnectAfter = T) {
+                         cell_line, phenotype=NULL, uploader, uploadHandle,
+                         verbose=F, disconnectAfter=T) {
   phenotypeId <- phenotypeCheckOrAdd(phenotype, uploadHandle)
   thisSubmitterId <- sqlFindingQuery("submitters", c("submitter_id"),
     ins = list("submitter_name" = c(uploader))

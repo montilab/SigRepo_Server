@@ -8,7 +8,7 @@
 #' @param disconnectAfter Boolean: whether to disconnect the handle after
 #' executing the query
 #' @export
-sqlGeneric <- function(query, conn = newConnHandle(), disconnectAfter = F) {
+sqlGeneric <- function(query, conn = newConnHandle(), disconnectAfter = T) {
   ## Connect to the database
   conn <- conn
   ## Disconnect from database when exiting sqlGeneric()
@@ -16,6 +16,6 @@ sqlGeneric <- function(query, conn = newConnHandle(), disconnectAfter = F) {
     on.exit(dbDisconnect(conn), add = TRUE)
   }
   ## Query database and return results
-  queryResult <- dbGetQuery(conn, statement = query)
+  queryResult <- dbGetQuery(conn, statement=query)
   return(queryResult)
 }
