@@ -4,7 +4,7 @@
 \alias{sqlGeneric}
 \title{sqlGeneric}
 \usage{
-sqlGeneric(query, conn = newConnHandle(), disconnectAfter = F)
+sqlGeneric(query, conn = newConnHandle(), disconnectAfter = T)
 }
 \arguments{
 \item{query}{the query to submit. String}

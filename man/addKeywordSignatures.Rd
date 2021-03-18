@@ -16,6 +16,10 @@ associate a signature}
 keywords parameter}
 }
 \description{
-adds signature-keyword pairs to signatures_to_collections
-table in the database.
+adds signature-keyword pairs to keyword_signature
+table in the database. This table captures a many to many relationship
+between the signatures table and the keywords table, and contains
+signature_id and keyword_id as foreign keys. Hence, before uploading, this
+function first fetches the numerical IDs associated with the signatures and
+keywords.
 }

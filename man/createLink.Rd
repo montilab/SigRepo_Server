@@ -4,12 +4,28 @@
 \alias{createLink}
 \title{Create a link to a signature file based on the signature name}
 \usage{
-createLink(signatureName, repoLink = SigRepoLink)
+createLink(
+  signatureName,
+  signatureDir = Sys.getenv("signatureDirectory"),
+  signatureServer = Sys.getenv("signatureServer"),
+  applicationPort = Sys.getenv("applicationPort"),
+  signatureFileExtension = ""
+)
 }
 \arguments{
 \item{signatureName}{the name of the signature to link to}
 
-\item{repoLink}{link to the SigRepo server}
+\item{signatureDir}{directory to the signature files; defaults to settings
+configured when running SigRepoR::configureSigRepo}
+
+\item{signatureServer}{host of the signature files; defaults to settings
+configured when running SigRepoR::configureSigRepo}
+
+\item{applicationPort}{port of the SigRepo Application; defaults to settings
+configured when running SigRepoR::configureSigRepo}
+
+\item{signatureFileExtension}{string denoting the file extension each
+html anchor should contain. defaults to empty string}
 }
 \description{
 Create a link to a signature file based on the signature name

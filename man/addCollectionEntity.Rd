@@ -18,6 +18,6 @@ addCollectionEntity(
 \item{collectionDescription}{description of the collection you're adding}
 }
 \description{
-adds signature Collection entities to signature_collections table
-in the Database.
+adds signature Collection entities to signature_collections 
+table in the Database.
 }

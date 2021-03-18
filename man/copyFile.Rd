@@ -4,12 +4,24 @@
 \alias{copyFile}
 \title{copyFile}
 \usage{
-copyFile(input_file, destination)
+copyFile(
+  objectFile,
+  signatureServer = Sys.getenv("signatureServer"),
+  uploadPath = Sys.getenv("signatureDirectory"),
+  thisUser
+)
 }
 \arguments{
-\item{input_file}{input file object}
+\item{objectFile}{input file object}
 
-\item{destination}{target directory}
+\item{signatureServer}{server hosting the signature files. Defaults to
+configuration settings}
+
+\item{uploadPath}{the directory to which the signature files get written.
+Defaults to configuration settings.}
+
+\item{thisUser}{the username that's uploading the file. Note that this user
+needs to be able to write to your target directory.}
 }
 \description{
 copyFile

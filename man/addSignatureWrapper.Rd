@@ -4,7 +4,12 @@
 \alias{addSignatureWrapper}
 \title{addSignatureWrapper}
 \usage{
-addSignatureWrapper(objectFile, thisHandle, uploadPath, thisUser)
+addSignatureWrapper(
+  objectFile,
+  thisHandle,
+  uploadPath = Sys.getenv("signatureDirectory"),
+  thisUser
+)
 }
 \arguments{
 \item{objectFile}{a json or rds file, formatted in the way of an

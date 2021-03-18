@@ -4,14 +4,26 @@
 \alias{configureSigRepo}
 \title{configureSigRepo}
 \usage{
-configureSigRepo(signatureDirectory, databaseServer, databasePort)
+configureSigRepo(
+  signatureDirectory,
+  databaseServer,
+  databasePort,
+  applicationPort = NULL,
+  signatureServer = NULL
+)
 }
 \arguments{
-\item{signatureDirectory}{where your signature files will be}
+\item{signatureDirectory}{where your signature files will be on the signature server's file system}
 
 \item{databaseServer}{where your database is}
 
 \item{databasePort}{which port to use to connect to your database}
+
+\item{applicationPort}{optional; string denoting the port that your application
+is being hosted on; defaults to NULL}
+
+\item{signatureServer}{optional; string denoting the server that is hosting
+the signature files; defaults to the databaseServer url}
 }
 \description{
 configures your instance of Sigrepo to have all its

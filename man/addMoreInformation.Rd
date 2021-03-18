@@ -5,14 +5,15 @@
 \title{addMoreInformation}
 \usage{
 addMoreInformation(
-  signature_name,
+  signatureName,
   connHandle = newConnHandle(),
-  rootDir = "/srv/shiny-server/signatures/",
+  rootDir = Sys.getenv("signatureDirectory"),
+  objectExtension = "_obj.json",
   verbose = FALSE
 )
 }
 \arguments{
-\item{signature_name}{name of the signature}
+\item{signatureName}{name of the signature}
 
 \item{connHandle}{connection to the DB}
 
