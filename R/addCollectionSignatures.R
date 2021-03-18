@@ -10,14 +10,8 @@
 #' collectionName parameter
 #' @export
 addCollectionSignatures <- function(thisHandle,
-                                    collectionName = NULL,
-                                    signatures = NULL) {
-  # Error Handling
-  # should include creating new handle from user info if the handle provided
-  # is either closed or corrupt
-  # if(T){
-  # 	print("add error handling code here")
-  # }
+                                    collectionName=NULL,
+                                    signatures=NULL) {
   collectionIdQuery <- "select 
 						  signature_collection_id as collectionId
 						from 
@@ -30,16 +24,16 @@ addCollectionSignatures <- function(thisHandle,
     )
   )$collectionId
   signatureIds <- sqlFindingQuery("signatures",
-    fields = c("signature_id"),
-    ins = list("signature_name" = c(signatures))
+    fields=c("signature_id"),
+    ins=list("signature_name"=c(signatures))
   )$signature_id
   signatureCollectionDf <- data_frame(
-    signatureIds = signatureIds,
-    collectionId = rep(collectionId, length(signatureIds))
+    signatureIds=signatureIds,
+    collectionId=rep(collectionId, length(signatureIds))
   )
   dbWriteTable(thisHandle,
-    name = "temp_table", value = signatureCollectionDf,
-    row.names = F, overwrite = T, append = F
+    name="temp_table", value=signatureCollectionDf,
+    row.names=F, overwrite=T, append=F
   )
   dbGetQuery(thisHandle, "insert 
 			   into 

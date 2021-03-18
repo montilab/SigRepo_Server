@@ -10,47 +10,48 @@ addSignatureKeywords <- function(keyword_v, sid, keywordHandle) {
   # what keywords already are in the DB?
   # isolate new keywords and insert into core table
   # keywordHandle = newConnHandle(thisUser=user, thisPassword = pw)
-  keyword_sql <- sqlFindingQuery("keywords",
+  keywordSql <- sqlFindingQuery("keywords",
     c("keyword_id", "keyword"),
     ins = list("keyword" = c(keywords)), verbose = T,
     handle = keywordHandle, disconnectAfter = F
   )
   # new keywords
-  new_keywords <- setdiff(keywords, keyword_sql$keyword)
-  new_keyword_ids <- NULL
+  keywordSql
+  newKeywords <- setdiff(keywords, keywordSql$keyword)
+  newKeywordIds <- NULL
   # if there are any, add them to db
-  if (length(new_keywords) != 0) {
-    insert_newkeywords_query <- paste("INSERT INTO keywords(keyword) VALUES ", paste("(", singleQuote(new_keywords), ")", sep = "", collapse = ","), ";")
+  if (length(newKeywords) != 0) {
+    insertNewkeywordsQuery <- paste("INSERT INTO keywords(keyword) VALUES ", paste("(", singleQuote(newKeywords), ")", sep = "", collapse = ","), ";")
     # keywordHandle = newConnHandle(thisUser=user, thisPassword = pw)
-    insert_newkeywords_sql <- sqlGeneric(insert_newkeywords_query, keywordHandle)
-    new_keyword_ids <-
+    insertNewkeywordsSql <- sqlGeneric(insertNewkeywordsQuery, keywordHandle)
+    newKeywordIds <-
       sqlFindingQuery(
         fields = c("keyword_id"),
         dbTable = "keywords",
-        ins = list("keyword" = c(new_keywords))
+        ins = list("keyword" = c(newKeywords))
       )$keyword_id
   }
-  keyword_ids_final <- keyword_sql$keyword_id
-  if (!is.null(new_keyword_ids)) {
-    keyword_ids_final <- bind_rows(keyword_sql$keyword_id, new_keyword_ids)
+  keywordIdsFinal <- keywordSql$keyword_id
+  if (!is.null(newKeywordIds)) {
+    keywordIdsFinal <- bind_rows(keywordSql$keyword_id, newKeywordIds)
   }
   # make dataframe of insert values
   # if there's a function that mass inserts a dataframe into the db
   # i'd like to do that instead of all these pastes
-  keyword_signature.df <- data.frame(
+  keywordSignature.df <- data.frame(
     signature_id = rep(sid, length(keyword_v)),
-    keyword_id = keyword_ids_final
+    keyword_id = keywordIdsFinal
   )
-  keyword_signature_insert_query <- paste(
+  keywordSignatureInsertQuery <- paste(
     "INSERT INTO keyword_signature(signature_id,keyword_id) VALUES ",
     paste("(",
-      keyword_signature.df$signature_id, ",",
-      keyword_signature.df$keyword_id,
+      keywordSignature.df$signature_id, ",",
+      keywordSignature.df$keyword_id,
       ")",
       sep = "", collapse = ","
     ),
     ";"
   )
-  keyword_handle <- keywordHandle
-  sqlGeneric(keyword_signature_insert_query, keyword_handle)
+  keywordHandle2 <- keywordHandle
+  sqlGeneric(keywordSignatureInsertQuery, keywordHandle2)
 }

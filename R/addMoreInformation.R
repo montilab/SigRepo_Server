@@ -5,25 +5,32 @@
 #' @importFrom OmicSignature readJson
 #' @importFrom jsonlite toJSON
 #' @importFrom dplyr %>%
-#' @param signature_name name of the signature
+#' @param signatureName name of the signature
 #' @param connHandle connection to the DB
 #' @param rootDir directory of the signatures
 #' @param verbose default to FALSE. use TRUE to print messages
 #' @export
-addMoreInformation <- function(signature_name, connHandle = newConnHandle(),
-                               rootDir = "/srv/shiny-server/signatures/", verbose = FALSE) {
+addMoreInformation <- function(signatureName, 
+															 connHandle=newConnHandle(),
+                               rootDir=Sys.getenv("signatureDirectory"),
+															 objectExtension="_obj.json",
+															 verbose=FALSE) {
   # check if signature exists in db
-  signatureIdQuery <- sprintf("select signature_id from signatures where signature_name=%s;", singleQuote(signature_name))
-  signatureId <- sqlGeneric(
+	signatureIdQuery <-
+		sprintf(
+			"select signature_id from signatures where signature_name=%s;",
+			singleQuote(signatureName)
+		)
+	signatureId <- sqlGeneric(
     signatureIdQuery,
     connHandle
   )$signature_id
-  print(signature_name)
+  print(signatureName)
   if (length(signatureId) == 0) {
-    print(sprintf("No signature by the name %s exists", signature_name))
+    print(sprintf("No signature by the name %s exists", signatureName))
     return(F)
   }
-  signatureObjectFile <- paste0(rootDir, signature_name, "_obj.json")
+  signatureObjectFile <- paste0(rootDir, signatureName, objectExtension)
   # get column names of table of interest
   signatureColumnsQuery <- "SELECT 
 	COLUMN_NAME 
@@ -61,7 +68,8 @@ addMoreInformation <- function(signature_name, connHandle = newConnHandle(),
             "update signatures set more_information=%s where signature_id=%i",
             singleQuote(metadataNotInFieldsJSON), signatureId
           ),
-          connHandle
+          connHandle,
+          disconnectAfter=F
         )
       }
     },
