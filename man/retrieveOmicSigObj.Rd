@@ -4,7 +4,10 @@
 \alias{retrieveOmicSigObj}
 \title{retrieve OmicSig obj from VM file system}
 \usage{
-retrieveOmicSigObj(signatureName, signatureDir = SigRepoSignatureDir)
+retrieveOmicSigObj(
+  signatureName,
+  signatureDir = Sys.getenv("signatureDirectory")
+)
 }
 \arguments{
 \item{signatureName}{name of the signature}

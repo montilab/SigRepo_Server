@@ -4,11 +4,9 @@
 \alias{writeSignatureFile}
 \title{writeSignatureFile}
 \usage{
-writeSignatureFile(uploadPath, fileObject, fileName)
+writeSignatureFile(fileObject, userName)
 }
 \arguments{
-\item{uploadPath}{path to upload / write the signature file}
-
 \item{fileObject}{signature object}
 
 \item{fileName}{name of the file}
