@@ -9,6 +9,7 @@
 #'@param withLevel2 Boolean denoting whether you want to 
 #'@returns a named list of dataframes. "metadata" holds the signatures' metadata.
 #'"level2" holds the level2 representation.
+#'@export
 getSignatures <- function(signatureNames=c("ALL"), withLevel2=F){
 	level2="Not requested."
 	if(signatureNames!=c("ALL")){

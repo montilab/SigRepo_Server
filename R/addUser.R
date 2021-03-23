@@ -1,3 +1,13 @@
+#'@title addUser
+#'@description adds a user to your SigRepo system
+#'@param newUserName A character vector with the new username.
+#'@param newUserEmail A character vector with the new user's email
+#'@param newUserEmail A character vector with the new user's password.
+#'Strongly discouraged, will default to input prompts
+#'@param connectionHandle your connection handle object. be sure the user
+#'has "admin" privileges. 
+#'@returns nothing.
+#'@export
 addUser <- function(newUserName=NULL, newUserEmail=NULL, 
 										newUserPassword="NULL", connectionHandle){
 	if(is.null(newUserName)){

@@ -2,7 +2,7 @@
 % Please edit documentation in R/createLink.R
 \name{createLink}
 \alias{createLink}
-\title{Create a link to a signature file based on the signature name}
+\title{createLink}
 \usage{
 createLink(
   signatureName,
@@ -28,5 +28,5 @@ configured when running SigRepoR::configureSigRepo}
 html anchor should contain. defaults to empty string}
 }
 \description{
-Create a link to a signature file based on the signature name
+createLink
 }
