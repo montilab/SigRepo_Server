@@ -1,4 +1,4 @@
-#' @title Create a link to a signature file based on the signature name
+#' @title createLink
 #' @param signatureName the name of the signature to link to
 #' @param signatureDir directory to the signature files; defaults to settings
 #' configured when running SigRepoR::configureSigRepo
