@@ -23,6 +23,7 @@ jobs:
 
       # This lets us augment with additional dependencies
       - name: Install system dependencies
+        runs-on: ubuntu-18.04
         if: runner.os == 'Linux'
         env:
           GITHUB_PAT: ${{ secrets.ACCESS_TOKEN }}
