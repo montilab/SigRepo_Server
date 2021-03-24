@@ -24,7 +24,7 @@ jobs:
             os: windows-latest
             r: release
 name: R-CMD-check
-true: 
+on: 
   pull_request: 
     branches: 
       - master
