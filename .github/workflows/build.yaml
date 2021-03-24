@@ -1,7 +1,7 @@
 on: [push]
 jobs:
   build:
-    runs-on: ${{ matrix.config.os }} 
+    runs-on: ubuntu-18.04
     container: bioconductor/bioconductor_docker:devel
     steps:
       - uses: actions/checkout@v1
@@ -75,8 +75,28 @@ jobs:
           _R_CHECK_CRAN_INCOMING_REMOTE_: false
         run: rcmdcheck::rcmdcheck(args = c("--no-manual"), error_on = "warning", check_dir = "check")
         shell: Rscript {0}
-    matrix:
-      config:
-        - {os: macOS-latest, r: 'release'}
-        - {os: ubuntu-18.04, r: 'release', rspm: "https://packagemanager.rstudio.com/cran/__linux__/bionic/latest"}
-        - {os: windows-latest, r: 'devel'}
+
+      # Push docker image to docker hub  
+      #- uses: docker/build-push-action@v1
+      #  with:
+      #    username: ${{ secrets.DOCKER_USERNAME }}
+      #    password: ${{ secrets.DOCKER_PASSWORD }}
+      #    repository: montilab/rpkgs
+      #    tag_with_ref: true
+      #    tag_with_sha: true
+      #    tags: latest
+
+      # - name: Build pkgdown
+      #  run: |
+      #     PATH=$PATH:$HOME/bin/ Rscript -e 'pkgdown::build_site("."); file.copy("README_files", "docs", recursive=TRUE)'
+      # deploy needs rsync? Seems so.
+      #- name: Install deploy dependencies
+      #  run: |
+      #    apt-get update
+      #    apt-get -y install rsync
+      #- name: Deploy 🚀
+      #  uses: JamesIves/github-pages-deploy-action@releases/v3
+      #  with:
+      #    ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      #    BRANCH: gh-pages # The branch the action should deploy to.
+      #    FOLDER: docs # The folder the action should deploy.
