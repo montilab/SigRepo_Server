@@ -1,8 +1,15 @@
 on: [push]
 jobs:
   build:
-    runs-on: {os: ubuntu-18.04, r: 'release', rspm: "https://packagemanager.rstudio.com/cran/__linux__/bionic/latest"}
+    runs-on: ${{ matrix.config.os }}
     container: bioconductor/bioconductor_docker:devel
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { os: macOS-latest, r: '3.6'}
+          - { os: windows-latest, r: '3.6'}
+          - { os: ubuntu-18.04, r: '3.6', cran: "https://packagemanager.rstudio.com/all/__linux__/bionic/latest"}
     steps:
       - uses: actions/checkout@v1
         with:
