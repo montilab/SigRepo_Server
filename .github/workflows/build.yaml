@@ -49,7 +49,7 @@ jobs:
           libglpk-dev \
           libcurl4-openssl-dev \
           libmysqlclient-dev \
-          libmariadb-client-lgpl-dev \
+          libmariadb-dev-compat \
           libxml2-dev \
           libssl-dev \
           openssh-server \
