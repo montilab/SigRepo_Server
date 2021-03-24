@@ -7,6 +7,7 @@ jobs:
       fail-fast: false
       matrix: 
         config: 
+          - 
             os: macOS-latest
             r: release
           - 
@@ -23,7 +24,7 @@ jobs:
             os: windows-latest
             r: release
 name: R-CMD-check
-on: 
+true: 
   pull_request: 
     branches: 
       - master
