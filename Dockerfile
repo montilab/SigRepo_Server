@@ -1,3 +1,4 @@
+FROM ubuntu:18.04
 FROM bioconductor/bioconductor_docker:devel
  
 #COPY --chown=rstudio:rstudio . /home/rstudio/
