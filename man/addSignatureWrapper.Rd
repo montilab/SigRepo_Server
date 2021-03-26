@@ -8,7 +8,8 @@ addSignatureWrapper(
   objectFile,
   thisHandle,
   uploadPath = Sys.getenv("signatureDirectory"),
-  thisUser
+  thisUser,
+  verbose = F
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ OmicSignature Object. It can also be a variable that is the object itself.}
 \item{uploadPath}{where to upload the object file}
 
 \item{thisUser}{the username of the submitter}
+
+\item{verbose}{boolean whether to print messages.}
 }
 \description{
 Function that executes all required inserts and uploads of a signature

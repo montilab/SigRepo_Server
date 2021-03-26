@@ -8,12 +8,17 @@
 #' @param thisHandle Database connection handle
 #' @param uploadPath where to upload the object file
 #' @param thisUser the username of the submitter
+#' @param verbose boolean whether to print messages.
 #' @export
 addSignatureWrapper <-
 	function(objectFile,
 					 thisHandle,
 					 uploadPath=Sys.getenv("signatureDirectory"),
-					 thisUser) {
+					 thisUser,
+					 verbose=F) {
+		if(verbose){
+			print("checking your object/file...")
+		}
 		if (typeof(objectFile) == "character") {
 			qceMessage <- objectUploadQC(objectFile)
 			if (qceMessage != "") {
@@ -28,11 +33,19 @@ addSignatureWrapper <-
 				signatureObject <- readRDS(objectFile)
 				copyFile(objectFile, thisUser)
 			}
+			if(verbose){
+				print("you supplied a filename, so writing to cwd to stage for scp
+							to your signature server.")
+			}
 			writeSignatureFile(signatureObject, thisUser)
 		}
 		else if (typeof(objectFile) == "environment") {
 			# If you already have the object as a variable
 			# in your environment(proper form would be an environment type)
+			if(verbose){
+				print("you supplied an OmicSignature object, so writing to cwd to stage for scp
+							to your signature server.")
+			}
 			signatureObject <- objectFile
 			writeJson(objectFile,
 								paste(
@@ -50,7 +63,7 @@ addSignatureWrapper <-
 					":/",
 					uploadPath,
 					"/",
-					paste0(signatureObject$metadata$signature_name, ".json")
+					paste0(signatureObject$metadata$signature_name, "_obj.json")
 				)
 			)
 			print(command)
@@ -59,17 +72,23 @@ addSignatureWrapper <-
 		else {
 			stop("You need to upload with either an RDS file or a JSON file")
 		}
-		signatureName <- signatureObject$metadata$signatureName
+		signatureName <- signatureObject$metadata$signature_name
 		if (signatureName == "" || is.null(signatureName)) {
 			stop("STOP. YOU HAVE VIOLATED THE LAW. need to have a signature name in the metadata")
 		}
 		if (length(signatureObject[["difexp"]]) > 0) {
-			write.table(signatureObject[["difexp"]], 
-									paste(uploadPath, paste0(signatureName, "_difexp.tsv"), sep = "/"))
+			if(verbose){
+				print("This object has a differential expression matrix. Writing a tsv
+							of it to your server.")
+			}
+			write.table(signatureObject[["difexp"]], paste0(signatureName, "_difexp.tsv"))
+			copyFile(paste0(signatureName, "_difexp.tsv"), thisUser="cjoseph")
 		}
 		these_signatures <- signatureObject$signature
 		sig_meta <- signatureObject$metadata
-		print("adding signature information")
+		if(verbose){
+			print("adding signature information")
+		}
 		# if signature meta already in database, don't try to
 		# add it again and keep going with the other inserts
 		lastSid <-
@@ -83,7 +102,7 @@ addSignatureWrapper <-
 				sig_meta$signature_name,
 				sig_meta$organism,
 				sig_meta$platform,
-				singleQuote(sig_meta$cell_lines),
+				singleQuote(sig_meta$source_type),
 				phenotype = sig_meta$phenotype,
 				thisUser,
 				uploadHandle = thisHandle,
