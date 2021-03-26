@@ -14,7 +14,7 @@
 statsByAttribute <- function(attribute) {
   sql <- paste("SELECT", attribute, ",count(signature_name) as 'count'
 FROM
-	platform_signature_view psv 
+	platform_signature_view psv  where source_type is not null
 GROUP BY", attribute, ";")
   return(sqlGeneric(sql))
 }

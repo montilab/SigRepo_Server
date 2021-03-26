@@ -1,5 +1,5 @@
 #' @title updateCollectionEntity
-#' @description update a collection in the DB
+#' @description update a collection in the DB. ensure you have update privilages
 #' @param connHandle DB connection
 #' @param collectionName current collection name
 #' @param newCollectionName new collection name

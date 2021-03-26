@@ -26,5 +26,5 @@ Dataframe with the following fields:
 > "count"-the number of signatures belonging to each attribute
 }
 \description{
-update a collection in the DB
+update a collection in the DB. ensure you have update privilages
 }
