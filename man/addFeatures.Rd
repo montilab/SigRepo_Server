@@ -13,7 +13,7 @@ addFeatures(featureName, referenceGenome, featureType, handle)
 
 \item{featureType}{string: name of the feature type e.g. "gene"}
 
-\item{handle:}{your connectin handle. ensure you have insert privilages on 
+\item{handle:}{your connection handle. ensure you have insert privilages on 
 your system}
 }
 \description{

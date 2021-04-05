@@ -4,7 +4,7 @@
 \alias{addSignatureKeywords}
 \title{addSignatureKeywords}
 \usage{
-addSignatureKeywords(keyword_v, sid, keywordHandle)
+addSignatureKeywords(keyword_v, sid, keywordHandle, verbose = F)
 }
 \arguments{
 \item{keyword_v}{character vector containing keywords}
@@ -12,6 +12,8 @@ addSignatureKeywords(keyword_v, sid, keywordHandle)
 \item{sid}{signature id associated with keywords}
 
 \item{keywordHandle}{connection handle for keyword-signature insertion to Database}
+
+\item{verbose}{verbosity. whether to output helpful print statements along the way}
 }
 \description{
 function for adding keyword-signature pairs
