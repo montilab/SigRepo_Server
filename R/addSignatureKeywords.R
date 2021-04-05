@@ -25,6 +25,9 @@ addSignatureKeywords <- function(keyword_v, sid, keywordHandle, verbose=F) {
     print("Here are your new keywords to go into the DB")
     print(newKeywords)
   }
+  else if(verbose==T){
+    print("No new keywords to be added beforehand.")
+  }
   newKeywordIds <- NULL
   # if there are any, add them to db
   if (length(newKeywords) != 0) {
