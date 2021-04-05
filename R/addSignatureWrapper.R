@@ -106,7 +106,7 @@ addSignatureWrapper <-
 				phenotype = sig_meta$phenotype,
 				thisUser,
 				uploadHandle = thisHandle,
-				verbose = T,
+				verbose = verbose,
 				disconnectAfter = F
 			)
 		}
@@ -131,7 +131,7 @@ addSignatureWrapper <-
 								lastSid,
 								sig_meta$signature_name,
 								thisHandle,
-								verbose = T)
+								verbose = verbose)
 		}
 		else{
 			print("level2 for this signature was already inserted. moving on")
@@ -143,7 +143,8 @@ addSignatureWrapper <-
 			if (length(keywordSignatureDupeCheck) == 0) {
 				addSignatureKeywords(signatureObject$metadata$keywords,
 														 lastSid,
-														 thisHandle)
+														 thisHandle,
+														 verbose=verbose)
 			}
 			else{
 				print("keyword-signature pairs for this signature were already added.")

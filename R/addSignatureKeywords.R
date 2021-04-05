@@ -4,8 +4,9 @@
 #' @param keyword_v character vector containing keywords
 #' @param sid signature id associated with keywords
 #' @param keywordHandle connection handle for keyword-signature insertion to Database
+#' @param verbose verbosity. whether to output helpful print statements along the way
 #' @export
-addSignatureKeywords <- function(keyword_v, sid, keywordHandle) {
+addSignatureKeywords <- function(keyword_v, sid, keywordHandle, verbose=F) {
   keywords <- unique(as.character(keyword_v))
   # what keywords already are in the DB?
   # isolate new keywords and insert into core table
@@ -16,12 +17,21 @@ addSignatureKeywords <- function(keyword_v, sid, keywordHandle) {
     handle = keywordHandle, disconnectAfter = F
   )
   # new keywords
-  keywordSql
+  if(verbose){
+    keywordSql
+  }
   newKeywords <- setdiff(keywords, keywordSql$keyword)
+  if(length(newKeywords)>0 && verbose==T){
+    print("Here are your new keywords to go into the DB")
+    print(newKeywords)
+  }
   newKeywordIds <- NULL
   # if there are any, add them to db
   if (length(newKeywords) != 0) {
     insertNewkeywordsQuery <- paste("INSERT INTO keywords(keyword) VALUES ", paste("(", singleQuote(newKeywords), ")", sep = "", collapse = ","), ";")
+    if(verbose){
+      print(insertNewkeywordsQuery)
+    }
     # keywordHandle = newConnHandle(thisUser=user, thisPassword = pw)
     insertNewkeywordsSql <- sqlGeneric(insertNewkeywordsQuery, keywordHandle)
     newKeywordIds <-
@@ -52,6 +62,13 @@ addSignatureKeywords <- function(keyword_v, sid, keywordHandle) {
     ),
     ";"
   )
+  if(verbose==T){
+    print("inserting signature-keyword pairs with this query")
+    print(keywordSignatureInsertQuery)
+  }
   keywordHandle2 <- keywordHandle
   sqlGeneric(keywordSignatureInsertQuery, keywordHandle2)
+  if(verbose){
+    print("Finished adding new keywords(if any) and signature-keyword pairs")
+  }
 }
