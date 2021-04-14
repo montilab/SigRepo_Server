@@ -14,7 +14,9 @@ addUser(
 \arguments{
 \item{newUserName}{A character vector with the new username.}
 
-\item{newUserEmail}{A character vector with the new user's password.
+\item{newUserEmail}{A character vector with the new user's email}
+
+\item{newUserPassword}{A character vector with the new user's password.
 Strongly discouraged, will default to input prompts}
 
 \item{connectionHandle}{your connection handle object. be sure the user

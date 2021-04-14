@@ -5,7 +5,7 @@
 #' @param featureName string: name of the feature
 #' @param referenceGenome string: name of the reference genome
 #' @param featureType string: name of the feature type e.g. "gene"
-#' @param handle: your connection handle. ensure you have insert privilages on 
+#' @param handle your connection handle. ensure you have insert privilages on 
 #' your system
 #' @export
 addFeatures <- function(featureName, referenceGenome, featureType, handle){

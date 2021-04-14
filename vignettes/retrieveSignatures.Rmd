@@ -1,0 +1,147 @@
+---
+title: "Retrieve Signatures"
+author: "Callen Bragdon"
+date: "4/6/2021"
+output: html_document
+vignette: >
+ %\VignetteIndexEntry{Retrieve Signatures}
+ %\VignetteEngine{knitr::rmarkdown}
+ \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+If you haven't installed `SigRepoR` yet, please contact vmli@bu.edu for instruction.
+```{r message=FALSE, warning=FALSE}
+devtools::load_all(".")
+```
+
+# Configuration
+
+SigRepoR interacts with servers that are(possibly) not on your current working computer. Therefor, Before proceeding with uploading signatures, it's important that you first configure your session to point to which database to upload to,
+along with where to write files to in your file system.
+
+```
+configureSigRepo(
+	# Where do the OmicSignatures live in the server's fileSystem?
+	signatureDirectory=
+		"/opt/shiny-server/challenge_project/miscellanea/signatures/",
+	databaseServer="sigrepo.bu.edu", # Where's the database?
+	databasePort="4253", # What port is the database server using?
+	applicationPort="",
+	signatureServer="sigrepo.bu.edu" # What server has the OmicSignatures?
+)
+```
+
+# Retrieve Signatures
+
+Now, we can retrieve signatures in a few ways
+
+## getSignatures()
+
+this function returns a named list
+
+- metadata: containing general information for
+each signature
+
+- level2: if requested, will have the level2 signature representation for all signatures
+
+you can get signatures based on a list of signature names, but for more granular queries, you can use sqlFindingQuery()
+
+
+## sqlFindingQuery
+
+You can use `sqlFindingQuery` to query your SQL database of interest without prior knowledge of SQL.
+
+```r
+# gets general metadata for signatures
+# 
+exampleSignatures <- sqlFindingQuery(
+	"signature_view",
+	fields=c("signature_name"),
+	# Now for the query
+	# Here I just want human signatures
+	ins=list(
+		"species"=c("Homo sapiens")
+	)
+)
+
+```
+
+
+If you want to grab level2 data with this function, you can either make your query from scratch, or pass more complex "subqueries" based on other search critera
+
+```r
+sqlFindingQuery(
+	"feature_signature_view",
+	ins = list(
+		"signature_name" = sqlFindingQuery(
+			"signature_view",
+			fields = c("signature_name"),
+			# Now for the query
+			# Here I just want human signatures
+			ins = list("species" = c("Homo sapiens"))
+		)$signature_name
+	)
+)
+```
+
+```r
+sqlFindingQuery(
+	"feature_signature_view",
+	ins = list(
+		"signature_name" = exampleSignatures
+	)
+)
+```
+
+
+# Retrieve Other Information
+
+Perhaps the most helpful tools for starting out, if you are not familiar with
+your database setup, are `getTables` and `getTableFields`
+
+## Database Information
+
+`getTables` will list all the tables and views of the database
+
+```r
+getTables()
+```
+
+If you want to know what fields are in a given table, which is helpful for removing
+fields you may not want to query, `getTableFields(tableName)` lists out
+all the fields for that given table, along with their datatypes
+
+```r
+getTableFields("signature_view")
+```
+
+
+## Platforms
+
+`getAssayPlatforms()` gets all the assay platforms that exist on the SigRepo
+DB instance you're pointing to.
+
+```r
+getAssayPlatforms()
+```
+
+
+## Level 2 Representation
+
+If you just want the level 2 representation of your signatures of interest,
+`getLevel2` will do that for you. It's essentially a wrapper for `sqlFindingQuery`
+but pointing to the feature_view table in the database.
+
+```r
+getLevel2(
+	insList=list(
+		"same_structure"=c("As the ins parameter in sqlFindingQuery")
+	)
+)
+```
+
+for each signature-feature pair, you'll get the name of the feature, the score,
+and the direction.
