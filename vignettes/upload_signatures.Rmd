@@ -22,15 +22,18 @@ devtools::load_all(".")
 
 ## Configuration
 
-Before proceeding with uploading signatures, it's important that you 
-first configure your session to point to which database to upload to,
+SigRepoR interacts with servers that are(possibly) not on your current working computer. Therefor, Before proceeding with uploading signatures, it's important that you first configure your session to point to which database to upload to,
 along with where to write files to in your file system.
 
 ```r
 configureSigRepo(
-	signatureDirectory="/your/directory/path",
-	databaseServer="put your database server (IP) address here", 
-	databasePort="put your port here. default 3306"
+	# Where do the OmicSignatures live in the server's fileSystem?
+	signatureDirectory=
+		"/opt/shiny-server/challenge_project/miscellanea/signatures/",
+	databaseServer="sigrepo.bu.edu", # Where's the database?
+	databasePort="4253", # What port is the database server using?
+	applicationPort="",
+	signatureServer="sigrepo.bu.edu" # What server has the OmicSignatures?
 )
 ```
 
@@ -50,7 +53,8 @@ addSignatureWrapper(
 	yourObjectOrFileOfObject,
 	thisHandle=yourConnectionHandle,
 	uploadPath=sys.getenv("signatureDirectory"),
-	user="your SigRepo Username"
+	user="your SigRepo Username",
+	verbose=T
 )
 ```
 
