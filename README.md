@@ -81,6 +81,22 @@ by default.
 
 Assuming you already have your OmicSignature object created, let's work with uploading.
 
+#### Requesting Upload Privileges
+
+If you don't have "write" access, after configuration, you can use `requestUser()`, which will add your table to the "user_requests" table in the database for review by an administrator, who will use `userApproval` to either grant or reject your request
+
+```r
+# you can choose not to put
+# parameters in, and use the console
+# readline capability to fill them in as you go.
+requestUser(
+  newUserName="requestedName", 
+  newUserEmail="example@test.edu"
+)
+# you'll still be prompted for a password you would want to use
+```
+
+
 #### Uploading OmicSignature Object
 
 To upload your object completely to your back-end
@@ -123,9 +139,8 @@ This function:
 
 If the collection you're uploading doesn't exist as an entry in the collections table of the database, the addCollectionSignatures function will add that collection as a new entry to the collections table before uploading the pairs.
 
-#### Requesting Upload Privileges
 
-If you don't have "write" access
+
 
 
 
