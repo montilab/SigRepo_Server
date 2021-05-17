@@ -4,6 +4,6 @@
 #' @param myIns optional named list with query parameters. see ?sqlFindingQuery
 #' for more information.
 #' @export
-getSpecies <- function(myIns=NULL){
-	sqlFindingQuery("species", ins=myIns)
+getSpecies <- function(myIns = NULL) {
+  sqlFindingQuery("species", ins = myIns)
 }

@@ -7,19 +7,24 @@
 #' @param uploadPath where to upload the file
 #' @param thisUser username of the submitter, for confirmation
 #' @export
-addSignatureCollection <- function(OmicSignatureCollectionObj, connHandle,
-                                   uploadPath, thisUser) {
-  OmicSigList <- OmicSignatureCollectionObj$OmicSigList
-  lapply(OmicSigList, addSignatureWrapper,
-    thisHandle = connHandle, uploadPath, thisUser
-  )
-  signatureNames <- list()
-  for (x in OmicSigList) {
-    list.append(signatureNames, x$metadata$signature_name)
+addSignatureCollection <-
+  function(OmicSignatureCollectionObj,
+           connHandle,
+           uploadPath,
+           thisUser) {
+    OmicSigList <- OmicSignatureCollectionObj$OmicSigList
+    lapply(OmicSigList,
+           addSignature,
+           thisHandle = connHandle,
+           uploadPath,
+           thisUser)
+    signatureNames <- list()
+    for (x in OmicSigList) {
+      list.append(signatureNames, x$metadata$signature_name)
+    }
+    addCollectionSignatures(
+      connHandle,
+      OmicSignatureCollectionObj$metadata$collection_name,
+      c(signatureNames)
+    )
   }
-  addCollectionSignatures(
-    connHandle,
-    OmicSignatureCollectionObj$metadata$collection_name,
-    c(signatureNames)
-  )
-}

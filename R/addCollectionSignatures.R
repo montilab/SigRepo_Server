@@ -10,33 +10,36 @@
 #' collectionName parameter
 #' @export
 addCollectionSignatures <- function(thisHandle,
-                                    collectionName=NULL,
-                                    signatures=NULL) {
-  collectionIdQuery <- "select 
-						  signature_collection_id as collectionId
-						from 
-						  signature_collections 
-						where signature_collection_name = ?scn;"
-  collectionId <- dbGetQuery(
-    thisHandle,
-    sqlInterpolate(thisHandle, collectionIdQuery,
-      scn = collectionName
-    )
-  )$collectionId
-  signatureIds <- sqlFindingQuery("signatures",
-    fields=c("signature_id"),
-    ins=list("signature_name"=c(signatures))
+                                    collectionName = NULL,
+                                    signatures = NULL) {
+  collectionIdQuery <- "select
+    signature_collection_id as collectionId
+    from
+      signature_collections
+    where signature_collection_name = ?scn;"
+  collectionId <- dbGetQuery(thisHandle,
+                             sqlInterpolate(thisHandle, collectionIdQuery,
+                                            scn = collectionName))$collectionId
+  signatureIds <- sqlFindingQuery(
+    "signatures",
+    fields = c("signature_id"),
+    ins = list("signature_name" = c(signatures))
   )$signature_id
-  signatureCollectionDf <- data_frame(
-    signatureIds=signatureIds,
-    collectionId=rep(collectionId, length(signatureIds))
+  signatureCollectionDf <- data_frame(signatureIds = signatureIds,
+                                      collectionId = rep(collectionId, length(signatureIds)))
+  dbWriteTable(
+    thisHandle,
+    name = "temp_table",
+    value = signatureCollectionDf,
+    row.names = F,
+    overwrite = T,
+    append = F
   )
-  dbWriteTable(thisHandle,
-    name="temp_table", value=signatureCollectionDf,
-    row.names=F, overwrite=T, append=F
+  dbGetQuery(
+    thisHandle,
+    "insert
+       into
+         signatures_to_collections(signature_id, signature_collection_id)
+        select * from temp_table;"
   )
-  dbGetQuery(thisHandle, "insert 
-			   into 
-			   signatures_to_collections(signature_id, signature_collection_id) 
-			   select * from temp_table;")
 }

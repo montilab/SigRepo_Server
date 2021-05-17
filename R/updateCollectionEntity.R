@@ -16,7 +16,7 @@ updateCollectionEntity <- function(connHandle, collectionName = NULL,
   }
 
   collectionIdQuery <- "select signature_collection_id 
-			from signature_collections where signature_collection_name = ?scn;"
+      from signature_collections where signature_collection_name = ?scn;"
   collectionId <- dbGetQuery(
     connHandle,
     sqlInterpolate(connHandle,
@@ -24,13 +24,14 @@ updateCollectionEntity <- function(connHandle, collectionName = NULL,
       scn = collectionName
     )
   )$signature_collection_id
-  queryUpdateString <- "UPDATE 
-			signature_collections 
-			SET 
-				signature_collection_name=?new_scn, 
-				signature_collection_description=?new_scd 
-			WHERE 
-				signature_collection_id=?scid;"
+  queryUpdateString <- "
+  UPDATE 
+    signature_collections 
+    SET 
+      signature_collection_name=?new_scn, 
+      signature_collection_description=?new_scd 
+    WHERE 
+      signature_collection_id=?scid;"
   queryUpdate <- sqlInterpolate(connHandle, queryUpdateString,
     new_scn = newCollectionName,
     new_scd = newCollectionDescription,
