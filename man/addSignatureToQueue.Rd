@@ -16,7 +16,7 @@ addSignatureToQueue(
 
 \item{signatureObject}{an OmicSignature Object.}
 
-\item{verdict}{whether to add a signature to your system, or to remove it 
+\item{verdict}{whether to add a signature to your system, or to remove it
 from your queue}
 
 \item{verbose}{verbosity of the command}
