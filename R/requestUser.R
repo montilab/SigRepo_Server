@@ -9,38 +9,36 @@
 #' @param newUserEmail string denoting the new user's email
 #'
 #' @export
-requestUser <- function(newUserName=NULL, newUserEmail=NULL){
-	if(is.null(newUserName)){
-		newUserName = readline(prompt="Enter your new Username: ")
-	}
-	if(is.null(newUserEmail)){
-		newUserEmail = readline(prompt="Enter your Email address: ")
-	}
-	#initialize password control
-	newUserPassword = getPass::getPass(msg="Enter your password: ")
-	newUserPasswordConfirm = getPass::getPass(msg="Confirm your password: ")
-	while(newUserPassword != newUserPasswordConfirm){
-		print("Passwords don't match. Try again.")
-		newUserPassword = getPass::getPass(msg="Enter your password: ")
-		newUserPasswordConfirm = getPass::getPass(msg="Confirm your password: ")
-	}
-	tryCatch({
-		sqlGeneric(
-			paste0(
-				"CALL request_user(",
-				paste(
-					singleQuote(newUserName),
-					singleQuote(newUserEmail),
-					singleQuote(newUserPassword), 
-					sep=","
-				),
-				");"	
-			)
-		)
-		print("Request successfully sent.")
-	}, 
-	error=function(e){
-		print(e)
-		}
-	)
+requestUser <- function(newUserName = NULL,
+                        newUserEmail = NULL) {
+  if (is.null(newUserName)) {
+    newUserName = readline(prompt = "Enter your new Username: ")
+  }
+  if (is.null(newUserEmail)) {
+    newUserEmail = readline(prompt = "Enter your Email address: ")
+  }
+  #initialize password control
+  newUserPassword = getPass::getPass(msg = "Enter your password: ")
+  newUserPasswordConfirm = getPass::getPass(msg = "Confirm your password: ")
+  while (newUserPassword != newUserPasswordConfirm) {
+    print("Passwords don't match. Try again.")
+    newUserPassword = getPass::getPass(msg = "Enter your password: ")
+    newUserPasswordConfirm = getPass::getPass(msg = "Confirm your password: ")
+  }
+  tryCatch({
+    sqlGeneric(paste0(
+      "CALL request_user(",
+      paste(
+        singleQuote(newUserName),
+        singleQuote(newUserEmail),
+        singleQuote(newUserPassword),
+        sep = ","
+      ),
+      ");"
+    ))
+    print("Request successfully sent.")
+  },
+  error = function(e) {
+    print(e)
+  })
 }

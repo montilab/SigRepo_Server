@@ -12,9 +12,15 @@
 #' > "count"-the number of signatures belonging to each attribute
 #' @export
 statsByAttribute <- function(attribute) {
-  sql <- paste("SELECT", attribute, ",count(signature_name) as 'count'
+  sql <- paste(
+    "SELECT",
+    attribute,
+    ",count(signature_name) as 'count'
 FROM
-	platform_signature_view psv  where source_type is not null
-GROUP BY", attribute, ";")
+  platform_signature_view psv  where source_type is not null
+GROUP BY",
+    attribute,
+    ";"
+  )
   return(sqlGeneric(sql))
 }

@@ -1,59 +1,156 @@
 #' @title addSignature
-#' @description Adds signature information to signatures table in the DB
-#' @importFrom DBI dbSendQuery dbDisconnect
-#' @param sig_name name of signature
-#' @param species_name name of *species*
-#' @param platform_name name of assay platform
-#' @param cell_line name of cell line
-#' @param phenotype character describing the phenotype of signature
-#' @param uploader character: the user uploading the signature
-#' @param uploadHandle connection handle: the connection handle to use
-#' for uploading the signature
-#' @param verbose default to FALSE. use TRUE to print messages
-#' @param disconnectAfter Boolean: whether to disconnect the handle
-#' when finished. 
-#' all fields are usually obtained from input values from application
+#' @description Function that executes all required inserts and uploads of a signature
+#' @importFrom xfun file_ext
+#' @importFrom utils write.table
+#' @importFrom OmicSignature readJson writeJson
+#' @param objectFile a json or rds file, formatted in the way of an
+#' OmicSignature Object. It can also be a variable that is the object itself.
+#' @param thisHandle Database connection handle
+#' @param uploadPath where to upload the object file
+#' @param thisUser the username of the submitter
+#' @param verbose boolean whether to print messages.
 #' @export
-addSignature <- function(sig_name, species_name, platform_name,
-                         cell_line, phenotype=NULL, uploader, uploadHandle,
-                         verbose=F, disconnectAfter=T) {
-  phenotypeId <- phenotypeCheckOrAdd(phenotype, uploadHandle)
-  thisSubmitterId <- sqlFindingQuery("submitters", c("submitter_id"),
-    ins = list("submitter_name" = c(uploader))
-  )$submitter_id
-  now <- Sys.time()
-  signature_name <- singleQuote(sig_name)
-  my_species <- (species_name)
-  species_id_insert <- sqlFindingQuery("species", c("species_id"),
-    ins = list("species" = my_species)
-  )$species_id[1]
-  platform_id <- as.integer(sqlFindingQuery("assay_platforms",
-    c("platform_id"),
-    ins = list(
-      "platform_name" = platform_name,
-      "geo_platform_accession" = platform_name
-    ),
-    collapse_by = " OR "
-  )$platform_id[1])
-  insert_query <- paste("insert into signatures(
-                         signature_name,
-                         upload_date,
-                         species_id,
-                         cell_line,
-                         platform_id,
-                         phenotype_id,
-                         submitter_id) values(", paste(signature_name, "now()",
-    species_id_insert,
-    cell_line, platform_id,
-    phenotypeId, thisSubmitterId,
-    sep = ","
-  ), ");")
-  if (verbose) {
-    print(insert_query)
+addSignature <-
+  function(objectFile,
+           thisHandle,
+           uploadPath = Sys.getenv("signatureDirectory"),
+           thisUser,
+           verbose = F) {
+    if (verbose) {
+      print("checking your object/file...")
+    }
+    if (typeof(objectFile) == "character") {
+      qceMessage <- objectUploadQC(objectFile)
+      if (qceMessage != "") {
+        stop(qceMessage)
+      }
+      extension <- tolower(file_ext(objectFile))
+      if (extension == "json") {
+        signatureObject <- readJson(objectFile)
+        copyFile(objectFile, thisUser)
+      }
+      else if (extension == "rds") {
+        signatureObject <- readRDS(objectFile)
+        copyFile(objectFile, thisUser)
+      }
+      if (verbose) {
+        print("you supplied a filename, so writing to cwd to stage for scp
+          to your signature server.")
+      }
+      writeSignatureFile(signatureObject, thisUser)
+    }
+    else if (typeof(objectFile) == "environment") {
+      # If you already have the object as a variable
+      # in your environment(proper form would be an environment type)
+      if (verbose) {
+        print(
+          "you supplied an OmicSignature object, so writing to cwd to stage for scp
+          to your signature server."
+        )
+      }
+      signatureObject <- objectFile
+      writeJson(objectFile,
+                paste(
+                  ".",
+                  paste0(signatureObject$metadata$signature_name, ".json"),
+                  sep = "/"
+                ))
+      command = paste(
+        "scp",
+        paste0(signatureObject$metadata$signature_name, ".json"),
+        paste0(
+          thisUser,
+          "@",
+          Sys.getenv("databaseServer"),
+          ":/",
+          uploadPath,
+          "/",
+          paste0(signatureObject$metadata$signature_name, "_obj.json")
+        )
+      )
+      print(command)
+      system(command)
+    }
+    else {
+      stop("You need to upload with either an RDS file or a JSON file")
+    }
+    signatureName <- signatureObject$metadata$signature_name
+    if (signatureName == "" || is.null(signatureName)) {
+      stop("STOP. YOU HAVE VIOLATED THE LAW. need to have a signature name in the metadata")
+    }
+    if (length(signatureObject[["difexp"]]) > 0) {
+      if (verbose) {
+        print(
+          "This object has a differential expression matrix. Writing a tsv
+            of it to your server."
+        )
+      }
+      write.table(signatureObject[["difexp"]], paste0(signatureName, "_difexp.tsv"))
+      copyFile(paste0(signatureName, "_difexp.tsv"), thisUser = "cjoseph")
+    }
+    these_signatures <- signatureObject$signature
+    sig_meta <- signatureObject$metadata
+    if (verbose) {
+      print("adding signature information")
+    }
+    # if signature meta already in database, don't try to
+    # add it again and keep going with the other inserts
+    lastSid <-
+      as.integer(sqlFindingQuery(
+        "signatures",
+        c("signature_id"),
+        ins = list("signature_name" = sig_meta$signature_name)
+      )$signature_id[1])
+    if (is.na(lastSid)) {
+      addSignatureMetadata(
+        sig_meta$signature_name,
+        sig_meta$organism,
+        sig_meta$platform,
+        singleQuote(sig_meta$source_type),
+        phenotype = sig_meta$phenotype,
+        thisUser,
+        uploadHandle = thisHandle,
+        verbose = verbose,
+        disconnectAfter = F
+      )
+    }
+    else {
+      print("signature meta info already added, moving on")
+    }
+    # since signature is inserted now, we can get its signature id
+    # and feed it into the lvl2/3 upload function
+    lastSid <-
+      as.integer(sqlFindingQuery(
+        "signatures",
+        c("signature_id"),
+        ins = list("signature_name" = sig_meta$signature_name)
+      )$signature_id[1])
+    print("added signature info successfully. inserting level2")
+    level2DupeCheck <- sqlFindingQuery("feature_signature",
+                                       ins = list(signature_id = lastSid))$signature_id
+    if (length(level2DupeCheck) == 0) {
+      addLevel2(these_signatures,
+                lastSid,
+                sig_meta$signature_name,
+                thisHandle,
+                verbose = verbose)
+    }
+    else{
+      print("level2 for this signature was already inserted. moving on")
+    }
+    if (length(signatureObject$metadata$keywords) != 0) {
+      keywordSignatureDupeCheck <- sqlFindingQuery("keyword_signature",
+                                                   ins = list(signature_id = lastSid))$signature_id
+      if (length(keywordSignatureDupeCheck) == 0) {
+        addSignatureKeywords(signatureObject$metadata$keywords,
+                             lastSid,
+                             thisHandle,
+                             verbose = verbose)
+      }
+      else{
+        print("keyword-signature pairs for this signature were already added.")
+      }
+      print("Signature-Keyword Pairs Added.")
+    }
+    print("finished inserting this signature")
   }
-  insert_signature_conn <- uploadHandle
-  dbSendQuery(insert_signature_conn, insert_query)
-  if (disconnectAfter) {
-    dbDisconnect(insert_signature_conn)
-  }
-}

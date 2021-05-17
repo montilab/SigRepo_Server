@@ -9,17 +9,17 @@
 #' privilages. see ?newConnHandle for more information
 #' @export
 addAssayPlatform <- function(accession, name, species, handle) {
-	speciesId = sqlFindingQuery("species", ins = list("species" = species))$species_id
-	insertQuery = paste0(
-		"INSERT INTO assay_platforms(geo_platform_accession, platform_name, species_id)
-		values('",
-		accession,
-		"', '",
-		name,
-		"',",
-		speciesId,
-		");"
-	)
-	print(insertQuery)
-	sqlGeneric(insertQuery, handle)
+  speciesId = sqlFindingQuery("species", ins = list("species" = species))$species_id
+  insertQuery = paste0(
+    "INSERT INTO assay_platforms(geo_platform_accession, platform_name, species_id)
+    values('",
+    accession,
+    "', '",
+    name,
+    "',",
+    speciesId,
+    ");"
+  )
+  print(insertQuery)
+  sqlGeneric(insertQuery, handle)
 }

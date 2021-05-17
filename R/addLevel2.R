@@ -17,7 +17,7 @@ addLevel2 <- function(lv2_file, sid, sig_name, thisHandle, verbose=F) {
     lv2Table <- lv2_file
   }
   else {
-  	print(typeof(lv2_file))
+    print(typeof(lv2_file))
     lv2Table <- read.table(lv2_file, header = T)
   }
   if (verbose == T) {
