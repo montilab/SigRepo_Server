@@ -9,7 +9,7 @@ userApproval(userName, verdict, connHandle)
 \arguments{
 \item{userName}{the proposed user's username}
 
-\item{verdict}{Boolean or {1,0}. TRUE(T) for approve; FALSE(F) for reject. can also 
+\item{verdict}{Boolean or {1,0}. TRUE(T) for approve; FALSE(F) for reject. can also
 use {1,0}, respectively.}
 
 \item{connHandle}{your DB connection handle. Needed because an admin is
@@ -21,7 +21,7 @@ privileges to the database of interest by calling the stored procedure
 "approve_deny_user". You can either approve, which will
 grant these permissions and add them to the "users" table, or reject, which
 will remove the user from the "user_requests" table. Upon successful
-approval, the request will also be deleted. The stored procedure, 
+approval, the request will also be deleted. The stored procedure,
 "approve_deny_user", itself, takes two arguments: the username and
 {1,0} for {approve, reject}.
 }

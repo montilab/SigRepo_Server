@@ -5,39 +5,25 @@
 \title{addSignature}
 \usage{
 addSignature(
-  sig_name,
-  species_name,
-  platform_name,
-  cell_line,
-  phenotype = NULL,
-  uploader,
-  uploadHandle,
-  verbose = F,
-  disconnectAfter = T
+  objectFile,
+  thisHandle,
+  uploadPath = Sys.getenv("signatureDirectory"),
+  thisUser,
+  verbose = F
 )
 }
 \arguments{
-\item{sig_name}{name of signature}
+\item{objectFile}{a json or rds file, formatted in the way of an
+OmicSignature Object. It can also be a variable that is the object itself.}
 
-\item{species_name}{name of *species*}
+\item{thisHandle}{Database connection handle}
 
-\item{platform_name}{name of assay platform}
+\item{uploadPath}{where to upload the object file}
 
-\item{cell_line}{name of cell line}
+\item{thisUser}{the username of the submitter}
 
-\item{phenotype}{character describing the phenotype of signature}
-
-\item{uploader}{character: the user uploading the signature}
-
-\item{uploadHandle}{connection handle: the connection handle to use
-for uploading the signature}
-
-\item{verbose}{default to FALSE. use TRUE to print messages}
-
-\item{disconnectAfter}{Boolean: whether to disconnect the handle
-when finished. 
-all fields are usually obtained from input values from application}
+\item{verbose}{boolean whether to print messages.}
 }
 \description{
-Adds signature information to signatures table in the DB
+Function that executes all required inserts and uploads of a signature
 }

@@ -1,11 +1,11 @@
-url: https://Vanessa104.github.io/SigRepoR
+url: https://montilab.github.io/SigRepoR
 
 template:
   params:
-    bootswatch: flatly
+    bootswatch: lux
 
 home:
-  title: "R Package Skeleton"
+  title: "SigRepoR"
   type: inverse
 
 navbar:
@@ -13,14 +13,11 @@ navbar:
   left:
     - text: "Home"
       href: index.html
-    - text: "Docs"
+    - text: "Documentation"
       menu:
-      - text: "maybe Basic Usage"
-        href: articles/docs/basics.html
-    - text: "Reference"
-      href: reference/index.html
-  right:
-    - text: "Change Log"
-      href: news/index.html
-    - icon: fa-github
-      href: https://github.com/Vanessa104/OmicSig_Shiny/SigRepoR
+      - text: "Upload Signatures"
+        href: articles/uploadSignatures.html
+    - text: "Retrieve Signatures"
+      href: articles/retrieveSignatures.html
+  right: 
+
