@@ -1,30 +1,53 @@
-#' @title addSignatureCollection
-#' @description adding an OmicSignatureCollection objecct to your file system
-#' and databasee
-#' @importFrom rlist list.append
-#' @param OmicSignatureCollectionObj the OmicSignatureCollection Object to upload
-#' @param connHandle The database connection handle
-#' @param uploadPath where to upload the file
-#' @param thisUser username of the submitter, for confirmation
-#' @export
-addSignatureCollection <-
-  function(OmicSignatureCollectionObj,
-           connHandle,
-           uploadPath,
-           thisUser) {
-    OmicSigList <- OmicSignatureCollectionObj$OmicSigList
-    lapply(OmicSigList,
-           addSignature,
-           thisHandle = connHandle,
-           uploadPath,
-           thisUser)
-    signatureNames <- list()
-    for (x in OmicSigList) {
-      list.append(signatureNames, x$metadata$signature_name)
-    }
-    addCollectionSignatures(
-      connHandle,
-      OmicSignatureCollectionObj$metadata$collection_name,
-      c(signatureNames)
-    )
-  }
+
+addSignatureCollection <- function(
+  conn,
+  omic_signature_collection,
+  user_id
+){
+  
+  # Table name in database
+  table <- "signature_collection"
+  
+  # Check if table exists in database
+  all_tables <- tryCatch({
+    DBI::dbGetQuery(conn = conn, statement = "show tables;")
+  }, error = function(e){
+    stop(e)
+  }, warning = function(w){
+    message(w, "\n")
+  })
+  
+  if(!table %in% all_tables[,1])
+    stop(sprintf("There is no '%s' table in the database.", table))
+  
+  # Check if omic_signature_collection is an OmicSignature class object
+  if(!is(omic_signature_collection, "R6"))
+    stop("'omic_signature_collection' must be an R6 class object from OmicSignature package.")  
+  
+  # Check metadata and signature
+  if(!"metadata" %in% names(omic_signature_collection))
+    stop("'omic_signature_collection' must contain a metadata object.\n")
+  
+  if(!"OmicSigList" %in% names(omic_signature_collection))
+    stop("'omic_signature_collection' must contain an OmicSigList object.\n")
+  
+  metadata <- omic_signature_collection$metadata # required
+  OmicSigList <- omic_signature_collection$OmicSigList # required
+  
+  if(is.null(metadata) || nrow(metadata) == 0)
+    stop("'metadata' in OmicSignatureCollection cannot be empty.")
+  
+  if(is.null(OmicSigList))
+    stop("'OmicSigList' in OmicSignatureCollection cannot be empty.")
+  
+  # Check required metadata fields
+  metadata_fields <- c('collection_name', 'description')
+  
+  if(any(!metadata_fields %in% names(metadata)))
+    stop("'metadata' in OmicSignatureCollection must have the following column names:", paste0(metadata_fields, collapse = ", "))
+  
+  
+}
+
+
+
