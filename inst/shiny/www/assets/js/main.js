@@ -23,7 +23,7 @@
 				$body.removeClass('is-preload');
 			}, 100);
 		});
-
+		
 	// Dropdowns.
 		$('#nav > ul').dropotron({
 			mode: 'fade',
@@ -36,7 +36,7 @@
 		// Toggle.
 			$(
 				'<div id="navToggle">' +
-					'<a href="#navPanel" class="toggle"></a>' +
+					'<div class="container"><div class="row toggled"><a href="#navPanel" class="toggle"></a></div></div>' +
 				'</div>'
 			)
 				.appendTo($body);
@@ -60,5 +60,12 @@
 					target: $body,
 					visibleClass: 'navPanel-visible'
 				});
-
+		
 })(jQuery);
+
+function get_content_page(page){
+  var page = String(page);
+  Shiny.onInputChange("selected_page", page);
+}
+
+

@@ -1,7 +1,5 @@
 #' @title newConnHandler
 #' @description Establish a new connection handle to the host
-#' @importFrom DBI dbConnect
-#' @importFrom RMySQL MySQL
 #' @param driver driver of the database. Default is RMySQL::MySQL()
 #' @param dbname table schema of which you want the handle to point.
 #' @param host host server in which you want to connect
@@ -10,6 +8,8 @@
 #' @param password password associated with the user
 #' @return a MySQL connection Handle.
 #' @export
+#' @importFrom DBI dbConnect
+#' @importFrom RMySQL MySQL
 newConnHandler <- function(
     driver = RMySQL::MySQL(),
     dbname = Sys.getenv("DBNAME"), 
@@ -20,24 +20,23 @@ newConnHandler <- function(
 ){
   
   if(!is(driver, "MySQLDriver"))
-    stop("'driver' must be a mySQL class object")
+    stop("'driver' must be a mySQL class object from RMySQL package")
   
   stopifnot("'dbname' cannot be empty." = 
-              (length(dbname) > 0 && (!dbname %in% c(NA, ""))))
-
+              (length(dbname) > 0 && !dbname %in% c(NA, "")))
+  
   stopifnot("'host' cannot be empty." = 
-              (length(host) > 0 && (!host %in% c(NA, ""))))
+              (length(host) > 0 && !host %in% c(NA, "")))
   
   stopifnot("'port' cannot be empty and must be a numeric value." = 
-              (length(port) > 0 && is.numeric(port) &&
-                 (!port %in% c(NA, ""))))
-
+              (length(port) > 0 && is.numeric(port) && !port %in% c(NA, "")))
+  
   stopifnot("'user' cannot be empty." = 
-              (length(user) > 0 && (!user %in% c(NA, ""))))
+              (length(user) > 0 && !user %in% c(NA, "")))
   
   stopifnot("'password' cannot be empty." = 
-              (length(password) > 0 && (!password %in% c(NA, ""))))
-
+              (length(password) > 0 && !password %in% c(NA, "")))
+  
   tryCatch({
     DBI::dbConnect(
       drv = driver,
@@ -48,7 +47,7 @@ newConnHandler <- function(
       password = password
     )
   }, error = function(e){
-    stop(e)
+    stop(e, "\n")
   }, warning = function(w){
     message(w, "\n")
   })

@@ -1,0 +1,15 @@
+services:
+  sigrepo_rstudio_server:
+    container_name: sigrepo_rstudio_server
+    image: montilab/sigrepo_rstudio:latest
+    environment:
+      - PASSWORD=SigRepo  
+    ports:
+      - 7878:8787
+    restart: always
+    volumes:
+      - /montilab-p/SigRepoShiny:/home/rstudio/SigRepoShiny  
+      - /montilab-p/OmicSignature:/home/rstudio/OmicSignature
+      - /montilab-p/SigRepoR:/home/rstudio/SigRepoR
+      - /montilab-p/mysql:/home/rstudio/mysql
+

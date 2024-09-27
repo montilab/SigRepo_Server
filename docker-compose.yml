@@ -1,57 +1,12 @@
-version: '3.6'
-
 services:
   mysql:
     container_name: mysql
-    image: mysql:latest
+    image: montilab/sigrepo_mysql:latest
     volumes:
-      - /Users/reinachau/Github/SigRepoShiny/mysql/conf.d:/etc/mysql/conf.d
-      - /Users/reinachau/Github/SigRepoShiny/mysql/data:/var/lib/mysql
+      - /montilab-p/mysql/conf.d:/etc/mysql/conf.d
+      - /montilab-p/mysql/database:/var/lib/mysql
     ports:
-      - 4253:4253
+      - 3306:3306
     restart: always
-    networks:
-      - db-net
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: sigrepo
-      MYSQL_USER: guest
-      MYSQL_PASSWORD: guest
-      
-  sigrepo:
-    container_name: sigrepo
-    image: sigrepo:latest
-    build: 
-      context: .
-      dockerfile: Dockerfile-rc
-    depends_on:
-      - mysql
-    ports:
-      - 3838:38380
-    restart: always
-    networks:
-      - db-net
-    volumes:
-      - /Users/reinachau/Github/SigRepoShiny/Shiny:/srv/shiny-server
-      - /Users/reinachau/Github/SigRepoShiny/R:/srv
-      - /Users/reinachau/Github/SigRepoShiny/miscellanea/signatures:/var/data/sigrepo 
-
-  bioconductor_docker_rstudio:
-    container_name: bioconductor_docker_rstudio
-    image: sigrepo-rc:latest
-    environment:
-      - PASSWORD=SigRepo  
-    ports:
-      - 8787:8787
-    restart: always
-    networks:
-      - db-net
-    volumes:
-      - /Users/reinachau/Github/SigRepoShiny:/home/rstudio/SigRepoShiny  
-
-networks:
-  db-net:
-    name: db-net
-    external: true
-    
-    
+    env_file:
+      - mysql-config.env
