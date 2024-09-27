@@ -1,0 +1,9 @@
+services:
+  sigrepo:
+    container_name: sigrepo
+    image: montilab/sigrepo_shiny:latest
+    ports:
+      - 8080:38380
+    restart: always
+    volumes:
+      - /montilab-p/SigRepoR/inst/shiny:/srv/shiny-server

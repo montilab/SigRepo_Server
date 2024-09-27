@@ -1,131 +1,85 @@
-
+#' @title addTranscriptomicsFeatureSet
+#' @description Add Transcriptomics Feature Set into database
+#' @param conn An established connection to database using newConnhandler() 
+#' @param feature_set A data frame containing appropriate column names: 
+#' feature_name, organism, description, synonyms, n_synonyms, ensemble_ids, 
+#' n_ensemble_ids, transcript_biotypes, chromosome_name, start_position, 
+#' end_position
+#' @export
 addTranscriptomicsFeatureSet <- function(
     conn,
     feature_set
 ){
   
-  # Name of table in database
-  table <- "transcriptomics_proteomics_features" 
+  # Check connection
+  conn_info <- SigRepoR::checkConnection(conn = conn)
   
-  # Get column fields
-  table_query <- sprintf("SELECT * FROM %s LIMIT 1", table)
-  query_tbl <- DBI::dbGetQuery(conn = conn, statement = table_query)
-  query_col_names <- colnames(query_tbl)[which(!colnames(query_tbl) %in% c("feature_id", "organism_id"))]
-  tbl_col_names <- c(query_col_names, "organism")
+  # Create a list of variables to check database
+  database <- conn_info$dbname 
+  db_table_name <- "transcriptomics_features"
+  table <- feature_set
+  require_tbl_colnames <- c("feature_name", "organism_id")
+  include_tbl_colnames <- NULL
+  exclude_db_colnames <- c("feature_id")
   
-  if(any(!tbl_col_names %in% colnames(feature_set)))
-    stop("'feature_set' must have the following column names: ", paste0(tbl_col_names, collapse = ", "))
+  # Look up organism id from the the database
+  unique_organisms <- unique(table$organism)
   
-  ## Clean up the table 
-  feature_set <- feature_set %>% 
-    dplyr::select(all_of(tbl_col_names)) %>% 
-    dplyr::mutate(
-      feature_name = feature_name %>% trimws() %>% gsub("'", "", .)
+  # SQL statement to look up organism in database
+  statement <- SigRepoR::lookup_table_sql(
+    table = "organisms", 
+    return_var = c("organism_id", "organism"), 
+    filter_coln_var = "organism", 
+    filter_coln_val = list("organism" = unique_organisms)
+  ) 
+  
+  # Get query table
+  organism_id_tbl <- tryCatch({
+    DBI::dbGetQuery(conn = conn, statement = statement)
+  }, error = function(e){
+    stop(e, "\n")
+  }, warning = function(w){
+    message(w, "\n")
+  })
+  
+  if(nrow(organism_id_tbl) != length(unique_organisms))
+    stop(sprintf("Organisms: %s is/are currently not existed in our database.\n", paste0(unique_organisms[which(!unique_organisms %in% organism_id_tbl$organism)], collapse=", ")),
+         "You can use 'getOrganisms()' function to see a list of available organisms in our database.\n",
+         "To add an organism to our database, please contact our admin for more details.\n")
+  
+  # Add organism id to the table
+  table <- table %>% 
+    dplyr::mutate(organism = trimws(tolower(organism))) %>% 
+    dplyr::left_join(
+      organism_id_tbl %>% 
+        dplyr::mutate(organism = trimws(tolower(organism))),
+      by = "organism"
     ) %>% 
-    dplyr::distinct(feature_name, .keep_all = TRUE) %>% 
-    base::replace(is.na(.), "'NULL'") %>% 
-    base::replace(. == "", "'NULL'")
+    dplyr::select(-"organism")
   
-  # Getting the unique organisms
-  unique_organism <- unique(feature_set$organism)
+  # Check if table exists in database
+  table <- SigRepoR::checkTableInput(
+    conn = conn,
+    database = database,
+    db_table_name = db_table_name,
+    table = table,
+    require_tbl_colnames = require_tbl_colnames,
+    include_tbl_colnames = include_tbl_colnames,
+    exclude_db_colnames = exclude_db_colnames
+  )
   
-  # Read in the organism table
-  organism_id_tbl <- lookup_values_sql(conn = conn, table="organisms", id_var="organism_id", coln_var="organism", coln_val=unique_organism) %>% 
-    dplyr::distinct(organism, organism_id, .keep_all = TRUE)
+  # Get SQL statement to insert table into database
+  statement <- SigRepoR::insert_table_sql(conn = conn, db_table_name = db_table_name, table = table)
   
-  ## Retrieve the organism ids
-  if(nrow(organism_id_tbl) > 0){
-    
-    ## Add organism ids to table
-    feature_set <- feature_set %>% 
-      dplyr::left_join(organism_id_tbl, by="organism") %>% 
-      base::replace(is.na(.), "'NULL'") %>% 
-      base::replace(. == "", "'NULL'")
-    
-    ## If table has values, only import non-existing ones
-    if(nrow(query_tbl) > 0){
-      
-      feature_set <- feature_set %>% 
-        dplyr::anti_join(
-          query_tbl,
-          by = "feature_name"
-        )
-      
-      if(nrow(feature_set) == 0) return(NULL)
-      
-    }
-    
-    ## Create final column names 
-    col_names <- c("organism_id", query_col_names)
-    
-    # Join column variables
-    coln_var <- paste0("(", paste0(col_names, collapse = ", "), ")")
-    
-    # Get values
-    if(nrow(organism_tbl) == 1){
-      
-      values <- paste0(
-        "(", 
-        paste0("'", feature_set$organism_id[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$feature_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$description[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$ensemble_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_ensembl_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$transcript_biotypes[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$chromosome_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$start_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$end_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"),
-        ");\n"
-      )
-      
-      # Join column values
-      coln_val <- paste0(values, collapse = "") %>% gsub("'NULL'", "NULL", .)    
-      
-    }else{
-      
-      first_values <- paste0(
-        "(", 
-        paste0("'", feature_set$organism_id %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$feature_name %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$description %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$synonyms %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_synonyms %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$ensemble_ids %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_ensembl_ids %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$transcript_biotypes %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$chromosome_name %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$start_position %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$end_position %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"),
-        "),\n"
-      )
-      
-      last_values <- paste0(
-        "(", 
-        paste0("'", feature_set$organism_id[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$feature_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$description[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$ensemble_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_ensembl_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$transcript_biotypes[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$chromosome_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$start_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$end_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"),
-        ");\n"
-      )
-      
-      # Join column values
-      coln_val <- paste0(c(first_values, last_values), collapse = "") %>% gsub("'NULL'", "NULL", .)
-      
-    }
-    
-    # Insert values into table
-    insert_table_sql(conn = conn, table = table, coln_var = coln_var, coln_val = coln_val)
-    
-  }
+  # Insert table into database
+  tryCatch({
+    DBI::dbGetQuery(conn = conn, statement = statement)
+  }, error = function(e){
+    stop(e, "\n")
+  }, warning = function(w){
+    message(w, "\n")
+  })
+  
 }
 
 
