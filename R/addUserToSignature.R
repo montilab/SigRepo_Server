@@ -1,24 +1,43 @@
-#' @title addSignatureAccess
-#' @description Add signature access information to database
+#' @title addUserToSignature
+#' @description Add user to signature access table in database
 #' @param conn An established database connection using newConnhandler() 
-#' @param access_tbl A data frame containing the appropriate column names:
-#' signature_id, user_id, access_type
+#' @param signature_id signature id 
+#' @param user_id user id
+#' @param access_type access type: 'owner' or 'user'
 #' @export
-addSignatureAccess <- function(
+addUserToSignature <- function(
     conn,
-    access_tbl
+    signature_id,
+    user_id,
+    access_type = c("owner", "user")
 ){
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "admin"
+    required_role = "user"
   )
-
+  
+  # Check access_type
+  access_type <- match.arg(access_type)  
+  
+  # Check signature_id
+  stopifnot("'signature_id' cannot be empty." = 
+              (length(signature_id) == 1 && !signature_id %in% c(NA, "")))
+  
+  # Check user_id
+  stopifnot("'user_id' cannot be empty." = 
+              (length(user_id) == 1 && !user_id %in% c(NA, "")))
+  
   # Get table name in database
   db_table_name <- "signature_access" 
-  table <- access_tbl
+  table <- data.frame(
+    signature_id = signature_id,
+    user_id = user_id,
+    access_type = access_type,
+    stringsAsFactors = FALSE
+  )
   
   # Create a hash key to look up values in database ####
   table <- SigRepo::createHashKey(
@@ -33,7 +52,7 @@ addSignatureAccess <- function(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
-    exclude_coln_names = NULL,
+    exclude_coln_names = "access_signature_id",
     check_db_table = TRUE
   )
   

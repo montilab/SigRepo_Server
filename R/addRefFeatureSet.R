@@ -16,17 +16,17 @@ addRefFeatureSet <- function(
   assay_type <- match.arg(assay_type)
   
   if(assay_type == "transcriptomics"){
-    addTranscriptomicsFeatureSet(conn = conn, feature_set = feature_set)
+    SigRepo::addTranscriptomicsFeatureSet(conn = conn, feature_set = feature_set)
   }else if(assay_type == "proteomics"){
-    addProteomicsFeatureSet(conn = conn, feature_set = feature_set)
+    SigRepo::addProteomicsFeatureSet(conn = conn, feature_set = feature_set)
   }else if(assay_type == "metabolomics"){
-    addMetabolomicsFeatureSet(conn = conn, feature_set = feature_set)
+    SigRepo::addMetabolomicsFeatureSet(conn = conn, feature_set = feature_set)
   }else if(assay_type == "methylomics"){
-    addMethylomicsFeatureSet(conn = conn, feature_set = feature_set)
+    SigRepo::addMethylomicsFeatureSet(conn = conn, feature_set = feature_set)
   }else if(assay_type == "genetic_variations"){
-    addGeneticVariationsFeatureSet(conn = conn, feature_set = feature_set)
+    SigRepo::addGeneticVariationsFeatureSet(conn = conn, feature_set = feature_set)
   }else if(assay_type == "dna_binding_sites"){
-    addDNABindingSitesFeatureSet(conn = conn, feature_set = feature_set)
+    SigRepo::addDNABindingSitesFeatureSet(conn = conn, feature_set = feature_set)
   }
   
 }

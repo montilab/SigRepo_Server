@@ -8,39 +8,42 @@ addPhenotype <- function(
     phenotype_tbl
 ){
   
-  # Check connection
-  conn_info <- SigRepoR::checkConnection(conn = conn)
-  
-  # Create a list of variables to check database
-  database <- conn_info$dbname
-  db_table_name <- "phenotypes"
-  table <- phenotype_tbl
-  require_tbl_colnames <- "phenotype"
-  include_tbl_colnames <- NULL
-  exclude_db_colnames <- "phenotype_id"
-  
-  # Check if table exists in database
-  table <- SigRepoR::checkTableInput(
+  # Check user connection and permission ####
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    database = database,
-    db_table_name = db_table_name,
-    table = table,
-    require_tbl_colnames = require_tbl_colnames,
-    include_tbl_colnames = include_tbl_colnames,
-    exclude_db_colnames = exclude_db_colnames
+    action_type = "INSERT",
+    required_role = "admin"
   )
   
-  # Get SQL statement to insert table into database
-  statement <- insert_table_sql(conn = conn, db_table_name = db_table_name, table = table)
+  # Create a list of variables to check database ####
+  db_table_name <- "phenotypes"
+  table <- phenotype_tbl
   
-  # Insert table into database
-  tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
+  # Check table against database table ####
+  table <- SigRepo::checkTableInput(
+    conn = conn, 
+    db_table_name = db_table_name,
+    table = table, 
+    exclude_coln_names = "phenotype_id",
+    check_db_table = TRUE
+  )
+  
+  # Remove duplicates from table before inserting into database ####
+  table <- SigRepo::removeDuplicates(
+    conn = conn,
+    db_table_name = db_table_name,
+    table = table,
+    coln_var = "phenotype",
+    check_db_table = FALSE
+  )
+  
+  # Insert table into database ####
+  SigRepo::insert_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    table = table,
+    check_db_table = FALSE
+  ) 
   
 }
 

@@ -7,20 +7,23 @@
 addSignatureFeatureSet(
   conn,
   signature_id,
+  organism_id,
   assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
     "genetic_variations", "dna_binding_sites"),
-  sig_feature_set
+  feature_set
 )
 }
 \arguments{
 \item{conn}{An established connection to database using newConnhandler()}
 
-\item{signature_id}{An unique signature name}
+\item{signature_id}{An unique signature id}
+
+\item{organism_id}{An unique organism id}
 
 \item{assay_type}{Type of assays: transcriptomics, proteomics, metabolomics, 
 methylomics, genetic_variations, dna_binding_sites}
 
-\item{sig_feature_set}{A data frame containing appropriate column names:
+\item{feature_set}{A data frame containing the appropriate column names:
 feature_name, origin_feature_id, score, direction}
 }
 \description{

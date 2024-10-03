@@ -8,5 +8,11 @@ services:
     ports:
       - 3306:3306
     restart: always
-    env_file:
-      - mysql-config.env
+    environment:
+      MYSQL_ROOT_PASSWORD: 'root'
+      MYSQL_DATABASE: 'sigrepo'
+      MYSQL_ROOT_HOST: '%'
+
+networks:
+  mysql_db:
+    name: mysql_db

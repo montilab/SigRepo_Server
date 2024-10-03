@@ -1,5 +1,5 @@
 #' @title addSampleType
-#' @description Add platform to database
+#' @description Add sample_type to database
 #' @param conn An established connection to database using newConnhandler() 
 #' @param sample_type_tbl An data frame containing appropriate column names:
 #' sample_type, brenda_accession
@@ -9,39 +9,50 @@ addSampleType <- function(
     sample_type_tbl
 ){
   
-  # Check connection
-  conn_info <- SigRepoR::checkConnection(conn = conn)
-  
-  # Create a list of variables to check database
-  database <- conn_info$dbname
-  db_table_name <- "sample_types"
-  table <- sample_type_tbl
-  require_tbl_colnames <- "sample_type"
-  include_tbl_colnames <- NULL
-  exclude_db_colnames <- "sample_type_id"
-  
-  # Check if table exists in database
-  table <- SigRepoR::checkTableInput(
+  # Check user connection and permission ####
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    database = database,
-    db_table_name = db_table_name,
-    table = table,
-    require_tbl_colnames = require_tbl_colnames,
-    include_tbl_colnames = include_tbl_colnames,
-    exclude_db_colnames = exclude_db_colnames
+    action_type = "INSERT",
+    required_role = "admin"
   )
   
-  # Get SQL statement to insert table into database
-  statement <- SigRepoR::insert_table_sql(conn = conn, db_table_name = db_table_name, table = table)
+  # Create a list of variables to check database ####
+  db_table_name <- "sample_types"
+  table <- sample_type_tbl
   
-  # Insert table into database
-  tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
+  # Create a hash key for user password
+  table <- SigRepo::createHashKey(
+    table = table,
+    hash_var = "sample_type_hashkey",
+    hash_columns = c("sample_type", "brenda_accession"),
+    hash_method = "md5"
+  )
+  
+  # Check table against database table ####
+  table <- SigRepo::checkTableInput(
+    conn = conn, 
+    db_table_name = db_table_name,
+    table = table, 
+    exclude_coln_names = "sample_type_id",
+    check_db_table = TRUE
+  )
+  
+  # Remove duplicates from table before inserting into database ####
+  table <- SigRepo::removeDuplicates(
+    conn = conn,
+    db_table_name = db_table_name,
+    table = table,
+    coln_var = "sample_type_hashkey",
+    check_db_table = FALSE
+  )
+  
+  # Insert table into database ####
+  SigRepo::insert_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    table = table,
+    check_db_table = FALSE
+  ) 
   
 }
 

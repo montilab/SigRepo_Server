@@ -13,3 +13,6 @@ services:
       - /montilab-p/SigRepoR:/home/rstudio/SigRepoR
       - /montilab-p/mysql:/home/rstudio/mysql
 
+networks:
+  rstudio_server:
+    name: rstudio_server

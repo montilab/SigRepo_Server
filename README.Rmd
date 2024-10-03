@@ -1,56 +1,68 @@
 ---
-title: "README"
-author: "Callen & Vanessa"
-date: "12/10/2020"
-output: github_document
+output: rmarkdown::github_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r, include=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(fig.path="./man/figures/", message=FALSE, collapse = TRUE, comment="")
+
+# For loading and installing packages
+library(devtools)
+load_all()
 ```
 
-# SigRepoR
+# SigRepo
 
 ## Contacts
 Reina Chau - `rchau88@bu.edu`  
 Vanessa Mengze Li - `vmli@bu.edu`  
+Stefano Monti - `smonti@bu.edu`
 
-## How to connect to SigRepo database
+# Installation
+
+- Using `devtools` package
+
+```r
+library(devtools)
+devtools::install_github("montilab/SigRepo")
+```
+
+# How to connect to SigRepo database
 
 1. Load packages
 
 ```{r pkgs}
 library(RMySQL)
 library(DBI)
+library(SigRepo)
 ```
 
-2. Connect to Sigrepo database using RMySQL driver
+2. Connect to SigRepo database using RMySQL driver for 'guest' access
 
 ```{r connection}
-conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
+conn <- SigRepo::newConnHandler(
+  driver = RMySQL::MySQL(),
   dbname = "sigrepo",
   host = "montilab.bu.edu",
   port = 3306,
-  username = "guest",
+  user = "guest",
   password = "guest"
 )
 ```
 
-3. See connection information
+3. See user connection information
 
 ```{r info}
 conn_info <- DBI::dbGetInfo(conn)
 conn_info
 ```
 
-# Database Schema Location:
+# Database Schemas are stored at:
 inst/init/00-sigrepo-initiate-table-schemas.R
 
-# Shiny Application Location:
+# Shiny Application is stored at:
 inst/shiny/app.R
 
-# Plumber API Location:
+# Plumber API is stored at:
 inst/shiny/sigrepo_api.R
 
 

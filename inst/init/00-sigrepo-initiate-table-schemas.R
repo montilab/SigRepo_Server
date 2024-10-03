@@ -7,22 +7,23 @@ library(tidyverse)
 
 # For loading and installing packages
 library(devtools)
+load_all()
 
-# Establish DB connection 
-conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
-  dbname = "sigrepo",
-  host = "montilab.bu.edu",
-  port = 3306,
-  username = "root",
-  password = "root"
+## Establish database connection
+conn <- SigRepo::newConnHandler(
+  driver = RMySQL::MySQL(),
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
 )
 
 # Set foreign key checks to false when dropping tables
-DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;")
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 # Show all tables in DB
-table_results <- dbGetQuery(conn=conn, statement="show tables;")
+table_results <- suppressWarnings(DBI::dbGetQuery(conn=conn, statement="show tables;"))
 table_results
 
 ###################
@@ -31,21 +32,15 @@ table_results
 #
 ##################
 
-if(nrow(table_results) > 0){
-  1:nrow(table_results) %>% 
-    walk(
-      function(t){
-        #t=1;
-        table_name <- table_results$Tables_in_sigrepo[t]
-        # Drop table
-        drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-        DBI::dbGetQuery(conn = conn, statement = drop_table_sql)
-      }
-    )
-}
-
-# Initiate table auto increment value
-auto_increment <- 1000
+purrr::walk(
+  seq_len(nrow(table_results)),
+  function(t){
+    #t=1;
+    table_name <- table_results$Tables_in_sigrepo[t]
+    drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+    suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+  }
+)
 
 ############# 
 #
@@ -53,23 +48,21 @@ auto_increment <- 1000
 #
 ############# 
 
-# Drop table
-table_number <- 1
+# Table name
 table_name <- "signatures"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `signature_id` INT NOT NULL,
+  `signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `direction_type` SET("uni-directional", "bi-directional", "multiple") NOT NULL,
-  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites", "others") NOT NULL,
-  `phenotype_id` INT DEFAULT NULL,
+  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
+  `phenotype_id` INT UNSIGNED DEFAULT NULL,
   `platform_id` VARCHAR(255) DEFAULT NULL,
-  `sample_type_id` INT DEFAULT NULL,
+  `sample_type_id` INT UNSIGNED DEFAULT NULL,
   `covariates` TEXT DEFAULT NULL,
   `score_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `logfc_cutoff` NUMERIC(10, 8) DEFAULT NULL,
@@ -79,11 +72,14 @@ CREATE TABLE `%s` (
   `keywords` TEXT DEFAULT NULL,
   `PMID` INT DEFAULT NULL,
   `year` INT DEFAULT NULL,
+  `author` TEXT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
   `user_id` VARCHAR(255) NOT NULL,
-  `uploaded_date` DATETIME DEFAULT CURRENT_TIMESTAMP,  
-  PRIMARY KEY (`signature_id`, `signature_name`, `organism_id`, `direction_type`, `assay_type`, `user_id`),
+  `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
+  `signature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`signature_id`),
+  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `user_id`),
   FOREIGN KEY (`organism_id`) REFERENCES organisms (`organism_id`),
   FOREIGN KEY (`phenotype_id`) REFERENCES phenotypes (`phenotype_id`),
   FOREIGN KEY (`platform_id`) REFERENCES platforms (`platform_id`),
@@ -93,7 +89,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -101,24 +97,28 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
+# Table name
 table_name <- "signature_feature_set"
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `signature_id` INT NOT NULL,
-  `feature_id` INT NOT NULL,
-  `orig_feature_id` TEXT DEFAULT NULL,
+  `sig_feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `signature_id` INT UNSIGNED NOT NULL,
+  `orig_feature_id` VARCHAR(255) DEFAULT NULL,
+  `feature_id` INT UNSIGNED NOT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
   `direction` SET("+", "-"),
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
-  PRIMARY KEY (`signature_id`, `feature_id`, `assay_type`),
+  `sig_feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`sig_feature_id`),
+  UNIQUE (`signature_id`, `orig_feature_id`, `feature_id`, `assay_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -126,22 +126,26 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
+# Table name
 table_name <- "signature_access"
 
 # Create table
 create_table_sql <- sprintf(
-  '
+'
 CREATE TABLE `%s` (
-  `signature_id` INT NOT NULL,
+  `access_signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `signature_id` INT UNSIGNED NOT NULL,
   `user_id` VARCHAR(255) NOT NULL,
-  `access_type` SET("admin", "owner", "viewer") NOT NULL,
-  PRIMARY KEY (`signature_id`, `user_id`, `access_type`),
+  `access_type` SET("owner", "viewer") NOT NULL,
+  `access_sig_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`access_signature_id`),
+  UNIQUE (`signature_id`, `user_id`, `access_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
   FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -149,27 +153,28 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "signature_collection"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `collection_id` INT NOT NULL AUTO_INCREMENT,
+  `collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `user_id` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
-  PRIMARY KEY (`collection_id`, `collection_name`, `organism_id`, `user_id`),
+  `sig_collection_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`collection_id`),
+  UNIQUE (`collection_name`, `organism_id`, `user_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
   FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -177,25 +182,28 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
+# Table name
 table_name <- "signature_collection_access"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `collection_id` INT NOT NULL,
-  `signature_id` INT NOT NULL,
+  `access_collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `collection_id` INT UNSIGNED NOT NULL,
+  `signature_id` INT UNSIGNED NOT NULL,
   `user_id` VARCHAR(255) NOT NULL,
   `access_type` SET("admin", "owner", "viewer") NOT NULL,
-  PRIMARY KEY (`collection_id`, `signature_id`, `user_id`, `access_type`),
+  `access_collection_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`access_collection_id`),
+  UNIQUE (`collection_id`, `signature_id`, `user_id`, `access_type`),
   FOREIGN KEY (`collection_id`) REFERENCES `signature_collection` (`collection_id`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
   FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -203,17 +211,16 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "transcriptomics_features"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `feature_id` INT NOT NULL AUTO_INCREMENT,
+  `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `description` TEXT DEFAULT NULL,
   `synonyms` TEXT DEFAULT NULL,
   `n_synonyms` INT DEFAULT NULL,
@@ -223,12 +230,14 @@ CREATE TABLE `%s` (
   `chromosome_name` TEXT DEFAULT NULL,
   `start_position` TEXT DEFAULT NULL,
   `end_position` TEXT DEFAULT NULL,
-  PRIMARY KEY (`feature_id`, `feature_name`, `organism_id`),
+  `feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`feature_id`), 
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -236,17 +245,16 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "proteomics_features"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `feature_id` INT NOT NULL AUTO_INCREMENT,
+  `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `description` TEXT DEFAULT NULL,
   `synonyms` TEXT DEFAULT NULL,
   `n_synonyms` INT DEFAULT NULL,
@@ -256,12 +264,14 @@ CREATE TABLE `%s` (
   `chromosome_name` TEXT DEFAULT NULL,
   `start_position` TEXT DEFAULT NULL,
   `end_position` TEXT DEFAULT NULL,
-  PRIMARY KEY (`feature_id`, `feature_name`, `organism_id`),
+  `feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`feature_id`), 
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -269,17 +279,16 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "metabolomics_features"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `feature_id` INT NOT NULL AUTO_INCREMENT,
+  `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `description` TEXT DEFAULT NULL,
   `synonyms` TEXT DEFAULT NULL,
   `n_synonyms` INT DEFAULT NULL,
@@ -289,12 +298,14 @@ CREATE TABLE `%s` (
   `chromosome_name` TEXT DEFAULT NULL,
   `start_position` TEXT DEFAULT NULL,
   `end_position` TEXT DEFAULT NULL,
-  PRIMARY KEY (`feature_id`, `feature_name`, `organism_id`),
+  `feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`feature_id`), 
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -302,17 +313,16 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "methylomics_features"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `feature_id` INT NOT NULL AUTO_INCREMENT,
+  `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `description` TEXT DEFAULT NULL,
   `synonyms` TEXT DEFAULT NULL,
   `n_synonyms` INT DEFAULT NULL,
@@ -322,12 +332,14 @@ CREATE TABLE `%s` (
   `chromosome_name` TEXT DEFAULT NULL,
   `start_position` TEXT DEFAULT NULL,
   `end_position` TEXT DEFAULT NULL,
-  PRIMARY KEY (`feature_id`, `feature_name`, `organism_id`),
+  `feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`feature_id`), 
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -335,17 +347,16 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "genetic_variations_features"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `feature_id` INT NOT NULL AUTO_INCREMENT,
+  `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `description` TEXT DEFAULT NULL,
   `synonyms` TEXT DEFAULT NULL,
   `n_synonyms` INT DEFAULT NULL,
@@ -355,12 +366,14 @@ CREATE TABLE `%s` (
   `chromosome_name` TEXT DEFAULT NULL,
   `start_position` TEXT DEFAULT NULL,
   `end_position` TEXT DEFAULT NULL,
-  PRIMARY KEY (`feature_id`, `feature_name`, `organism_id`),
+  `feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`feature_id`), 
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -368,17 +381,16 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
+# Table name
 table_name <- "DNA_binding_sites_features"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `feature_id` INT NOT NULL AUTO_INCREMENT,
+  `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `organism_id` INT NOT NULL,
+  `organism_id` INT UNSIGNED NOT NULL,
   `description` TEXT DEFAULT NULL,
   `synonyms` TEXT DEFAULT NULL,
   `n_synonyms` INT DEFAULT NULL,
@@ -388,12 +400,14 @@ CREATE TABLE `%s` (
   `chromosome_name` TEXT DEFAULT NULL,
   `start_position` TEXT DEFAULT NULL,
   `end_position` TEXT DEFAULT NULL,
-  PRIMARY KEY (`feature_id`, `feature_name`, `organism_id`),
+  `feature_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`feature_id`), 
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -401,21 +415,20 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
 table_name <- "organisms"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `organism_id` INT NOT NULL AUTO_INCREMENT,
+  `organism_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `organism` VARCHAR(255) NOT NULL,
-  PRIMARY KEY (`organism_id`, `organism`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+  PRIMARY KEY (`organism_id`), 
+  UNIQUE (`organism`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -437,7 +450,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -445,21 +458,20 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
 table_name <- "phenotypes"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
-  '
+'
 CREATE TABLE `%s` (
-  `phenotype_id` INT NOT NULL AUTO_INCREMENT,
+  `phenotype_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `phenotype` VARCHAR(255) NOT NULL,
-  PRIMARY KEY (`phenotype_id`, `phenotype`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+  PRIMARY KEY (`phenotype_id`), 
+  UNIQUE (`phenotype`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -467,22 +479,22 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
 table_name <- "sample_types"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `sample_type_id` INT NOT NULL AUTO_INCREMENT,
+  `sample_type_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `sample_type` VARCHAR(255) NOT NULL,
-  `brenda_accession` TEXT DEFAULT NULL,
-  PRIMARY KEY (`sample_type_id`, `sample_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+  `brenda_accession` VARCHAR(255) DEFAULT NULL,
+  `sample_type_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`sample_type_id`), 
+  UNIQUE (`sample_type`, `brenda_accession`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -490,21 +502,20 @@ DBI::dbGetQuery(conn = conn, statement = create_table_sql)
 #
 ############# 
 
-table_number <- table_number + 1
 table_name <- "keywords"
-table_auto_increment <- auto_increment * table_number
 
 # Create table
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `keyword_id` INT NOT NULL AUTO_INCREMENT,
+  `keyword_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `keyword` VARCHAR(255) NOT NULL,
-  PRIMARY KEY (`keyword_id`, `keyword`)
-) ENGINE=InnoDB AUTO_INCREMENT=%s DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-', table_name, table_auto_increment)
+  PRIMARY KEY (`keyword_id`),
+  UNIQUE (`keyword`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -519,21 +530,24 @@ create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
   `user_id` VARCHAR(255) NOT NULL,
-  `user_password_hashkey` VARCHAR(255) NOT NULL,
+  `user_password_hashkey` VARCHAR(255) NOT NULL,            
   `user_email` VARCHAR(255) NOT NULL,
   `user_first` VARCHAR(255) DEFAULT NULL,
   `user_last` VARCHAR(255) DEFAULT NULL,
   `user_affiliation` TEXT DEFAULT NULL,
-  `user_role` SET("admin", "user") NOT NULL,
-  `api_key` TEXT DEFAULT NULL,
-  PRIMARY KEY (`user_id`, `user_email`, `user_role`)
+  `user_role` SET("admin", "user", "guest") NOT NULL,
+  `api_key` VARCHAR(32) NOT NULL,
+  `user_hashkey` VARCHAR(32) NOT NULL,                 
+  PRIMARY KEY (`user_id`),
+  UNIQUE (`user_email`),
+  CHECK (`user_email` REGEXP "^[a-zA-Z0-9][+a-zA-Z0-9._-]*@[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,4}$")
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-DBI::dbGetQuery(conn = conn, statement = create_table_sql)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 # Show all created tables
-all_table_results <- dbGetQuery(conn=conn, statement="show tables;")
+all_table_results <- suppressWarnings(DBI::dbGetQuery(conn=conn, statement="show tables;"))
 all_table_results
 
 

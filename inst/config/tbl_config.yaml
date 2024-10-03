@@ -1,0 +1,80 @@
+Database: sigrepo
+Table:
+  signatures:
+    - signature_name
+      - text: ""
+      - required: true
+      - value_type: 
+    - organism
+      - text: ""
+      - required: true
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+    - direction_type:
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type:
+      - text: ""
+      - required: true    
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type:
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text:
+      - required: true    
+      - value_type: 
+    - direction_type:
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type:
+      - text:
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+    - direction_type
+      - text: ""
+      - required: true    
+      - value_type: 
+           
+      
+      
+      

@@ -2,40 +2,68 @@
 #' @title insert_table_sql
 #' @description Insert a table into the database
 #' @param conn An established database connection using newConnhandler() 
+#' @param db_table_name A table in the database
 #' @param table A table in the database
 #' @export
-insert_table_sql <- function(conn, db_table_name, table){
+insert_table_sql <- function(
+    conn, 
+    db_table_name, 
+    table,
+    check_db_table = TRUE
+){
   
   # Get table column names
-  tbl_col_names <- colnames(table)
+  db_col_names <- SigRepo::getDBColNames(
+    conn = conn,
+    db_table_name = db_table_name,
+    check_db_table = check_db_table
+  )
   
-  # Join column variables
-  coln_var <- paste0("(", paste0(tbl_col_names, collapse = ", "), ")")    
+  # Check if table is a data frame object and not empty
+  if(!is(table, "data.frame"))
+    stop(sprintf("'table' must be a data frame object."))
   
-  # Get values of each row
-  coln_val <- seq_len(nrow(table)) %>% 
-    purrr::map_chr(
-      function(r){
-        #r=1;
-        values <- paste0("'", table[r, tbl_col_names], "'", collapse = ", ")
-        if(r < nrow(table)){
-          values <- paste0("(", values, "),\n")
-        }else{
-          values <- paste0("(", values, ");\n")
+  # If table is not empty, import table into database
+  if(nrow(table) > 0){
+  
+    # Get overlapping column names
+    tbl_col_names <- colnames(table)[which(colnames(table) %in% db_col_names)]
+    
+    # Join column variables
+    coln_var <- paste0("(", paste0(tbl_col_names, collapse = ", "), ")")    
+    
+    # Get values of each row
+    coln_val <- seq_len(nrow(table)) %>% 
+      purrr::map_chr(
+        function(r){
+          #r=1;
+          values <- paste0("'", table[r, tbl_col_names], "'", collapse = ", ")
+          if(r < nrow(table)){
+            values <- paste0("(", values, "),\n")
+          }else{
+            values <- paste0("(", values, ");\n")
+          }
         }
-      }
-    ) %>% paste0(., collapse = "") %>% gsub("'NULL'", "NULL", .)
-  
-  # Create a SQL query to insert table into database
-  query <- sprintf(
-    "
+      ) %>% paste0(., collapse = "") %>% gsub("'NULL'", "NULL", .)
+    
+    # Create a SQL query to insert table into database
+    statement <- sprintf(
+      "
     INSERT INTO %s %s
     VALUES %s
     ", db_table_name, coln_var, coln_val
-  )
-  
-  return(query)
-  
+    )
+    
+    # Insert table into database
+    tryCatch({
+      suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+    }, error = function(e){
+      stop(e, "\n")
+    }, warning = function(w){
+      message(w, "\n")
+    })
+    
+  }
 }
 
 #' @title update_table_sql
@@ -67,7 +95,7 @@ update_table_sql <- function(conn, table, update_coln_var, update_coln_val, filt
 #' @title lookup_table_sql
 #' @description Look up a list of variables based on a particular variable 
 #' and its associated values in the database
-#' @param table A table in the database
+#' @param db_table_name A table in the database
 #' @param return_var a list of column variables to be returned from the given table. 
 #' Default '*' (means everything).
 #' @param filter_coln_var a list of column variables in the given table. Default NULL.
@@ -78,16 +106,26 @@ update_table_sql <- function(conn, table, update_coln_var, update_coln_val, filt
 #' provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 #' Default NULL.
 #' @export
-lookup_table_sql <- function(table_name, return_var="*", filter_coln_var=NULL, filter_coln_val=NULL, filter_var_by=NULL){
+lookup_table_sql <- function(
+    conn, 
+    db_table_name, 
+    return_var = "*", 
+    filter_coln_var = NULL, 
+    filter_coln_val = NULL, 
+    filter_var_by = NULL, 
+    check_db_table = TRUE
+){
   
-  # Check table_name
-  stopifnot("'table_name' cannot be empty." = 
-              (length(table_name) > 0 && !table_name %in% c(NA, "")))
+  # Get table column names
+  db_col_names <- SigRepo::getDBColNames(
+    conn = conn,
+    db_table_name = db_table_name,
+    check_db_table = check_db_table
+  )
   
   # Check return_var
-  if(length(return_var) == 0 || any(return_var %in% c(NA, "", NULL)))
-    stop("The 'return_var' must contains a vector of variables of ", 
-         "a given table to be returned from the database.")
+  stopifnot("'return_var' cannot be empty." = 
+              (length(return_var) > 0 && all(!return_var %in% c(NA, "", NULL))))
   
   # Check filter_coln_var and filter_coln_val
   if(length(filter_coln_var) == 0 && length(filter_coln_val) == 0){
@@ -100,14 +138,14 @@ lookup_table_sql <- function(table_name, return_var="*", filter_coln_var=NULL, f
       stop("The length of 'filter_coln_var' must equal to the length of 'filter_coln_val'. ",
            "Furthermore, 'filter_coln_val' must have names or labels that matched the values of 'filter_coln_var'.")
     
-    if(length(filter_coln_var) > 1 && length(filter_var_by) != (length(filter_coln_var)-1) && !all(toupper(filter_var_by) %in% c("OR", "AND")))
+    if((length(filter_coln_var) > 1) && (length(filter_var_by) != (length(filter_coln_var)-1)) & (!any(toupper(filter_var_by) %in% c("OR", "AND"))))
       stop("'filter_var_by' must contain a vector of logical operators (e.g, AND/OR) with n = length(filter_coln_var) - 1")
     
     where_clause <- seq_along(filter_coln_var) %>% 
       purrr::map_chr(
         function(s){
           #s=1;
-          clause <- sprintf("trim(lower(%s)) IN (%s)", filter_coln_var[s], paste0(paste0("'", trimws(tolower(filter_coln_val[filter_coln_var[s]])), "'"), collapse = ", "))
+          clause <- sprintf("trim(lower(%s)) IN (%s)", filter_coln_var[s], paste0(paste0("'", trimws(tolower(filter_coln_val[[filter_coln_var[s]]])), "'"), collapse = ", "))
           if(s < length(filter_coln_var)){
             clause <- paste0(clause, " ", filter_var_by[s], " ")
           }
@@ -121,14 +159,22 @@ lookup_table_sql <- function(table_name, return_var="*", filter_coln_var=NULL, f
   return_var_list <- paste0(return_var, collapse = ", ")
   
   # Create SQL statement to return table
-  query <- sprintf(
+  statement <- sprintf(
     "
     SELECT %s
     FROM %s %s
-    ", return_var_list, table_name, where_clause
+    ", return_var_list, db_table_name, where_clause
   )
   
-  return(query)
+  table <- tryCatch({
+    suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  }, error = function(e){
+    stop(e, "\n")
+  }, warning = function(w){
+    message(w, "\n")
+  })  
+  
+  return(table)
   
 }
 
