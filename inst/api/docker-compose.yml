@@ -10,3 +10,7 @@ services:
     restart: always
     volumes:
       - /montilab-p/SigRepoR:/srv/shiny-server
+      
+networks:
+  sigrepo_api:
+    name: sigrepo_api

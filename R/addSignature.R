@@ -1,5 +1,5 @@
 #' @title addSignature
-#' @description Add signature to database
+#' @description Add a signature to signature table of the database
 #' @param conn An established connection to database using newConnhandler() 
 #' @param omic_signature An R6 class object from OmicSignature package
 #' @export
@@ -8,10 +8,17 @@ addSignature <- function(
     omic_signature
 ){
   
-  # Check connection
-  conn_info <- SigRepoR::checkConnection(conn = conn)
+  # Check user connection and permission ####
+  conn_info <- SigRepo::checkPermissions(
+    conn = conn, 
+    action_type = "INSERT",
+    required_role = "user"
+  )
   
-  # Check if omic_signature is an OmicSignature class object
+  # Get table name in database ####
+  db_table_name <- "signatures"
+  
+  # Check if omic_signature is an OmicSignature class object ####
   if(!is(omic_signature, "OmicSignature"))
     stop("'omic_signature' must be an R6 class object from OmicSignature package.") 
   
@@ -23,8 +30,7 @@ addSignature <- function(
     stop("'omic_signature' must contain a signature object.\n")
   
   # Extract metadata and signature table from omic_signature ####
-  metadata <- omic_signature$metadata 
-  signature <- omic_signature$signature 
+  metadata <- omic_signature$metadata; signature <- omic_signature$signature; 
   
   if(!is(metadata, "list"))
     stop("'metadata' in OmicSignature must be a list.")
@@ -80,7 +86,7 @@ addSignature <- function(
   }
   
   # Check assay_type (required) ####
-  assay_type_options <- c("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "DNA_binding_sites", "others")
+  assay_type_options <- c("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites")
   
   if(!metadata$assay_type[1] %in% assay_type_options){
     stop("'assay_type' in OmicSignature's metadata object must be: ", paste0(assay_type_options, collapse = "/"))
@@ -98,27 +104,20 @@ addSignature <- function(
   # Look up organism id ####
   lookup_organism <- organism
   
-  # SQL statement to look up organism in database
-  statment <- SigRepoR::lookup_table_sql(
-    table = "organisms", 
+  organism_id_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "organisms", 
     return_var = c("organism_id", "organism"), 
     filter_coln_var = "organism", 
-    filter_coln_val = list("organism" = lookup_organism)
+    filter_coln_val = list("organism" = lookup_organism),
+    check_db_table = TRUE
   ) 
   
-  # Get query table
-  organism_id_tbl <- tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
-  
   if(nrow(organism_id_tbl) == 0){
-    stop(sprintf("Organism = `%s` is currently not existed in our database.\n", lookup_organism),
-         "You can use 'getOrganisms()' function to see a list of available organisms in our database.\n",
-         "To add an organism into our database, please contact our admin for more details.\n")
+    SigRepo::addOrganismErrorMessage(
+      db_table_name = "organisms",
+      unknown_values = lookup_organism
+    )
   }else{
     organism_id <- organism_id_tbl$organism_id[1]
   }
@@ -126,275 +125,343 @@ addSignature <- function(
   # Get user_id (required) ####
   user_id <- conn_info$user  
   
-  # Look up signature_id in database ####
-  signature_id <- c(signature_name, organism_id, direction_type, assay_type, user_id) %>% rlang::hash()
+  # Create a hash key to look up signature in the database ####
+  signature_hashkey <- digest::digest(paste0(signature_name, organism_id, direction_type, assay_type, user_id), algo = "md5", serialize = FALSE)
   
-  statement <- SigRepoR::lookup_table_sql(
-    table = "signatures", 
-    return_var = "signature_id", 
-    filter_coln_var = "signature_id",
-    filter_coln_val = list("signature_id" = signature_id)
+  signature_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = db_table_name, 
+    return_var = "*", 
+    filter_coln_var = "signature_hashkey",
+    filter_coln_val = list("signature_hashkey" = signature_hashkey),
+    check_db_table = TRUE
   ) 
   
-  # Get query table
-  signature_id_tbl <- tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
-  
-  if(nrow(signature_id_tbl) > 0)
-    stop(sprintf("signature_name = '%s' is already existed in the database. Please choose a different name.", signature_name))
-  
-  # Look up platform id ####
-  if("platform" %in% names(metadata)){
+  # If the signature exists, return the signature table
+  if(nrow(signature_tbl) > 0){
     
-    lookup_platform <- metadata$platform[1]
+    return(signature_tbl)
     
-    if(lookup_platform %in% c("", NA, NULL)){
+  }else{
+    
+    # Look up platform id ####
+    if("platform" %in% names(metadata)){
       
-      platform_id <- NULL
+      lookup_platform <- metadata$platform[1]
       
-    }else{
-     
-      # SQL statement to look up platform in database
-      statement <- SigRepoR::lookup_table_sql(
-        table = "platforms", 
-        return_var = "platform_id", 
-        filter_coln_var = "platform_id", 
-        filter_coln_val = list("platform_id" = lookup_platform)
-      ) 
-      
-      # Get query table
-      platform_id_tbl <- tryCatch({
-        DBI::dbGetQuery(conn = conn, statement = statement)
-      }, error = function(e){
-        stop(e, "\n")
-      }, warning = function(w){
-        message(w, "\n")
-      })
-      
-      if(nrow(platform_id_tbl) == 0){
-        stop(sprintf("platform = `%s` is currently not existed in our database.\n", lookup_platform),
-             "You can use 'getPlatforms()' function to see a list of available platforms in our database.\n",
-             "To add a platform into our database, please contact our admin for more details.\n")
+      if(lookup_platform %in% c("", NA, NULL)){
+        
+        platform_id <- 'NULL'
+        
       }else{
-        platform_id <- platform_id_tbl$platform_id[1]
-      }
-      
-    }
-    
-  }else{
-    
-    platform_id <- NULL
-    
-  }
-  
-  # Look up phenotype id #####
-  if("phenotype" %in% names(metadata)){
-    
-    lookup_phenotype <- metadata$phenotype[1]
-    
-    if(lookup_phenotype %in% c("", NA, NULL)){
-    
-      phenotype_id <- NULL
-      
-    }else{
-      
-      # SQL statement to look up phenotype in database
-      statement <- SigRepoR::lookup_table_sql(
-        table = "phenotypes", 
-        return_var = "phenotype_id", 
-        filter_coln_var = "phenotype_id", 
-        filter_coln_val = list("phenotype_id" = lookup_phenotype)
-      ) 
-      
-      # Get query table
-      phenotype_id_tbl <- tryCatch({
-        DBI::dbGetQuery(conn = conn, statement = statement)
-      }, error = function(e){
-        stop(e, "\n")
-      }, warning = function(w){
-        message(w, "\n")
-      })
-      
-      if(nrow(phenotype_id_tbl) == 0){
-        stop(sprintf("phenotype = `%s` is currently not existed in our database.\n", lookup_phenotype),
-             "You can use 'getPhenotypes()' function to see a list of available phenotypes in our database.\n",
-             "To add a phenotype into our database, please contact our admin for more details.\n")
-      }else{
-        phenotype_id <- phenotype_id_tbl$phenotype_id[1]
-      }
-      
-    }
-    
-  }else{
-    
-    phenotype_id <- NULL
-    
-  }
-  
-  # Look up sample_type id ####
-  if("sample_type" %in% names(metadata)){
-    
-    lookup_sample_type <- metadata$sample_type[1]
-    
-    if(lookup_sample_type %in% c("", NA, NULL)){
-      
-      sample_type_id <- NULL
-      
-    }else{
-      
-      # SQL statement to look up sample_type in database
-      statement <- SigRepoR::lookup_table_sql(
-        table = "sample_types", 
-        return_var = "sample_type_id", 
-        filter_coln_var = "sample_type_id", 
-        filter_coln_val = list("sample_type_id" = lookup_sample_type)
-      ) 
-      
-      # Get query table
-      sample_type_id_tbl <- tryCatch({
-        DBI::dbGetQuery(conn = conn, statement = statement)
-      }, error = function(e){
-        stop(e, "\n")
-      }, warning = function(w){
-        message(w, "\n")
-      })
-      
-      if(nrow(sample_type_id_tbl) == 0){
-        stop(sprintf("sample_type = `%s` is currently not existed in our database.\n", lookup_sample_type),
-             "You can use 'getsample_types()' function to see a list of available sample_types in our database.\n",
-             "To add a sample_type into our database, please contact our admin for more details.\n")
-      }else{
-        sample_type_id <- sample_type_id_tbl$sample_type_id[1]
-      }
-      
-    }
-    
-  }else{
-    
-    sample_type_id <- NULL
-    
-  }    
-
-  # others ####
-  if(is.null(metadata$others)){
-    others <- NULL
-  }else{
-    others <- seq_along(metadata$others) %>% 
-      purrr::map2_chr(
-        function(l){
-          #l=1;
-          list_name <- names(metadata$others)[l]
-          paste0(list_name, ": ", paste0("<", metadata$others[[l]], ">", collapse = ", "))
+        
+        # SQL statement to look up platform in database
+        platform_id_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = "platforms", 
+          return_var = "platform_id",
+          filter_coln_var = "platform_id", 
+          filter_coln_val = list("platform_id" = lookup_platform),
+          check_db_table = TRUE
+        ) 
+        
+        if(nrow(platform_id_tbl) == 0){
+          SigRepo::addPlatformErrorMessage(
+            db_table_name = "platforms",
+            unknown_values = lookup_platform
+          )
+        }else{
+          platform_id <- platform_id_tbl$platform_id[1]
         }
-      ) %>% paste0(., collapse = "; ")
-  }  
-
-  # keywords
-  keywords <- ifelse(is.null(metadata$keywords), NULL, paste0(metadata$keywords[which(!metadata$keywords %in% c("", NA, NULL))], collapse = ", "))
-  
-  ## PMID
-  PMID <- ifelse(is.null(metadata$PMID), NULL, paste0(metadata$PMID[which(!metadata$PMID %in% c("", NA, NULL))], collapse = ", "))
-  
-  # year
-  year <- ifelse(is.null(metadata$year), NULL, paste0(metadata$year[which(!metadata$year %in% c("", NA, NULL))], collapse = ", "))
-  
-  # has_difexp ####
-  has_difexp <- ifelse(!is.null(difexp), 1, 0)  
-  
-  # Create signature metadata table ####
-  table <- data.frame(
-    signature_id = signature_id,
-    signature_name = signature_name,
-    organism_id = organism_id,
-    direction_type = direction_type,
-    assay_type = assay_type ,
-    phenotype_id = phenotype_id,
-    platform_id = platform_id,
-    sample_type_id = sample_type_id,
-    covariates = metadata$covariates[1],
-    score_cutoff = metadata$score_cutoff[1],
-    logfc_cutoff = metadata$logfc_cutoff[1],
-    p_value_cutoff = metadata$p_value_cutoff[1],
-    adj_p_cutoff = metadata$adj_p_cutoff[1],
-    description = metadata$description[1],
-    table = keywords,
-    PMID = PMID,
-    year = year,
-    others = others,
-    has_difexp = has_difexp, 
-    user_id = user_id
-  )
-  
-  # Get SQL statement to insert table into database
-  statement <- SigRepoR::insert_table_sql(conn = conn, db_table_name = "signatures", table = table)
-  
-  # INSERT TABLE INTO DATABASE ####
-  tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
-  
-  # UPDATE OTHER TABLES INTO DATABASE ####
-  
-  # If signature has difexp, create a hash key and save a copy ####
-  if(has_difexp == TRUE){
-    data_path <- system.file("data/difexp", package = "SigRepoR")
-    saveRDS(difexp, file = file.path(data_path, paste0(signature_id, ".RDS")))
-  }
-  
-  # Add user to signature access table #####
-  SigRepoR::addUserToSignature(
-    conn = conn,
-    signature_id = signature_id,
-    user_id = user_id,
-    access_type = "owner"
-  )
-  
-  ## Create signature feature set table #####
-  sig_feature_set <- signature %>% 
-    dplyr::transmute(
-      feature_name = symbol,
-      orig_feature_id = id,
-      score = score,
-      direction = direction
+        
+      }
+      
+    }else{
+      
+      platform_id <- 'NULL'
+      
+    }
+    
+    # Look up phenotype id #####
+    if("phenotype" %in% names(metadata)){
+      
+      lookup_phenotype <- metadata$phenotype[1]
+      
+      if(lookup_phenotype %in% c("", NA, NULL)){
+        
+        phenotype_id <- 'NULL'
+        
+      }else{
+        
+        phenotype_id_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = "phenotypes", 
+          return_var = "phenotype_id", 
+          filter_coln_var = "phenotype", 
+          filter_coln_val = list("phenotype" = lookup_phenotype),
+          check_db_table = TRUE
+        ) 
+        
+        if(nrow(phenotype_id_tbl) == 0){
+          SigRepo::addPhenotypeErrorMessage(
+            db_table_name = "phenotypes",
+            unknown_values = lookup_phenotype
+          )
+        }else{
+          phenotype_id <- phenotype_id_tbl$phenotype_id[1]
+        }
+        
+      }
+      
+    }else{
+      
+      phenotype_id <- 'NULL'
+      
+    }
+    
+    # Look up sample_type id ####
+    if("sample_type" %in% names(metadata)){
+      
+      lookup_sample_type <- metadata$sample_type[1]
+      
+      if(lookup_sample_type %in% c("", NA, NULL)){
+        
+        sample_type_id <- 'NULL'
+        
+      }else{
+        
+        sample_type_id_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = "sample_types", 
+          return_var = "sample_type_id", 
+          filter_coln_var = "sample_type", 
+          filter_coln_val = list("sample_type" = lookup_sample_type),
+          check_db_table = TRUE
+        ) 
+        
+        if(nrow(sample_type_id_tbl) == 0){
+          SigRepo::addSampleTypeErrorMessage(
+            db_table_name = "sample_types",
+            unknown_values = lookup_sample_type
+          )
+        }else{
+          sample_type_id <- sample_type_id_tbl$sample_type_id[1]
+        }
+        
+      }
+      
+    }else{
+      
+      sample_type_id <- 'NULL'
+      
+    }    
+    
+    # covariates ####
+    if("covariates" %in% names(metadata)){
+      if(length(metadata$covariates) == 0){
+        covariates <- 'NULL'
+      }else{
+        covariates <- metadata$covariates[1]
+      }
+    }else{
+      covariates <- 'NULL'
+    }
+    
+    # score_cutoff ####
+    if("score_cutoff" %in% names(metadata)){
+      if(length(metadata$score_cutoff) == 0){
+        score_cutoff <- 'NULL'
+      }else{
+        score_cutoff <-  metadata$score_cutoff[1]
+      }
+    }else{
+      score_cutoff <- 'NULL'
+    }
+    
+    # logfc_cutoff ####
+    if("logfc_cutoff" %in% names(metadata)){
+      if(length(metadata$logfc_cutoff) == 0){
+        logfc_cutoff <- 'NULL'
+      }else{
+        logfc_cutoff <- metadata$logfc_cutoff[1]
+      }
+    }else{
+      logfc_cutoff <- 'NULL'
+    }
+    
+    # p_value_cutoff ####
+    if("p_value_cutoff" %in% names(metadata)){
+      if(length(metadata$p_value_cutoff) == 0){
+        p_value_cutoff <- 'NULL'
+      }else{
+        p_value_cutoff <- metadata$p_value_cutoff[1]
+      }
+    }else{
+      p_value_cutoff <- 'NULL'
+    }
+    
+    # adj_p_cutoff ####
+    if("adj_p_cutoff" %in% names(metadata)){
+      if(length(metadata$adj_p_cutoff) == 0){
+        adj_p_cutoff <- 'NULL'
+      }else{
+        adj_p_cutoff <- metadata$adj_p_cutoff[1]
+      }
+    }else{
+      adj_p_cutoff <- 'NULL'
+    }
+    
+    # description ####
+    if("description" %in% names(metadata)){
+      if(length(metadata$description) == 0){
+        description <- 'NULL'
+      }else{
+        description <- metadata$description[1]
+      }
+    }else{
+      description <- 'NULL'
+    }
+    
+    ## PMID
+    if("PMID" %in% names(metadata)){
+      if(length(metadata$PMID) == 0){
+        PMID <- 'NULL'
+      }else{
+        PMID <- paste0(metadata$PMID, collapse = ", ")
+      }
+    }else{
+      PMID <- 'NULL'
+    }
+    
+    # year
+    if("year" %in% names(metadata)){
+      if(length(metadata$year) == 0){
+        year <- 'NULL'
+      }else{
+        year <- paste0(metadata$year, collapse = ", ")
+      }
+    }else{
+      year <- 'NULL'
+    }
+    
+    # author
+    if("author" %in% names(metadata)){
+      if(length(metadata$author) == 0){
+        author <- 'NULL'
+      }else{
+        author <- paste0(metadata$author, collapse = ", ")
+      }
+    }else{
+      author <- 'NULL'
+    }
+    
+    # others ####
+    if("others" %in% names(metadata)){
+      if(length(metadata$others) == 0){
+        others <- 'NULL'
+      }else{
+        others <- seq_along(metadata$others) %>% 
+          purrr::map_chr(
+            function(l){
+              #l=1;
+              list_name <- names(metadata$others)[l]
+              paste0(list_name, ": ", paste0("<", metadata$others[[l]], ">", collapse = ", "))
+            }
+          ) %>% paste0(., collapse = "; ")
+      }
+    }else{
+      others <- 'NULL'
+    }  
+    
+    # keywords
+    if("keywords" %in% names(metadata)){
+      if(length(metadata$keywords) == 0){
+        keywords <- 'NULL'
+      }else{
+        keywords <- paste0(metadata$keywords, collapse = ", ")
+        # Add keywords to database ####
+        message("Adding keywords to database...\n")
+        keyword_tbl <- data.frame(
+          keyword = metadata$keywords,
+          stringsAsFactors = FALSE
+        )
+        SigRepo::addKeyword(conn = conn, keyword_tbl = keyword_tbl)
+      }
+    }else{
+      keywords <- 'NULL'
+    }
+    
+    # has_difexp ####
+    has_difexp <- ifelse(!is.null(difexp), 1, 0)  
+    
+    # If signature has difexp, save a copy with its hash key ####
+    # This action must be performed before a signature is imported into the database.
+    # This helps to make sure data is stored properly before interruptions in-between.
+    if(has_difexp == TRUE){
+      data_path <- system.file("data/difexp", package = "SigRepoR")
+      saveRDS(difexp, file = file.path(data_path, paste0(signature_hashkey, ".RDS")))
+    }
+    
+    # Create signature metadata table ####
+    table <- data.frame(
+      signature_name = signature_name,
+      organism_id = organism_id,
+      direction_type = direction_type,
+      assay_type = assay_type ,
+      phenotype_id = phenotype_id,
+      platform_id = platform_id,
+      sample_type_id = sample_type_id,
+      covariates = covariates,
+      score_cutoff = score_cutoff,
+      logfc_cutoff = logfc_cutoff,
+      p_value_cutoff = p_value_cutoff,
+      adj_p_cutoff = adj_p_cutoff,
+      description = description,
+      keywords = keywords,
+      PMID = PMID,
+      year = year,
+      author = author,
+      others = others,
+      has_difexp = has_difexp, 
+      user_id = user_id,
+      signature_hashkey = signature_hashkey
     )
-  
-  ## Add signature feature set to database #####
-  SigRepoR::addSignatureFeatureSet(
-    conn = conn,
-    signature_id = signature_id,
-    assay_type = metadata$assay_type[1],
-    sig_feature_set = sig_feature_set
-  )
-  
-  ## Save dif_exp if provided ###
-  if(!is.null(difexp)){
-    base::saveRDS(difexp, file = file.path('inst/data/difexp', paste0(signature_id, ".RDS")))
-  }
-  
-  # Add keywords to database ####
-  if(!is.null(keywords)){
-    keyword_tbl <- data.frame(
-      keyword = keywords,
-      stringsAsFactors = FALSE
+    
+    # Check table against database table ####
+    table <- SigRepo::checkTableInput(
+      conn = conn, 
+      db_table_name = db_table_name,
+      table = table, 
+      exclude_coln_names = c("signature_id", "date_created"),
+      check_db_table = FALSE
     )
-    SigRepoR::addKeyword(conn = conn, keyword_tbl = keyword_tbl)
+    
+    # Insert table into database ####
+    SigRepo::insert_table_sql(
+      conn = conn, 
+      db_table_name = db_table_name, 
+      table = table,
+      check_db_table = FALSE
+    ) 
+    
+    # Get signature id from the imported table
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = db_table_name, 
+      return_var = "*", 
+      filter_coln_var = "signature_hashkey",
+      filter_coln_val = list("signature_hashkey" = signature_hashkey),
+      check_db_table = FALSE
+    ) 
+    
+    return(signature_tbl)
+    
   }
   
+}  
   
-}
-
-
-
-
-
-
+  
+  
+  
+  
 

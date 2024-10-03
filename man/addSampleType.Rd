@@ -13,5 +13,5 @@ addSampleType(conn, sample_type_tbl)
 sample_type, brenda_accession}
 }
 \description{
-Add platform to database
+Add sample_type to database
 }

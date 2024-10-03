@@ -8,15 +8,10 @@ library(tidyverse)
 
 # For loading and installing packages
 library(devtools)
-
-# Load OmicSignature package
-devtools::load_all("/home/rstudio/OmicSignature")
-
-# Load OmicSignature package
-devtools::load_all("/home/rstudio/SigRepoR")
+load_all()
 
 ## Establish database connection
-conn <- newConnHandler(
+conn <- SigRepo::newConnHandler(
   driver = RMySQL::MySQL(),
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
@@ -39,11 +34,11 @@ organism_tbl <- data.frame(
   )
 )
 
-SigRepoR::addOrganism(conn=conn, organism_tbl = organism_tbl)
+SigRepo::addOrganism(conn=conn, organism_tbl = organism_tbl)
 
 # Check the imported values
 statement <- "select * FROM organisms"
-organism_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+organism_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 2. Add platforms to database ####
 platform_tbl <- readRDS("/home/rstudio/SigRepoR/inst/data/platforms/GEOplatform_2024.rds") 
@@ -56,25 +51,38 @@ platform_tbl <- platform_tbl %>%
     organisms = Organism
   )
 
-SigRepoR::addPlatform(conn=conn, platform_tbl = platform_tbl)
+SigRepo::addPlatform(conn=conn, platform_tbl = platform_tbl)
 
 # Check the imported values
 statement <- "select * FROM platforms"
-platform_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+platform_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 3. Add sample types to database ####
+# 3. Add phenotypes to database ####
+
+# Read in the brenda dictionary
+phenotype_tbl <- data.frame(
+  phenotype = c("Aging", "Blood", "Extreme Old Age")
+)
+
+SigRepo::addPhenotype(conn=conn, phenotype_tbl = phenotype_tbl)
+
+# phenotypes 
+statement <- "select * FROM phenotypes"
+phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# 4. Add sample types to database ####
 
 # Read in the brenda dictionary
 sample_type_tbl <- readRDS("/home/rstudio/SigRepoR/inst/data/sample_types/BRENDA.rds")
 colnames(sample_type_tbl) <- c("brenda_accession", "sample_type")
 
-SigRepoR::addSampleType(conn=conn, sample_type_tbl = sample_type_tbl)
+SigRepo::addSampleType(conn=conn, sample_type_tbl = sample_type_tbl)
 
 # sample_types 
 statement <- "select * FROM sample_types"
-sample_type_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+sample_type_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 4. Add transcriptomics feature set ####
+# 5. Add transcriptomics feature set ####
 
 # Read in the human and mouse gene symbols 
 human_gene_symbol_tbl <- read.csv("~/SigRepoR/inst/data/gene_symbols/homo_sapiens.txt", sep="") %>% 
@@ -92,11 +100,11 @@ human_gene_symbol_tbl <- read.csv("~/SigRepoR/inst/data/gene_symbols/homo_sapien
     end_position = end_position
   )
 
-SigRepoR::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
+SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
 
 # transcriptomics_features 
 statement <- "select * FROM transcriptomics_features"
-transcriptomics_features_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+transcriptomics_features_db_tbl <-  suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 mouse_gene_symbol_tbl <- read.csv("/home/rstudio/SigRepoR/inst/data/gene_symbols/mus_musculus.txt", sep = "") %>% 
   dplyr::transmute(
@@ -113,56 +121,56 @@ mouse_gene_symbol_tbl <- read.csv("/home/rstudio/SigRepoR/inst/data/gene_symbols
     end_position = end_position
   )
 
-## Add reference feature set ####
-SigRepoR::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
+## Add reference feature set 
+SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
 
 # transcriptomics_features 
 statement <- "select * FROM transcriptomics_features"
-transcriptomics_features_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 5. Add users (optional) Default guest guest ####
+# 6. Add users ####
 
 ## Create an user df
 user_tbl <- data.frame(
-  user_id = c("rchau88", "smonti", "vmli", "lkroeh", "andrewdr", "zihuang"), 
-  user_password = "password",
-  user_email = c("rchau88@bu.edu", "smonti@bu.edu", "vmli@bu.edu", "lkroeh@bu.edu", "andrewdr@bu.edu", "zihuang@bu.edu"), 
-  user_first = c("Reina", "Stefano", "Vanessa", "Lina", "Andrew", "Ziwei"), 
-  user_last = c("Chau", "Monti", "Li", "Kroehling", "Chen", "Huang"), 
+  user_id = c("guest", "rchau88", "smonti", "vmli", "lkroeh", "andrewdr", "zihuang"), 
+  user_password = c("guest", "password", "password", "password", "password", "password", "password"),
+  user_email = c("guest@bu.edu", "rchau88@bu.edu", "smonti@bu.edu", "vmli@bu.edu", "lkroeh@bu.edu", "andrewdr@bu.edu", "zihuang@bu.edu"), 
+  user_first = c("guest", "Reina", "Stefano", "Vanessa", "Lina", "Andrew", "Ziwei"), 
+  user_last = c("guest", "Chau", "Monti", "Li", "Kroehling", "Chen", "Huang"), 
   user_affiliation = "Boston University",
-  user_role = "admin",
+  user_role = c("guest", "admin", "admin", "admin", "admin", "admin", "admin"),
   stringsAsFactors = FALSE
 )
 
-SigRepoR::addUser(conn = conn, user_tbl = user_tbl)
+SigRepo::addUser(conn = conn, user_tbl = user_tbl)
 
 # Check the imported values
 statement <- "select * FROM users"
-user_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 6. Add signatures (optional) ####
+# 7. Add signatures ####
 LLFS_Transcriptomic_AGS_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_AGS_OmS.rds")
-addSignature(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS, author_id = "rchau88")
+SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
 
 LLFS_Transcriptomic_EOA_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_EOA_OmS.rds")
-addSignature(conn = conn, omic_signature = LLFS_Transcriptomic_EOA_OmS, author_id = "rchau88")
+SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_EOA_OmS)
 
 LLFS_Transcriptomic_EOAU_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_EOAU_OmS.rds")
-addSignature(conn = conn, omic_signature = LLFS_Transcriptomic_EOAU_OmS, author_id = "rchau88")
+SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_EOAU_OmS)
 
 # Check the phenotypes table ####
 statement <- "select * FROM phenotypes"
-phenotype_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the keywords table ####
 statement <- "select * FROM keywords"
-keyword_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the access_signature table ####
 statement <- "select * FROM access_signature"
-access_signature_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+access_signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the signatures table ####
 statement <- "select * FROM signatures"
-signature_db_tbl <- DBI::dbGetQuery(conn = conn, statement = statement)
+signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 

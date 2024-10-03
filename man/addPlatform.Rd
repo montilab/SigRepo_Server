@@ -10,7 +10,8 @@ addPlatform(conn, platform_tbl)
 \item{conn}{An established connection to database using newConnhandler()}
 
 \item{platform_tbl}{An data frame containing appropriate column names: 
-platform_id, platform_name, seq_technology, organisms}
+platform_id, platform_name, seq_technology, organisms to be uploaded into 
+the database.}
 }
 \description{
 Add platform to database

@@ -5,14 +5,18 @@
 \title{lookup_table_sql}
 \usage{
 lookup_table_sql(
-  table_name,
+  conn,
+  db_table_name,
   return_var = "*",
   filter_coln_var = NULL,
   filter_coln_val = NULL,
-  filter_var_by = NULL
+  filter_var_by = NULL,
+  check_db_table = TRUE
 )
 }
 \arguments{
+\item{db_table_name}{A table in the database}
+
 \item{return_var}{a list of column variables to be returned from the given table. 
 Default '*' (means everything).}
 
@@ -25,8 +29,6 @@ Default NULL.}
 \item{filter_var_by}{if length(filter_coln_var) > 1, then 'filter_var_by' must be
 provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 Default NULL.}
-
-\item{table}{A table in the database}
 }
 \description{
 Look up a list of variables based on a particular variable 

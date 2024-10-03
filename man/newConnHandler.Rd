@@ -6,11 +6,11 @@
 \usage{
 newConnHandler(
   driver = RMySQL::MySQL(),
-  dbname = Sys.getenv("DBNAME"),
-  host = Sys.getenv("HOST"),
-  port = as.integer(Sys.getenv("PORT")),
-  user = Sys.getenv("USER"),
-  password = Sys.getenv("PASSWORD")
+  dbname = "sigrepo",
+  host = "montilab.bu.edu",
+  port = 3306,
+  user = "guest",
+  password = "guest"
 )
 }
 \arguments{

@@ -9,62 +9,100 @@ addUser <- function(
     user_tbl
 ){
   
-  # Check connection
-  conn_info <- SigRepoR::checkConnection(conn = conn)
+  # Check user connection and permission ####
+  conn_info <- SigRepo::checkPermissions(
+    conn = conn, 
+    action_type = "INSERT",
+    required_role = "admin"
+  )
   
-  # Create a list of variables to check database
-  database <- conn_info$dbname
+  # Create a list of variables to check database ####
   db_table_name <- "users"
   table <- user_tbl
-  require_tbl_colnames <- c("user_id", "user_password", "user_email", "user_role")
-  include_tbl_colnames <- c("user_password")
-  exclude_db_colnames <- c("user_password_hashkey", "api_key")
   
-  # Check if table exists in database
-  table <- SigRepoR::checkTableInput(
+  # Create a hash key for user password
+  table <- SigRepo::createHashKey(
+    table = table,
+    hash_var = "user_password_hashkey",
+    hash_columns = "user_password",
+    hash_method = "sodium"
+  )
+  
+  # Create an api key for each user
+  table <- SigRepo::createHashKey(
+    table = table,
+    hash_var = "api_key",
+    hash_columns = c("user_id", "user_password", "user_email", "user_role"),
+    hash_method = "md5"
+  )
+  
+  # Create a hash key to check for duplicates
+  table <- SigRepo::createHashKey(
+    table = table,
+    hash_var = "user_hashkey",
+    hash_columns = c("user_id", "user_email", "user_role"),
+    hash_method = "md5"
+  )
+  
+  # Check table against database table ####
+  table <- SigRepo::checkTableInput(
     conn = conn, 
-    database = database,
+    db_table_name = db_table_name,
+    table = table, 
+    exclude_coln_names = NULL,
+    check_db_table = FALSE
+  )
+  
+  # Remove duplicates from table before inserting into database ####
+  table <- SigRepo::removeDuplicates(
+    conn = conn,
     db_table_name = db_table_name,
     table = table,
-    require_tbl_colnames = require_tbl_colnames,
-    include_tbl_colnames = include_tbl_colnames,
-    exclude_db_colnames = exclude_db_colnames
-  ) %>% 
-    dplyr::mutate(
-      user_password_hashkey = sodium::password_store(as.character(user_password)),
-      api_key = sodium::password_store(paste0(user_id, "-", Sys.Date()))
-    )
+    coln_var = "user_hashkey",
+    check_db_table = FALSE
+  )
   
-  # GRANT USER PERMISSION TO DATABASE
+  # Insert table into database ####
+  SigRepo::insert_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    table = table,
+    check_db_table = FALSE
+  )  
+  
+  # IF USER IS NOT ROOT, GRANT USER PERMISSIONS TO DATABASE IF IT DOES NOT EXIST
   purrr::walk(
     seq_len(nrow(table)),
     function(u){
-      #u=1;      
-      check_user_tbl <- DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql. user WHERE user IN ('%s') AND host IN ('168.122.76.140');", table$user_id[u]))
-      if(nrow(check_user_tbl) == 0 && table$user_role[u] == "admin"){
-        DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'168.122.76.140' IDENTIFIED BY '%s';", table$user_id[u], table$user_password[u]))
-        DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT ALL PRIVILEGES ON * . * TO '%s'@'168.122.76.140';", table$user_id[u]))
-        DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;")
-      }else if(nrow(check_user_tbl) == 0 && table$user_role[u] == "user"){
-        DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'168.122.76.140' IDENTIFIED BY '%s';", table$user_id[u], table$user_password[u]))
-        DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT ON * . * TO '%s'@'168.122.76.140';", table$user_id[u]))
-        DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;")        
+      #u=1;
+      if(table$user_id[u] != "root"){    
+        
+        check_user_tbl <- suppressWarnings(
+          DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_id[u]))
+        )
+        
+        # Create user if not existed in database
+        if(nrow(check_user_tbl) == 0){
+          suppressWarnings(
+            DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_id[u], table$user_password[u]))
+          )
+        }
+        
+        # Give permissions to users based on their user role
+        if(table$user_role[u] == "admin"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_id[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
+        }else if(table$user_role[u] == "user"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_id[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+        }else if(table$user_role[u] == "guest"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_id[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+        }
       }
+      
     }
   )
-                       
-  # Get SQL statement
-  statement <- SigRepoR::insert_table_sql(conn = conn, db_table_name = db_table_name, table = table %>% dplyr::select(-user_password))
-  
-  # Insert table into database
-  tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
-  
 }
 
 
