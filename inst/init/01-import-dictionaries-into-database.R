@@ -128,27 +128,7 @@ SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_s
 statement <- "select * FROM transcriptomics_features"
 transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 6. Add users ####
-
-## Create an user df
-user_tbl <- data.frame(
-  user_id = c("guest", "rchau88", "smonti", "vmli", "lkroeh", "andrewdr", "zihuang"), 
-  user_password = c("guest", "password", "password", "password", "password", "password", "password"),
-  user_email = c("guest@bu.edu", "rchau88@bu.edu", "smonti@bu.edu", "vmli@bu.edu", "lkroeh@bu.edu", "andrewdr@bu.edu", "zihuang@bu.edu"), 
-  user_first = c("guest", "Reina", "Stefano", "Vanessa", "Lina", "Andrew", "Ziwei"), 
-  user_last = c("guest", "Chau", "Monti", "Li", "Kroehling", "Chen", "Huang"), 
-  user_affiliation = "Boston University",
-  user_role = c("guest", "admin", "admin", "admin", "admin", "admin", "admin"),
-  stringsAsFactors = FALSE
-)
-
-SigRepo::addUser(conn = conn, user_tbl = user_tbl)
-
-# Check the imported values
-statement <- "select * FROM users"
-user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
-
-# 7. Add signatures ####
+# 6. Add signatures ####
 LLFS_Transcriptomic_AGS_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_AGS_OmS.rds")
 SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
 
