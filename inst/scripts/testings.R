@@ -7,16 +7,18 @@ library(tidyverse)
 
 # For loading and installing packages
 library(devtools)
+load_all()
 
-# Establish DB connection 
-conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
-  dbname = "sigrepo",
-  host = "montilab.bu.edu",
-  port = 3306,
-  username = "root",
-  password = "root"
+## Establish database connection
+conn <- SigRepo::newConnHandler(
+  driver = RMySQL::MySQL(),
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
 )
+
 
 DBI::dbGetQuery(conn = conn, statement = "DROP USER 'andrewdr'@'montilab.bu.edu';")
 DBI::dbGetQuery(conn = conn, statement = "DROP USER 'lkroeh'@'montilab.bu.edu';")
