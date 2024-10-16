@@ -1,125 +1,69 @@
 ---
-title: "README"
-author: "Callen & Vanessa"
-date: "12/10/2020"
-output: github_document
+output: rmarkdown::github_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r, include=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(fig.path="./man/figures/", message=FALSE, collapse = TRUE, comment="")
+
+# For loading and installing packages
+library(devtools)
+load_all()
 ```
 
-# SigRepoR
-
-### Last update
-12/10/2020
+# SigRepo
 
 ## Contacts
-Callen Bragdon - `cjoseph@bu.edu`  
-
+Reina Chau - `rchau88@bu.edu`  
 Vanessa Mengze Li - `vmli@bu.edu`  
+Stefano Monti - `smonti@bu.edu`
 
-## SigRepo Components
-- Back-end: MariaDB  
-- R functions to interact with DB: **This package `SigRepoR`**. See *Installation* below. 
-- R6 objects: `OmicSignature` and `OmicSignatureCollection` designed to store signatures. See *Installation* below. Click [here for the vignette](https://montilab.github.io/OmicSignature/articles/OmicSig_vignette.html)  
-- User-control API  
-- Front-end: R-Shiny interface  
+# Installation
 
-*See our developing [Shiny app server](http://sigrepo.bu.edu:3838/app) ! (BU VPN required)*
-
-## *Installation*
-`devtools::install_github(repo = "montilab/OmicSignature")`  
-
-`devtools::install_github(repo = "montilab/SigRepoR", auth_token = "...")`  
-
------------------------------------------------------------------
-## About
-
-SigRepoR is an R console package designed to interact
-with a MySQL database(With the SigRepo Schema design),
-your RShiny application instance(optional), and a remote file
-system storing instances of OmicSignature, an R6 object designed to store multi-omics data(Note: you can have all these services on the same server, if you want.).
-
-This package can perform CRUD operations, and, currently, basic analysis commands, such as signature comparisons, and enrichment analysis using hypeR. wielding this package does not require prior SQL knowledge, but would be helpful if you're trying to do more advanced queries.
-
-
-## Configuration
-
-Before proceeding with uploading signatures, it's important that you 
-first configure your session to point to which database to upload to,
-along with where to write files to in your file system.
+- Using `devtools` package
 
 ```r
-configureSigRepo(
-	signatureDirectory="/opt/shiny-server/challenge_project/miscellanea/signatures/",
-	databaseServer="sigrepo.bu.edu",
-	databasePort="4253",
-	applicationPort="",
-	signatureServer="sigrepo.bu.edu"
+library(devtools)
+devtools::install_github("montilab/SigRepo")
+```
+
+# How to connect to SigRepo database
+
+1. Load packages
+
+```{r pkgs}
+library(RMySQL)
+library(DBI)
+library(SigRepo)
+```
+
+2. Connect to SigRepo database using RMySQL driver for 'guest' access
+
+```{r connection}
+conn <- SigRepo::newConnHandler(
+  driver = RMySQL::MySQL(),
+  dbname = "sigrepo",
+  host = "montilab.bu.edu",
+  port = 3306,
+  user = "guest",
+  password = "guest"
 )
 ```
 
-Now, for downstream queries, you'll be able to establish connections in the 
-future without needing to specify which server to query repeatedly.
+3. See user connection information
 
-Assuming you already have your OmicSignature object created, let's work with
-uploading.
-
-
-## Manual of uploading signatures into Database
-#### Configuration
-
-Before proceeding with uploading signatures, it's important that you 
-first configure your session to point to which database to upload to,
-along with where to write files to in your file system.
-
-
-
-## Uploading OmicSignature Object
-
-To upload your object completely to your back-end
-
-```r
-addSignatureWrapper(
-	yourObjectOrFileOfObject,
-	thisHandle=yourConnectionHandle,
-	uploadPath=sys.getenv("signatureDirectory"),
-	user="your SigRepo Username",
-	verbose=T
-)
+```{r info}
+conn_info <- DBI::dbGetInfo(conn)
+conn_info
 ```
 
-executing the above:
+# Database Schemas are stored at:
+inst/init/00-sigrepo-initiate-table-schemas.R
 
-* writes your object file to disk
-* inserts signature metadata into signatures table in the database(addSignature)
-* inserts level2 data from that object into the features_signatures table
-in the database(addLevel2).
-* inserts signature-keyword pairs into the keyword_signatures table in the database(addSignatureKeywords).
+# Shiny Application is stored at:
+inst/shiny/app.R
+
+# Plumber API is stored at:
+inst/shiny/sigrepo_api.R
 
 
-## Uploading OmicSignatureCollection Objects
-
-OmicSignatureCollection Objects are simply a group of Omic Signature objects.
-You can upload such objects like this:
-
-```r
-addSignatureCollection(
-	OmicSignatureCollectionObj, 
-	connHandle,
-  uploadPath=sys.getenv("signatureDirectory"), 
-  thisUser="your SigRepo User Name"
-)
-```
-
-This function:
-
-* "unpacks" the OmicSignatureCollection by getting the "OmicSigList" property
-* runs an lapply of the function "addSignatureWrapper" on this list
-* inserts signature-to-collection pairs into the signature-to-collection table
-in the database(addCollectionSignatures)
-
-If the collection you're uploading doesn't exist as an entry in the collections
-table of the database, the addCollectionSignatures function will add that collection as a new entry to the collections table before uploading the pairs.
 

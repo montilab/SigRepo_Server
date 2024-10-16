@@ -12,7 +12,3 @@ services:
       MYSQL_DATABASE: 'sigrepo'
       MYSQL_ROOT_HOST: '%'
     command: tail -f /dev/null
-
-networks:
-  mysql_db:
-    name: mysql_db

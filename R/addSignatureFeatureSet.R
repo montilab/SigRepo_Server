@@ -18,7 +18,7 @@ addSignatureFeatureSet <- function(
 ){
   
   # Check user connection and permission ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
     required_role = "user"
@@ -47,7 +47,7 @@ addSignatureFeatureSet <- function(
     )
   
   # Create a hash key to look up feature id in reference table ####
-  table <- SigRepoR::createHashKey(
+  table <- SigRepo::createHashKey(
     table = table,
     hash_var = "feature_hashkey",
     hash_columns = c("feature_name", "organism_id"),
@@ -74,7 +74,7 @@ addSignatureFeatureSet <- function(
   coln_var_id <- "feature_id"
   
   # Look up table
-  lookup_id_tbl <- SigRepoR::getVariableID(
+  lookup_id_tbl <- SigRepo::getVariableID(
     conn = conn, 
     db_table_name = ref_table,
     table = table,
@@ -92,14 +92,14 @@ addSignatureFeatureSet <- function(
   
   # If any ID is missing, produce an error message
   if(any(table$feature_id %in% c("", NA)))
-    SigRepoR::addTranscriptomicsFeatureErrorMessage(
+    SigRepo::addTranscriptomicsFeatureErrorMessage(
       db_table_name = ref_table,
       organism_id = organism_id,
       unknown_features = table$feature_name[which(table$feature_id %in% c("", NA))]
     )
   
   # Create a hash key to look up signature feature set in database ####
-  table <- SigRepoR::createHashKey(
+  table <- SigRepo::createHashKey(
     table = table,
     hash_var = "sig_feature_hashkey",
     hash_columns = c("signature_id", "orig_feature_id", "feature_id", "assay_type"),
@@ -107,7 +107,7 @@ addSignatureFeatureSet <- function(
   )
   
   # Check table against database table ####
-  table <- SigRepoR::checkTableInput(
+  table <- SigRepo::checkTableInput(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
@@ -116,7 +116,7 @@ addSignatureFeatureSet <- function(
   )
   
   # Remove duplicates from table before inserting into database ####
-  table <- SigRepoR::removeDuplicates(
+  table <- SigRepo::removeDuplicates(
     conn = conn,
     db_table_name = db_table_name,
     table = table,

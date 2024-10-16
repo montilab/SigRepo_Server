@@ -63,7 +63,7 @@ newConnHandler <- function(
   if(user == "root"){
     
     # Look up user in the database
-    user_tbl <- SigRepoR::lookup_table_sql(
+    user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "users", 
       return_var = "user_id", 
@@ -88,7 +88,7 @@ newConnHandler <- function(
       )
       
       # Create a hash key for user password
-      table <- SigRepoR::createHashKey(
+      table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_password_hashkey",
         hash_columns = "user_password",
@@ -96,7 +96,7 @@ newConnHandler <- function(
       )
       
       # Create an api key for each user
-      table <- SigRepoR::createHashKey(
+      table <- SigRepo::createHashKey(
         table = table,
         hash_var = "api_key",
         hash_columns = c("user_id", "user_password", "user_email", "user_role"),
@@ -104,7 +104,7 @@ newConnHandler <- function(
       )
       
       # Create a hash key to check for duplicates
-      table <- SigRepoR::createHashKey(
+      table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_hashkey",
         hash_columns = c("user_id", "user_email", "user_role"),
@@ -112,7 +112,7 @@ newConnHandler <- function(
       )
       
       # Insert table into database ####
-      SigRepoR::insert_table_sql(
+      SigRepo::insert_table_sql(
         conn = conn, 
         db_table_name = "users", 
         table = table,

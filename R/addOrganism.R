@@ -9,7 +9,7 @@ addOrganism <- function(
 ){
   
   # Check user connection and permission ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
     required_role = "admin"
@@ -20,7 +20,7 @@ addOrganism <- function(
   table <- organism_tbl
   
   # Check table against database table ####
-  table <- SigRepoR::checkTableInput(
+  table <- SigRepo::checkTableInput(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
@@ -29,7 +29,7 @@ addOrganism <- function(
   )
   
   # Remove duplicates from table before inserting into database ####
-  table <- SigRepoR::removeDuplicates(
+  table <- SigRepo::removeDuplicates(
     conn = conn,
     db_table_name = db_table_name,
     table = table,
@@ -38,7 +38,7 @@ addOrganism <- function(
   )
   
   # Insert table into database ####
-  SigRepoR::insert_table_sql(
+  SigRepo::insert_table_sql(
     conn = conn, 
     db_table_name = db_table_name, 
     table = table,

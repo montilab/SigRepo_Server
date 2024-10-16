@@ -9,7 +9,7 @@ getOrganisms <- function(
 ){
   
   # Check user connection and permissions ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT",
     required_role = "guest"
@@ -18,7 +18,7 @@ getOrganisms <- function(
   # Look up signatures
   if(length(filter_by) == 0){
     
-    organism_tbl <- SigRepoR::lookup_table_sql(
+    organism_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "organisms", 
       return_var = "*", 
@@ -27,7 +27,8 @@ getOrganisms <- function(
     
   }else{
     
-    organism_tbl <- SigRepoR::lookup_table_sql(
+
+    organism_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "organisms", 
       return_var = "*", 
