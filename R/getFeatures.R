@@ -11,7 +11,7 @@ getFeatures <- function(
 ){
   
   # Check user connection and permissions ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT",
     required_role = "guest"
@@ -38,7 +38,7 @@ getFeatures <- function(
   # Look up signatures
   if(length(filter_by) == 0){
     
-    feature_tbl <- SigRepoR::lookup_table_sql(
+    feature_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = ref_table, 
       return_var = "*", 
@@ -47,7 +47,7 @@ getFeatures <- function(
     
   }else{
     
-    feature_tbl <- SigRepoR::lookup_table_sql(
+    feature_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = ref_table, 
       return_var = "*", 

@@ -9,10 +9,10 @@ addSignature <- function(
 ){
   
   # Check user connection and permission ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "editor"
+    required_role = "user"
   )
   
   # Get table name in database ####
@@ -114,7 +114,7 @@ addSignature <- function(
   ) 
   
   if(nrow(organism_id_tbl) == 0){
-    SigRepoR::addOrganismErrorMessage(
+    SigRepo::addOrganismErrorMessage(
       db_table_name = "organisms",
       unknown_values = lookup_organism
     )
@@ -128,7 +128,8 @@ addSignature <- function(
   # Create a hash key to look up signature in the database ####
   signature_hashkey <- digest::digest(paste0(signature_name, organism_id, direction_type, assay_type, user_id), algo = "md5", serialize = FALSE)
   
-  signature_tbl <- SigRepoR::lookup_table_sql(
+
+  signature_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
     db_table_name = db_table_name, 
     return_var = "*", 
@@ -156,7 +157,7 @@ addSignature <- function(
       }else{
         
         # SQL statement to look up platform in database
-        platform_id_tbl <- SigRepoR::lookup_table_sql(
+        platform_id_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "platforms", 
           return_var = "platform_id",
@@ -166,7 +167,7 @@ addSignature <- function(
         ) 
         
         if(nrow(platform_id_tbl) == 0){
-          SigRepoR::addPlatformErrorMessage(
+          SigRepo::addPlatformErrorMessage(
             db_table_name = "platforms",
             unknown_values = lookup_platform
           )
@@ -193,7 +194,7 @@ addSignature <- function(
         
       }else{
         
-        phenotype_id_tbl <- SigRepoR::lookup_table_sql(
+        phenotype_id_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "phenotypes", 
           return_var = "phenotype_id", 
@@ -203,7 +204,7 @@ addSignature <- function(
         ) 
         
         if(nrow(phenotype_id_tbl) == 0){
-          SigRepoR::addPhenotypeErrorMessage(
+          SigRepo::addPhenotypeErrorMessage(
             db_table_name = "phenotypes",
             unknown_values = lookup_phenotype
           )
@@ -229,8 +230,8 @@ addSignature <- function(
         sample_type_id <- 'NULL'
         
       }else{
-        
-        sample_type_id_tbl <- SigRepoR::lookup_table_sql(
+
+        sample_type_id_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "sample_types", 
           return_var = "sample_type_id", 
@@ -240,7 +241,7 @@ addSignature <- function(
         ) 
         
         if(nrow(sample_type_id_tbl) == 0){
-          SigRepoR::addSampleTypeErrorMessage(
+          SigRepo::addSampleTypeErrorMessage(
             db_table_name = "sample_types",
             unknown_values = lookup_sample_type
           )
@@ -385,7 +386,7 @@ addSignature <- function(
           keyword = metadata$keywords,
           stringsAsFactors = FALSE
         )
-        SigRepoR::addKeyword(conn = conn, keyword_tbl = keyword_tbl)
+        SigRepo::addKeyword(conn = conn, keyword_tbl = keyword_tbl)
       }
     }else{
       keywords <- 'NULL'
@@ -428,7 +429,7 @@ addSignature <- function(
     )
     
     # Check table against database table ####
-    table <- SigRepoR::checkTableInput(
+    table <- SigRepo::checkTableInput(
       conn = conn, 
       db_table_name = db_table_name,
       table = table, 
@@ -437,15 +438,15 @@ addSignature <- function(
     )
     
     # Insert table into database ####
-    SigRepoR::insert_table_sql(
+    SigRepo::insert_table_sql(
       conn = conn, 
       db_table_name = db_table_name, 
       table = table,
       check_db_table = FALSE
     ) 
     
-    # Get signature id from the imported table
-    signature_tbl <- SigRepoR::lookup_table_sql(
+    # Get signature id from the imported table ####
+    signature_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = db_table_name, 
       return_var = "*", 

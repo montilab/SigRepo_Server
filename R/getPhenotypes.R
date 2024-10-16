@@ -9,7 +9,7 @@ getPhenotypes <- function(
 ){
   
   # Check user connection and permissions ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT",
     required_role = "guest"
@@ -18,7 +18,7 @@ getPhenotypes <- function(
   # Look up signatures
   if(length(filter_by) == 0){
     
-    phenotype_tbl <- SigRepoR::lookup_table_sql(
+    phenotype_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "phenotypes", 
       return_var = "*", 
@@ -27,7 +27,8 @@ getPhenotypes <- function(
     
   }else{
     
-    phenotype_tbl <- SigRepoR::lookup_table_sql(
+
+    phenotype_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "phenotypes", 
       return_var = "*", 

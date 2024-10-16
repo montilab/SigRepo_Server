@@ -9,7 +9,7 @@
 checkPermissions <- function(
     conn,
     action_type = c("SELECT", "INSERT", "UPDATE", "DELETE", "CREATE USER"),
-    required_role = c("admin", "editor", "viewer")
+    required_role = c("admin", "user", "guest")
 ){
   
   # Check action_type
@@ -41,7 +41,7 @@ checkPermissions <- function(
     stop(sprintf("User = '%s' does not have permission to perform this action in the database.\n", conn_info$user)) 
   
   # Look up user in the database
-  user_tbl <- SigRepoR::lookup_table_sql(
+  user_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "users", 
     return_var = c("user_id", "user_role"), 
@@ -123,7 +123,7 @@ getDBColNames <- function(
 ){
   
   # Whether to check database table
-  SigRepoR::checkDBTable(
+  SigRepo::checkDBTable(
     conn = conn,
     db_table_name = db_table_name,
     check = check_db_table
@@ -165,7 +165,7 @@ checkTableInput <- function(
 ){
   
   # Get table column names
-  db_col_names <- SigRepoR::getDBColNames(
+  db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
     check_db_table = check_db_table
@@ -288,7 +288,7 @@ removeDuplicates <- function(
 ){
   
   # Get table column names
-  db_col_names <- SigRepoR::getDBColNames(
+  db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
     check_db_table = check_db_table
@@ -321,7 +321,7 @@ removeDuplicates <- function(
     filter_coln_var <- coln_var
     filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
     
-    existing_tbl <- SigRepoR::lookup_table_sql(
+    existing_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = db_table_name, 
       return_var = return_var, 
@@ -369,7 +369,7 @@ getVariableID <- function(
 ){
   
   # Get able column names
-  db_col_names <- SigRepoR::getDBColNames(
+  db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
     check_db_table = check_db_table
@@ -413,7 +413,7 @@ getVariableID <- function(
     filter_coln_var <- coln_var
     filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
     
-    tbl <- SigRepoR::lookup_table_sql(
+    tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = db_table_name, 
       return_var = return_var, 
@@ -466,7 +466,7 @@ addTranscriptomicsFeatureErrorMessage <- function(
 ){
   
   # Look up table
-  organism <- SigRepoR::lookup_table_sql(
+  organism <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "organisms", 
     return_var = "organism", 

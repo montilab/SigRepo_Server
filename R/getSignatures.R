@@ -9,7 +9,7 @@ getSignatures <- function(
 ){
   
   # Check user connection and permissions ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT",
     required_role = "guest"
@@ -22,7 +22,7 @@ getSignatures <- function(
   # Look up signatures
   if("all" %in% author_id){
     
-    signature_tbl <- SigRepoR::lookup_table_sql(
+    signature_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "signatures", 
       return_var = "*", 
@@ -31,7 +31,8 @@ getSignatures <- function(
     
   }else{
     
-    signature_tbl <- SigRepoR::lookup_table_sql(
+
+    signature_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "signatures", 
       return_var = "*", 

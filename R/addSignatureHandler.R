@@ -11,7 +11,7 @@ addSignatureHandler <- function(
   # 1. Uploading signature into database
   message("\nUploading signature to database...\n")
   
-  signature_tbl <- SigRepoR::addSignature(
+  signature_tbl <- SigRepo::addSignature(
     conn = conn, 
     omic_signature = omic_signature
   )
@@ -29,7 +29,7 @@ addSignatureHandler <- function(
     )
   
   # Add signature feature set to database #####
-  SigRepoR::addSignatureFeatureSet(
+  SigRepo::addSignatureFeatureSet(
     conn = conn,
     signature_id = signature_tbl$signature_id,
     organism_id = signature_tbl$organism_id,
@@ -40,8 +40,8 @@ addSignatureHandler <- function(
   # 3. Adding user to signature access table after signature
   # was imported successfully in step (1)
   message("Adding user to signature access in database...\n")
-  
-  SigRepoR::addUserToSignature(
+
+  SigRepo::addUserToSignature(
     conn = conn,
     signature_id = signature_tbl$signature_id,
     user_id = signature_tbl$user_id,

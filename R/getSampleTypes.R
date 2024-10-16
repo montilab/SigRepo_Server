@@ -9,7 +9,7 @@ getSampleTypes <- function(
 ){
   
   # Check user connection and permissions ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT",
     required_role = "guest"
@@ -18,7 +18,7 @@ getSampleTypes <- function(
   # Look up signatures
   if(length(filter_by) == 0){
     
-    sample_type_tbl <- SigRepoR::lookup_table_sql(
+    sample_type_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "sample_types", 
       return_var = "*", 
@@ -27,7 +27,7 @@ getSampleTypes <- function(
     
   }else{
     
-    sample_type_tbl <- SigRepoR::lookup_table_sql(
+    sample_type_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "sample_types", 
       return_var = "*", 

@@ -12,7 +12,7 @@ addTranscriptomicsFeatureSet <- function(
 ){
   
   # Check user connection and permission ####
-  conn_info <- SigRepoR::checkPermissions(
+  conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
     required_role = "admin"
@@ -27,7 +27,7 @@ addTranscriptomicsFeatureSet <- function(
   coln_var_id <- "organism_id"
   
   # Look up table
-  lookup_id_tbl <- SigRepoR::getVariableID(
+  lookup_id_tbl <- SigRepo::getVariableID(
     conn = conn, 
     db_table_name = "organisms",
     table = table,
@@ -45,13 +45,13 @@ addTranscriptomicsFeatureSet <- function(
   
   # If any ID is missing, produce an error message
   if(any(table$organism_id %in% c("", NA)))
-    SigRepoR::addOrganismErrorMessage(
+    SigRepo::addOrganismErrorMessage(
       db_table_name = 'organisms',
       unknown_values = table$organism[which(table$organism_id %in% c("", NA))]
     )
   
   # Create a hash key to look up values in database ####
-  table <- SigRepoR::createHashKey(
+  table <- SigRepo::createHashKey(
     table = table,
     hash_var = "feature_hashkey",
     hash_columns = c("feature_name", "organism_id"),
@@ -59,7 +59,7 @@ addTranscriptomicsFeatureSet <- function(
   )
   
   # Check table against database table ####
-  table <- SigRepoR::checkTableInput(
+  table <- SigRepo::checkTableInput(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
@@ -68,7 +68,7 @@ addTranscriptomicsFeatureSet <- function(
   )
   
   # Remove duplicates from table before inserting into database ####
-  table <- SigRepoR::removeDuplicates(
+  table <- SigRepo::removeDuplicates(
     conn = conn,
     db_table_name = db_table_name,
     table = table,
@@ -77,7 +77,7 @@ addTranscriptomicsFeatureSet <- function(
   )
   
   # Insert table into database ####
-  SigRepoR::insert_table_sql(
+  SigRepo::insert_table_sql(
     conn = conn, 
     db_table_name = db_table_name, 
     table = table,

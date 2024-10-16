@@ -1,23 +1,84 @@
-url: https://montilab.github.io/SigRepoR
+url: https://montilab.github.io/SigRepo/
+
+development:
+  mode: auto
 
 template:
-  params:
-    bootswatch: lux
+  bootstrap: 5
+  bootswatch: cosmo
+
+authors:
+  Reina Chau:
+    href: https://github.com/RC-88
+  Vanessa Li:
+    href: https://github.com/katgit
+  Stefano Monti:
+    href: https://github.com/tetomonti
+    
+news:
+  one_page: false
 
 home:
   title: "SigRepoR"
   type: inverse
+  
+reference:
+- title: Connect to database
+  desc: ~
+  contents:
+  - '`newConnHandler`'
 
+- title: Get data from database
+  desc: ~
+  contents:
+  - '`getAPIKey`'
+  - '`getFeatures`'
+  - '`getOrganisms`'
+  - '`getPhenotypes`'
+  - '`getSignatures`'
+  - '`getPlatforms`'
+  - '`getSampleTypes`'
+  
+- title: Add data to database
+  desc: ~
+  contents:
+  - '`addRefFeatureSet`'
+  - '`addKeyword`'
+  - '`addOrganism`'
+  - '`addPhenotype`'
+  - '`addPlatform`'
+  - '`addSampleType`'
+  - '`addUser`'
+
+- title: Add signature to database
+  desc: ~
+  contents:
+  - '`addSignature`'
+  - '`addSignatureHandler`'
+  - '`addSignatureAccess`'
+  - '`addSignatureFeatureSet`'
+  - '`addUserToSignature`'
+
+- title: Other functions
+  desc: 
+  contents:
+  - '`addSignatureCollection`'
+  - '`addTranscriptomicsFeatureSet`'
+  - '`insert_table_sql`'
+  - '`lookup_table_sql`'
+  - '`update_table_sql`'
+  
 navbar:
-  title: "SigRepoR"
+  title: "SigRepo"
   left:
     - text: "Home"
+      icon: fa-home
       href: index.html
-    - text: "Documentation"
-      menu:
-      - text: "Upload Signatures"
-        href: articles/uploadSignatures.html
-    - text: "Retrieve Signatures"
-      href: articles/retrieveSignatures.html
+    - text: "Reference"
+      href: reference/index.html      
   right: 
+    - text: "Change Log"
+      href: news/index.html
+    - icon: fa-github
+      href: https://github.com/montilab/SigRepo  
 

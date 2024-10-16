@@ -13,7 +13,7 @@ insert_table_sql <- function(
 ){
   
   # Get table column names
-  db_col_names <- SigRepoR::getDBColNames(
+  db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
     check_db_table = check_db_table
@@ -117,7 +117,7 @@ lookup_table_sql <- function(
 ){
   
   # Get table column names
-  db_col_names <- SigRepoR::getDBColNames(
+  db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
     check_db_table = check_db_table
