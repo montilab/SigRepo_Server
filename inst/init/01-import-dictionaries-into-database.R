@@ -1,19 +1,4 @@
 
-source("R/addFeatureSet.R")
-source("R/addKeyword.R")
-source("R/addOrganism.R")
-source("R/addPhenotype.R")
-source("R/addPlatform.R")
-source("R/addSampleType.R")
-source("R/addSignature.R")
-source("R/addSignatureAccess.R")
-source("R/addSignatureCollection.R")
-source("R/addSignatureFeatureSet.R")
-source("R/addTranscriptomicsFeatureSet.R")
-source("R/addUser.R")
-source("R/newConnHandler.R")
-source("R/sqlFunctions.R")
-
 # For DB connection
 library(RMySQL)
 library(DBI)
@@ -27,11 +12,11 @@ library(devtools)
 # Load OmicSignature package
 devtools::load_all("/home/rstudio/OmicSignature")
 
-# Load SigRepoR package
+# Load OmicSignature package
 devtools::load_all("/home/rstudio/SigRepoR")
 
 ## Establish database connection
-conn <- newConnHandle(
+conn <- SigRepoR::newConnHandler(
   driver = RMySQL::MySQL(),
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
@@ -40,120 +25,157 @@ conn <- newConnHandle(
   password = Sys.getenv("PASSWORD")
 )
 
-## Read in platforms data
-platforms <- readRDS("/home/rstudio/SigRepoShiny/miscellanea/platforms/GEOplatform_2024.rds") 
+# 1. Add organisms to database ####
+organism_tbl <- data.frame(
+  organism = c(
+    "Homo sapiens",
+    "Mus musculus",
+    "Rattus norvegicus",
+    "Danio rerio",
+    "Heterocephalus glaber",
+    "Caenorhabditis elegans",
+    "Drosophila melanogaster",
+    "Arabidopsis thaliana"
+  )
+)
 
-# 1. Add organisms to database
-organism_tbl <- platforms %>% 
-  dplyr::transmute(
-    organism = Organism %>% tolower() %>% trimws() %>% gsub("'", "", .)
-  ) %>% 
-  dplyr::distinct(organism, .keep_all = TRUE) %>% 
-  base::replace(is.na(.), "'NULL'") %>% 
-  base::replace(. == "", "'NULL'")
-
-addOrganism(conn=conn, organism_tbl = organism_tbl)
+SigRepoR::addOrganism(conn=conn, organism_tbl = organism_tbl)
 
 # Check the imported values
-table_query <- "select * FROM organisms"
-query_tbl <- DBI::dbGetQuery(conn = conn, statement = table_query)
+statement <- "select * FROM organisms"
+organism_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 2. Add platforms to database
-platform_tbl <- platforms %>% 
+# 2. Add platforms to database ####
+platform_tbl <- readRDS("/home/rstudio/SigRepoR/inst/data/platforms/GEOplatform_2024.rds") 
+
+platform_tbl <- platform_tbl %>% 
   dplyr::transmute(
     platform_id = Accession,
-    platform = Name,
+    platform_name = Name,
     seq_technology = Technology,
-    organism = Organism %>% tolower() %>% trimws() %>% gsub("'", "", .)
-  ) %>% 
-  dplyr::distinct(platform_id, .keep_all = TRUE) %>% 
-  base::replace(is.na(.), "'NULL'") %>% 
-  base::replace(. == "", "'NULL'")
+    organisms = Organism
+  )
 
-addPlatform(conn=conn, platform_tbl = platform_tbl)
+SigRepoR::addPlatform(conn=conn, platform_tbl = platform_tbl)
 
-# 3. Add sample types to database
+# Check the imported values
+statement <- "select * FROM platforms"
+platform_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# 3. Add phenotypes to database ####
 
 # Read in the brenda dictionary
-sample_type_tbl <- read.delim("/home/rstudio/SigRepoShiny/miscellanea/BRENDA/BRENDA_non-obsolete_leaf.txt", header = FALSE, col.names = c("entry", "brenda_accession", "sample_type"))  %>% 
-  dplyr::transmute(
-    sample_type = sample_type,
-    brenda_accession = brenda_accession
-  ) %>% 
-  dplyr::distinct(sample_type, .keep_all = TRUE) %>% 
-  base::replace(is.na(.), "'NULL'") %>% 
-  base::replace(. == "", "'NULL'")
+phenotype_tbl <- data.frame(
+  phenotype = c("Aging", "Blood", "Extreme Old Age")
+)
 
-addSampleType(conn=conn, sample_type_tbl = sample_type_tbl)
+SigRepoR::addPhenotype(conn=conn, phenotype_tbl = phenotype_tbl)
 
-# 4. Add transcriptomics feature set
+# phenotypes 
+statement <- "select * FROM phenotypes"
+phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# 4. Add sample types to database ####
+
+# Read in the brenda dictionary
+sample_type_tbl <- readRDS("/home/rstudio/SigRepoR/inst/data/sample_types/BRENDA.rds")
+colnames(sample_type_tbl) <- c("brenda_accession", "sample_type")
+
+SigRepoR::addSampleType(conn=conn, sample_type_tbl = sample_type_tbl)
+
+# sample_types 
+statement <- "select * FROM sample_types"
+sample_type_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# 5. Add transcriptomics feature set ####
 
 # Read in the human and mouse gene symbols 
-human_gene_symbol_tbl <- read.csv("~/SigRepoShiny/miscellanea/gene_symbols/homo_sapiens.txt", sep="", na.strings = "'NULL'") %>% 
+human_gene_symbol_tbl <- read.csv("~/SigRepoR/inst/data/gene_symbols/homo_sapiens.txt", sep="") %>% 
   dplyr::transmute(
     feature_name = hgnc_symbol,
-    assay_type = "transcriptomics",
     organism = "homo sapiens",
     description = description,
     synonyms = synonyms,
     n_synonyms = n_synonyms,
     ensemble_ids = ensemble_ids,
-    n_ensembl_ids = n_ensembl_ids,
+    n_ensemble_ids = n_ensembl_ids,
     transcript_biotypes = transcript_biotypes,
     chromosome_name = chromosome_name,
     start_position = start_position,
     end_position = end_position
-  ) %>% 
-  dplyr::distinct(feature_name, .keep_all = TRUE) %>% 
-  base::replace(is.na(.), "'NULL'") %>% 
-  base::replace(. == "", "'NULL'")
+  )
 
-mouse_gene_symbol_tbl <- read.csv("/home/rstudio/SigRepoShiny/miscellanea/gene_symbols/mus_musculus.txt", sep = "") %>% 
+SigRepoR::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
+
+# transcriptomics_features 
+statement <- "select * FROM transcriptomics_features"
+transcriptomics_features_db_tbl <-  suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+mouse_gene_symbol_tbl <- read.csv("/home/rstudio/SigRepoR/inst/data/gene_symbols/mus_musculus.txt", sep = "") %>% 
   dplyr::transmute(
     feature_name = mgi_symbol,
-    assay_type = "transcriptomics",
     organism = "mus musculus",
     description = mgi_description,
     synonyms = synonyms,
     n_synonyms = n_synonyms,
     ensemble_ids = ensemble_ids,
-    n_ensembl_ids = n_ensembl_ids,
+    n_ensemble_ids = n_ensembl_ids,
     transcript_biotypes = transcript_biotypes,
     chromosome_name = chromosome_name,
     start_position = start_position,
     end_position = end_position
-  ) %>% 
-  dplyr::distinct(feature_name, .keep_all = TRUE) %>% 
-  base::replace(is.na(.), "'NULL'") %>% 
-  base::replace(. == "", "'NULL'")
+  )
 
-# Combine human and mouse gene symbols
-feature_set <- human_gene_symbol_tbl %>% rbind(mouse_gene_symbol_tbl)
+## Add reference feature set 
+SigRepoR::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
 
-addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = feature_set)
+# transcriptomics_features 
+statement <- "select * FROM transcriptomics_features"
+transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# 5. Add users (optional) Default guest guest
+# 6. Add users ####
 
 ## Create an user df
 user_tbl <- data.frame(
-  user_name = c("rchau88", "smonti", "vmli", "lkroeh", "andrewdr", "zihuang"), 
-  user_password = "password",
-  user_email = c("rchau88@bu.edu", "smonti@bu.edu", "vmli@bu.edu", "lkroeh@bu.edu", "andrewdr@bu.edu", "zihuang@bu.edu"), 
-  user_first = c("Reina", "Stefano", "Vanessa", "Lina", "Andrew", "Ziwei"), 
-  user_last = c("Chau", "Monti", "Li", "Kroehling", "Chen", "Huang"), 
+  user_id = c("guest", "rchau88", "smonti", "vmli", "lkroeh", "andrewdr", "zihuang"), 
+  user_password = c("guest", "password", "password", "password", "password", "password", "password"),
+  user_email = c("guest@bu.edu", "rchau88@bu.edu", "smonti@bu.edu", "vmli@bu.edu", "lkroeh@bu.edu", "andrewdr@bu.edu", "zihuang@bu.edu"), 
+  user_first = c("guest", "Reina", "Stefano", "Vanessa", "Lina", "Andrew", "Ziwei"), 
+  user_last = c("guest", "Chau", "Monti", "Li", "Kroehling", "Chen", "Huang"), 
   user_affiliation = "Boston University",
-  user_role = "admin",
+  user_role = c("guest", "admin", "admin", "admin", "admin", "admin", "admin"),
   stringsAsFactors = FALSE
-) %>% 
-  dplyr::distinct(user_name, .keep_all = TRUE) %>% 
-  base::replace(is.na(.), "'NULL'") %>% 
-  base::replace(. == "", "'NULL'")
+)
 
-addUser(conn = conn, user_tbl = user_tbl)
+SigRepoR::addUser(conn = conn, user_tbl = user_tbl)
 
-# 6. Add signatures (optional)
-LLFS_Transcriptomic_AGS_OmS <- readRDS("~/SigRepoShiny/miscellanea/signatures/LLFS_Transcriptomic_AGS_OmS.rds")
+# Check the imported values
+statement <- "select * FROM users"
+user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-addSignature(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS, user_id = "rchau88", user_role="admin")
+# 7. Add signatures ####
+LLFS_Transcriptomic_AGS_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_AGS_OmS.rds")
+SigRepoR::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
 
+LLFS_Transcriptomic_EOA_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_EOA_OmS.rds")
+SigRepoR::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_EOA_OmS)
+
+LLFS_Transcriptomic_EOAU_OmS <- readRDS("~/SigRepoR/inst/data/signatures/LLFS_Transcriptomic_EOAU_OmS.rds")
+SigRepoR::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_EOAU_OmS)
+
+# Check the phenotypes table ####
+statement <- "select * FROM phenotypes"
+phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# Check the keywords table ####
+statement <- "select * FROM keywords"
+keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# Check the access_signature table ####
+statement <- "select * FROM access_signature"
+access_signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# Check the signatures table ####
+statement <- "select * FROM signatures"
+signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 

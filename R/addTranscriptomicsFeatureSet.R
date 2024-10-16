@@ -1,131 +1,89 @@
-
+#' @title addTranscriptomicsFeatureSet
+#' @description Add Transcriptomics Feature Set into database
+#' @param conn An established connection to database using newConnhandler() 
+#' @param feature_set A data frame containing appropriate column names: 
+#' feature_name, organism, description, synonyms, n_synonyms, ensemble_ids, 
+#' n_ensemble_ids, transcript_biotypes, chromosome_name, start_position, 
+#' end_position
+#' @export
 addTranscriptomicsFeatureSet <- function(
     conn,
     feature_set
 ){
   
-  # Name of table in database
-  table <- "transcriptomics_proteomics_features" 
+  # Check user connection and permission ####
+  conn_info <- SigRepoR::checkPermissions(
+    conn = conn, 
+    action_type = "INSERT",
+    required_role = "admin"
+  )
   
-  # Get column fields
-  table_query <- sprintf("SELECT * FROM %s LIMIT 1", table)
-  query_tbl <- DBI::dbGetQuery(conn = conn, statement = table_query)
-  query_col_names <- colnames(query_tbl)[which(!colnames(query_tbl) %in% c("feature_id", "organism_id"))]
-  tbl_col_names <- c(query_col_names, "organism")
+  # Create a list of variables to check database ####
+  db_table_name <- "transcriptomics_features"
+  table <- feature_set
   
-  if(any(!tbl_col_names %in% colnames(feature_set)))
-    stop("'feature_set' must have the following column names: ", paste0(tbl_col_names, collapse = ", "))
+  # Get organism id ####
+  coln_var <- "organism"
+  coln_var_id <- "organism_id"
   
-  ## Clean up the table 
-  feature_set <- feature_set %>% 
-    dplyr::select(all_of(tbl_col_names)) %>% 
-    dplyr::mutate(
-      feature_name = feature_name %>% trimws() %>% gsub("'", "", .)
-    ) %>% 
-    dplyr::distinct(feature_name, .keep_all = TRUE) %>% 
-    base::replace(is.na(.), "'NULL'") %>% 
-    base::replace(. == "", "'NULL'")
+  # Look up table
+  lookup_id_tbl <- SigRepoR::getVariableID(
+    conn = conn, 
+    db_table_name = "organisms",
+    table = table,
+    coln_var = coln_var, 
+    coln_var_id = coln_var_id,
+    check_db_table = TRUE
+  )
   
-  # Getting the unique organisms
-  unique_organism <- unique(feature_set$organism)
+  ## Add ID to table
+  table <- table %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% 
+    dplyr::left_join(
+      lookup_id_tbl %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% dplyr::select(-all_of(coln_var)), 
+      by = "id"
+    )
   
-  # Read in the organism table
-  organism_id_tbl <- lookup_values_sql(conn = conn, table="organisms", id_var="organism_id", coln_var="organism", coln_val=unique_organism) %>% 
-    dplyr::distinct(organism, organism_id, .keep_all = TRUE)
+  # If any ID is missing, produce an error message
+  if(any(table$organism_id %in% c("", NA)))
+    SigRepoR::addOrganismErrorMessage(
+      db_table_name = 'organisms',
+      unknown_values = table$organism[which(table$organism_id %in% c("", NA))]
+    )
   
-  ## Retrieve the organism ids
-  if(nrow(organism_id_tbl) > 0){
-    
-    ## Add organism ids to table
-    feature_set <- feature_set %>% 
-      dplyr::left_join(organism_id_tbl, by="organism") %>% 
-      base::replace(is.na(.), "'NULL'") %>% 
-      base::replace(. == "", "'NULL'")
-    
-    ## If table has values, only import non-existing ones
-    if(nrow(query_tbl) > 0){
-      
-      feature_set <- feature_set %>% 
-        dplyr::anti_join(
-          query_tbl,
-          by = "feature_name"
-        )
-      
-      if(nrow(feature_set) == 0) return(NULL)
-      
-    }
-    
-    ## Create final column names 
-    col_names <- c("organism_id", query_col_names)
-    
-    # Join column variables
-    coln_var <- paste0("(", paste0(col_names, collapse = ", "), ")")
-    
-    # Get values
-    if(nrow(organism_tbl) == 1){
-      
-      values <- paste0(
-        "(", 
-        paste0("'", feature_set$organism_id[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$feature_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$description[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$ensemble_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_ensembl_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$transcript_biotypes[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$chromosome_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$start_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$end_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"),
-        ");\n"
-      )
-      
-      # Join column values
-      coln_val <- paste0(values, collapse = "") %>% gsub("'NULL'", "NULL", .)    
-      
-    }else{
-      
-      first_values <- paste0(
-        "(", 
-        paste0("'", feature_set$organism_id %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$feature_name %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$description %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$synonyms %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_synonyms %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$ensemble_ids %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_ensembl_ids %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$transcript_biotypes %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$chromosome_name %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$start_position %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$end_position %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"),
-        "),\n"
-      )
-      
-      last_values <- paste0(
-        "(", 
-        paste0("'", feature_set$organism_id[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$feature_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$description[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_synonyms[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$ensemble_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$n_ensembl_ids[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$transcript_biotypes[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$chromosome_name[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$start_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"), ",",
-        paste0("'", feature_set$end_position[nrow(feature_set)] %>% trimws() %>% gsub("'", "", .), "'"),
-        ");\n"
-      )
-      
-      # Join column values
-      coln_val <- paste0(c(first_values, last_values), collapse = "") %>% gsub("'NULL'", "NULL", .)
-      
-    }
-    
-    # Insert values into table
-    insert_table_sql(conn = conn, table = table, coln_var = coln_var, coln_val = coln_val)
-    
-  }
+  # Create a hash key to look up values in database ####
+  table <- SigRepoR::createHashKey(
+    table = table,
+    hash_var = "feature_hashkey",
+    hash_columns = c("feature_name", "organism_id"),
+    hash_method = "md5"
+  )
+  
+  # Check table against database table ####
+  table <- SigRepoR::checkTableInput(
+    conn = conn, 
+    db_table_name = db_table_name,
+    table = table, 
+    exclude_coln_names = "feature_id",
+    check_db_table = FALSE
+  )
+  
+  # Remove duplicates from table before inserting into database ####
+  table <- SigRepoR::removeDuplicates(
+    conn = conn,
+    db_table_name = db_table_name,
+    table = table,
+    coln_var = "feature_hashkey",
+    check_db_table = FALSE
+  )
+  
+  # Insert table into database ####
+  SigRepoR::insert_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    table = table,
+    check_db_table = FALSE
+  )  
+  
 }
 
 
