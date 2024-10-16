@@ -1,119 +1,108 @@
-
+#' @title addUser
+#' @description Add user information to database
+#' @param conn An established database connection using newConnhandler() 
+#' @param user_tbl A data frame containing appropriate column names:
+#' user_id, user_password, user_email, user_first, user_last, user_affiliation, user_role
+#' @export
 addUser <- function(
-  conn,
-  user_tbl
+    conn,
+    user_tbl
 ){
   
-  # Table name in database
-  table <- "users"
+  # Check user connection and permission ####
+  conn_info <- SigRepoR::checkPermissions(
+    conn = conn, 
+    action_type = "INSERT",
+    required_role = "admin"
+  )
   
-  # Check if table exists in database
-  all_tables <- tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = "show tables;")
-  }, error = function(e){
-    stop(e)
-  }, warning = function(w){
-    message(w, "\n")
-  })
+  # Create a list of variables to check database ####
+  db_table_name <- "users"
+  table <- user_tbl
   
-  if(!table %in% all_tables[,1])
-    stop(sprintf("There is no '%s' table in the database.", table))
+  # Create a hash key for user password
+  table <- SigRepoR::createHashKey(
+    table = table,
+    hash_var = "user_password_hashkey",
+    hash_columns = "user_password",
+    hash_method = "sodium"
+  )
   
-  # Check if user_tbl is a data frame  object
-  if(!is(user_tbl, "data.frame"))
-    stop("'user_tbl' must be a data frame object")
+  # Create an api key for each user
+  table <- SigRepoR::createHashKey(
+    table = table,
+    hash_var = "api_key",
+    hash_columns = c("user_id", "user_password", "user_email", "user_role"),
+    hash_method = "md5"
+  )
   
-  # Get column fields
-  table_query <- sprintf("SELECT * FROM %s LIMIT 1", table)
-  query_tbl <- DBI::dbGetQuery(conn = conn, statement = table_query)
-  query_col_names <- colnames(query_tbl)[which(!colnames(query_tbl) %in% c("user_id", "user_password_hashkey"))]
-  tbl_col_names <- c("user_name", "user_password", query_col_names)
+  # Create a hash key to check for duplicates
+  table <- SigRepoR::createHashKey(
+    table = table,
+    hash_var = "user_hashkey",
+    hash_columns = c("user_id", "user_email", "user_role"),
+    hash_method = "md5"
+  )
   
-  if(any(!tbl_col_names %in% colnames(user_tbl)))
-    stop("'user_tbl' must have the following column names: ", paste0(tbl_col_names, collapse = ", "))
+  # Check table against database table ####
+  table <- SigRepoR::checkTableInput(
+    conn = conn, 
+    db_table_name = db_table_name,
+    table = table, 
+    exclude_coln_names = NULL,
+    check_db_table = FALSE
+  )
   
-  ## Clean up the table 
-  user_tbl <- user_tbl %>% 
-    dplyr::select(all_of(tbl_col_names)) %>% 
-    dplyr::mutate(
-      user_id = user_name %>% trimws() %>% gsub("'", "", .),
-      user_password_hashkey = sodium::password_store(as.character(user_password)),
-    ) %>% 
-    dplyr::distinct(user_id, user_email, user_role, .keep_all = TRUE) %>% 
-    base::replace(is.na(.), "'NULL'") %>% 
-    base::replace(. == "", "'NULL'")
+  # Remove duplicates from table before inserting into database ####
+  table <- SigRepoR::removeDuplicates(
+    conn = conn,
+    db_table_name = db_table_name,
+    table = table,
+    coln_var = "user_hashkey",
+    check_db_table = FALSE
+  )
   
-  ## If table has values, only import non-existing ones
-  if(nrow(query_tbl) > 0){
-    
-    user_tbl <- user_tbl %>% 
-      dplyr::anti_join(
-        query_tbl,
-        by = c("user_id", "user_email", "user_role")
-      )  
-    
-    if(nrow(user_tbl) == 0) return(NULL)
-
-  }
+  # Insert table into database ####
+  SigRepoR::insert_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    table = table,
+    check_db_table = FALSE
+  )  
   
-  ## Create final column names 
-  col_names <- c("user_id", "user_password_hashkey", query_col_names)
-  
-  # Join column variables
-  coln_var <- paste0("(", paste0(col_names, collapse = ", "), ")")
-  
-  # Get values
-  if(nrow(user_tbl) == 1){
-    
-    values <- paste0(
-      "(", 
-      paste0("'", user_tbl$user_id[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_password_hashkey[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_email[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_first[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_last[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_affiliation[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"),
-      paste0("'", user_tbl$user_role[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"),
-      ");\n"
-    )
-    
-    # Join column values
-    coln_val <- paste0(values, collapse = "") %>% gsub("'NULL'", "NULL", .)   
-    
-  }else{
-  
-    first_values <- paste0(
-      "(", 
-      paste0("'", user_tbl$user_id %>% utils::head(n = -1)  %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_password_hashkey %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_email %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_first %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_last %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_affiliation %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_role %>% utils::head(n = -1) %>% trimws() %>% gsub("'", "", .), "'"),
-      "),\n"
-    )
-    
-    last_values <- paste0(
-      "(", 
-      paste0("'", user_tbl$user_id[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_password_hashkey[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_email[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_first[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_last[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",",  
-      paste0("'", user_tbl$user_affiliation[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"), ",", 
-      paste0("'", user_tbl$user_role[nrow(user_tbl)] %>% trimws() %>% gsub("'", "", .), "'"),
-      ");\n"
-    )
-    
-    # Join column values
-    coln_val <- paste0(c(first_values, last_values), collapse = "") %>% gsub("'NULL'", "NULL", .)   
-    
-  }
-  
-  # Insert values into table
-  insert_table_sql(conn = conn, table = table, coln_var = coln_var, coln_val = coln_val)
-  
+  # IF USER IS NOT ROOT, GRANT USER PERMISSIONS TO DATABASE IF IT DOES NOT EXIST
+  purrr::walk(
+    seq_len(nrow(table)),
+    function(u){
+      #u=1;
+      if(table$user_id[u] != "root"){    
+        
+        check_user_tbl <- suppressWarnings(
+          DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_id[u]))
+        )
+        
+        # Create user if not existed in database
+        if(nrow(check_user_tbl) == 0){
+          suppressWarnings(
+            DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_id[u], table$user_password[u]))
+          )
+        }
+        
+        # Give permissions to users based on their user role
+        if(table$user_role[u] == "admin"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_id[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
+        }else if(table$user_role[u] == "editor"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_id[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+        }else if(table$user_role[u] == "viewer"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_id[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+        }
+      }
+      
+    }
+  )
 }
 
 
