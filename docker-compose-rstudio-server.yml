@@ -2,8 +2,8 @@ services:
   sigrepo_rstudio_server:
     container_name: sigrepo_rstudio_server
     image: montilab/sigrepo_rstudio:latest
-    environment:
-      - PASSWORD=SigRepo  
+    env_file:
+      - rstudio-server-config.env  
     ports:
       - 7878:8787
     restart: always

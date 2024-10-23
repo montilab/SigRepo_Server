@@ -40,5 +40,6 @@ Meta
 Icon
 Jel*.md
 mysql-config.env
+rstudio-server-config.env
 .Renviron
 .RData
