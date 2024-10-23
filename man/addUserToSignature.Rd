@@ -8,7 +8,7 @@ addUserToSignature(
   conn,
   signature_id,
   user_id,
-  access_type = c("owner", "user")
+  access_type = c("owner", "viewer")
 )
 }
 \arguments{
@@ -18,7 +18,7 @@ addUserToSignature(
 
 \item{user_id}{user id}
 
-\item{access_type}{access type: 'owner' or 'user'}
+\item{access_type}{access type: 'owner' or 'viewer'}
 }
 \description{
 Add user to signature access table in database
