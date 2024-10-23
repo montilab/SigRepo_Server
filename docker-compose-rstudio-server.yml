@@ -10,8 +10,7 @@ services:
     volumes:
       - /montilab-p/SigRepoShiny:/home/rstudio/SigRepoShiny  
       - /montilab-p/OmicSignature:/home/rstudio/OmicSignature
-      - /montilab-p/SigRepoR:/home/rstudio/SigRepoR
-      - /montilab-p/mysql:/home/rstudio/mysql
+      - /montilab-p/SigRepo:/home/rstudio/SigRepo
 
 networks:
   rstudio_server:

@@ -33,7 +33,7 @@ docs/
 # translation temp files
 po/*~
 .Rproj.user
-SigRepoR.Rproj
+*.Rproj
 .DS_Store
 doc
 Meta
@@ -41,3 +41,4 @@ Icon
 Jel*.md
 mysql-config.env
 .Renviron
+.RData

@@ -12,7 +12,7 @@ addSignature <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "user"
+    required_role = "editor"
   )
   
   # Get table name in database ####
@@ -104,7 +104,7 @@ addSignature <- function(
   # Look up organism id ####
   lookup_organism <- organism
   
-  organism_id_tbl <- SigRepoR::lookup_table_sql(
+  organism_id_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "organisms", 
     return_var = c("organism_id", "organism"), 
@@ -399,7 +399,7 @@ addSignature <- function(
     # This action must be performed before a signature is imported into the database.
     # This helps to make sure data is stored properly before interruptions in-between.
     if(has_difexp == TRUE){
-      data_path <- system.file("data/difexp", package = "SigRepoR")
+      data_path <- system.file("data/difexp", package = "SigRepo")
       saveRDS(difexp, file = file.path(data_path, paste0(signature_hashkey, ".RDS")))
     }
     

@@ -8,14 +8,14 @@ library(tidyverse)
 # For loading and installing packages
 library(devtools)
 
-# Establish DB connection 
+## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = "sigrepo",
-  host = "montilab.bu.edu",
-  port = 3306,
-  username = "root",
-  password = "root"
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
 )
 
 DBI::dbGetQuery(conn = conn, statement = "DROP USER 'andrewdr'@'montilab.bu.edu';")
@@ -26,9 +26,10 @@ DBI::dbGetQuery(conn = conn, statement = "DROP USER 'vmli'@'montilab.bu.edu';")
 DBI::dbGetQuery(conn = conn, statement = "DROP USER 'zihuang'@'montilab.bu.edu';")
 
 
-DBI::dbGetQuery(conn = conn, statement = "CREATE USER 'guest'@'%' IDENTIFIED BY 'guest';")
+DBI::dbGetQuery(conn = conn, statement = "CREATE USER 'guest'@'%' IDENTIFIED WITH mysql_native_password BY 'guest';")
 DBI::dbGetQuery(conn = conn, statement = "GRANT SELECT ON *.* TO 'guest'@'%';")
 DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;")
+
 
 DBI::dbGetQuery(conn = conn, statement = "SHOW GRANTS FOR 'root'@'%';") %>% 
   dplyr::slice(1) %>% 
@@ -37,6 +38,11 @@ DBI::dbGetQuery(conn = conn, statement = "SHOW GRANTS FOR 'root'@'%';") %>%
   stringr::str_split(., ",") %>% 
   purrr::flatten_chr() %>% 
   trimws()
+
+#CREATE USER 'guest'@'%' IDENTIFIED WITH mysql_native_password BY 'guest';
+#CREATE USER 'guest'@'%' IDENTIFIED WITH mysql_native_password BY 'guest';
+#ALTER USER 'guest'@'%' IDENTIFIED WITH mysql_native_password BY 'guest';
+#ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'root';
 
 
 ############# 
@@ -59,7 +65,7 @@ library(devtools)
 devtools::load_all("/home/rstudio/SigRepoR")
 
 ## Establish database connection
-conn <- SigRepoR::newConnHandler(
+conn <- SigRepo::newConnHandler(
   driver = RMySQL::MySQL(),
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
@@ -139,7 +145,7 @@ table <- data.frame(
   )
 
 # Get SQL statement
-statement <- SigRepoR::insert_table_sql(
+statement <- SigRepo::insert_table_sql(
   conn = conn, 
   database = database, 
   db_table_name = db_table_name, 
@@ -180,7 +186,7 @@ db_table <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement)
 #   }
 # )
 
-SigRepoR::addUser(conn = conn, user_tbl = user_tbl)
+SigRepo::addUser(conn = conn, user_tbl = user_tbl)
 
 
 
@@ -229,7 +235,7 @@ return_var <- c(coln_var_id, coln_var)
 filter_coln_var <- coln_var
 filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
 
-statement <- SigRepoR::lookup_table_sql(
+statement <- SigRepo::lookup_table_sql(
   db_table_name = db_table_name, 
   return_var = return_var, 
   filter_coln_var = filter_coln_var, 
@@ -263,7 +269,7 @@ organism_tbl <- data.frame(
   )
 )
 
-SigRepoR::addOrganism(conn=conn, organism_tbl = organism_tbl)
+SigRepo::addOrganism(conn=conn, organism_tbl = organism_tbl)
 
 # Check the imported values
 statement <- "select * FROM organisms"
@@ -279,22 +285,7 @@ table <- data.frame(
   )
 )
 
-SigRepoR::addOrganism(conn=conn, organism_tbl = table)
-
-
-
-
-# Establish DB connection 
-conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
-  dbname = "sigrepo",
-  host = "montilab.bu.edu",
-  port = 3306,
-  username = "guest",
-  password = "guest"
-)
-
-getAPIKey(conn)
+SigRepo::addOrganism(conn=conn, organism_tbl = table)
 
 
 

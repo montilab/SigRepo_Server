@@ -9,7 +9,7 @@
 checkPermissions <- function(
     conn,
     action_type = c("SELECT", "INSERT", "UPDATE", "DELETE", "CREATE USER"),
-    required_role = c("admin", "user", "guest")
+    required_role = c("admin", "editor", "guest")
 ){
   
   # Check action_type

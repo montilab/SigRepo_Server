@@ -3,20 +3,20 @@
 #' @param conn An established database connection using newConnhandler() 
 #' @param signature_id signature id 
 #' @param user_id user id
-#' @param access_type access type: 'owner' or 'user'
+#' @param access_type access type: 'owner' or 'viewer'
 #' @export
 addUserToSignature <- function(
     conn,
     signature_id,
     user_id,
-    access_type = c("owner", "user")
+    access_type = c("owner", "viewer")
 ){
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "user"
+    required_role = "editor"
   )
   
   # Check access_type
