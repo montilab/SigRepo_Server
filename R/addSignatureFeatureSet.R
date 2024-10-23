@@ -21,7 +21,7 @@ addSignatureFeatureSet <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "user"
+    required_role = "editor"
   )
   
   # Check assay_type
@@ -125,7 +125,7 @@ addSignatureFeatureSet <- function(
   )
   
   # Insert table into database ####
-  SigRepoR::insert_table_sql(
+  SigRepo::insert_table_sql(
     conn = conn, 
     db_table_name = db_table_name, 
     table = table,

@@ -9,25 +9,14 @@ library(tidyverse)
 library(devtools)
 load_all()
 
-<<<<<<< HEAD
-# Establish DB connection 
+## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = "sigrepo",
-  host = "montilab.bu.edu",
-  port = 3306,
-  username = "root",
-  password = "root"
-=======
-## Establish database connection
-conn <- SigRepo::newConnHandler(
-  driver = RMySQL::MySQL(),
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
->>>>>>> e88b47513bbe4ba6afd4866771c10353f8e8ddd6
 )
 
 # Set foreign key checks to false when dropping tables
@@ -546,11 +535,7 @@ CREATE TABLE `%s` (
   `user_first` VARCHAR(255) DEFAULT NULL,
   `user_last` VARCHAR(255) DEFAULT NULL,
   `user_affiliation` TEXT DEFAULT NULL,
-<<<<<<< HEAD
   `user_role` SET("admin", "editor", "viewer") NOT NULL,
-=======
-  `user_role` SET("admin", "user", "guest") NOT NULL,
->>>>>>> e88b47513bbe4ba6afd4866771c10353f8e8ddd6
   `api_key` VARCHAR(32) NOT NULL,
   `user_hashkey` VARCHAR(32) NOT NULL,                 
   PRIMARY KEY (`user_id`),

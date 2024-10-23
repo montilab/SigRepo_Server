@@ -3,6 +3,7 @@ services:
     container_name: mysql
     image: montilab/sigrepo_mysql:latest
     volumes:
+      - /montilab-p/mysql/conf.d:/etc/mysql/conf.d
       - /montilab-p/mysql/database:/var/lib/mysql
     ports:
       - 3306:3306
@@ -11,4 +12,3 @@ services:
       MYSQL_ROOT_PASSWORD: 'root'
       MYSQL_DATABASE: 'sigrepo'
       MYSQL_ROOT_HOST: '%'
-    command: tail -f /dev/null
