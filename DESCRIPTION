@@ -26,7 +26,6 @@ Imports:
   sodium,
   stats,
   stringr,
-  unix,
   utils
 Suggests:
   rmarkdown,
