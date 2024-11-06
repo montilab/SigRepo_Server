@@ -1,0 +1,60 @@
+# Build according to a specified version of R
+ARG R_VERSION
+ARG R_VERSION=${R_VERSION:-4.4.0}
+
+############# Build Stage: base ##################
+
+# Get shiny+tidyverse packages from rocker image
+FROM rocker/tidyverse:${R_VERSION} AS base
+
+# Define a system argument
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install system libraries of general use
+RUN apt-get update --allow-releaseinfo-change --fix-missing \
+  && apt-get -y --no-install-recommends install \
+  librsvg2-dev \
+  libudunits2-dev \
+  libv8-dev \
+  libsodium-dev \
+  libbz2-dev \
+  liblzma-dev \
+  tcl8.6-dev \
+  tk8.6-dev \
+  libxtst6 \
+  libxt6 \
+  tk \
+  dos2unix \
+  && apt clean autoclean \
+  && apt autoremove --yes \
+  && rm -rf /var/lib/{apt,dpkg,cache,log}/
+  
+# Create package directory 
+ENV PACKAGE_DIR=/SigRepo 
+
+# Make package as working directory
+WORKDIR ${PACKAGE_DIR}
+
+# Copy DESCRIPTION to Docker image
+COPY DESCRIPTION ${PACKAGE_DIR}/DESCRIPTION
+
+# Copy script to install r packages to Docker image
+COPY install_r_packages.R ${PACKAGE_DIR}/install_r_packages.R
+
+# Load package and install dependencies
+RUN Rscript "${PACKAGE_DIR}/install_r_packages.R"  
+  
+# Create package directory 
+ENV TMP_DIR=/tmp 
+
+# Copy bash script to Docker image
+COPY add-rstudio-users.sh ${TMP_DIR}/add-rstudio-users.sh
+
+# Convert bash script from Windows style line endings to Unix-like control characters
+RUN dos2unix ${TMP_DIR}/add-rstudio-users.sh
+
+# Allow permission to excute the bash scripts
+RUN chmod a+x ${TMP_DIR}/add-rstudio-users.sh
+
+# Execute the script
+RUN bash ${TMP_DIR}/add-rstudio-users.sh 2>&1

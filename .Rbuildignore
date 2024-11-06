@@ -1,9 +1,12 @@
-^.*\.Rproj$
-^\.Rproj\.user$
-^doc$
-^Meta$
-Icon
-Dockerfile
+# Ignore folders
+\.Rproj\.user$
+\.git$
+\.github$
 pkgdown
-\.git
-\.github
+
+# Ignore extensions
+*\.Rproj$
+
+# Ignore specific files
+.DS_Store
+Dockerfile
