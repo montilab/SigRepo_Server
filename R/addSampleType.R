@@ -20,14 +20,6 @@ addSampleType <- function(
   db_table_name <- "sample_types"
   table <- sample_type_tbl
   
-  # Create a hash key for user password
-  table <- SigRepo::createHashKey(
-    table = table,
-    hash_var = "sample_type_hashkey",
-    hash_columns = c("sample_type", "brenda_accession"),
-    hash_method = "md5"
-  )
-  
   # Check table against database table ####
   table <- SigRepo::checkTableInput(
     conn = conn, 
@@ -42,7 +34,7 @@ addSampleType <- function(
     conn = conn,
     db_table_name = db_table_name,
     table = table,
-    coln_var = "sample_type_hashkey",
+    coln_var = "sample_type",
     check_db_table = FALSE
   )
   
