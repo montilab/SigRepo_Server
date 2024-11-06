@@ -10,3 +10,4 @@ pkgdown
 # Ignore specific files
 .DS_Store
 Dockerfile
+^\.Rproj\.user$

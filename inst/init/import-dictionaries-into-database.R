@@ -8,6 +8,8 @@ library(tidyverse)
 
 # For loading and installing packages
 library(devtools)
+
+# Load OmicSignature package
 devtools::load_all("/home/SigRepo")
 
 ## Establish database connection
@@ -21,7 +23,7 @@ conn <- SigRepo::newConnHandler(
 )
 
 # 1. Add organisms to database ####
-organism_tbl <- readr::read_csv("inst/data/organisms/organism_tbl.csv")
+organism_tbl <- readr::read_csv("/home/SigRepo/inst/data/organisms/organism_tbl.csv")
 
 SigRepo::addOrganism(conn=conn, organism_tbl = organism_tbl)
 
@@ -47,9 +49,7 @@ statement <- "select * FROM platforms"
 platform_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 3. Add phenotypes to database ####
-
-# Read in the brenda dictionary
-phenotype_tbl <- readr::read_csv("inst/data/phenotypes/phenotypes_tbl.csv")
+phenotype_tbl <- readr::read_csv("/home/SigRepo/inst/data/phenotypes/phenotypes_tbl.csv")
 
 SigRepo::addPhenotype(conn=conn, phenotype_tbl = phenotype_tbl)
 
@@ -102,7 +102,7 @@ transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn,
 # 6. Add users ####
 
 ## Create an user df
-user_tbl <- readr::read_csv("inst/data/users/user_tbl.csv")
+user_tbl <- readr::read_csv("/home/SigRepo/inst/data/users/user_tbl.csv")
 
 SigRepo::addUser(conn = conn, user_tbl = user_tbl)
 
