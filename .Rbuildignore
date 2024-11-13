@@ -5,7 +5,7 @@
 pkgdown
 
 # Ignore extensions
-*\.Rproj$
+^.*\.Rproj$
 
 # Ignore specific files
 .DS_Store
