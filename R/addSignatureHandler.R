@@ -22,8 +22,8 @@ addSignatureHandler <- function(
   
   feature_set <- omic_signature$signature %>% 
     dplyr::transmute(
-      feature_name = symbol,
-      orig_feature_id = id,
+      feature_name = feature_name,
+      orig_feature_id = probe_id,
       score = score,
       direction = direction
     )

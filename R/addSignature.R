@@ -58,13 +58,13 @@ addSignature <- function(
     stop("'metadata' in OmicSignature must have the following column names:", paste0(metadata_fields, collapse = ", "))
   
   # Check required signature fields
-  signature_fields <- c('id', 'symbol', 'score', 'direction')
+  signature_fields <- c('probe_id', 'symbol', 'score', 'direction')
   
   if(any(!signature_fields %in% colnames(signature)))
     stop("'signature' in OmicSignature must have the following column names:", paste0(signature_fields, collapse = ", "))
   
   # If difexp is provided, check required difexp fields ####
-  difexp_fields <- c('id', 'symbol', 'score', 'p_value')
+  difexp_fields <- c('probe_id', 'symbol', 'score', 'p_value')
   
   if(!is.null(difexp) && any(!difexp_fields %in% colnames(difexp)))
     stop("'difexp' in OmicSignature must have the following column names:", paste0(difexp_fields, collapse = ", "))

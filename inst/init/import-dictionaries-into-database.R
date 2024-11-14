@@ -10,7 +10,7 @@ library(tidyverse)
 library(devtools)
 
 # Load OmicSignature package
-devtools::load_all("/home/SigRepo")
+devtools::load_all()
 
 ## Establish database connection
 conn <- SigRepo::newConnHandler(
@@ -22,9 +22,11 @@ conn <- SigRepo::newConnHandler(
   password = Sys.getenv("PASSWORD")
 )
 
-# 1. Add organisms to database ####
-organism_tbl <- readr::read_csv("/home/SigRepo/inst/data/organisms/organism_tbl.csv")
+# Get data path
+data_path <- system.file("data", package="SigRepo")
 
+# 1. Add organisms to database ####
+organism_tbl <- readr::read_csv(file.path(data_path, "organisms/organism_tbl.csv"))
 SigRepo::addOrganism(conn=conn, organism_tbl = organism_tbl)
 
 # Check the imported values
@@ -32,7 +34,7 @@ statement <- "select * FROM organisms"
 organism_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 2. Add platforms to database ####
-platform_tbl <- readRDS("/home/SigRepo/inst/data/platforms/GEO_platforms.rds") 
+platform_tbl <- readRDS(file.path(data_path, "platforms/GEO_platforms.rds")) 
 
 platform_tbl <- platform_tbl %>% 
   dplyr::transmute(
@@ -49,8 +51,7 @@ statement <- "select * FROM platforms"
 platform_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 3. Add phenotypes to database ####
-phenotype_tbl <- readr::read_csv("/home/SigRepo/inst/data/phenotypes/phenotypes_tbl.csv")
-
+phenotype_tbl <- readr::read_csv(file.path(data_path, "phenotypes/phenotypes_tbl.csv"))
 SigRepo::addPhenotype(conn=conn, phenotype_tbl = phenotype_tbl)
 
 # phenotypes 
@@ -60,7 +61,7 @@ phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = st
 # 4. Add sample types to database ####
 
 # Read in the brenda dictionary
-sample_type_tbl <- readRDS("/home/SigRepo/inst/data/sample_types/BRENDA_sample_types.rds")
+sample_type_tbl <- readRDS(file.path(data_path, "sample_types/BRENDA_sample_types.rds"))
 colnames(sample_type_tbl) <- c("brenda_accession", "sample_type")
 
 SigRepo::addSampleType(conn=conn, sample_type_tbl = sample_type_tbl)
@@ -72,7 +73,7 @@ sample_type_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = 
 # 5. Add transcriptomics feature set ####
 
 # Read in the human and mouse gene symbols 
-human_gene_symbol_tbl <- read.csv("/home/SigRepo/inst/data/feature_tables/Transcriptomics_HomoSapiens.csv") %>% 
+human_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv")) %>% 
   dplyr::transmute(
     feature_name = feature_name,
     organism = "homo sapiens",
@@ -85,7 +86,7 @@ SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_s
 statement <- "select * FROM transcriptomics_features"
 transcriptomics_features_db_tbl <-  suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-mouse_gene_symbol_tbl <- read.csv("/home/SigRepo/inst/data/feature_tables/Transcriptomics_MusMusculus.csv") %>% 
+mouse_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv")) %>% 
   dplyr::transmute(
     feature_name = feature_name,
     organism = "mus musculus",
@@ -102,8 +103,7 @@ transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn,
 # 6. Add users ####
 
 ## Create an user df
-user_tbl <- readr::read_csv("/home/SigRepo/inst/data/users/user_tbl.csv")
-
+user_tbl <- readr::read_csv(file.path(data_path, "users/user_tbl.csv"))
 SigRepo::addUser(conn = conn, user_tbl = user_tbl)
 
 # Check the imported values
@@ -111,15 +111,8 @@ statement <- "select * FROM users"
 user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 7. Add signatures ####
-LLFS_Transcriptomic_AGS_OmS <- readRDS("/home/SigRepo/inst/data/signatures/LLFS_Transcriptomic_AGS_OmS.rds")
+LLFS_Transcriptomic_AGS_OmS <- readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
 SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
-
-LLFS_Transcriptomic_EOA_OmS <- readRDS("/home/SigRepo/inst/data/signatures/LLFS_Transcriptomic_EOA_OmS.rds")
-SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_EOA_OmS)
-
-LLFS_Transcriptomic_EOAU_OmS <- readRDS("/home/SigRepo/inst/data/signatures/LLFS_Transcriptomic_EOAU_OmS.rds")
-SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_EOAU_OmS)
-
 
 # Check the phenotypes table ####
 statement <- "select * FROM phenotypes"

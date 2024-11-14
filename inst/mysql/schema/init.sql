@@ -52,8 +52,8 @@ DROP TABLE IF EXISTS `signature_feature_set`;
 CREATE TABLE `signature_feature_set` (
   `sig_feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
-  `orig_feature_id` VARCHAR(255) DEFAULT NULL,
   `feature_id` INT UNSIGNED NOT NULL,
+  `gene_symbol` VARCHAR(255) DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
   `direction` SET("+", "-"),
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
