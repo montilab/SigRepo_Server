@@ -2,7 +2,7 @@
 #' @description Add user information to database
 #' @param conn An established database connection using newConnhandler() 
 #' @param user_tbl A data frame containing appropriate column names:
-#' user_id, user_password, user_email, user_first, user_last, user_affiliation, user_role
+#' user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role
 #' @export
 addUser <- function(
     conn,
@@ -32,7 +32,7 @@ addUser <- function(
   table <- SigRepo::createHashKey(
     table = table,
     hash_var = "api_key",
-    hash_columns = c("user_id", "user_password", "user_email", "user_role"),
+    hash_columns = c("user_name", "user_password", "user_email"),
     hash_method = "md5"
   )
   
@@ -40,7 +40,7 @@ addUser <- function(
   table <- SigRepo::createHashKey(
     table = table,
     hash_var = "user_hashkey",
-    hash_columns = c("user_id", "user_email", "user_role"),
+    hash_columns = "user_email",
     hash_method = "md5"
   )
   
@@ -75,32 +75,28 @@ addUser <- function(
     seq_len(nrow(table)),
     function(u){
       #u=1;
-      if(table$user_id[u] != "root"){    
-        
-        check_user_tbl <- suppressWarnings(
-          DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_id[u]))
+      check_user_tbl <- suppressWarnings(
+        DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u]))
+      )
+      
+      # Create user if not existed in database
+      if(nrow(check_user_tbl) == 0){
+        suppressWarnings(
+          DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u]))
         )
-        
-        # Create user if not existed in database
-        if(nrow(check_user_tbl) == 0){
-          suppressWarnings(
-            DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_id[u], table$user_password[u]))
-          )
-        }
-        
-        # Give permissions to users based on their user role
-        if(table$user_role[u] == "admin"){
-          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_id[u])))
-          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
-        }else if(table$user_role[u] == "editor"){
-          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_id[u])))
-          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
-        }else if(table$user_role[u] == "viewer"){
-          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_id[u])))
-          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
-        }
       }
       
+      # Give permissions to users based on their user role
+      if(table$user_role[u] == "admin"){
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
+      }else if(table$user_role[u] == "editor"){
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+      }else if(table$user_role[u] == "viewer"){
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+      }
     }
   )
 }

@@ -4,6 +4,7 @@
 --
 CREATE USER 'guest'@'%' IDENTIFIED BY 'guest';
 GRANT SELECT, SHOW DATABASES ON *.* TO 'guest'@'%';
+FLUSH PRIVILEGES;
 --
 -- Configure settings
 --
@@ -33,7 +34,7 @@ CREATE TABLE `signatures` (
   `author` TEXT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
-  `user_id` VARCHAR(255) NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`),
@@ -53,13 +54,13 @@ CREATE TABLE `signature_feature_set` (
   `sig_feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
   `feature_id` INT UNSIGNED NOT NULL,
-  `gene_symbol` VARCHAR(255) DEFAULT NULL,
+  `probe_id` INT DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
   `direction` SET("+", "-"),
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`sig_feature_id`),
-  UNIQUE (`signature_id`, `orig_feature_id`, `feature_id`, `assay_type`),
+  UNIQUE (`signature_id`, `probe_id`, `feature_id`, `assay_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
@@ -69,7 +70,7 @@ DROP TABLE IF EXISTS `signature_access`;
 CREATE TABLE `signature_access` (
   `access_signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
-  `user_id` VARCHAR(255) NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL,
   `access_type` SET("owner", "viewer") NOT NULL,
   `access_sig_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`access_signature_id`),
@@ -86,7 +87,7 @@ CREATE TABLE `signature_collection` (
   `collection_name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
-  `user_id` VARCHAR(255) NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `sig_collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`),
@@ -102,7 +103,7 @@ CREATE TABLE `signature_collection_access` (
   `access_collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_id` INT UNSIGNED NOT NULL,
   `signature_id` INT UNSIGNED NOT NULL,
-  `user_id` VARCHAR(255) NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL,
   `access_type` SET("admin", "owner", "viewer") NOT NULL,
   `access_collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`access_collection_id`),
@@ -120,10 +121,12 @@ CREATE TABLE `transcriptomics_features` (
   `feature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
   `gene_symbol` TEXT DEFAULT NULL,
+  `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`feature_id`), 
   UNIQUE (`feature_name`, `organism_id`),
-  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
+  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
+  CHECK (`is_current` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `proteomics_features`
@@ -158,7 +161,8 @@ CREATE TABLE `platforms` (
   `platform_name` TEXT DEFAULT NULL,
   `seq_technology` TEXT DEFAULT NULL,
   `organisms` TEXT DEFAULT NULL,
-  PRIMARY KEY (`platform_id`)
+  PRIMARY KEY (`platform_id`),
+  UNIQUE (`platform_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `phenotypes`
@@ -196,7 +200,8 @@ CREATE TABLE `keywords` (
 --
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
-  `user_id` VARCHAR(255) NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_name` VARCHAR(255) NOT NULL,
   `user_password_hashkey` VARCHAR(255) NOT NULL,            
   `user_email` VARCHAR(255) NOT NULL,
   `user_first` VARCHAR(255) DEFAULT NULL,

@@ -2,7 +2,7 @@
 #' @description Add signature access information to database
 #' @param conn An established database connection using newConnhandler() 
 #' @param access_tbl A data frame containing the appropriate column names:
-#' signature_id, user_id, access_type
+#' signature_id, user_name, access_type
 #' @export
 addSignatureAccess <- function(
     conn,
@@ -24,7 +24,7 @@ addSignatureAccess <- function(
   table <- SigRepo::createHashKey(
     table = table,
     hash_var = "access_sig_hashkey",
-    hash_columns = c("signature_id", "user_id", "access_type"),
+    hash_columns = c("signature_id", "user_name", "access_type"),
     hash_method = "md5"
   )
 

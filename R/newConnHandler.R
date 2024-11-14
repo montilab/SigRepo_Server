@@ -66,9 +66,9 @@ newConnHandler <- function(
     user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "users", 
-      return_var = "user_id", 
-      filter_coln_var = "user_id", 
-      filter_coln_val = list("user_id" = user), 
+      return_var = "user_name", 
+      filter_coln_var = "user_name", 
+      filter_coln_val = list("user_name" = user), 
       check_db_table = TRUE
     )
     
@@ -77,12 +77,12 @@ newConnHandler <- function(
     if(nrow(user_tbl) == 0){
       
       table <- data.frame(
-        user_id = user,
+        user_name = user,
         user_password = password,
         user_email = paste0(user, "@", host), 
-        user_first = "", 
-        user_last = "", 
-        user_affiliation = "",
+        user_first = "root", 
+        user_last = "root", 
+        user_affiliation = "Boston University",
         user_role = "admin",
         stringsAsFactors = FALSE
       )
@@ -99,7 +99,7 @@ newConnHandler <- function(
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "api_key",
-        hash_columns = c("user_id", "user_password", "user_email", "user_role"),
+        hash_columns = c("user_name", "user_password", "user_email"),
         hash_method = "md5"
       )
       
@@ -107,8 +107,17 @@ newConnHandler <- function(
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_hashkey",
-        hash_columns = c("user_id", "user_email", "user_role"),
+        hash_columns = "user_email",
         hash_method = "md5"
+      )
+      
+      # Remove duplicates from table before inserting into database ####
+      table <- SigRepo::removeDuplicates(
+        conn = conn,
+        db_table_name = "users",
+        table = table,
+        coln_var = "user_hashkey",
+        check_db_table = FALSE
       )
       
       # Insert table into database ####

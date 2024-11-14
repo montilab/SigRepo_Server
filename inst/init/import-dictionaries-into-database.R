@@ -77,7 +77,8 @@ human_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcrip
   dplyr::transmute(
     feature_name = feature_name,
     organism = "homo sapiens",
-    gene_symbol = gene_symbol
+    gene_symbol = gene_symbol,
+    is_current = 1
   )
 
 SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
@@ -90,7 +91,8 @@ mouse_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcrip
   dplyr::transmute(
     feature_name = feature_name,
     organism = "mus musculus",
-    gene_symbol = gene_symbol
+    gene_symbol = gene_symbol,
+    is_current = 1
   )
 
 ## Add reference feature set 
@@ -121,6 +123,10 @@ phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = st
 # Check the keywords table ####
 statement <- "select * FROM keywords"
 keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# Check the signature_feature_set table ####
+statement <- "select * FROM signature_feature_set"
+signature_feature_set_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the access_signature table ####
 statement <- "select * FROM access_signature"
