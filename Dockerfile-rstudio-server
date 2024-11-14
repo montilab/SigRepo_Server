@@ -58,3 +58,5 @@ RUN chmod a+x ${TMP_DIR}/add-rstudio-users.sh
 
 # Execute the script
 RUN bash ${TMP_DIR}/add-rstudio-users.sh 2>&1
+
+

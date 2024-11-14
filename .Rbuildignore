@@ -1,13 +1,33 @@
+
+# Each line of .Rbuildignore is a Perl-compatible regular expression
+# To exclude a specific file or directory, one MUST anchor the regular expression. 
+# For example, to exclude a directory called “notes”, the .Rbuildignore entry must be ^notes$, 
+# whereas the unanchored regular expression notes will match any file name containing “notes”, e.g. R/notes.R, man/important-notes.R, data/endnotes.Rdata, etc.
+
 # Ignore folders
-\.Rproj\.user$
-\.git$
-\.github$
-pkgdown
+^\.Rproj\.user$
+^\.git$
+^\.github$ 
+^docs$
+^pkgdown$
 
 # Ignore extensions
-*\.Rproj$
+^.*\.Rproj$
 
 # Ignore specific files
-.DS_Store
-Dockerfile
-^\.Rproj\.user$
+^\.gitignore$
+^\.dockerignore$
+^\.DS_Store$
+^\.Rhistory$
+^\.Renviron$
+^Dockerfile$
+^Dockerfile-.*$
+^docker-compose\.yml$
+^docker-compose-.*\.yml$
+^mysql\.env$
+^rstudio-server\.env$
+^README\.Rmd$ 
+^_pkgdown\.yml$ 
+^install_r_packages\.R$
+^add-rstudio-users\.sh$
+
