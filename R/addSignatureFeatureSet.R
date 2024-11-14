@@ -102,7 +102,7 @@ addSignatureFeatureSet <- function(
   table <- SigRepo::createHashKey(
     table = table,
     hash_var = "sig_feature_hashkey",
-    hash_columns = c("signature_id", "orig_feature_id", "feature_id", "assay_type"),
+    hash_columns = c("signature_id", "probe_id", "feature_id", "assay_type"),
     hash_method = "md5"
   )
   

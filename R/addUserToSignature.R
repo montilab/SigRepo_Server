@@ -2,13 +2,13 @@
 #' @description Add user to signature access table in database
 #' @param conn An established database connection using newConnhandler() 
 #' @param signature_id signature id 
-#' @param user_id user id
+#' @param user_name user id
 #' @param access_type access type: 'owner' or 'viewer'
 #' @export
 addUserToSignature <- function(
     conn,
     signature_id,
-    user_id,
+    user_name,
     access_type = c("owner", "viewer")
 ){
   
@@ -26,16 +26,16 @@ addUserToSignature <- function(
   stopifnot("'signature_id' cannot be empty." = 
               (length(signature_id) == 1 && !signature_id %in% c(NA, "")))
   
-  # Check user_id
-  stopifnot("'user_id' cannot be empty." = 
-              (length(user_id) == 1 && !user_id %in% c(NA, "")))
+  # Check user_name
+  stopifnot("'user_name' cannot be empty." = 
+              (length(user_name) == 1 && !user_name %in% c(NA, "")))
   
   # Get table name in database
   db_table_name <- "signature_access" 
   
   table <- data.frame(
     signature_id = signature_id,
-    user_id = user_id,
+    user_name = user_name,
     access_type = access_type,
     stringsAsFactors = FALSE
   )
@@ -44,7 +44,7 @@ addUserToSignature <- function(
   table <- SigRepo::createHashKey(
     table = table,
     hash_var = "access_sig_hashkey",
-    hash_columns = c("signature_id", "user_id", "access_type"),
+    hash_columns = c("signature_id", "user_name", "access_type"),
     hash_method = "md5"
   )
 

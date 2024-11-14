@@ -9,7 +9,7 @@ library(tidyverse)
 # For loading and installing packages
 library(devtools)
 
-# Load OmicSignature package
+# Load package
 devtools::load_all()
 
 ## Establish database connection

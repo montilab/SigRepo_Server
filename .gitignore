@@ -16,5 +16,5 @@
 *.env
 
 # Ignore folders
-archive
 .Rproj.user
+archive
