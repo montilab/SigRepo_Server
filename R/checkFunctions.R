@@ -25,51 +25,63 @@ checkPermissions <- function(
   # Get user connection info
   conn_info <- DBI::dbGetInfo(conn)
   
-  # Get a list of actions that user can perform in the database
-  user_privileges <- suppressWarnings(
-    DBI::dbGetQuery(conn = conn, statement = sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
-  ) %>% 
-    dplyr::slice(1) %>% 
-    purrr::flatten_chr() %>% 
-    gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
-    stringr::str_split(., ",") %>% 
-    purrr::flatten_chr() %>% 
-    trimws()
-  
-  # Check if user has the permission to perform the selected action in the database
-  if(!action_type %in% user_privileges)
-    stop(sprintf("User = '%s' does not have permission to perform this action in the database.\n", conn_info$user)) 
-  
   # Look up user in the database
   user_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "users", 
-    return_var = c("user_id", "user_role"), 
-    filter_coln_var = "user_id", 
-    filter_coln_val = list("user_id" = conn_info$user), 
+    return_var = c("user_name", "user_role"), 
+    filter_coln_var = "user_name", 
+    filter_coln_val = list("user_name" = conn_info$user), 
     check_db_table = TRUE
   )
   
-  # If user does not have a root access and not existed in the database
-  if(nrow(user_tbl) == 0)
-    stop(sprintf("User = '%s' has not been added to 'users' table in the database.", conn_info$user),
-         "\tJust re-run newConnHandler() to automatically add your account to the user group.\n") 
-  
-  # Get the user roles
-  if(user_tbl$user_role == "admin"){
-    all_roles <- c("viewer", "editor", "admin")
-  }else if(user_tbl$user_role == "editor"){
-    all_roles <- c("viewer", "editor")
+  # Check if user is root
+  if(conn_info$user == "root"){
+    
+    # If user has a root access but does not exist in users table of the database
+    # Then add root to users table with the default settings below
+    if(nrow(user_tbl) == 0)
+      stop(sprintf("User = '%s' has not been added to 'users' table in the database.", conn_info$user),
+           "\tJust re-run newConnHandler() to add 'root' to the table.\n") 
+    
   }else{
-    all_roles <- user_tbl$user_role
+    
+    # Check if user existed in the users table in the database
+    if(nrow(user_tbl) == 0)
+      stop(sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
+    
+    # Get a list of actions that user can perform in the database
+    user_privileges <- suppressWarnings(
+      DBI::dbGetQuery(conn = conn, statement = sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
+    ) %>% 
+      dplyr::slice(1) %>% 
+      purrr::flatten_chr() %>% 
+      gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
+      stringr::str_split(., ",") %>% 
+      purrr::flatten_chr() %>% 
+      trimws()
+    
+    # Check if user has the permission to perform the selected action in the database
+    if(!action_type %in% user_privileges)
+      stop(sprintf("User = '%s' does not have permission to perform this action in the database.\n", conn_info$user)) 
+    
+    # Get the user roles
+    if(user_tbl$user_role == "admin"){
+      all_roles <- c("viewer", "editor", "admin")
+    }else if(user_tbl$user_role == "editor"){
+      all_roles <- c("viewer", "editor")
+    }else{
+      all_roles <- user_tbl$user_role
+    }
+    
+    # Check if user has the permission to perform the selected action in the database
+    if(!required_role %in% all_roles)
+      stop(sprintf("User = '%s' does not have permission to perform this action in the database.", conn_info$user)) 
+    
   }
   
-  # Check if user has the permission to perform the selected action in the database
-  if(!required_role %in% all_roles)
-    stop(sprintf("User = '%s' does not have permission to perform this action in the database.", conn_info$user)) 
-  
   return(conn_info)
-  
+
 }
 
 #' @title checkDBTable

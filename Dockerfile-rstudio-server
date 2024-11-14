@@ -24,6 +24,7 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   libxtst6 \
   libxt6 \
   tk \
+  git \
   dos2unix \
   && apt clean autoclean \
   && apt autoremove --yes \

@@ -58,13 +58,13 @@ addSignature <- function(
     stop("'metadata' in OmicSignature must have the following column names:", paste0(metadata_fields, collapse = ", "))
   
   # Check required signature fields
-  signature_fields <- c('probe_id', 'symbol', 'score', 'direction')
+  signature_fields <- c('probe_id', 'feature_name', 'score', 'direction')
   
   if(any(!signature_fields %in% colnames(signature)))
     stop("'signature' in OmicSignature must have the following column names:", paste0(signature_fields, collapse = ", "))
   
   # If difexp is provided, check required difexp fields ####
-  difexp_fields <- c('probe_id', 'symbol', 'score', 'p_value')
+  difexp_fields <- c('probe_id', 'feature_name', 'gene_symbol', 'score', 'p_value')
   
   if(!is.null(difexp) && any(!difexp_fields %in% colnames(difexp)))
     stop("'difexp' in OmicSignature must have the following column names:", paste0(difexp_fields, collapse = ", "))
@@ -122,13 +122,12 @@ addSignature <- function(
     organism_id <- organism_id_tbl$organism_id[1]
   }
   
-  # Get user_id (required) ####
-  user_id <- conn_info$user  
+  # Get user_name (required) ####
+  user_name <- conn_info$user  
   
   # Create a hash key to look up signature in the database ####
-  signature_hashkey <- digest::digest(paste0(signature_name, organism_id, direction_type, assay_type, user_id), algo = "md5", serialize = FALSE)
+  signature_hashkey <- digest::digest(paste0(signature_name, organism_id, direction_type, assay_type, user_name), algo = "md5", serialize = FALSE)
   
-
   signature_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
     db_table_name = db_table_name, 
@@ -424,7 +423,7 @@ addSignature <- function(
       author = author,
       others = others,
       has_difexp = has_difexp, 
-      user_id = user_id,
+      user_name = user_name,
       signature_hashkey = signature_hashkey
     )
     
