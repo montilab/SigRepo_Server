@@ -140,6 +140,7 @@ addSignature <- function(
   # If the signature exists, return the signature table
   if(nrow(signature_tbl) > 0){
     
+    message("This signature already existed in the 'signatures' table of the database.\n")
     return(signature_tbl)
     
   }else{

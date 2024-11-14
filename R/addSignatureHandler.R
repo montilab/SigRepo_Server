@@ -23,7 +23,7 @@ addSignatureHandler <- function(
   feature_set <- omic_signature$signature %>% 
     dplyr::transmute(
       feature_name = feature_name,
-      orig_feature_id = probe_id,
+      probe_id = probe_id,
       score = score,
       direction = direction
     )
@@ -44,7 +44,7 @@ addSignatureHandler <- function(
   SigRepo::addUserToSignature(
     conn = conn,
     signature_id = signature_tbl$signature_id,
-    user_id = signature_tbl$user_id,
+    user_name = signature_tbl$user_name,
     access_type = "owner"
   )
   
