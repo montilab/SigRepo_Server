@@ -25,7 +25,6 @@ addSampleType <- function(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
-    exclude_coln_names = "sample_type_id",
     check_db_table = TRUE
   )
   

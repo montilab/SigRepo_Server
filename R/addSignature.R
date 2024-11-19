@@ -64,10 +64,10 @@ addSignature <- function(
     stop("'signature' in OmicSignature must have the following column names:", paste0(signature_fields, collapse = ", "))
   
   # If difexp is provided, check required difexp fields ####
-  difexp_fields <- c('probe_id', 'feature_name', 'gene_symbol', 'score', 'p_value')
+  difexp_req_fields <- c('probe_id', 'feature_name', 'score'); difexp_opt_fields <- c('p_value', 'q_value','adj_p')
   
-  if(!is.null(difexp) && any(!difexp_fields %in% colnames(difexp)))
-    stop("'difexp' in OmicSignature must have the following column names:", paste0(difexp_fields, collapse = ", "))
+  if(!is.null(difexp) && any(!difexp_req_fields %in% colnames(difexp)) && all(!difexp_opt_fields %in% colnames(difexp)))
+    stop("'difexp' in OmicSignature must have the following column names: ", paste0(difexp_req_fields, collapse = ", "), " and ", paste0(difexp_opt_fields, collapse = "/"))
   
   # Check signature name (required) ####
   if(metadata$signature_name[1] %in% c(NA, "", NULL)){
@@ -204,10 +204,16 @@ addSignature <- function(
         ) 
         
         if(nrow(phenotype_id_tbl) == 0){
-          SigRepo::addPhenotypeErrorMessage(
-            db_table_name = "phenotypes",
-            unknown_values = lookup_phenotype
-          )
+          SigRepo::addPhenotype(data.frame(phenotype = lookup_phenotype))
+          phenotype_id_tbl <- SigRepo::lookup_table_sql(
+            conn = conn,
+            db_table_name = "phenotypes", 
+            return_var = "phenotype_id", 
+            filter_coln_var = "phenotype", 
+            filter_coln_val = list("phenotype" = lookup_phenotype),
+            check_db_table = TRUE
+          ) 
+          phenotype_id <- phenotype_id_tbl$phenotype_id[1]
         }else{
           phenotype_id <- phenotype_id_tbl$phenotype_id[1]
         }
@@ -227,33 +233,33 @@ addSignature <- function(
       
       if(lookup_sample_type %in% c("", NA, NULL)){
         
-        sample_type_id <- 'NULL'
+        sample_type <- 'NULL'
         
       }else{
 
-        sample_type_id_tbl <- SigRepo::lookup_table_sql(
+        sample_type_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "sample_types", 
-          return_var = "sample_type_id", 
+          return_var = "sample_type", 
           filter_coln_var = "sample_type", 
           filter_coln_val = list("sample_type" = lookup_sample_type),
           check_db_table = TRUE
         ) 
         
-        if(nrow(sample_type_id_tbl) == 0){
+        if(nrow(sample_type_tbl) == 0){
           SigRepo::addSampleTypeErrorMessage(
             db_table_name = "sample_types",
             unknown_values = lookup_sample_type
           )
         }else{
-          sample_type_id <- sample_type_id_tbl$sample_type_id[1]
+          sample_type <- sample_type_tbl$sample_type[1]
         }
         
       }
       
     }else{
       
-      sample_type_id <- 'NULL'
+      sample_type <- 'NULL'
       
     }    
     
@@ -411,7 +417,7 @@ addSignature <- function(
       assay_type = assay_type ,
       phenotype_id = phenotype_id,
       platform_id = platform_id,
-      sample_type_id = sample_type_id,
+      sample_type = sample_type,
       covariates = covariates,
       score_cutoff = score_cutoff,
       logfc_cutoff = logfc_cutoff,

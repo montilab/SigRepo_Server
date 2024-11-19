@@ -116,6 +116,10 @@ user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = stateme
 LLFS_Transcriptomic_AGS_OmS <- readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
 SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
 
+# Check the signatures table ####
+statement <- "select * FROM signatures"
+signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
 # Check the phenotypes table ####
 statement <- "select * FROM phenotypes"
 phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
@@ -129,7 +133,7 @@ statement <- "select * FROM signature_feature_set"
 signature_feature_set_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the access_signature table ####
-statement <- "select * FROM access_signature"
+statement <- "select * FROM signature_access"
 access_signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the signatures table ####
