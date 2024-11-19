@@ -18,3 +18,4 @@
 # Ignore folders
 .Rproj.user
 archive
+schemas
