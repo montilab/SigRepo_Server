@@ -26,6 +26,7 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   tk \
   git \
   dos2unix \
+  vim \
   && apt clean autoclean \
   && apt autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
