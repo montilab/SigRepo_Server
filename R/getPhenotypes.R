@@ -1,5 +1,5 @@
 #' @title getPhenotypes
-#' @description Get signatures to database
+#' @description Get phenotypes from the database
 #' @param conn An established connection to database using newConnhandler() 
 #' @param filter_by author id used to submit the signature
 #' @export
