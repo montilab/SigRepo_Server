@@ -7,6 +7,7 @@ getFeatures <- function(
     conn,
     assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
                    "genetic_variations", "dna_binding_sites"),
+    organisms,
     filter_by = NULL
 ){
   
@@ -35,6 +36,25 @@ getFeatures <- function(
     ref_table <- "dna_binding_sites_features"
   }
   
+  # Look up organism id ####
+  lookup_organism <- organisms
+  
+  organism_id_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "organisms", 
+    return_var = c("organism_id", "organism"), 
+    filter_coln_var = "organism", 
+    filter_coln_val = list("organism" = lookup_organism),
+    check_db_table = TRUE
+  ) 
+  
+  if(nrow(organism_id_tbl) == 0){
+    SigRepo::addOrganismErrorMessage(
+      db_table_name = "organisms",
+      unknown_values = lookup_organism
+    )
+  }
+  
   # Look up signatures
   if(length(filter_by) == 0){
     
@@ -42,6 +62,8 @@ getFeatures <- function(
       conn = conn, 
       db_table_name = ref_table, 
       return_var = "*", 
+      filter_coln_var = c( "organism"),
+      filter_coln_val = list("organism" = lookup_organism),
       check_db_table = TRUE
     )  
     
@@ -51,8 +73,8 @@ getFeatures <- function(
       conn = conn, 
       db_table_name = ref_table, 
       return_var = "*", 
-      filter_coln_var = "feature_name", 
-      filter_coln_val = list("feature_name" = filter_by),
+      filter_coln_var = c("feature_name", "organism"),
+      filter_coln_val = list("feature_name" = filter_by, "organism" = lookup_organism),
       check_db_table = TRUE
     ) 
     
