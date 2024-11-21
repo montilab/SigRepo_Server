@@ -113,7 +113,7 @@ CREATE TABLE `%s` (
   `sig_feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
   `feature_id` INT UNSIGNED NOT NULL,
-  `probe_id` INT DEFAULT NULL,
+  `probe_id` VARCHAR(255) DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
   `direction` SET("+", "-"),
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,

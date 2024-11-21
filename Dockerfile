@@ -21,6 +21,9 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   liblzma-dev \
   tcl8.6-dev \
   tk8.6-dev \
+  git \
+  dos2unix \
+  vim \
   && apt clean autoclean \
   && apt autoremove --yes \
 	&& rm -rf /var/lib/{apt,dpkg,cache,log}/
