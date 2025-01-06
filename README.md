@@ -8,7 +8,7 @@
 Reina Chau - `rchau88@bu.edu`  
 Vanessa Mengze Li - `vmli@bu.edu`  
 Stefano Monti - `smonti@bu.edu`
-Cameron Vicnaire - 'camv@bu.edu'
+Cameron Vicnaire - `camv@bu.edu`
 
 # Installation
 
