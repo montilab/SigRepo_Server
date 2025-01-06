@@ -20,9 +20,12 @@ knitr::opts_chunk$set(echo = TRUE)
 The SigRepo Function Suite is a set of functions for storing and managing biological signatures and its constituents.
 
 
-The basis of interacting with the SigRepo requires a data format from another of your proprietary packages. 
+The basis of interacting with the SigRepo requires a data format from another of our proprietary packages. 
 
-- add ling to omic signature here
+- [Overview of the object structure]https://montilab.github.io/OmicSignature/articles/ObjectStructure.html
+- [Create an OmicSignature(OmS)]https://montilab.github.io/OmicSignature/articles/CreateOmS.html
+- [Create an OmicSignatureCollection(OmsC)]https://montilab.github.io/OmicSignature/articles/CreateOmSC.html
+
 
 # Start Up
 
