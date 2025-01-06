@@ -47,18 +47,6 @@ each signature
 
 - level2: if requested, will have the level2 signature representation for all signatures
 
-you can get signatures based on a list of signature names, but for more granular queries, you can use sqlFindingQuery()
-
-
-## sqlFindingQuery
-
-You can use `sqlFindingQuery` to query your SQL database of interest without prior knowledge of SQL.
-
-```r
-# gets general metadata for signatures
-# 
-exampleSignatures <- sqlFindingQuery(
-	"signature_view",
 	fields=c("signature_name"),
 	# Now for the query
 	# Here I just want human signatures
