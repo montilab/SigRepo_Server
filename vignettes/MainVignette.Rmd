@@ -22,14 +22,16 @@ The SigRepo Function Suite is a set of functions for storing and managing biolog
 
 The basis of interacting with the SigRepo requires a data format from another of our proprietary packages. 
 
-- [Overview of the object structure]https://montilab.github.io/OmicSignature/articles/ObjectStructure.html
-- [Create an OmicSignature(OmS)]https://montilab.github.io/OmicSignature/articles/CreateOmS.html
-- [Create an OmicSignatureCollection(OmsC)]https://montilab.github.io/OmicSignature/articles/CreateOmSC.html
 
+
+- [Overview of the object structure](https://montilab.github.io/OmicSignature/articles/ObjectStructure.html)
+- [Create an OmicSignature (OmS)](https://montilab.github.io/OmicSignature/articles/CreateOmS.html)
+- [Create an OmicSignatureCollection (OmSC)](https://montilab.github.io/OmicSignature/articles/CreateOmSC.html)
 
 # Start Up
 
-Creating a formal class connection is required to interact with the SigRepo Package Suite, this can be done with newConnHandler().
+Creating a formal class connection is required to interact with the SigRepo Package Suite, this can be done with newConnHandler(). This function will create a connection handler object that will be used to interact with the SigRepo Database.
+
 
 
 
@@ -44,8 +46,8 @@ There are several different types of functions for uploading data into the SigRe
 ```
 ```
 
-# Retrieving data is similar to uploading data.
+# Retrieving Data
 ```
 ```
 
-#
+# Other Packages
