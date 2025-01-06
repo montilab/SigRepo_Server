@@ -1,9 +1,12 @@
-
+--
+-- USE database
+--
+USE sigrepo;
 --
 -- Create users
 --
 CREATE USER 'guest'@'%' IDENTIFIED BY 'guest';
-GRANT SELECT, SHOW DATABASES ON *.* TO 'guest'@'%';
+GRANT SELECT, SHOW DATABASES ON sigrepo.* TO 'guest'@'%';
 FLUSH PRIVILEGES;
 --
 -- Configure settings
@@ -17,33 +20,34 @@ CREATE TABLE `signatures` (
   `signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
-  `direction_type` SET("uni-directional", "bi-directional", "multiple") NOT NULL,
+  `direction_type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
-  `phenotype_id` INT UNSIGNED DEFAULT NULL,
-  `platform_id` VARCHAR(255) DEFAULT NULL,
-  `sample_type_id` INT UNSIGNED DEFAULT NULL,
+  `phenotype_id` INT UNSIGNED NOT NULL,
+  `platform_id` VARCHAR(255) NOT NULL,
+  `sample_type_id` INT UNSIGNED NOT NULL,
   `covariates` TEXT DEFAULT NULL,
+  `description` TEXT DEFAULT NULL,
   `score_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `logfc_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `p_value_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `adj_p_cutoff` NUMERIC(10, 8) DEFAULT NULL,
-  `description` TEXT DEFAULT NULL,
+  `cutoff_description` TEXT DEFAULT NULL,
   `keywords` TEXT DEFAULT NULL,
   `PMID` INT DEFAULT NULL,
   `year` INT DEFAULT NULL,
   `author` TEXT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
-  `user_id` INT UNSIGNED NOT NULL,
+  `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`),
-  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `user_id`),
+  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `phenotype_id`, `user_name`),
   FOREIGN KEY (`organism_id`) REFERENCES organisms (`organism_id`),
   FOREIGN KEY (`phenotype_id`) REFERENCES phenotypes (`phenotype_id`),
   FOREIGN KEY (`platform_id`) REFERENCES platforms (`platform_id`),
   FOREIGN KEY (`sample_type_id`) REFERENCES sample_types (`sample_type_id`),
-  FOREIGN KEY (`user_id`) REFERENCES users (`user_id`),
+  FOREIGN KEY (`user_name`) REFERENCES users (`user_name`),
   CHECK (`has_difexp` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
@@ -51,16 +55,15 @@ CREATE TABLE `signatures` (
 --
 DROP TABLE IF EXISTS `signature_feature_set`;
 CREATE TABLE `signature_feature_set` (
-  `sig_feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
   `feature_id` INT UNSIGNED NOT NULL,
-  `probe_id` INT DEFAULT NULL,
+  `probe_id` VARCHAR(255) DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
-  `direction` SET("+", "-"),
+  `direction` SET("+", "-") NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`sig_feature_id`),
-  UNIQUE (`signature_id`, `probe_id`, `feature_id`, `assay_type`),
+  PRIMARY KEY (`signature_id`, `feature_id`),
+  UNIQUE (`signature_id`, `feature_id`, `assay_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
@@ -68,15 +71,14 @@ CREATE TABLE `signature_feature_set` (
 --
 DROP TABLE IF EXISTS `signature_access`;
 CREATE TABLE `signature_access` (
-  `access_signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
-  `user_id` INT UNSIGNED NOT NULL,
-  `access_type` SET("owner", "viewer") NOT NULL,
+  `user_id` VARCHAR(255) NOT NULL,
+  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
   `access_sig_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`access_signature_id`),
-  UNIQUE (`signature_id`, `user_id`, `access_type`),
+  PRIMARY KEY (`signature_id`, `user_name`),
+  UNIQUE (`signature_id`, `user_name`, `access_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
-  FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `signature_collection`
@@ -86,31 +88,29 @@ CREATE TABLE `signature_collection` (
   `collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
-  `organism_id` INT UNSIGNED NOT NULL,
-  `user_id` INT UNSIGNED NOT NULL,
+  `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `sig_collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`),
-  UNIQUE (`collection_name`, `organism_id`, `user_id`),
+  UNIQUE (`collection_name`, `organism_id`, `user_name`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
-  FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `signature_collection_access`
 --
 DROP TABLE IF EXISTS `signature_collection_access`;
 CREATE TABLE `signature_collection_access` (
-  `access_collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_id` INT UNSIGNED NOT NULL,
   `signature_id` INT UNSIGNED NOT NULL,
-  `user_id` INT UNSIGNED NOT NULL,
-  `access_type` SET("admin", "owner", "viewer") NOT NULL,
+  `user_name` VARCHAR(255) NOT NULL,
+  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
   `access_collection_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`access_collection_id`),
-  UNIQUE (`collection_id`, `signature_id`, `user_id`, `access_type`),
+  PRIMARY KEY (`collection_id`, `signature_id`, `user_name`),
+  UNIQUE (`collection_id`, `signature_id`, `user_name`, `access_type`),
   FOREIGN KEY (`collection_id`) REFERENCES `signature_collection` (`collection_id`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
-  FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
+  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `transcriptomics_features`
@@ -137,10 +137,12 @@ CREATE TABLE `proteomics_features` (
   `feature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
   `gene_symbol` TEXT DEFAULT NULL,
+  `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`feature_id`), 
   UNIQUE (`feature_name`, `organism_id`),
-  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
+  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
+  CHECK (`is_current` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `organisms`
@@ -158,7 +160,7 @@ CREATE TABLE `organisms` (
 DROP TABLE IF EXISTS `platforms`;
 CREATE TABLE `platforms` (
   `platform_id` VARCHAR(255) NOT NULL,
-  `platform_name` TEXT DEFAULT NULL,
+  `platform_name` TEXT NOT NULL,
   `seq_technology` TEXT DEFAULT NULL,
   `organisms` TEXT DEFAULT NULL,
   PRIMARY KEY (`platform_id`),
@@ -200,7 +202,6 @@ CREATE TABLE `keywords` (
 --
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
-  `user_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_name` VARCHAR(255) NOT NULL,
   `user_password_hashkey` VARCHAR(255) NOT NULL,            
   `user_email` VARCHAR(255) NOT NULL,
@@ -210,10 +211,14 @@ CREATE TABLE `users` (
   `user_role` SET("admin", "editor", "viewer") NOT NULL,
   `api_key` VARCHAR(32) NOT NULL,
   `user_hashkey` VARCHAR(32) NOT NULL,                 
-  PRIMARY KEY (`user_id`),
-  UNIQUE (`user_email`),
+  PRIMARY KEY (`user_name`),
+  UNIQUE (`user_name`),
   CHECK (`user_email` REGEXP "^[a-zA-Z0-9][+a-zA-Z0-9._-]*@[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,4}$")
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
+--
+-- Invoke permissions for guest to access users table
+--
+REVOKE ALL PRIVILEGES ON sigrepo.users FROM 'guest'@'%'; 
+FLUSH PRIVILEGES;
 
 
