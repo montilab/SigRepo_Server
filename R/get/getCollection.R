@@ -6,6 +6,7 @@
 
 getCollection <- function(conn, collection_id) {
 
+# ROUGH DESIGN OF FUNCTIN NOT READY 
 
 # check if user is allowed to access the database
   conn_info <- SigRepoR::checkPermissions(
@@ -14,13 +15,40 @@ getCollection <- function(conn, collection_id) {
     required_role = 'admin'
   )
 
+
+  # if the user is admin, allo access
+  if(conn_info$user_role == 'admin'){
+    message('User is an admin of the collection, Proceeding with Colection retrieval')
+    return(TRUE)
+  }
+
   # if user is not admin then go to signature access table and check if user can view the collection
 
-  db_table_name_1 <- 'collection_access'
+  db_table_name_1 <- 'collection_access'\
 
-  collection_access <- DBI::dbGetQuery(conn =conn, 
-                                        statement= sprintf("SELECT collection_name FROM %s WHERE usuer_id = '%s'", db_table_name_1, conn_info$user_id) # need to ask reina how to get user name
-  
+  query <- sprintf(
+    "SELECT collection_name, access_role 
+     FROM %s 
+     WHERE user_id = '%s'",
+    db_table_name, conn_info$user_id
+  )
+
+collection_access <- DBI::dbGetQuery(conn =conn, statement = query)
+
+ # check if the user is allowed to access the specified collection
+
+ if(nrow(collection_access) == 0 || !collection_id %in% collection_access$collection_name))+
+    stop('User does not have access to the specified collection') 
+}
+
+
+
+
+
+
+
+
+
   # Database name for collection table
   db_table_name_2- "collection_relationships"
   
