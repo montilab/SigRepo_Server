@@ -548,6 +548,10 @@ addPhenotypeErrorMessage <- function(
        "\tYou can use 'getPhenotypes()' to see a list of available phenotypes in our database.\n",
        "\tTo add a phenotype into our database, please contact our admin for more details.\n")
   
+# close connection
+
+DBI::dbDisconnect(conn_info$conn)
+
 }
 
 

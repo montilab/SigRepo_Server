@@ -78,7 +78,7 @@ deleteSignature <- function(conn, omic_signature) {
   
   
   
-  # Optionally disconnect the database (if you want this function to handle it)
+ 
   DBI::dbDisconnect(conn)
   
   message(sprintf("Signature '%s' and associated data have been deleted from the SigRepo Database.", signature_name))

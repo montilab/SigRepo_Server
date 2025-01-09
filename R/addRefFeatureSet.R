@@ -29,6 +29,10 @@ addRefFeatureSet <- function(
     SigRepo::addDNABindingSitesFeatureSet(conn = conn, feature_set = feature_set)
   }
   
+# close connection
+
+DBI::dbDisconnect(conn_info$conn)
+
 }
 
 

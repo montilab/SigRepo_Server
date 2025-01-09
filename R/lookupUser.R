@@ -44,6 +44,10 @@ lookupUser <- function(
   
   # Return the status of the match
   return(password_match)
+
+  # close connection
+
+  DBI::dbDisconnect(conn_info$conn)
   
 }
 

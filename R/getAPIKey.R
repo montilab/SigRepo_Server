@@ -25,6 +25,10 @@ getAPIKey <- function(
   
   # Return api table
   return(api_key_tbl)
+
+  # close connection
+
+  DBI::dbDisconnect(conn_info$conn)
   
 }
 

@@ -53,6 +53,8 @@ addSignatureAccess <- function(
     table = table,
     check_db_table = FALSE
   )  
+
+  DBI:dbDisconnect(conn_info$conn)
   
 }
 

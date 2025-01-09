@@ -49,6 +49,10 @@ addSignatureHandler <- function(
   )
   
   message("Finished uploading...\n")
+
+  # close connection
+
+  DBI::dbDisconnect(conn_info$conn)
   
 }  
   

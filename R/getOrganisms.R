@@ -41,6 +41,9 @@ getOrganisms <- function(
   
   return(organism_tbl)
 
+  # close connection
+  DBI::dbDisconnect(conn_info$conn)
+
 }
 
 

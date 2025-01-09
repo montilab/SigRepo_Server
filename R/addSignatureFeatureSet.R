@@ -131,5 +131,9 @@ addSignatureFeatureSet <- function(
     table = table,
     check_db_table = FALSE
   )  
+
+  # clsoe connection
+
+  DBI::dbDisconnect(conn_info$conn)
   
 }
