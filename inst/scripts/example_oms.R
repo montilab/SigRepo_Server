@@ -170,3 +170,20 @@ saveRDS(omic_signature_SUM_Ahr, "omic_signature_SUM_Ahr.RDS")
 saveRDS(omic_signature_SUM_CYP, "omic_signature_SUM_CYP.RDS")
 saveRDS(omic_signature_MDA_AhR, "omic_signature_MDA_AhR.RDS")
 saveRDS(omic_signature_MDA_CYP, "omic_signature_MDA_CYP.RDS")
+
+
+
+# creating an OmicSignatureCollection object
+
+colMeta <- list(
+  "collection_name" = "example_collection",
+  "description" = "An example collection of omic signatures",
+  "organism"  = "monkey",
+  "author" = " Dr. John Doe"
+)
+
+OmicCol <- OmicSignatureCollection$new(
+  OmicSigList = list(omic_signature_SUM_Ahr, omic_signature_SUM_CYP, omic_signature_MDA_AhR, omic_signature_MDA_CYP),
+  metadata = colMeta,
+  print_message = FALSE
+)
