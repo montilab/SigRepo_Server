@@ -40,6 +40,11 @@ getSampleTypes <- function(
   
   return(sample_type_tbl)
 
+
+  # close connection
+
+  DBI::dbDisconnect(conn_info$conn)
+
 }
 
 

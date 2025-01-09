@@ -28,3 +28,8 @@ modifyAccess <- function(conn, objectType, objectName, user_id, objectName, user
 
 # if the user is not in the list of users who have access to the collection, then add the user to the list of users who have access to the collection
 
+
+
+# close connection 
+
+DBI::dbDisconnect(conn_info$conn)

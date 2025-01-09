@@ -99,6 +99,9 @@ addUser <- function(
       }
     }
   )
+# close connection
+
+DBI::dbDisconnect(conn_info$conn)
 }
 
 

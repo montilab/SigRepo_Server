@@ -42,13 +42,6 @@ collection_access <- DBI::dbGetQuery(conn =conn, statement = query)
 }
 
 
-
-
-
-
-
-
-
   # Database name for collection table
   db_table_name_2- "collection_relationships"
   
@@ -58,3 +51,7 @@ collection_access <- DBI::dbGetQuery(conn =conn, statement = query)
                                                          db_table_name))
   
  
+
+ # close connection 
+
+ DBI::dbDisconnect(conn_info$conn)

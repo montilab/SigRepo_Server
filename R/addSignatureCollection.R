@@ -51,8 +51,12 @@ addSignatureCollection <- function(
   if(any(!metadata_fields %in% names(metadata)))
     stop("'metadata' in OmicSignatureCollection must have the following column names:", paste0(metadata_fields, collapse = ", "))
   
+
+  
   
 }
 
+# close connection
 
+DBI::dbDisconnect(conn_info$conn)
 

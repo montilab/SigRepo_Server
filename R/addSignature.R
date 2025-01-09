@@ -464,6 +464,10 @@ addSignature <- function(
     return(signature_tbl)
     
   }
+
+  # close the connection
+  DBI::dbDisconnect(conn_info$conn)
+
   
 }  
   
