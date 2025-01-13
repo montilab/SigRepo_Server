@@ -19,19 +19,36 @@ Encoding: UTF-8
 RoxygenNote: 7.3.2
 Imports:
   DBI,
+  doParallel,
+  DT,
   dplyr,
+  future,
+  htmltools,
+  httr,
   jsonlite,
+  methods,
+  odbc,
+  OmicSignature,
+  parallel,
   plumber,
+  plyr,
+  promises,
   RMySQL,
+  shiny,
+  shinyjs,
   sodium,
   stats,
-  stringr,
+  tidyverse,
+  tools,
   utils
 Suggests:
-  rmarkdown,
-  pkgdown,
+  BiocManager,
+  BiocStyle,
+  devtools,
   knitr,
-  devtools
+  pkgdown,
+  rmarkdown,
+  testthat
 Config/testthat/edition: 3
 biocViews: Software, FeatureExtraction
 VignetteBuilder: knitr

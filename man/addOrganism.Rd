@@ -4,10 +4,10 @@
 \alias{addOrganism}
 \title{addOrganism}
 \usage{
-addOrganism(conn, organism_tbl)
+addOrganism(conn_handler, organism_tbl)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{organism_tbl}{An data frame containing appropriate column names: organism}
 }

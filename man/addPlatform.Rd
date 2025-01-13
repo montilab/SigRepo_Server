@@ -4,10 +4,10 @@
 \alias{addPlatform}
 \title{addPlatform}
 \usage{
-addPlatform(conn, platform_tbl)
+addPlatform(conn_handler, platform_tbl)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{platform_tbl}{An data frame containing appropriate column names: 
 platform_id, platform_name, seq_technology, organisms to be uploaded into 

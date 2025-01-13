@@ -1,80 +1,136 @@
 #' @title addUserToSignature
-#' @description Add user to signature access table in database
-#' @param conn An established database connection using newConnhandler() 
-#' @param signature_id signature id 
-#' @param user_name user id
-#' @param access_type access type: 'owner' or 'viewer'
+#' @description Add user to signature access table in the database
+#' @param conn_handler A handler uses to establish connection to  
+#' a remote database obtained from SigRepo::newConnhandler() 
+#' @param signature_id ID of the signature in the database
+#' @param user_name user name to be added to the signature
+#' @param access_type give permission to users to access the signature 
+#' in the database as admin/owner/editor/viewer
+#' 
+#' \code{admin} has read and write access to all signatures
+#' \code{owner} has read and write access to their own uploaded signatures
+#' \code{editor} has read and write access to only the signatures that other 
+#' users were given them access to
+#' \code{viewer} has only read access to the only the signatures that other 
+#' users were given them access to
+#' 
 #' @export
 addUserToSignature <- function(
-    conn,
+    conn_handler,
     signature_id,
     user_name,
-    access_type = c("owner", "viewer")
+    access_type = c("admin", "owner", "editor", "viewer")
 ){
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn = conn, 
+    conn_handler = conn_handler, 
     action_type = "INSERT",
     required_role = "editor"
   )
   
+  # Get user_role ####
+  orig_user_role <- conn_info$user_role[1] 
+  
+  # Get user_name ####
+  orig_user_name <- conn_info$user[1]
+  
   # Check access_type
-  access_type <- match.arg(access_type)  
+  access_type <- base::match.arg(access_type)  
   
   # Check signature_id
-  stopifnot("'signature_id' cannot be empty." = 
+  base::stopifnot("'signature_id' cannot be empty." = 
               (length(signature_id) == 1 && !signature_id %in% c(NA, "")))
   
   # Check user_name
-  stopifnot("'user_name' cannot be empty." = 
+  base::stopifnot("'user_name' cannot be empty." = 
               (length(user_name) == 1 && !user_name %in% c(NA, "")))
   
-  # Get table name in database
-  db_table_name <- "signature_access" 
-  
-  table <- data.frame(
-    signature_id = signature_id,
-    user_name = user_name,
-    access_type = access_type,
-    stringsAsFactors = FALSE
-  )
-  
-  # Create a hash key to look up values in database ####
-  table <- SigRepo::createHashKey(
-    table = table,
-    hash_var = "access_sig_hashkey",
-    hash_columns = c("signature_id", "user_name", "access_type"),
-    hash_method = "md5"
-  )
-
-  # Check table against database table ####
-  table <- SigRepo::checkTableInput(
-    conn = conn, 
-    db_table_name = db_table_name,
-    table = table, 
-    exclude_coln_names = "access_signature_id",
+  # Check if signature exists ####
+  signature_tbl <- SigRepo::lookup_table_sql(
+    conn = conn_info$conn,
+    db_table_name = "signatures",
+    return_var = "*",
+    filter_coln_var = "signature_id",
+    filter_coln_val = list("signature_id" = signature_id),
     check_db_table = TRUE
   )
   
-  # Remove duplicates from table before inserting into database ####
-  table <- SigRepo::removeDuplicates(
-    conn = conn,
-    db_table_name = db_table_name,
-    table = table,
-    coln_var = "access_sig_hashkey",
-    check_db_table = FALSE
-  )
-
-  # Insert table into database ####
-  SigRepo::insert_table_sql(
-    conn = conn, 
-    db_table_name = db_table_name, 
-    table = table,
-    check_db_table = FALSE
-  )  
+  # If signature exists, return the signature table else throw an error message
+  if(nrow(signature_tbl) == 0){
+    
+    base::stop(sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id))
+    
+  }else{
+    
+    # If user_role is not admin, check user access to the signature ####
+    if(orig_user_role != "admin"){
+      
+      # Check user access ####
+      signature_access_tbl <- SigRepo::lookup_table_sql(
+        conn = conn_info$conn,
+        db_table_name = "signature_access",
+        return_var = "*",
+        filter_coln_var = c("signature_id", "user_name"),
+        filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name),
+        check_db_table = TRUE
+      )
+      
+      # If user does not have owner or editor permission, throw an error message
+      if(nrow(signature_access_tbl) > 0 && !signature_access_tbl$access_type[1] %in% c("admin", "owner", "editor"))
+        base::stop(sprintf("User = '%s' has no permission to add user = '%s' to signature_id = '%s' in the database.\n", orig_user_name, user_name, signature_id))
+      
+    }
+    
+    # Get table name in database
+    db_table_name <- "signature_access" 
+    
+    # Create user signature access table
+    table <- base::data.frame(
+      signature_id = signature_id,
+      user_name = user_name,
+      access_type = access_type,
+      stringsAsFactors = FALSE
+    )
+    
+    # Create a hash key to look up values in database ####
+    table <- SigRepo::createHashKey(
+      table = table,
+      hash_var = "access_sig_hashkey",
+      hash_columns = c("signature_id", "user_name", "access_type"),
+      hash_method = "md5"
+    )
+    
+    # Check table against database table ####
+    table <- SigRepo::checkTableInput(
+      conn = conn_info$conn,
+      db_table_name = db_table_name,
+      table = table, 
+      check_db_table = TRUE
+    )
+    
+    # Remove duplicates from table before inserting into database ####
+    table <- SigRepo::removeDuplicates(
+      conn = conn_info$conn,
+      db_table_name = db_table_name,
+      table = table,
+      coln_var = "access_sig_hashkey",
+      check_db_table = FALSE
+    )
+    
+    # Insert table into database ####
+    SigRepo::insert_table_sql(
+      conn = conn_info$conn,
+      db_table_name = db_table_name, 
+      table = table,
+      check_db_table = FALSE
+    )
+    
+  }
   
-}
-
+  # Disconnect from database ####
+  base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
+  
+}  
 
 

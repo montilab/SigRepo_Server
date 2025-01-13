@@ -1,6 +1,6 @@
 
   	  
-<div id="login-wrapper">
+<div id="login-wrapper" style="display: none;">
   
 	<div id="form-wrapper">
 		<div class="container">
@@ -21,7 +21,7 @@
             <input type="password" id="password" onkeypress="loginfunction(event)" placeholder="Enter Password" id="password" required>
           </div>
           
-          <div class="login-error-message" id="error" style="visibility: hidden;">
+          <div class="login-error-message" id="login-error-message" style="visibility: hidden;">
             <p>Invalid username or password!</p>
           </div>
           
@@ -29,8 +29,9 @@
             <button id="sign_in_btn" type="button" class="action-button">Login</button>
             <p class="psw">Forgot <a href="#" id="forget_password" class="action-button">password?</a></p>
           </div>
-
-        </div>
+          <div class="register" style="text-align: center; padding: 20px;">
+            <p>Don't have an acount. <a href="#" id="register" class="action-button">Register here!</a></p>
+          </div>
         
 		  </div>		
     </div>

@@ -4,10 +4,10 @@
 \alias{getAPIKey}
 \title{getAPIKey}
 \usage{
-getAPIKey(conn)
+getAPIKey(conn_handler)
 }
 \arguments{
-\item{conn}{An established database connection using newConnhandler()}
+\item{conn_handler}{An established database connection using newConnhandler()}
 }
 \description{
 Add an API Key for one or more users in the database

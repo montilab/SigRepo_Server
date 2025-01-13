@@ -1,29 +1,44 @@
 #' @title addPlatform
 #' @description Add platform to database
-#' @param conn An established connection to database using newConnhandler() 
+#' @param conn_handler An established connection to database using newConnhandler() 
 #' @param platform_tbl An data frame containing appropriate column names: 
 #' platform_id, platform_name, seq_technology, organisms to be uploaded into 
 #' the database.
 #' @export
 addPlatform <- function(
-    conn,
+    conn_handler,
     platform_tbl
 ){
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn = conn, 
+    conn_handler = conn_handler, 
     action_type = "INSERT",
     required_role = "admin"
   )
   
   # Create a list of variables to check database ####
+  required_column_fields <- c("platform_id")
   db_table_name <- "platforms"
   table <- platform_tbl
   
+  # Check required column fields
+  if(any(!required_column_fields %in% colnames(table))){
+    base::stop(sprintf("the table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
+  }
+  
+  # Make sure required column fields do not have any empty values ####
+  if(any(is.na(table[,required_column_fields]) == TRUE)){
+    base::stop(sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn_info$conn))    
+  }
+  
   # Check table against database table ####
   table <- SigRepo::checkTableInput(
-    conn = conn, 
+    conn = conn_info$conn, 
     db_table_name = db_table_name,
     table = table, 
     exclude_coln_names = NULL,
@@ -32,7 +47,7 @@ addPlatform <- function(
   
   # Remove duplicates from table before inserting into database ####
   table <- SigRepo::removeDuplicates(
-    conn = conn,
+    conn = conn_info$conn, 
     db_table_name = db_table_name,
     table = table,
     coln_var = "platform_id",
@@ -41,11 +56,14 @@ addPlatform <- function(
   
   # Insert table into database ####
   SigRepo::insert_table_sql(
-    conn = conn, 
+    conn = conn_info$conn, 
     db_table_name = db_table_name, 
     table = table,
     check_db_table = FALSE
   ) 
+
+  # Disconnect from database ####
+  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
   
 }
 

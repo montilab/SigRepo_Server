@@ -1,4 +1,5 @@
-fluidRow(
+
+shiny::fluidRow(
   width = 12,
   id = "search-signature-wrapper",
   style = "border: 1px solid gray; padding: 20px 20px 20px 20px;",
