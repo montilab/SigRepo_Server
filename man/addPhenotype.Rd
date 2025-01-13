@@ -4,10 +4,10 @@
 \alias{addPhenotype}
 \title{addPhenotype}
 \usage{
-addPhenotype(conn, phenotype_tbl)
+addPhenotype(conn_handler, phenotype_tbl)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{phenotype_tbl}{An data frame containing appropriate column names: phenotype}
 }

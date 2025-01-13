@@ -4,13 +4,13 @@
 \alias{addSignature}
 \title{addSignature}
 \usage{
-addSignature(conn, omic_signature)
+addSignature(conn_handler, omic_signature)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{omic_signature}{An R6 class object from OmicSignature package}
 }
 \description{
-Add a signature to signature table of the database
+Add signature to database
 }

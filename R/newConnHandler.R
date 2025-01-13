@@ -1,52 +1,78 @@
 #' @title newConnHandler
-#' @description Establish a new connection handle to the host
+#' @description create a handler to connect to a remote database
 #' @param driver driver of the database. Default is RMySQL::MySQL()
 #' @param dbname table schema of which you want the handle to point.
 #' @param host host server in which you want to connect
 #' @param port host port in which you wish to use
 #' @param user the user who is establishing the connection
 #' @param password password associated with the user
-#' @return a MySQL connection Handle.
+#' @return a list with user credentials to establish connection to a remote database
 #' @export
-#' @importFrom DBI dbConnect
-#' @importFrom RMySQL MySQL
 newConnHandler <- function(
-    driver = RMySQL::MySQL(),
     dbname = 'sigrepo', 
     host = "montilab.bu.edu", 
     port = 3306, 
     user = "guest", 
     password = "guest"
 ){
-  
-  # Check driver
-  if(!is(driver, "MySQLDriver"))
-    stop("'driver' must be a mySQL class object from RMySQL package")
-  
-  # Check dbname
-  stopifnot("'dbname' cannot be empty." = 
+
+  # Check dbname ####
+  base::stopifnot("'dbname' cannot be empty." = 
               (length(dbname) == 1 && !dbname %in% c(NA, "")))
   
-  # Check host
-  stopifnot("'host' cannot be empty." = 
+  # Check host ####
+  base::stopifnot("'host' cannot be empty." = 
               (length(host) == 1 && !host %in% c(NA, "")))
   
-  # Check port
-  stopifnot("'port' cannot be empty and must be a numeric value." = 
-              (length(port) == 1 && !as.numeric(port) %in% c(NA, "")))
+  # Check port ####
+  base::stopifnot("'port' cannot be empty and must be a numeric value." = 
+              (length(port) == 1 && !port %in% c(NA, "")))
   
-  # Check user
-  stopifnot("'user' cannot be empty." = 
+  # Check user ####
+  base::stopifnot("'user' cannot be empty." = 
               (length(user) == 1 && !user %in% c(NA, "")))
   
-  # Check password
-  stopifnot("'password' cannot be empty." = 
+  # Check password ####
+  base::stopifnot("'password' cannot be empty." = 
               (length(password) == 1 && !password %in% c(NA, "")))
   
+  # Return connection handler ###
+  return(
+    list(
+      dbname = dbname,
+      host = host,
+      port = port,
+      user = user,
+      password = password
+    )
+  )
+  
+}
+
+#' @title conn_init
+#' @description Initiate a db connection using handler info obtained from SigRepo::newConnhandler()
+#' @param conn_handler contains a list of user credentials to establish connection to a remote database.
+#' See SigRepo::newConnhandler() for more details.
+#' 
+#' @noRd
+#' 
+#' @return a MySQL connection class object
+#' 
+#' @export
+#' @import DBI RMySQL 
+conn_init <- function(conn_handler){
+  
+  # Extract user credentials
+  dbname <- conn_handler$dbname
+  host <- conn_handler$host
+  port <- conn_handler$port
+  user <- conn_handler$user
+  password <- conn_handler$password
+  
   # Check connection
-  conn <- tryCatch({
+  conn <- base::tryCatch({
     DBI::dbConnect(
-      drv = driver,
+      drv = RMySQL::MySQL(),
       dbname = dbname,
       host = host,
       port = port,
@@ -54,9 +80,9 @@ newConnHandler <- function(
       password = password
     )
   }, error = function(e){
-    stop(e, "\n")
+    base::stop(e, "\n")
   }, warning = function(w){
-    message(w, "\n")
+    base::message(w, "\n")
   })
   
   # If user is root, validate if root exists in the users table of the database
@@ -76,7 +102,7 @@ newConnHandler <- function(
     # Then add root to users table with the default settings below
     if(nrow(user_tbl) == 0){
       
-      table <- data.frame(
+      table <- base::data.frame(
         user_name = user,
         user_password = password,
         user_email = paste0(user, "@", host), 
@@ -131,6 +157,10 @@ newConnHandler <- function(
     }
   }
   
+  # Return connection
   return(conn)
   
 }
+
+
+

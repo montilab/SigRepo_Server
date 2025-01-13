@@ -4,6 +4,7 @@
 #' @param conn An established database connection using newConnhandler() 
 #' @param db_table_name A table in the database
 #' @param table A table in the database
+#' @param check_db_table whether to check database table. Default = TRUE
 #' @export
 insert_table_sql <- function(
     conn, 
@@ -55,41 +56,121 @@ insert_table_sql <- function(
     )
     
     # Insert table into database
-    tryCatch({
-      suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+    base::tryCatch({
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
     }, error = function(e){
-      stop(e, "\n")
+      base::stop(e, "\n")
     }, warning = function(w){
-      message(w, "\n")
+      base::message(w, "\n")
     })
     
   }
 }
 
 #' @title update_table_sql
-#' @description update a table into the database
+#' @description update a entry in the database table
 #' @param conn An established database connection using newConnhandler() 
-#' @param table A table in the database
+#' @param db_table_name A table in the database
 #' @param update_coln_var A list of column variables in the given table
 #' @param update_coln_val A list of column values associated with the column variables
 #' @param filter_coln_var A list of column values associated with the column variables
 #' @param filter_coln_val A list of column values associated with the column variables
+#' @param check_db_table whether to check database table. Default = TRUE
 #' @export
-update_table_sql <- function(conn, table, update_coln_var, update_coln_val, filter_coln_var, filter_coln_val){
+update_table_sql <- function(
+    conn, 
+    db_table_name, 
+    update_coln_var, 
+    update_coln_val, 
+    filter_coln_var, 
+    filter_coln_val,
+    check_db_table = TRUE
+){
   
+  # Get table column names
+  db_col_names <- SigRepo::getDBColNames(
+    conn = conn,
+    db_table_name = db_table_name,
+    check_db_table = check_db_table
+  )
+  
+  # Check column fields
+  if(any(!update_coln_var %in% db_col_names))
+    stop(sprintf("'%s' table does not have the following column names: %s.\n", db_table_name, paste0(update_coln_var[which(!update_coln_var %in% db_col_names)], collapse = ", ")))
+  
+  # Create a list of updated variable with new values
   update_var_list <- paste0(update_coln_var, " = '", update_col_val, "'", collapse = ", ")
+  
+  # Create a where clause to filter the variables by
   filter_var_list <- paste0(filter_coln_var, " = '", filter_coln_val, "'", collapse = " AND ")
   
-  query <- sprintf(
+  # Create sql statement
+  statement <- sprintf(
     "
     UPDATE %s \n
     SET %s \n
     WHERE %s;
-    ", table, update_var_list, filter_var_list
+    ", db_table_name, update_var_list, filter_var_list
   )
   
-  return(query)
+  # Update entry in the database
+  base::tryCatch({
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  }, error = function(e){
+    base::stop(e, "\n")
+  }, warning = function(w){
+    base::message(w, "\n")
+  })
   
+}
+
+#' @title delete_table_sql
+#' @description delete an entry from database table
+#' @param conn An established database connection using newConnhandler() 
+#' @param db_table_name A table in the database
+#' @param delete_coln_var A list of column variables in the given table
+#' @param delete_coln_val A list of column values associated with the column variables
+#' @param check_db_table whether to check database table. Default = TRUE
+#' @export
+delete_table_sql <- function(
+    conn, 
+    db_table_name, 
+    delete_coln_var, 
+    delete_coln_val,
+    check_db_table = TRUE
+){
+  
+  # Get table column names
+  db_col_names <- SigRepo::getDBColNames(
+    conn = conn,
+    db_table_name = db_table_name,
+    check_db_table = check_db_table
+  )
+  
+  # Check column fields
+  if(any(!delete_coln_var %in% db_col_names))
+    stop(sprintf("'%s' table does not have the following column names: %s.\n", db_table_name, paste0(delete_coln_var[which(!delete_coln_var %in% db_col_names)], collapse = ", ")))
+  
+  # Create a where clause to remove entry 
+  delete_where_clause <- paste0(delete_coln_var, " = '", delete_coln_val, "'", collapse = " AND ")
+  
+  # Create sql statement
+  statement <- sprintf(
+    "
+    DELETE FROM %s \n
+    WHERE %s;
+    ", db_table_name, delete_where_clause
+  )
+  
+  # Delete entry from database
+  base::tryCatch({
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  }, error = function(e){
+    base::stop(e, "\n")
+  }, warning = function(w){
+    base::message(w, "\n")
+  })
+
 }
 
 #' @title lookup_table_sql
@@ -124,8 +205,7 @@ lookup_table_sql <- function(
   )
   
   # Check return_var
-  stopifnot("'return_var' cannot be empty." = 
-              (length(return_var) > 0 && all(!return_var %in% c(NA, "", NULL))))
+  stopifnot("'return_var' cannot be empty." = (length(return_var) > 0 && all(!return_var %in% c(NA, "", NULL))))
   
   # Check filter_coln_var and filter_coln_val
   if(length(filter_coln_var) == 0 && length(filter_coln_val) == 0){
@@ -136,7 +216,7 @@ lookup_table_sql <- function(
     
     if(length(filter_coln_var) != length(filter_coln_val) || !all(names(filter_coln_val) %in% filter_coln_var))
       stop("The length of 'filter_coln_var' must equal to the length of 'filter_coln_val'. ",
-           "Furthermore, 'filter_coln_val' must have names or labels that matched the values of 'filter_coln_var'.")
+           "Furthermore, 'filter_coln_val' must a list with names or labels that matched the values of 'filter_coln_var'.")
     
     if((length(filter_coln_var) > 1) && (length(filter_var_by) != (length(filter_coln_var)-1)) & (!any(toupper(filter_var_by) %in% c("OR", "AND"))))
       stop("'filter_var_by' must contain a vector of logical operators (e.g, AND/OR) with n = length(filter_coln_var) - 1")
@@ -166,14 +246,16 @@ lookup_table_sql <- function(
     ", return_var_list, db_table_name, where_clause
   )
   
-  table <- tryCatch({
-    suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  # Get table
+  table <- base::tryCatch({
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
   }, error = function(e){
     stop(e, "\n")
   }, warning = function(w){
-    message(w, "\n")
+    base::message(w, "\n")
   })  
   
+  # Return table
   return(table)
   
 }

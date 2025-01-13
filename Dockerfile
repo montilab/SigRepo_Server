@@ -43,8 +43,14 @@ COPY DESCRIPTION ${PACKAGE_DIR}/DESCRIPTION
 # Copy script to install r packages to Docker image
 COPY install_r_packages.R ${PACKAGE_DIR}/install_r_packages.R
 
-# Load CaDrA package and install CaDrA.shiny dependencies
+# Install package dependencies 
 RUN Rscript "${PACKAGE_DIR}/install_r_packages.R"
+
+# Load package 
+RUN Rscript -e "library('devtools'); devtools::load_all('${PACKAGE_DIR}');"
+
+# Install OmicSignature 
+RUN Rscript -e "devtools::install_github(repo = 'montilab/OmicSignature')"
 
 # Make Shiny App/Plumber API available at port 3838
 EXPOSE 3838

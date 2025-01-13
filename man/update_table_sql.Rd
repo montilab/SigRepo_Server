@@ -6,17 +6,18 @@
 \usage{
 update_table_sql(
   conn,
-  table,
+  db_table_name,
   update_coln_var,
   update_coln_val,
   filter_coln_var,
-  filter_coln_val
+  filter_coln_val,
+  check_db_table = TRUE
 )
 }
 \arguments{
 \item{conn}{An established database connection using newConnhandler()}
 
-\item{table}{A table in the database}
+\item{db_table_name}{A table in the database}
 
 \item{update_coln_var}{A list of column variables in the given table}
 
@@ -25,7 +26,9 @@ update_table_sql(
 \item{filter_coln_var}{A list of column values associated with the column variables}
 
 \item{filter_coln_val}{A list of column values associated with the column variables}
+
+\item{check_db_table}{whether to check database table. Default = TRUE}
 }
 \description{
-update a table into the database
+update a entry in the database table
 }

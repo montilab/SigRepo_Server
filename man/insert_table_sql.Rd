@@ -12,6 +12,8 @@ insert_table_sql(conn, db_table_name, table, check_db_table = TRUE)
 \item{db_table_name}{A table in the database}
 
 \item{table}{A table in the database}
+
+\item{check_db_table}{whether to check database table. Default = TRUE}
 }
 \description{
 Insert a table into the database

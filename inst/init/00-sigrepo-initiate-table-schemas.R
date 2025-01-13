@@ -61,32 +61,32 @@ CREATE TABLE `%s` (
   `signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
-  `direction_type` SET("uni-directional", "bi-directional", "multiple") NOT NULL,
+  `direction_type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `phenotype_id` INT UNSIGNED NOT NULL,
   `platform_id` VARCHAR(255) NOT NULL,
-  `sample_type` VARCHAR(255) NOT NULL,
+  `sample_type_id` INT UNSIGNED NOT NULL,
   `covariates` TEXT DEFAULT NULL,
+  `description` TEXT DEFAULT NULL,
   `score_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `logfc_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `p_value_cutoff` NUMERIC(10, 8) DEFAULT NULL,
   `adj_p_cutoff` NUMERIC(10, 8) DEFAULT NULL,
-  `description` TEXT DEFAULT NULL,
+  `cutoff_description` TEXT DEFAULT NULL,
   `keywords` TEXT DEFAULT NULL,
   `PMID` INT DEFAULT NULL,
   `year` INT DEFAULT NULL,
-  `author` TEXT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`),
-  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `user_name`),
+  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `phenotype_id`, `user_name`),
   FOREIGN KEY (`organism_id`) REFERENCES organisms (`organism_id`),
   FOREIGN KEY (`phenotype_id`) REFERENCES phenotypes (`phenotype_id`),
   FOREIGN KEY (`platform_id`) REFERENCES platforms (`platform_id`),
-  FOREIGN KEY (`sample_type`) REFERENCES sample_types (`sample_type`),
+  FOREIGN KEY (`sample_type_id`) REFERENCES sample_types (`sample_type_id`),
   FOREIGN KEY (`user_name`) REFERENCES users (`user_name`),
   CHECK (`has_difexp` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
@@ -110,16 +110,15 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `sig_feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
   `feature_id` INT UNSIGNED NOT NULL,
   `probe_id` VARCHAR(255) DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
-  `direction` SET("+", "-"),
+  `direction` SET("+", "-") NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`sig_feature_id`),
-  UNIQUE (`signature_id`, `probe_id`, `feature_id`, `assay_type`),
+  PRIMARY KEY (`signature_id`, `feature_id`),
+  UNIQUE (`signature_id`, `feature_id`, `assay_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
@@ -142,12 +141,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
-  `access_signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_id` INT UNSIGNED NOT NULL,
   `user_name` VARCHAR(255) NOT NULL,
-  `access_type` SET("owner", "viewer") NOT NULL,
+  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
   `access_sig_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`access_signature_id`),
+  PRIMARY KEY (`signature_id`, `user_name`),
   UNIQUE (`signature_id`, `user_name`, `access_type`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
   FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
@@ -158,12 +156,12 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
-# SIGNATURE COLLECTION  ####
+# COLLECTION  ####
 #
 ############# 
 
 # Table name
-table_name <- "signature_collection"
+table_name <- "collection"
 
 drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
 suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
@@ -175,13 +173,40 @@ CREATE TABLE `%s` (
   `collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
-  `organism_id` INT UNSIGNED NOT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
-  `sig_collection_hashkey` VARCHAR(32) NOT NULL,
+  `collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`),
-  UNIQUE (`collection_name`, `organism_id`, `user_name`),
-  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
+  UNIQUE (`collection_name`, `user_name`),
+  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+', table_name)
+
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+
+############# 
+#
+# ACCESS COLLECTION ####
+#
+############# 
+
+# Table name
+table_name <- "collection_access"
+
+drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+
+# Create table
+create_table_sql <- sprintf(
+'
+CREATE TABLE `%s` (
+  `collection_id` INT UNSIGNED NOT NULL,
+  `user_name` VARCHAR(255) NOT NULL,
+  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
+  `access_collection_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`collection_id`, `user_name`),
+  UNIQUE (`collection_id`, `user_name`, `access_type`),
+  FOREIGN KEY (`collection_id`) REFERENCES `collection` (`collection_id`),
   FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
@@ -202,19 +227,14 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
 create_table_sql <- sprintf(
-'
+  '
 CREATE TABLE `%s` (
-  `access_collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_id` INT UNSIGNED NOT NULL,
   `signature_id` INT UNSIGNED NOT NULL,
-  `user_name` VARCHAR(255) NOT NULL,
-  `access_type` SET("admin", "owner", "viewer") NOT NULL,
-  `access_collection_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`access_collection_id`),
-  UNIQUE (`collection_id`, `signature_id`, `user_name`, `access_type`),
-  FOREIGN KEY (`collection_id`) REFERENCES `signature_collection` (`collection_id`),
-  FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
-  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
+  PRIMARY KEY (`collection_id`, `signature_id`),
+  UNIQUE (`collection_id`, `signature_id`),
+  FOREIGN KEY (`collection_id`) REFERENCES `collection` (`collection_id`),
+  FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
@@ -238,12 +258,12 @@ create_table_sql <- sprintf(
 CREATE TABLE `%s` (
   `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `gene_symbol` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
+  `gene_symbol` TEXT DEFAULT NULL,
   `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`feature_id`), 
-  UNIQUE (`feature_name`, `gene_symbol`, `organism_id`),
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
   CHECK (`is_current` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
@@ -269,11 +289,12 @@ create_table_sql <- sprintf(
 CREATE TABLE `%s` (
   `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `feature_name` VARCHAR(255) NOT NULL,
-  `gene_symbol` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
+  `gene_symbol` TEXT DEFAULT NULL,
+  `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`feature_id`), 
-  UNIQUE (`feature_name`, `gene_symbol`, `organism_id`),
+  UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
@@ -368,7 +389,7 @@ create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
   `platform_id` VARCHAR(255) NOT NULL,
-  `platform_name` TEXT DEFAULT NULL,
+  `platform_name` TEXT NOT NULL,
   `seq_technology` TEXT DEFAULT NULL,
   `organisms` TEXT DEFAULT NULL,
   PRIMARY KEY (`platform_id`),
@@ -417,9 +438,10 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 create_table_sql <- sprintf(
 '
 CREATE TABLE `%s` (
+  `sample_type_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `sample_type` VARCHAR(255) NOT NULL,
   `brenda_accession` VARCHAR(255) DEFAULT NULL,
-  PRIMARY KEY (`sample_type`), 
+  PRIMARY KEY (`sample_type_id`), 
   UNIQUE (`sample_type`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
@@ -475,7 +497,7 @@ CREATE TABLE `%s` (
   `api_key` VARCHAR(32) NOT NULL,
   `user_hashkey` VARCHAR(32) NOT NULL,                 
   PRIMARY KEY (`user_name`),
-  UNIQUE (`user_email`),
+  UNIQUE (`user_name`),
   CHECK (`user_email` REGEXP "^[a-zA-Z0-9][+a-zA-Z0-9._-]*@[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,4}$")
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)

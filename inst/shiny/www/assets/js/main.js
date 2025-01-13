@@ -4,68 +4,24 @@
 	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
 */
 
-(function($) {
-
-	var	$window = $(window),
-		$body = $('body');
-
-	// Breakpoints.
-		breakpoints({
-			xlarge:  [ '1281px',  '1680px' ],
-			large:   [ '981px',   '1280px' ],
-			medium:  [ '737px',   '980px'  ],
-			small:   [ null,      '736px'  ]
-		});
-
-	// Play initial animations on page load.
-		$window.on('load', function() {
-			window.setTimeout(function() {
-				$body.removeClass('is-preload');
-			}, 100);
-		});
-		
-	// Dropdowns.
-		$('#nav > ul').dropotron({
-			mode: 'fade',
-			noOpenerFade: true,
-			speed: 300
-		});
-
-	// Nav.
-
-		// Toggle.
-			$(
-				'<div id="navToggle">' +
-					'<div class="container"><div class="row toggled"><a href="#navPanel" class="toggle"></a></div></div>' +
-				'</div>'
-			)
-				.appendTo($body);
-
-		// Panel.
-			$(
-				'<div id="navPanel">' +
-					'<nav>' +
-						$('#nav').navList() +
-					'</nav>' +
-				'</div>'
-			)
-				.appendTo($body)
-				.panel({
-					delay: 500,
-					hideOnClick: true,
-					hideOnSwipe: true,
-					resetScroll: true,
-					resetForms: true,
-					side: 'left',
-					target: $body,
-					visibleClass: 'navPanel-visible'
-				});
-		
-})(jQuery);
-
-function get_content_page(page){
-  var page = String(page);
-  Shiny.onInputChange("selected_page", page);
+// 
+function login_keypress(e){
+  if(e.which === 13){
+    document.getElementById("sign_in_btn").click();
+  }
 }
 
+function toggle_password(){
+  const passwordField = document.getElementById('password');
+  const passwordFieldType = passwordField.getAttribute('type');
+  if(passwordFieldType === 'password'){
+    passwordField.setAttribute('type', 'text');
+  }else{
+    passwordField.setAttribute('type', 'password');
+  }
+}
 
+function select_navtab(tab){
+  var tab = String(tab);
+  Shiny.onInputChange("selected_tab", tab);
+}

@@ -4,13 +4,13 @@
 \alias{deleteSignature}
 \title{deleteSignature}
 \usage{
-deleteSignature(conn, omic_signature)
+deleteSignature(conn_handler, signature_id)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to the database using newConnhandler()}
 
-\item{signature_name}{name of your signature that you previously uploaded}
+\item{signature_id}{The name of the signature being deleted from the database}
 }
 \description{
-Add a signature to signature table of the database
+Delete a signature from the signature table of the database
 }

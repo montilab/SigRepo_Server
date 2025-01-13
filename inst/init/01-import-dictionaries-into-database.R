@@ -11,10 +11,10 @@ library(devtools)
 
 # Load package
 devtools::load_all()
+load_all("OmicSignature")
 
-## Establish database connection
-conn <- SigRepo::newConnHandler(
-  driver = RMySQL::MySQL(),
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
@@ -22,12 +22,15 @@ conn <- SigRepo::newConnHandler(
   password = Sys.getenv("PASSWORD")
 )
 
+## Establish database connection
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
+
 # Get data path
 data_path <- system.file("data", package="SigRepo")
 
 # 1. Add organisms to database ####
-organism_tbl <- readr::read_csv(file.path(data_path, "organisms/organism_tbl.csv"))
-SigRepo::addOrganism(conn=conn, organism_tbl = organism_tbl)
+organism_tbl <- readr::read_csv(file.path(data_path, "organisms/organism_tbl.csv"), show_col_types = FALSE)
+SigRepo::addOrganism(conn_handler = conn_handler, organism_tbl = organism_tbl)
 
 # Check the imported values
 statement <- "select * FROM organisms"
@@ -44,15 +47,15 @@ platform_tbl <- platform_tbl %>%
     organisms = Organism
   )
 
-SigRepo::addPlatform(conn=conn, platform_tbl = platform_tbl)
+SigRepo::addPlatform(conn_handler = conn_handler, platform_tbl = platform_tbl)
 
 # Check the imported values
 statement <- "select * FROM platforms"
 platform_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 3. Add phenotypes to database ####
-phenotype_tbl <- readr::read_csv(file.path(data_path, "phenotypes/phenotypes_tbl.csv"))
-SigRepo::addPhenotype(conn=conn, phenotype_tbl = phenotype_tbl)
+phenotype_tbl <- readr::read_csv(file.path(data_path, "phenotypes/phenotypes_tbl.csv"), show_col_types = FALSE)
+SigRepo::addPhenotype(conn_handler = conn_handler, phenotype_tbl = phenotype_tbl)
 
 # phenotypes 
 statement <- "select * FROM phenotypes"
@@ -61,10 +64,8 @@ phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = st
 # 4. Add sample types to database ####
 
 # Read in the brenda dictionary
-sample_type_tbl <- readRDS(file.path(data_path, "sample_types/BRENDA_sample_types.rds"))
-colnames(sample_type_tbl) <- c("brenda_accession", "sample_type")
-
-SigRepo::addSampleType(conn=conn, sample_type_tbl = sample_type_tbl)
+sample_type_tbl <- base::readRDS(file.path(data_path, "sample_types/BRENDA_sample_types.rds"))
+SigRepo::addSampleType(conn_handler = conn_handler, sample_type_tbl = sample_type_tbl)
 
 # sample_types 
 statement <- "select * FROM sample_types"
@@ -73,7 +74,7 @@ sample_type_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = 
 # 5. Add transcriptomics feature set ####
 
 # Read in the human and mouse gene symbols 
-human_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv")) %>% 
+human_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), show_col_types = FALSE) %>% 
   dplyr::transmute(
     feature_name = feature_name,
     organism = "homo sapiens",
@@ -81,13 +82,13 @@ human_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcrip
     is_current = 1
   )
 
-SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
+SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
 
 # transcriptomics_features 
 statement <- "select * FROM transcriptomics_features"
 transcriptomics_features_db_tbl <-  suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-mouse_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv")) %>% 
+mouse_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv"), show_col_types = FALSE) %>% 
   dplyr::transmute(
     feature_name = feature_name,
     organism = "mus musculus",
@@ -96,7 +97,7 @@ mouse_gene_symbol_tbl <- read.csv(file.path(data_path, "feature_tables/Transcrip
   )
 
 ## Add reference feature set 
-SigRepo::addRefFeatureSet(conn = conn, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
+SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
 
 # transcriptomics_features 
 statement <- "select * FROM transcriptomics_features"
@@ -105,16 +106,16 @@ transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn,
 # 6. Add users ####
 
 ## Create an user df
-user_tbl <- readr::read_csv(file.path(data_path, "users/user_tbl.csv"))
-SigRepo::addUser(conn = conn, user_tbl = user_tbl)
+user_tbl <- readr::read_csv(file.path(data_path, "users/user_tbl.csv"), show_col_types = FALSE)
+SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
 
 # Check the imported values
 statement <- "select * FROM users"
 user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 7. Add signatures ####
-LLFS_Transcriptomic_AGS_OmS <- readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
-SigRepo::addSignatureHandler(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
+LLFS_Transcriptomic_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
+SigRepo::addSignature(conn_handler = conn_handler, omic_signature = LLFS_Transcriptomic_AGS_OmS)
 
 # Check the signatures table ####
 statement <- "select * FROM signatures"

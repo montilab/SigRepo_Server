@@ -1,5 +1,18 @@
 
-input[type=text], input[type=password] {
+.login-wrapper {
+  width: 100%;
+  min-height: 100vh;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-input {
   width: 100%;
   padding: 12px 20px;
   margin: 8px 0;
@@ -14,19 +27,10 @@ p.psw {
   padding-bottom: 1em;
 }
 
-#login-wrapper {
-  margin-top: 50px;
-  width: 100%;
-  overflow-y: scroll;
-  /*border: 1px solid red;*/
-}
-
-#login-wrapper::-webkit-scrollbar {
-  width: 5px;
-}
-
-#login-wrapper::-webkit-scrollbar-thumb {
-  background: #c5c5c5;
+.register {
+  text-align: center;
+  padding-top: 1em;
+  padding-bottom: 1em;
 }
 
 #login-error-message {

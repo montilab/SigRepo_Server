@@ -5,7 +5,6 @@
 \title{newConnHandler}
 \usage{
 newConnHandler(
-  driver = RMySQL::MySQL(),
   dbname = "sigrepo",
   host = "montilab.bu.edu",
   port = 3306,
@@ -14,8 +13,6 @@ newConnHandler(
 )
 }
 \arguments{
-\item{driver}{driver of the database. Default is RMySQL::MySQL()}
-
 \item{dbname}{table schema of which you want the handle to point.}
 
 \item{host}{host server in which you want to connect}
@@ -25,10 +22,12 @@ newConnHandler(
 \item{user}{the user who is establishing the connection}
 
 \item{password}{password associated with the user}
+
+\item{driver}{driver of the database. Default is RMySQL::MySQL()}
 }
 \value{
-a MySQL connection Handle.
+a list with user credentials to establish connection to a remote database
 }
 \description{
-Establish a new connection handle to the host
+create a handler to connect to a remote database
 }
