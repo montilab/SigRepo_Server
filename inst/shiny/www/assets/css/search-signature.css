@@ -1,6 +1,7 @@
 
 #search-signature-wrapper {
-  margin-top: 20px;
+  border: 1px solid gray; 
+  padding: 20px 20px 20px 20px;
 }
 
 input:checked {

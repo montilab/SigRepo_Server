@@ -2,3 +2,8 @@
 #welcome_msg {
   padding: 3px;
 }
+
+.error_message {
+  color: red;
+  font-weight: bold;
+}

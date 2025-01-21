@@ -6,10 +6,8 @@
 \usage{
 searchSignature(
   conn_handler,
-  assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
-    "genetic_variations", "dna_binding_sites"),
-  user_name = NULL,
   signature_name = NULL,
+  user_name = NULL,
   organism = NULL,
   phenotype = NULL,
   sample_type = NULL
@@ -19,14 +17,9 @@ searchSignature(
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{assay_type}{The assay type uses to filter the features by (required). 
-Type of assays: transcriptomics, proteomics, metabolomics, methylomics, 
-genetic_variations, dna_binding_sites. 
-Default: transcriptomics.}
-
-\item{user_name}{The name of the user who uploaded the signatures.}
-
 \item{signature_name}{The name of the signatures to be looked up by.}
+
+\item{user_name}{The name of the user to be looked up by.}
 
 \item{organism}{The organism to be looked up by.}
 

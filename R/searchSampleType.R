@@ -7,7 +7,7 @@
 #' @export
 searchSampleType <- function(
     conn_handler,
-    sample_types = NULL
+    sample_type = NULL
 ){
   
   # Check user connection and permissions ####

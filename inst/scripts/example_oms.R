@@ -7,17 +7,23 @@ library(dplyr)
 devtools::install_github(repo = "montilab/OmicSignature")
 
 
+# Grabbing the data path
+data_path <- system.file("data", package="SigRepo")
 
-data <- readRDS('ahr_cyp1b1_brca_diffanal.RDS')
+
+# reading in the data 
+brca_diffanal<- base::readRDS(file.path(data_path, "signatures/ahr_cyp1b1_brca_diffanal.RDS"))
 
 
-OmS_MDA_CYP <- data$MDA.CYP
 
-OmS_MDA_AhR <- data$MDA.AhR
 
-OmS_SUM_CYP <- data$SUM.CYP
+OmS_MDA_CYP <- brca_diffanal$MDA.CYP
 
-OmS_SUM_AhR <- data$SUM.AhR
+OmS_MDA_AhR <- brca_diffanal$MDA.AhR
+
+OmS_SUM_CYP <- brca_diffanal$SUM.CYP
+
+OmS_SUM_AhR <- brca_diffanal$SUM.AhR
 
 # Creating metadata for all 4, The xxxx is either AhR or CYP1B1. "MDA-MB-231 cell" or "SUM-149PT cell",
 
@@ -166,7 +172,4 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
 
 # creating an RDS of the omic signatures 
 
-saveRDS(omic_signature_SUM_Ahr, "omic_signature_SUM_Ahr.RDS")
-saveRDS(omic_signature_SUM_CYP, "omic_signature_SUM_CYP.RDS")
-saveRDS(omic_signature_MDA_AhR, "omic_signature_MDA_AhR.RDS")
-saveRDS(omic_signature_MDA_CYP, "omic_signature_MDA_CYP.RDS")
+

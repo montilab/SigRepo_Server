@@ -2,12 +2,8 @@
 #' @description Get a list of signatures available in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param assay_type The assay type uses to filter the features by (required). 
-#' Type of assays: transcriptomics, proteomics, metabolomics, methylomics, 
-#' genetic_variations, dna_binding_sites. 
-#' Default: transcriptomics.
 #' @param signature_name The name of the signatures to be looked up by.
-#' @param user_name The name of the user who uploaded the signatures. 
+#' @param user_name The name of the user to be looked up by.
 #' @param organism The organism to be looked up by.
 #' @param phenotype The phenotype to be looked up by.
 #' @param sample_type The sample type to be looked up by.
@@ -29,10 +25,8 @@
 #' @export
 searchSignature <- function(
     conn_handler,
-    assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
-                   "genetic_variations", "dna_binding_sites"),
-    user_name = NULL,
     signature_name = NULL,
+    user_name = NULL,
     organism = NULL,    
     phenotype = NULL,
     sample_type = NULL
@@ -44,9 +38,6 @@ searchSignature <- function(
     action_type = "SELECT",
     required_role = "viewer"
   )
-  
-  # Check assay_type
-  assay_type <- base::match.arg(assay_type, several.ok = TRUE)
   
   # Look up signatures
   if(length(user_name) == 0 || all(user_name %in% c("", NA))){
@@ -77,7 +68,7 @@ searchSignature <- function(
     base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
     
     # Disconnect from database ####
-    DBI::dbDisconnect(conn_info$conn)
+    base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
     
   }else{
   
@@ -128,15 +119,15 @@ searchSignature <- function(
       base::replace(., base::match(c("organism_id", "phenotype_id", "sample_type_id"), .), c("organism", "phenotype", "sample_type"))
     
     # Get a list of filtered variables
-    filter_var <- c("signature_name", "assay_type", "organism", "phenotype", "sample_type")
-    filter_val <- c(signature_name, assay_type, organism, phenotype, sample_type) %>% base::trimws()
+    filter_var <- c("signature_name", "organism", "phenotype", "sample_type")
+    filter_val <- c(signature_name, organism, phenotype, sample_type) %>% base::trimws()
     
     # Filter table with given search variables
     for(r in base::seq_along(filter_var)){
       #r=1;
       filter_status <- ifelse(length(filter_val[r]) == 0 || filter_val[r] %in% c("", NA), FALSE, TRUE)
       if(filter_status == TRUE){
-        signature_tbl <- signature_tbl %>% dplyr::filter(tolower(!!!syms(filter_var[r])) %in% tolower(filter_val[r]))
+        signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var[r]))) %in% trimws(tolower(filter_val[r])))
       }
     }
     

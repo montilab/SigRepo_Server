@@ -21,8 +21,8 @@ validateUser <- function(
   user_tbl <- SigRepo::lookup_table_sql(
     conn = conn_info$conn,
     db_table_name = "users", 
-    return_var = c("user_name"),
-    filter_coln_var = c("user_name", "user_email", "user_affliation", "user_role", "api_key"),
+    return_var = c("user_name", "user_email", "user_affiliation", "user_role", "api_key"),
+    filter_coln_var = "user_name",
     filter_coln_val = list("user_name" = user_name),
     check_db_table = TRUE
   )

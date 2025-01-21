@@ -4,7 +4,7 @@
 \alias{searchSampleType}
 \title{searchSampleType}
 \usage{
-searchSampleType(conn_handler, sample_types = NULL)
+searchSampleType(conn_handler, sample_type = NULL)
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to the database 

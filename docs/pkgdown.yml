@@ -1,0 +1,11 @@
+pandoc: '3.2'
+pkgdown: 2.0.9
+pkgdown_sha: ~
+articles:
+  retrieveSignatures: retrieveSignatures.html
+  uploadSignatures: uploadSignatures.html
+last_built: 2025-01-21T02:10Z
+urls:
+  reference: https://montilab.github.io/SigRepo/reference
+  article: https://montilab.github.io/SigRepo/articles
+

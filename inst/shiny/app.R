@@ -14,7 +14,7 @@ library(tidyverse)
 # Package for loading and installing packages
 library(devtools)
 load_all(".")
-load_all("OmicSignature")
+load_all("/home/OmicSignature")
 
 # Package for creating hash keys
 library(sodium)
@@ -32,11 +32,6 @@ ui <- shiny::bootstrapPage(
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/main_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/sign_in_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/home_style.css"),
-      tags$script(src = "assets/js/jquery.dropotron.min.js", type = "text/javascript"),
-      tags$script(src = "assets/js/browser.min.js", type = "text/javascript"),
-      tags$script(src = "assets/js/breakpoints.min.js", type= "text/javascript"),
-      tags$script(src = "assets/js/util.js", type = "text/javascript"),
-      tags$script(src = "assets/js/main_orig.js", type = "text/javascript"),
       tags$script(src = "assets/js/main.js", type = "text/javascript")
     )
   ),
@@ -117,6 +112,12 @@ ui <- shiny::bootstrapPage(
     # Include the navbar tabs
     htmltools::htmlTemplate("www/nav.html"),
     
+    tags$script(src = "assets/js/jquery.dropotron.min.js", type = "text/javascript"),
+    tags$script(src = "assets/js/browser.min.js", type = "text/javascript"),
+    tags$script(src = "assets/js/breakpoints.min.js", type= "text/javascript"),
+    tags$script(src = "assets/js/util.js", type = "text/javascript"),
+    tags$script(src = "assets/js/main_orig.js", type = "text/javascript"),
+
     # Tab output
     shiny::uiOutput(outputId = "tab_content"),
     
@@ -144,13 +145,8 @@ ui <- shiny::bootstrapPage(
 ## Define server logic ####
 server <- function(input, output, session) {
   
-  # Import all source files 
-  source("server/search_signature_server.R", local = TRUE)
-  source("server/search_collection_server.R", local = TRUE)
-  source("server/sign_in_server.R", local = TRUE)
-  
   # Create reactive values to store user login information
-  user_conn_info <- shiny::reactiveVal()
+  user_conn_handler <- shiny::reactiveVal()
   user_login_info <- shiny::reactiveVal()
   
   # Print this when a session starts ####
@@ -170,14 +166,6 @@ server <- function(input, output, session) {
     
     cat("\nSession ended.\n")
     
-    # Extract user connection
-    conn <- shiny::isolate({ user_conn_info()$conn })
-    
-    # Disconnect user from DB connection
-    if(!is.null(conn)){
-      DBI::dbDisconnect(conn)
-    }
-    
   })
   
   # Observe when session stops ####
@@ -185,23 +173,15 @@ server <- function(input, output, session) {
     
     cat("\nSession stopped.\n")
     
-    # Extract user connection
-    conn <- shiny::isolate({ user_conn_info()$conn })
-    
-    # Disconnect user from DB connection
-    if(!is.null(conn)){
-      DBI::dbDisconnect(conn)
-    }
-    
   })
   
   # # Get the search parameters
   # shiny::observe({
   #   
-  #   req(user_conn_info())
+  #   req(user_conn_handler())
   #   
   #   # Extract user connection
-  #   conn_handler <- isolate({ user_conn_info()$conn_handler })
+  #   conn_handler <- shiny::isolate({ user_conn_handler() })
   #   
   #   # Get URL and query string
   #   url  <- shiny::reactiveValuesToList(session$clientData)
@@ -214,7 +194,7 @@ server <- function(input, output, session) {
   #     user_password_token <- query$`token`[1];
   # 
   #     # Validate user
-  #     validate_user_tbl <- SigRepo::lookupUser(conn_handler = conn_handler, user_name = user_name)
+  #     validate_user_tbl <- SigRepo::validateUser(conn_handler = conn_handler)
   # 
   #     if(nrow(validate_user_tbl) > 0){
   # 
@@ -261,12 +241,12 @@ server <- function(input, output, session) {
     )
     
     # Look up user in the database
-    user_tbl <- SigRepo::lookupUser(conn_handler = conn_handler, user_name = user_name)
+    user_tbl <- SigRepo::validateUser(conn_handler = conn_handler)
     
     # Check if conn is a MySQLConnection class object
     if(nrow(user_tbl) == 0){
       
-      user_conn_info(NULL)
+      user_conn_handler(NULL)
       user_login_info(NULL)
       shinyjs::show(id = "login-wrapper")
       shinyjs::show(id = "login-error-message")
@@ -278,7 +258,7 @@ server <- function(input, output, session) {
       shiny::updateQueryString(session, queryString = sprintf("#user_id=%s&token=%s", user_name, digest::digest(user_password, algo = "md5", serialize = TRUE)), mode = "push")
       
       # Get user connection info
-      user_conn_info(conn_handler)
+      user_conn_handler(conn_handler)
       user_login_info(user_tbl)
       shinyjs::hide(id = "login-error-message")
       shinyjs::hide(id = "login-wrapper")
@@ -304,7 +284,7 @@ server <- function(input, output, session) {
     input$log_out_btn
   }, {
     
-    user_conn_info(NULL)
+    user_conn_handler(NULL)
     user_login_info(NULL)
     shinyjs::hide(id = "content-wrapper")
     shinyjs::show(id = "login-wrapper")
@@ -320,8 +300,7 @@ server <- function(input, output, session) {
     input$selected_tab
   }, {
     
-    selected_tab <- shiny::isolate({ input$selected_tab }) %>% print()
-    tab_selected(selected_tab)
+    shiny::isolate({ input$selected_tab }) %>% tab_selected()
 
   })
 
@@ -344,6 +323,10 @@ server <- function(input, output, session) {
     }
 
   })
+  
+  # Import all source files 
+  source("server/search_signature_server.R", local = TRUE)
+  source("server/sign_in_server.R", local = TRUE)
 
 }
 

@@ -34,7 +34,7 @@ getSignature <- function(
       db_table_name = "signature_access", 
       return_var = "*", 
       filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, access_type = c("owner", "editor")),
+      filter_coln_val = list("user_name" = user_name, access_type = c("owner", "editor", "viewer")),
       filter_var_by = "AND",
       check_db_table = TRUE
     ) 
