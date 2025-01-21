@@ -121,14 +121,6 @@ SigRepo::addSignature(conn_handler = conn_handler, omic_signature = LLFS_Transcr
 statement <- "select * FROM signatures"
 signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# Check the phenotypes table ####
-statement <- "select * FROM phenotypes"
-phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
-
-# Check the keywords table ####
-statement <- "select * FROM keywords"
-keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
-
 # Check the signature_feature_set table ####
 statement <- "select * FROM signature_feature_set"
 signature_feature_set_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
@@ -137,7 +129,11 @@ signature_feature_set_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, state
 statement <- "select * FROM signature_access"
 access_signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-# Check the signatures table ####
-statement <- "select * FROM signatures"
-signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+# Check the phenotypes table ####
+statement <- "select * FROM phenotypes"
+phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# Check the keywords table ####
+statement <- "select * FROM keywords"
+keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 

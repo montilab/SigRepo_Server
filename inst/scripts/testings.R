@@ -19,21 +19,28 @@ conn <- DBI::dbConnect(
   password = Sys.getenv("PASSWORD")
 )
 
+
+
+
+
 # Get data path
 data_path <- system.file("data", package="SigRepo")
 
 
-searchSignatures(
+SigRepo::searchSignature(
   conn_handler,
   user_name = "all",
   signature_name = "_Aging_Gene_2023",
-  assay_type = NULL,
   organism = NULL,
   phenotype = NULL,
   sample_type = NULL
 )
 
 
+
+# Searching signature 
+
+SigRepo::searchSignature(conn_init, signature_name = '_Aging_Gene_2023')
 
 # 7. Add signatures ####
 LLFS_Transcriptomic_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))

@@ -2,24 +2,36 @@
 shiny::fluidRow(
   width = 12,
   id = "search-signature-wrapper",
-  style = "border: 1px solid gray; padding: 20px 20px 20px 20px;",
   
-  column(
+  shiny::column(
+    width = 12,
+    h2("Search Signature"),
+  ),
+  
+  shiny::column(
     width = 4,
     style = "border: 1px solid gray; padding: 20px 20px 20px 20px;",
     
-    selectizeInput(
+    shiny::selectizeInput(
       inputId = "search_options",
       label = "Search Options:",
-      choices = c("Choose from a list of options below"="", "signature_name", "organism", "assay_type", "sample_type", "platform", "phenotype"),
+      choices = c(
+        "Choose from a list of options below" = "", 
+        "Signature Name" = "signature_name", 
+        "Organism" = "organism", 
+        "Assay Type" = "assay_type", 
+        "Sample Type" = "sample_type", 
+        "Platform ID" = "platform", 
+        "Phenotype" = "phenotype"
+      ),
       multiple = TRUE,
       width = "100%"
     ),
     
-    uiOutput(outputId = "search_inputs"),
+    shiny::uiOutput(outputId = "search_inputs"),
     br(),
     
-    actionButton(
+    shiny::actionButton(
       inputId = "search_signature",
       label = "Search",
       class = "mybutton"
@@ -27,11 +39,11 @@ shiny::fluidRow(
     
     br(), br(),
     
-    uiOutput(outputId = "search_sig_error_msg")
+    shiny::uiOutput(outputId = "search_sig_error_msg")
     
   ),
   
-  column(
+  shiny::column(
     width = 8,
     style = "border: 1px solid gray; padding: 20px 20px 20px 20px;",
     

@@ -1,3 +1,4 @@
+
 <div id="navbar-wrapper">
 	<header class="container">
 		<div class="row header">
@@ -14,9 +15,17 @@
         <nav id="nav">
           <ul>
             <li><a id="home" href="#" onclick="select_navtab(tab='home')">Home</a></li>
-            <li><a id="signature_lookup" href="#" onclick="select_navtab(tab='search_signature')">Signature Lookup</a></li>
-            <li><a id="compare_signatures" href="#" onclick="select_navtab(tab='home')">Compare Signatures</a></li>
-            <li><a id="hypeR_analysis" href="#" onclick="select_navtab(tab='home')">HypeR Analysis</a></li>
+            <li>
+              <a id="signature_lookup" href="#">Manage</a>
+              <ul>
+                <li><a id="search_signature" href="#" onclick="select_navtab(tab='search_signature')">Search Signature</a></li>
+                <li><a id="search_collection" href="#" onclick="select_navtab(tab='search_collection')">Search Collection</a></li>
+                <li><a id="extract_signature" href="#" onclick="select_navtab(tab='home')">Extract a signature</a></li>
+                <li><a id="upload_signature" href="#" onclick="select_navtab(tab='home')">Upload a signature</a></li>
+              </ul>
+            </li>
+            <li><a id="compare_signatures" href="#" onclick="select_navtab(tab='home')">Compare</a></li>
+            <li><a id="hypeR_analysis" href="#" onclick="select_navtab(tab='home')">Analyze</a></li>
             <li><a id="resources" href="#" onclick="select_navtab(tab='home')">Resources</a></li>
             <li><a id="sign_in" href="#" onclick="select_navtab(tab='home')">Sign Out</a></li>
           </ul>

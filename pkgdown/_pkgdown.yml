@@ -14,6 +14,8 @@ authors:
     href: https://github.com/katgit
   Stefano Monti:
     href: https://github.com/tetomonti
+  Cameron Vicnaire:
+    href: https://github.com/Cvicnaire
     
 news:
   one_page: false
@@ -32,12 +34,11 @@ reference:
   desc: ~
   contents:
   - '`getAPIKey`'
-  - '`getFeatures`'
-  - '`getOrganisms`'
-  - '`getPhenotypes`'
-  - '`getSignatures`'
-  - '`getPlatforms`'
-  - '`getSampleTypes`'
+  - '`searchOrganism`'
+  - '`searchPhenotype`'
+  - '`getSignature`'
+  - '`searchPlatform`'
+  - '`searchSampleType`'
   
 - title: Add data to database
   desc: ~
@@ -54,20 +55,23 @@ reference:
   desc: ~
   contents:
   - '`addSignature`'
-  - '`addSignatureHandler`'
-  - '`addSignatureAccess`'
-  - '`addSignatureFeatureSet`'
   - '`addUserToSignature`'
 
 - title: Other functions
   desc: 
   contents:
   - '`addSignatureCollection`'
-  - '`addTranscriptomicsFeatureSet`'
   - '`insert_table_sql`'
   - '`lookup_table_sql`'
   - '`update_table_sql`'
-  
+  - '`deleteSignature`'
+  - '`deleteUser`'
+  - '`delete_table_sql`'
+  - '`searchFeature`'
+  - '`searchSignature`'
+  - '`updateSignature`'
+  - '`updateUser`'
+  - '`validateUser`'
 navbar:
   title: "SigRepo"
   left:

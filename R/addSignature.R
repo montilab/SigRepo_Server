@@ -26,7 +26,7 @@ addSignature <- function(
   
   # Create signature metadata table ####
   metadata_tbl <- SigRepo::createSignatureMetadata(
-    conn = conn_info$conn, 
+    conn_handler = conn_handler, 
     omic_signature = omic_signature
   )
   
