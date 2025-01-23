@@ -1,6 +1,7 @@
 
 # R packages for building shiny dashboard
 library(htmltools)
+library(shinyjs)
 library(shiny)
 library(DT)
 
@@ -19,12 +20,18 @@ load_all("/home/OmicSignature")
 # Package for creating hash keys
 library(sodium)
 
+# Package for parallel processes
+library(promises)
+library(future)
+future::plan(multisession)
+
 ## Define ui logic ####
 ui <- shiny::bootstrapPage(
   
   title = "SigRepo - Signature Repository",
   
-  tagList(
+  ### CSS and JS ####
+  shiny::tagList(
     tags$head(
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/main.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/app_style.css"),
@@ -38,72 +45,72 @@ ui <- shiny::bootstrapPage(
   
   shinyjs::useShinyjs(),
   
-  div(
+  ### Login Page ####
+  shiny::div(
     class = "login-wrapper", id = "login-wrapper", #style = "display: none;",
-    div(
+    shiny::div(
       class = "login-container",
       
-      div(class = "login-title", h2("Sign In")),
+      shiny::div(class = "login-title", shiny::h2("Sign In")),
       
       tags$form(
         class = "login-form",
         
-        div(
+        shiny::div(
           class = "validate-input",
           HTML("<span class='login-label'><b>Username</b></span>"),
-          div(
+          shiny::div(
             class = "username-container",
             HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username' required>")
           )
         ),
         
-        div(
+        shiny::div(
           class = "validate-input",
           HTML("<span class='login-label'><b>Password</b></span>"),
-          div(
+          shiny::div(
             class = "password-container",
             HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password' required>"),
             HTML("<span class='toggle-password' onclick='toggle_password()'>👁️</span>")
           )
         ),
         
-        div(
+        shiny::div(
           class = "validate-message", 
           shinyjs::hidden(p(id = "login-error-message", "Invalid username or password!"))
         ),
         
-        div(
+        shiny::div(
           class = "validate-button",
           shiny::actionButton(inputId = "sign_in_btn", class = "sign-in-button", label = "Login", onclick = "login_keypress(e)"),
-          div(class = "forgot_psw", HTML("<a href='#' id='forget_password' class='action-button'>Forgot password?</a>")),
+          shiny::div(class = "forgot_psw", HTML("<a href='#' id='forget_password' class='action-button'>Forgot password?</a>")),
         ),
         
-        div(
+        shiny::div(
           class = "register", 
-          p(HTML("Don't have an acount. <a href='#' id='register' class='action-button'>Register here.</a>"))
+          shiny::p(HTML("Don't have an acount. <a href='#' id='register' class='action-button'>Register here.</a>"))
         )
       )
     )
   ),
   
-  ### content ####
-  div(
+  ### Main App ####
+  shiny::div(
     class = "content-wrapper", id = "content-wrapper", style = "display: none;",
     
     ### Header #####
     shiny::div(
-      id = "banner-wrapper",
+      class = "banner-wrapper",
       shiny::div(
         class = "container",
         shiny::fluidRow(
+          class = "banner-info",
           shiny::column(
             width = 12, 
-            shiny::div(
-              class = "login-banner",
-              shiny::actionLink(inputId = "edit_profile", label = NULL, icon = shiny::icon("user-circle")),
-              shiny::uiOutput(outputId = "welcome_msg"),
-              shiny::actionLink(inputId = "log_out_btn", class="button-link", icon = tags$i(class="fa fa-sign-out"), label = strong("Log out"))
-            )
+            class = "login-banner",
+            shiny::actionLink(inputId = "edit_profile", label = NULL, icon = shiny::icon("user-circle")),
+            shiny::uiOutput(outputId = "welcome_msg"),
+            shiny::actionLink(inputId = "log_out_btn", class="button-link", icon = tags$i(class="fa fa-sign-out"), label = strong("Log out"))
           )
         )
       )
@@ -118,7 +125,7 @@ ui <- shiny::bootstrapPage(
     tags$script(src = "assets/js/util.js", type = "text/javascript"),
     tags$script(src = "assets/js/main.js", type = "text/javascript"),
     
-    # Tab output
+    ### Content #####
     shiny::uiOutput(outputId = "tab_content"),
     
     ### Footer ####
@@ -131,7 +138,7 @@ ui <- shiny::bootstrapPage(
         shiny::div(
           class="row footer",
           
-          ### copyright ####
+          ### Copyright ####
           shiny::div(
             class="col-12 col-12-medium box copyright",
             p(HTML('&copy; Montilab | Boston University | ', format(Sys.Date(), format = "%Y"), ' | All rights reserved | Design by <a href="http://html5up.net">HTML5 UP</a>'))
@@ -270,10 +277,14 @@ server <- function(input, output, session) {
       user_login_info(user_tbl)
       
       # Get user signature table #####
-      user_signature_tbl(SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name))
+      promises::future_promise({
+        SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name)
+      }, package = "tidyverse") %...>% user_signature_tbl()
       
       # Get user collection table #### 
-      user_collection_tbl(SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name))
+      promises::future_promise({
+        SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name)
+      }, package = "tidyverse") %...>% user_collection_tbl()
       
       # Hide message and display app ####
       shinyjs::hide(id = "login-error-message")
@@ -283,7 +294,6 @@ server <- function(input, output, session) {
     }
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
-  
   
   # Welcome message ####
   output$welcome_msg <- shiny::renderUI({
