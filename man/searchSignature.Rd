@@ -42,6 +42,8 @@ conn_handler <- SigRepo::newConnHandler(
 )
 
 # Get a list of signatures available in the database
-signature_list <- sigRepo::searchSignatures(conn_handler = conn_handler)
+signature_tbl <- sigRepo::searchSignature(
+  conn_handler = conn_handler
+)
 
 }

@@ -1,3 +1,4 @@
+
 # For DB connection
 library(RMySQL)
 library(DBI)
@@ -7,7 +8,12 @@ library(tidyverse)
 
 # For loading and installing packages
 library(devtools)
-load_all()
+
+# Load SigRepo package
+devtools::load_all()
+
+# Load OmicSignature package
+devtools::load_all("OmicSignature")
 
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
@@ -22,10 +28,10 @@ conn_handler <- SigRepo::newConnHandler(
 conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Set foreign key checks to false when dropping tables
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 # Show all tables in DB
-table_results <- suppressWarnings(DBI::dbGetQuery(conn=conn, statement="show tables;"))
+table_results <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "show tables;"))
 table_results
 
 ###################
@@ -35,12 +41,12 @@ table_results
 ##################
 
 purrr::walk(
-  seq_len(nrow(table_results)),
+  base::seq_len(nrow(table_results)),
   function(t){
     #t=1;
     table_name <- table_results$Tables_in_sigrepo[t]
-    drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-    suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+    drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
   }
 )
 
@@ -53,11 +59,11 @@ purrr::walk(
 # Table name
 table_name <- "signatures"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -96,7 +102,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -107,11 +113,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "signature_feature_set"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `signature_id` INT UNSIGNED NOT NULL,
@@ -127,7 +133,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -138,11 +144,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "signature_access"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `signature_id` INT UNSIGNED NOT NULL,
@@ -156,7 +162,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -167,11 +173,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "collection"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -186,7 +192,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -197,16 +203,16 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "collection_access"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `collection_id` INT UNSIGNED NOT NULL,
   `user_name` VARCHAR(255) NOT NULL,
-  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
+  `access_type` SET("owner", "editor", "viewer") NOT NULL,
   `access_collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`, `user_name`),
   UNIQUE (`collection_id`, `user_name`, `access_type`),
@@ -215,7 +221,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -226,12 +232,12 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "signature_collection_access"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
-  '
+create_table_sql <- base::sprintf(
+'
 CREATE TABLE `%s` (
   `collection_id` INT UNSIGNED NOT NULL,
   `signature_id` INT UNSIGNED NOT NULL,
@@ -242,7 +248,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -253,11 +259,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "transcriptomics_features"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -273,7 +279,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -284,11 +290,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "proteomics_features"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `feature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -303,7 +309,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -314,8 +320,8 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 # Table name
 table_name <- "metabolomics_features"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 ############# 
 #
@@ -326,8 +332,8 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 # Table name
 table_name <- "methylomics_features"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 ############# 
 #
@@ -338,8 +344,8 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 # Table name
 table_name <- "genetic_variations_features"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 ############# 
 #
@@ -350,8 +356,8 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 # Table name
 table_name <- "DNA_binding_sites_features"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 ############# 
 #
@@ -361,11 +367,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 table_name <- "organisms"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
 suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `organism_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -375,7 +381,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -385,11 +391,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 table_name <- "platforms"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `platform_id` VARCHAR(255) NOT NULL,
@@ -401,7 +407,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -411,11 +417,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 table_name <- "phenotypes"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `phenotype_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -425,7 +431,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -435,11 +441,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 table_name <- "sample_types"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `sample_type_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -450,7 +456,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -460,11 +466,11 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 table_name <- "keywords"
 
-drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `keyword_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -474,7 +480,7 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 ############# 
 #
@@ -485,10 +491,10 @@ suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 table_name <- "users"
 
 drop_table_sql <- sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
-create_table_sql <- sprintf(
+create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
   `user_name` VARCHAR(255) NOT NULL,
@@ -506,14 +512,14 @@ CREATE TABLE `%s` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
-suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
 # Check the imported values
 statement <- "select * FROM users"
-user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+user_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Show all created tables
-all_table_results <- suppressWarnings(DBI::dbGetQuery(conn=conn, statement="show tables;"))
+all_table_results <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "show tables;"))
 all_table_results
 
 # Disconnect from database ####

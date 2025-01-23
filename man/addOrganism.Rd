@@ -9,7 +9,7 @@ addOrganism(conn_handler, organism_tbl)
 \arguments{
 \item{conn_handler}{An established connection to database using newConnhandler()}
 
-\item{organism_tbl}{An data frame containing appropriate column names: organism}
+\item{organism_tbl}{A data frame object contains appropriate column names: organism}
 }
 \description{
 Add organism to database

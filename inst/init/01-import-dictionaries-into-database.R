@@ -9,9 +9,11 @@ library(tidyverse)
 # For loading and installing packages
 library(devtools)
 
-# Load package
+# Load SigRepo package
 devtools::load_all()
-load_all("OmicSignature")
+
+# Load OmicSignature package
+devtools::load_all("OmicSignature")
 
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
@@ -26,7 +28,7 @@ conn_handler <- SigRepo::newConnHandler(
 conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Get data path
-data_path <- system.file("data", package="SigRepo")
+data_path <- base::system.file("inst/data", package = "SigRepo")
 
 # 1. Add organisms to database ####
 organism_tbl <- readr::read_csv(file.path(data_path, "organisms/organism_tbl.csv"), show_col_types = FALSE)
@@ -60,7 +62,7 @@ SigRepo::addSampleType(conn_handler = conn_handler, sample_type_tbl = sample_typ
 
 # sample_types 
 statement <- "select * FROM sample_types"
-sample_type_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+sample_type_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 5. Add transcriptomics feature set ####
 
@@ -96,23 +98,23 @@ SigRepo::addSignature(conn_handler = conn_handler, omic_signature = LLFS_Transcr
 
 # Check the signatures table ####
 statement <- "select * FROM signatures"
-signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+signature_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the signature_feature_set table ####
 statement <- "select * FROM signature_feature_set"
-signature_feature_set_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+signature_feature_set_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the access_signature table ####
 statement <- "select * FROM signature_access"
-access_signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+access_signature_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the phenotypes table ####
 statement <- "select * FROM phenotypes"
-phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+phenotype_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Check the keywords table ####
 statement <- "select * FROM keywords"
-keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+keyword_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Disconnect from database ####
 base::suppressMessages(DBI::dbDisconnect(conn))    

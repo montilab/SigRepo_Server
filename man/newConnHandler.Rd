@@ -22,8 +22,6 @@ newConnHandler(
 \item{user}{the user who is establishing the connection}
 
 \item{password}{password associated with the user}
-
-\item{driver}{driver of the database. Default is RMySQL::MySQL()}
 }
 \value{
 a list with user credentials to establish connection to a remote database
