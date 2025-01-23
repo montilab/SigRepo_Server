@@ -10,7 +10,7 @@ killDbConnections <- function () {
   for(con in all_cons)
     +  dbDisconnect(con)
   
-  print(paste(length(all_cons), " connections killed."))
+  print(paste0(length(all_cons), " connections killed."))
   
 }
 

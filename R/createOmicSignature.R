@@ -14,21 +14,22 @@ createOmicSignature <- function(
     db_signature_tbl
 ){
   
-  # Check user connection and permissions ####
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
+  # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
-    action_type = "SELECT",
+    conn = conn, 
+    action_type = "INSERT",
     required_role = "editor"
   )
   
   # Check if table is a data frame object and not empty
   if(!is(db_signature_tbl, "data.frame") || length(db_signature_tbl) == 0){
-    
-    stop(sprintf("'db_signature_tbl' must be a list object and cannot be empty.\n"))
-    
     # Disconnect from database ####
-    DBI::dbDisconnect(conn_info$conn)
-    
+    DBI::dbDisconnect(conn)    
+    # Show message
+    base::stop(sprintf("'db_signature_tbl' must be a data frame and cannot be empty.\n"))
   }
   
   # Get assay_type
@@ -87,10 +88,10 @@ createOmicSignature <- function(
   
   # Create signature set
   signature <- SigRepo::lookup_table_sql(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = "signature_feature_set", 
     return_var = "*", 
-    filter_coln_var = c("signature_id"), 
+    filter_coln_var = "signature_id", 
     filter_coln_val = list("signature_id" = db_signature_tbl$signature_id),
     check_db_table = TRUE
   )
@@ -99,7 +100,7 @@ createOmicSignature <- function(
   lookup_feature_id <- signature$feature_id
   
   feature_id_tbl <- SigRepo::lookup_table_sql(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = ref_table, 
     return_var = c("feature_id", "feature_name"), 
     filter_coln_var = "feature_id", 
@@ -108,12 +109,16 @@ createOmicSignature <- function(
   ) 
   
   # Add variables to table
-  signature <- signature %>% dplyr::left_join(feature_id_tbl)
+  signature <- signature %>% 
+    dplyr::left_join(
+      feature_id_tbl,
+      by = "feature_id"
+    )
   
   # Rename table with appropriate column names 
   coln_names <- colnames(signature) %>% 
     base::replace(., base::match(c("feature_id"), .), c("feature_name"))
-  
+
   # Extract the table with appropriate column names ####
   signature <- signature %>% dplyr::select(all_of(coln_names))
   
@@ -124,13 +129,10 @@ createOmicSignature <- function(
     difexp = difexp
   )
   
-  # Return to using just a single core
-  doParallel::registerDoParallel(cores = 1)
-  
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
-  # Return OmicSignature
+  # Return Signature
   return(OmS)
   
 }

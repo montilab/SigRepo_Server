@@ -1,46 +1,132 @@
 #' @title updateUser
-#' @description Update user information in the database
+#' @description Update a user information in the database
 #' @param conn_handler An established database connection using SigRepo::newConnhandler() 
-#' @param user_name A data frame containing appropriate column names:
-#' user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role
+#' @param user_name Name of a user to be updated (required).
+#' @param password Password of a user to be updated. Default is NULL.
+#' @param email Email of a user to be updated. Default is NULL.
+#' @param affiliation First name of a user to be updated. Default is NULL.
+#' @param last_name Last name of a user to be updated. Default is NULL.
+#' @param role Role of a user to be updated. Choices are admin/editor/viewer.
+#' 
 #' @export
 updateUser <- function(
     conn_handler,
     user_name,
-    user_email = NULL,
-    user_affiliation = NULL,
-    user_first = NULL,
-    user_last = NULL,
-    user_role = c("admin", "editor", "viewer")
+    password = NULL,
+    email = NULL,
+    affiliation = NULL,
+    first_name = NULL,
+    last_name = NULL,
+    role = NULL
 ){
+  
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "INSERT",
     required_role = "admin"
   )
   
   # Check user_name ####
-  stopifnot("'user_name' cannot be empty." = (length(user_name) == 1 && !user_name %in% c(NA, "")))
+  if(!length(user_name) == 1 || any(user_name %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn))     
+    # Show message
+    base::stop("'user_name' must have a length of 1 and cannot be empty.")
+  }
+  
+  # Check role ####
+  if(length(role[1]) > 0 && !role[1] %in% c("admin", "editor", "viewer")){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn))     
+    # Show message
+    base::stop("'role' must be admin/editor/viewer.")
+  }
+  
+  # Check email ####
+  if(length(email[1]) > 0 && !email[1] %in% c("", NA)){
+    # Check email format ####
+    check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(email[1]), ignore.case = TRUE)
+    
+    # If any emails do not have correct format, throw an error message
+    if(any(check_email == FALSE)){
+      # Disconnect from database ####
+      base::suppressWarnings(DBI::dbDisconnect(conn))  
+      # Return error message
+      base::stop("Invalid email format.\n")
+    }
+    
+    # Get email table
+    email_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = db_table_name,
+      return_var = "*",
+      filter_coln_var = "user_email", 
+      filter_coln_val = list("user_email" = email[1]),
+      check_db_table = FALSE
+    ) 
+    
+    # Check if email belongs to user
+    if(nrow(email_tbl) > 0 && !trimws(tolower(user_name[1])) %in% trimws(tolower(email_tbl$user_name))){
+      # Disconnect from database ####
+      base::suppressMessages(DBI::dbDisconnect(conn))     
+      # Show message
+      base::stop("Email = '%s' is already existed in the database.")
+    }
+  }
   
   # Create a list of variables to check database ####
   db_table_name <- "users"
-  table <- user_tbl
   
-  # Create a hash key for user password
-  table <- SigRepo::createHashKey(
-    table = table,
-    hash_var = "user_password_hashkey",
-    hash_columns = "user_password",
-    hash_method = "sodium"
+  # Get user table
+  user_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = db_table_name,
+    return_var = "*",
+    filter_coln_var = "user_name", 
+    filter_coln_val = list("user_name" = user_name),
+    check_db_table = FALSE
   )
   
-  # Create an api key for each user
+  # If user does not have permission, throw an error message
+  if(nrow(user_tbl) == 0){
+    
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Show message
+    base::stop(sprintf("Cannot update user = '%s' as user does not exist in the 'users' table of the database.", user_name))
+    
+  }
+  
+  # Remove user from database
+  SigRepo::delete_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    delete_coln_var = "user_name", 
+    delete_coln_val = user_name,
+    check_db_table = FALSE
+  )
+  
+  # Create updated variables
+  table <- user_tbl %>% 
+    dplyr::mutate(
+      user_password_hashkey = ifelse(length(password[1]) == 0 || all(password[1] %in% c("", NA)), user_password_hashkey, sodium::password_store(password[1])),
+      user_email = ifelse(length(email[1]) == 0 || all(email[1] %in% c("", NA)), user_email, email[1]),
+      user_first = ifelse(length(first_name[1]) == 0 || all(first_name[1] %in% c("", NA)), user_first, first_name[1]),
+      user_last = ifelse(length(last_name[1]) == 0 || all(last_name[1] %in% c("", NA)), user_last, last_name[1]),
+      user_affiliation = ifelse(length(affiliation[1]) == 0 || all(affiliation[1] %in% c("", NA)), user_affiliation, affiliation[1]),
+      user_role = ifelse(length(role[1]) == 0 || all(role[1] %in% c("", NA)), user_role, role[1])
+    )
+  
+  # Create an api key 
   table <- SigRepo::createHashKey(
     table = table,
     hash_var = "api_key",
-    hash_columns = c("user_name", "user_password", "user_email"),
+    hash_columns = c("user_name", "user_email", "user_role"),
     hash_method = "md5"
   )
   
@@ -52,27 +138,9 @@ updateUser <- function(
     hash_method = "md5"
   )
   
-  # Check table against database table ####
-  table <- SigRepo::checkTableInput(
-    conn = conn_info$conn,
-    db_table_name = db_table_name,
-    table = table, 
-    exclude_coln_names = NULL,
-    check_db_table = TRUE
-  )
-  
-  # Check for duplicated emails ####
+  # Remove duplicated hash keys ####
   table <- SigRepo::removeDuplicates(
-    conn = conn_info$conn,
-    db_table_name = db_table_name,
-    table = table,
-    coln_var = "user_email",
-    check_db_table = FALSE
-  )
-  
-  # Remove duplicated hash keys from table before inserting into database ####
-  table <- SigRepo::removeDuplicates(
-    conn = conn_info$conn,
+    conn = conn,
     db_table_name = db_table_name,
     table = table,
     coln_var = "user_hashkey",
@@ -81,7 +149,7 @@ updateUser <- function(
   
   # Insert table into database ####
   SigRepo::insert_table_sql(
-    conn = conn_info$conn,
+    conn = conn,
     db_table_name = db_table_name, 
     table = table,
     check_db_table = FALSE
@@ -93,33 +161,30 @@ updateUser <- function(
     function(u){
       #u=1;
       # CHECK IF USER EXIST IN DATABASE
-      check_user_tbl <- suppressWarnings(
-        DBI::dbGetQuery(conn = conn_info$conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u]))
-      )
+      check_user_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
       
       # CREATE USER IF NOT EXIST
       if(nrow(check_user_tbl) == 0){
-        suppressWarnings(
-          DBI::dbGetQuery(conn = conn_info$conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u]))
-        )
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u])))
       }
       
       # GRANT USER PERMISSIONS TO DATABASE BASED ON THEIR ROLES
       if(table$user_role[u] == "admin"){
-        suppressWarnings(DBI::dbGetQuery(conn = conn_info$conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn_info$conn, statement = "FLUSH PRIVILEGES;"))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
       }else if(table$user_role[u] == "editor"){
-        suppressWarnings(DBI::dbGetQuery(conn = conn_info$conn, statement = sprintf("GRANT SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn_info$conn, statement = "FLUSH PRIVILEGES;"))        
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT INSERT, UPDATE, DELETE ON sigrepo.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
       }else if(table$user_role[u] == "viewer"){
-        suppressWarnings(DBI::dbGetQuery(conn = conn_info$conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn_info$conn, statement = "FLUSH PRIVILEGES;"))        
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
       }
     }
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
+  base::suppressMessages(DBI::dbDisconnect(conn)) 
   
 }
 

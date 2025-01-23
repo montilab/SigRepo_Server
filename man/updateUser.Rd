@@ -7,19 +7,29 @@
 updateUser(
   conn_handler,
   user_name,
-  user_email = NULL,
-  user_affiliation = NULL,
-  user_first = NULL,
-  user_last = NULL,
-  user_role = c("admin", "editor", "viewer")
+  password = NULL,
+  email = NULL,
+  affiliation = NULL,
+  first_name = NULL,
+  last_name = NULL,
+  role = NULL
 )
 }
 \arguments{
 \item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
 
-\item{user_name}{A data frame containing appropriate column names:
-user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role}
+\item{user_name}{Name of a user to be updated (required).}
+
+\item{password}{Password of a user to be updated. Default is NULL.}
+
+\item{email}{Email of a user to be updated. Default is NULL.}
+
+\item{affiliation}{First name of a user to be updated. Default is NULL.}
+
+\item{last_name}{Last name of a user to be updated. Default is NULL.}
+
+\item{role}{Role of a user to be updated. Choices are admin/editor/viewer.}
 }
 \description{
-Update user information in the database
+Update a user information in the database
 }

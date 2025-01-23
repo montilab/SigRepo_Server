@@ -19,12 +19,15 @@ addUserToSignature <- function(
     conn_handler,
     signature_id,
     user_name,
-    access_type = c("admin", "owner", "editor", "viewer")
+    access_type = c("owner", "editor", "viewer")
 ){
+  
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "INSERT",
     required_role = "editor"
   )
@@ -35,20 +38,48 @@ addUserToSignature <- function(
   # Get user_name ####
   orig_user_name <- conn_info$user[1]
   
+  # Get table name in database
+  db_table_name <- "signature_access" 
+  
   # Check access_type
-  access_type <- base::match.arg(access_type)  
+  access_type <- base::tryCatch({
+    base::match.arg(access_type, several.ok = TRUE)  
+  }, error = function(e){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(e, "\n")
+  }, warning = function(w){
+    base::message(w, "\n")
+  }) 
   
   # Check signature_id
-  base::stopifnot("'signature_id' cannot be empty." = 
-              (length(signature_id) == 1 && !signature_id %in% c(NA, "")))
+  if(!length(signature_id) == 1 || signature_id %in% c(NA, "")){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+  }
   
   # Check user_name
-  base::stopifnot("'user_name' cannot be empty." = 
-              (length(user_name) == 1 && !user_name %in% c(NA, "")))
+  if(length(user_name) == 0 || user_name %in% c(NA, "")){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("'user_name' cannot be empty.")
+  }
+  
+  # Make sure length of user_name equal to length of its access_type
+  if(length(user_name) != length(access_type)){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("Length of 'user_name' must equal length of 'access_type'.")
+  }
   
   # Check if signature exists ####
   signature_tbl <- SigRepo::lookup_table_sql(
-    conn = conn_info$conn,
+    conn = conn,
     db_table_name = "signatures",
     return_var = "*",
     filter_coln_var = "signature_id",
@@ -59,31 +90,53 @@ addUserToSignature <- function(
   # If signature exists, return the signature table else throw an error message
   if(nrow(signature_tbl) == 0){
     
-    base::stop(sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id))
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Show message
+    base::stop(sprintf("There is no signature_id = '%s' in the 'signatures' table of the SigRepo Database.", signature_id))
     
   }else{
     
-    # If user_role is not admin, check user access to the signature ####
+    # If user is not admin, check if it has access to the signature
     if(orig_user_role != "admin"){
       
-      # Check user access ####
-      signature_access_tbl <- SigRepo::lookup_table_sql(
-        conn = conn_info$conn,
-        db_table_name = "signature_access",
+      # Check if user was the one who uploaded the signature
+      signature_tbl <- SigRepo::lookup_table_sql(
+        conn = conn,
+        db_table_name = "signatures",
         return_var = "*",
-        filter_coln_var = c("signature_id", "user_name"),
+        filter_coln_var = c("signature_id", "user_name"), 
         filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name),
-        check_db_table = TRUE
+        filter_var_by = "AND",
+        check_db_table = FALSE
       )
       
-      # If user does not have owner or editor permission, throw an error message
-      if(nrow(signature_access_tbl) > 0 && !signature_access_tbl$access_type[1] %in% c("admin", "owner", "editor"))
-        base::stop(sprintf("User = '%s' has no permission to add user = '%s' to signature_id = '%s' in the database.\n", orig_user_name, user_name, signature_id))
-      
+      # If not, check if user was added as an owner or editor
+      if(nrow(signature_tbl) == 0){
+        
+        signature_access_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = db_table_name,
+          return_var = "*",
+          filter_coln_var = c("signature_id", "user_name", "access_type"),
+          filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name, access_type = c("owner", "editor")),
+          filter_var_by = c("AND", "AND"),
+          check_db_table = TRUE
+        )
+        
+        # If user does not have permission, throw an error message
+        if(nrow(signature_access_tbl) == 0){
+
+          # Disconnect from database ####
+          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          
+          # Show message
+          base::stop(sprintf("User = '%s' does not have permission to add User = '%' to signature_id = '%s' in the database.", orig_user_name, user_name, signature_id))
+          
+        }
+      }
     }
-    
-    # Get table name in database
-    db_table_name <- "signature_access" 
     
     # Create user signature access table
     table <- base::data.frame(
@@ -103,7 +156,7 @@ addUserToSignature <- function(
     
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = db_table_name,
       table = table, 
       check_db_table = TRUE
@@ -111,7 +164,7 @@ addUserToSignature <- function(
     
     # Remove duplicates from table before inserting into database ####
     table <- SigRepo::removeDuplicates(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = db_table_name,
       table = table,
       coln_var = "access_sig_hashkey",
@@ -120,17 +173,16 @@ addUserToSignature <- function(
     
     # Insert table into database ####
     SigRepo::insert_table_sql(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = db_table_name, 
       table = table,
       check_db_table = FALSE
     )
-    
-  }
-  
-  # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
-  
+
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+
+  }  
 }  
 
 

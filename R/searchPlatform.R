@@ -10,9 +10,12 @@ searchPlatform <- function(
     platform_id = NULL
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+ 
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "SELECT",
     required_role = "viewer"
   )
@@ -21,7 +24,7 @@ searchPlatform <- function(
   if(length(platform_id) == 0 || all(platform_id %in% c("", NA))){
     
     platform_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "platforms", 
       return_var = "*", 
       check_db_table = TRUE
@@ -30,7 +33,7 @@ searchPlatform <- function(
   }else{
     
     platform_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "platforms", 
       return_var = "*", 
       filter_coln_var = "platform_id", 
@@ -41,7 +44,7 @@ searchPlatform <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
   # Return table
   return(platform_tbl)

@@ -1,6 +1,5 @@
 #' @title newConnHandler
 #' @description create a handler to connect to a remote database
-#' @param driver driver of the database. Default is RMySQL::MySQL()
 #' @param dbname table schema of which you want the handle to point.
 #' @param host host server in which you want to connect
 #' @param port host port in which you wish to use
@@ -102,6 +101,7 @@ conn_init <- function(conn_handler){
     # Then add root to users table with the default settings below
     if(nrow(user_tbl) == 0){
       
+      # Default settings for root ####
       table <- base::data.frame(
         user_name = user,
         user_password = password,
@@ -113,7 +113,16 @@ conn_init <- function(conn_handler){
         stringsAsFactors = FALSE
       )
       
-      # Create a hash key for user password
+      # Check for duplicated emails ####
+      SigRepo::checkDuplicatedEmails(
+        conn = conn,
+        db_table_name = "users",
+        table = table,
+        coln_var = "user_email",
+        check_db_table = FALSE
+      )
+      
+      # Create a hash key for user password ####
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_password_hashkey",
@@ -121,23 +130,23 @@ conn_init <- function(conn_handler){
         hash_method = "sodium"
       )
       
-      # Create an api key for each user
+      # Create api keys ####
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "api_key",
-        hash_columns = c("user_name", "user_password", "user_email"),
+        hash_columns = c("user_name", "user_email", "user_role"),
         hash_method = "md5"
       )
       
-      # Create a hash key to check for duplicates
+      # Create a hash key to check for duplicates ####
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_hashkey",
-        hash_columns = "user_email",
+        hash_columns = "user_name",
         hash_method = "md5"
       )
       
-      # Remove duplicates from table before inserting into database ####
+      # Remove duplicates ####
       table <- SigRepo::removeDuplicates(
         conn = conn,
         db_table_name = "users",

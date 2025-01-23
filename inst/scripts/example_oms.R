@@ -6,8 +6,11 @@ library(devtools)
 library(dplyr)
 devtools::install_github(repo = "montilab/OmicSignature")
 
+load_all()
+
 
 # Grabbing the data path
+
 data_path <- system.file("data", package="SigRepo")
 
 
@@ -85,24 +88,24 @@ metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "AhR knockdow
 # Creating difexp's
 
 difexp_SUM_Ahr <- OmS_SUM_AhR %>%
-  rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
+  dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
   ) %>%
   select(feature_name, adj_p, score )
 
 difexp_SUM_CYP <- OmS_SUM_CYP %>%
-  rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
+  dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
   ) %>%
   select(feature_name, adj_p, score )
 
 
 difexp_MDA_AhR <- OmS_MDA_AhR %>%
-  rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
+  dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
   ) %>%
   select(feature_name, adj_p, score )
 
 
 difexp_MDA_CYP <- OmS_MDA_CYP %>%
-  rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
+  dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
   ) %>%
   select(feature_name, adj_p, score )
 
@@ -170,6 +173,16 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
   difexp = difexp_MDA_CYP
 )
 
-# creating an RDS of the omic signatures 
+# Creating an OmicSignature Collection
 
+colMeta <- list(
+  'collection_name' = 'example',
+  'description' = 'example of signature collection',
+  'author' = 'me')
 
+OmSC <- OmicSignature::OmicSignatureCollection$new(
+  OmicSigList = list(omic_signature_MDA_AhR,omic_signature_MDA_CYP, omic_signature_SUM_CYP, omic_signature_SUM_Ahr),
+  metadata = colMeta
+)
+
+colnames(OmS_SUM_AhR)

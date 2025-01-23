@@ -1,5 +1,11 @@
 
-# Function to create search inputs for looking up a signature ####
+# Create reactive values to store error messages #####
+search_sig_error_msg <- reactiveVal()
+
+# Create reactive values to store data tables ####
+search_signature_tbl <- reactiveVal()
+
+# Create a search function to look up a signature ####
 create_search_input <- function(
     conn_handler,
     search_option,
@@ -20,6 +26,7 @@ create_search_input <- function(
         "DNA Binding Sites" = "dna_binding_sites"
       ),
       selected = search_value,
+      multiple = TRUE,
       width = "100%"
     )
     
@@ -44,6 +51,7 @@ create_search_input <- function(
       label = paste0(search_option, ":"),
       choices = unique(organism_choices$organism),
       selected = search_value,
+      multiple = TRUE,
       width = "100%",
     )
     
@@ -56,6 +64,7 @@ create_search_input <- function(
       label = paste0(search_option, ":"),
       choices = unique(sample_type_choices$sample_type),
       selected = search_value,
+      multiple = TRUE,
       width = "100%",
     )
     
@@ -68,6 +77,7 @@ create_search_input <- function(
       label = paste0(search_option, ":"),
       choices = unique(phenotype_choices$phenotype),
       selected = search_value,
+      multiple = TRUE,
       width = "100%",
     ) 
     
@@ -80,6 +90,7 @@ create_search_input <- function(
       label = paste0(search_option, ":"),
       choices = unique(platform_choices$platform_id),
       selected = search_value,
+      multiple = TRUE,
       width = "100%",
     )
     
@@ -89,7 +100,7 @@ create_search_input <- function(
   
 }
 
-# Create search inputs ####
+# Create a list of search inputs ####
 output$search_inputs <- renderUI({
   
   req(input$search_options, user_conn_handler())
@@ -160,17 +171,14 @@ output$search_inputs <- renderUI({
   
 })
 
-# Create reactive values 
-search_sig_error_msg <- reactiveVal()
-search_signature_tbl <- reactiveVal()
-
+# Observe search_signature ####
 shiny::observeEvent({
   input$search_signature
 }, {
   
   req(user_conn_handler())
   
-  # Get selected input
+  # Get selected input ####
   search_options <- shiny::isolate({ input$search_options })
   
   if(length(search_options) == 0){
@@ -178,8 +186,8 @@ shiny::observeEvent({
     return(NULL)
   }
   
-  # Get search option values
-  search_option_values <- seq_along(search_options) %>% 
+  # Get search option values ####
+  search_option_values <- base::seq_along(search_options) %>% 
     purrr::map(
       function(p){
         #p=1;
@@ -187,9 +195,9 @@ shiny::observeEvent({
       }
     ) 
   
-  # Get search option filter
+  # Get search option filter ####
   if(length(search_options) > 1){
-    search_option_filter <- 1:(length(search_options)-1) %>% 
+    search_option_filter <- base::seq_len(length(search_options)-1) %>% 
       purrr::map_chr(
         function(p){
           #p=1;
@@ -200,116 +208,112 @@ shiny::observeEvent({
     search_option_filter <- NULL
   }
   
+  # Check if any search inputs are empty ####
   if(any(search_option_values %in% c("", NA))){
     search_sig_error_msg(sprintf("%s cannot be empty.", paste0(search_options[which(search_option_values %in% c("", NA))], collapse = ", ")))
     return(NULL)
   }
   
-  # Reset message
+  # Reset message ####
   search_sig_error_msg(NULL)
   
-  # Extract user connection
+  # Extract user connection ####
   conn_handler <- shiny::isolate({ user_conn_handler() })
   
-  # Establish user connection
+  # Establish user connection ####
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
+  # Create a search list
+  search_option_list <- list()
   
   # Look up organism id ####
   if("organism" %in% search_options){
-    
+
     lookup_organism <- input[["organism"]]
-    
-    organism_id <- SigRepo::lookup_table_sql(
+
+    organism_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "organisms",
-      return_var = c("organism_id", "organism"),
+      return_var = "*",
       filter_coln_var = "organism",
       filter_coln_val = list("organism" = lookup_organism),
       check_db_table = TRUE
-    )$organism_id
+    )
     
-    print(organism_id)
-    
-    search_options[which(search_options == "organism")] <- "organism_id"
-    search_option_values[which(search_options == "organism")] <- organism_id
-    
+    search_values <- list("organism_id" = organism_id_tbl$organism_id)
+    search_option_list <- c(search_option_list, search_values)
+
   }
-  
+   
   # Look up phenotype id #####
   if("phenotype" %in% search_options){
-    
+
     lookup_phenotype <- input[["phenotype"]]
-    
-    phenotype_id <- SigRepo::lookup_table_sql(
+
+    phenotype_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "phenotypes",
-      return_var = c("phenotype", "phenotype_id"),
+      return_var = "*",
       filter_coln_var = "phenotype",
       filter_coln_val = list("phenotype" = lookup_phenotype),
       check_db_table = TRUE
-    )$phenotype_id
-    
-    search_options[which(search_options == "phenotype")] <- "phenotype_id"
-    search_option_values[which(search_options == "phenotype")] <- phenotype_id
-    
+    )
+
+    search_values <- list("phenotype_id" = phenotype_id_tbl$phenotype_id)
+    search_option_list <- c(search_option_list, search_values)
+
   }
-  
+
   # Look up platform id ####
   if("platform" %in% search_options){
-    
+
     lookup_platform <- input[["platform"]]
-    
+
     # SQL statement to look up platform in database
-    platform_id <- SigRepo::lookup_table_sql(
+    platform_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "platforms",
-      return_var = "platform_id",
+      return_var = "*",
       filter_coln_var = "platform_id",
       filter_coln_val = list("platform_id" = lookup_platform),
       check_db_table = TRUE
-    )$platform_id
-    
-    search_options[which(search_options == "platform")] <- "platform_id"
-    search_option_values[which(search_options == "platform")] <- platform_id
-    
+    )
+
+    search_values <- list("platform_id" = platform_id_tbl$platform_id)
+    search_option_list <- c(search_option_list, search_values)
+
   }
-  
+
   # Look up sample_type id ####
   if("sample_type" %in% search_options){
-    
+
     lookup_sample_type <- input[["sample_type"]]
-    
-    sample_type_id <- SigRepo::lookup_table_sql(
+
+    sample_type_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "sample_types",
-      return_var = c("sample_type", "sample_type_id"),
+      return_var = "*",
       filter_coln_var = "sample_type",
       filter_coln_val = list("sample_type" = lookup_sample_type),
       check_db_table = TRUE
-    )$sample_type_id
-    
-    search_options[which(search_options == "sample_type")] <- "sample_type_id"
-    search_option_values[which(search_options == "sample_type")] <- sample_type_id
-    
+    )
+
+    search_values <- list("sample_type_id" = sample_type_id_tbl$sample_type_id)
+    search_option_list <- c(search_option_list, search_values)
+
   }
-  
-  names(search_option_values) <- search_options
-  
-  print(search_options)
-  print(search_option_values)
-  print(search_option_filter)
   
   # Look up signature table
   signature_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
     db_table_name = "signatures",
     return_var = "*",
-    filter_coln_var = search_options,
-    filter_coln_val = search_option_values,
+    filter_coln_var = names(search_option_list),
+    filter_coln_val = search_option_list,
     filter_var_by = search_option_filter,
     check_db_table = TRUE
   )
-  
+
   # Return table
   if(nrow(signature_tbl) == 0){
     search_signature_tbl(data.frame(WARNINGS = "THERE ARE NO DATA RETURNED FROM THE SEARCH PARAMETERS"))
@@ -322,6 +326,8 @@ shiny::observeEvent({
   
 })
 
+
+# Search signature error message ####
 output$search_sig_error_msg <- renderUI({
   
   req(search_sig_error_msg())
@@ -330,7 +336,7 @@ output$search_sig_error_msg <- renderUI({
   
 })
 
-
+# Output signature_table ####
 output$signature_table <- DT::renderDataTable({
   
   req(search_signature_tbl())

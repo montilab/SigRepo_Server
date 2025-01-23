@@ -16,9 +16,12 @@ addTranscriptomicsSignatureSet <- function(
     signature_set
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "INSERT",
     required_role = "editor"
   )
@@ -30,8 +33,54 @@ addTranscriptomicsSignatureSet <- function(
   user_name <- conn_info$user[1]
   
   # Check signature_id ####
-  stopifnot("'signature_id' cannot be empty." = 
-              (length(signature_id) == 1 && !signature_id %in% c(NA, "")))
+  if(!length(signature_id) == 1 || signature_id %in% c(NA, "")){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show error message
+    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+  }
+  
+  # Check organism_id ####
+  if(!length(organism_id) == 1 || organism_id %in% c(NA, "")){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show error message
+    base::stop("'organism_id' must have a length of 1 and cannot be empty.")
+  }
+  
+  # Check if signature is a data frame ####
+  if(!is(signature_set, "data.frame") || length(signature_set) == 0){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show error message
+    base::stop("'signature_set' must be a data frame and cannot be empty.")
+  }
+  
+  # Check required signature fields ####
+  signature_fields <- c('feature_name', 'probe_id', 'score', 'direction')
+  
+  if(any(!signature_fields %in% colnames(signature_set))){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show error message
+    base::stop("'signature_set' must have the following column names:", paste0(signature_fields, collapse = ", "))
+  }
+  
+  # Make sure required column fields do not have any empty values ####
+  if(any(is.na(signature_set[,signature_fields]) == TRUE)){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show error message
+    base::stop(sprintf("All required column names in 'signature_set': %s cannot contain any empty values.\n", paste0(signature_fields, collapse = ", ")))
+  }
+  
+  # Check the direction symbols in signature table
+  if(any(!signature_set$direction %in% c("+", "-"))){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    # Show error message
+    base::stop("The 'direction' variable in 'signature_set' must contain +/- symbols only.")
+  }
   
   # Define table in database ####
   db_table_name <- "signature_feature_set"
@@ -40,47 +89,42 @@ addTranscriptomicsSignatureSet <- function(
   ref_table <- "transcriptomics_features"
   
   # Check if signature exists ####
-  signature_tbl <- SigRepo::lookup_table_sql(
-    conn = conn_info$conn,
-    db_table_name = "signatures",
-    return_var = "*",
-    filter_coln_var = "signature_id",
-    filter_coln_val = list("signature_id" = signature_id),
-    check_db_table = TRUE
-  )
+  if(user_role != "admin"){
+    
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "signatures",
+      return_var = "*",
+      filter_coln_var = "signature_id",
+      filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name),
+      filter_var_by = "AND",
+      check_db_table = TRUE
+    )
+    
+  }else{
+    
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "signatures",
+      return_var = "*",
+      filter_coln_var = "signature_id",
+      filter_coln_val = list("signature_id" = signature_id),
+      check_db_table = TRUE
+    )
+    
+  }
   
   # If signature exists, return the signature table else throw an error message
   if(nrow(signature_tbl) == 0){
     
-    base::stop(sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id))
-    
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Show error message
+    base::stop(sprintf("There is no signature_id = '%s' belong to user = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id, user_name))
     
   }else{
-    
-    # If user_role is not admin, check user access to the signature ####
-    if(!user_role %in% "admin"){
-      
-      # Check user access ####
-      signature_access_tbl <- SigRepo::lookup_table_sql(
-        conn = conn_info$conn,
-        db_table_name = "signature_access",
-        return_var = "*",
-        filter_coln_var = c("signature_id", "user_name"),
-        filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name),
-        check_db_table = TRUE
-      )
-      
-      # If user does not have owner or editor permission, throw an error message
-      if(nrow(signature_access_tbl) > 0 && !signature_access_tbl$access_type[1] %in% c("admin", "owner", "editor")){
-        base::stop(sprintf("User = '%s' has no permission to add signature feature set for signature_id = '%s' in the database.\n", user_name, signature_id))
-        # Disconnect from database ####
-        base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
-      }
-      
-    }
-    
+
     # Create signature set table to look up feature id
     table <- signature_set %>% 
       dplyr::mutate(
@@ -89,7 +133,7 @@ addTranscriptomicsSignatureSet <- function(
         assay_type = "transcriptomics"
       ) 
     
-    # Create a hash key to look up feature id in the transcriptiomics reference table ####
+    # Create a hash key to look up feature id in the transcriptomics reference table ####
     table <- SigRepo::createHashKey(
       table = table,
       hash_var = "feature_hashkey",
@@ -101,7 +145,7 @@ addTranscriptomicsSignatureSet <- function(
     lookup_hashkey <- unique(table$feature_hashkey)
     
     lookup_feature_id_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = ref_table, 
       return_var = c("feature_id", "feature_name", "organism_id", "feature_hashkey"),
       filter_coln_var = "feature_hashkey",
@@ -112,18 +156,22 @@ addTranscriptomicsSignatureSet <- function(
     # If any ID is missing, produce an error message
     if(nrow(lookup_feature_id_tbl) != length(lookup_hashkey)){
       
-      SigRepo::addTranscriptomicsErrorMessage(
+      # Disconnect from database ####
+      base::suppressMessages(DBI::dbDisconnect(conn))  
+      
+      # Show error 
+      SigRepo::showTranscriptomicsErrorMessage(
         db_table_name = ref_table,
         unknown_features = table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
       )
-      
-      # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
-      
+
     }
     
     # Add feature id to table
-    table <- table %>% dplyr::left_join(lookup_feature_id_tbl)
+    table <- table %>% dplyr::left_join(
+      lookup_feature_id_tbl %>% dplyr::select(feature_hashkey, feature_id),
+      by = "feature_hashkey"
+    )
     
     # Create a hash key to look up signature feature set in database ####
     table <- SigRepo::createHashKey(
@@ -135,7 +183,7 @@ addTranscriptomicsSignatureSet <- function(
     
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = db_table_name,
       table = table, 
       check_db_table = TRUE
@@ -143,7 +191,7 @@ addTranscriptomicsSignatureSet <- function(
     
     # Remove duplicates from table before inserting into database ####
     table <- SigRepo::removeDuplicates(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = db_table_name,
       table = table,
       coln_var = "sig_feature_hashkey",
@@ -152,16 +200,15 @@ addTranscriptomicsSignatureSet <- function(
     
     # Insert table into database ####
     SigRepo::insert_table_sql(
-      conn = conn_info$conn,
+      conn = conn,
       db_table_name = db_table_name, 
       table = table,
       check_db_table = FALSE
     )  
     
-  }
-  
-  # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
-  
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+  }  
 }
 

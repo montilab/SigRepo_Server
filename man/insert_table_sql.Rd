@@ -9,7 +9,7 @@ insert_table_sql(conn, db_table_name, table, check_db_table = TRUE)
 \arguments{
 \item{conn}{An established database connection using newConnhandler()}
 
-\item{db_table_name}{A table in the database}
+\item{db_table_name}{Name of a table in the database}
 
 \item{table}{A table in the database}
 

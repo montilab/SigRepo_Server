@@ -8,7 +8,7 @@ addUserToSignature(
   conn_handler,
   signature_id,
   user_name,
-  access_type = c("admin", "owner", "editor", "viewer")
+  access_type = c("owner", "editor", "viewer")
 )
 }
 \arguments{
