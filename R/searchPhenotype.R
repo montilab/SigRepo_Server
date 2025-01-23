@@ -10,9 +10,12 @@ searchPhenotype <- function(
     phenotype = NULL
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "SELECT",
     required_role = "viewer"
   )
@@ -21,7 +24,7 @@ searchPhenotype <- function(
   if(length(phenotype) == 0 || all(phenotype %in% c("", NA))){
     
     phenotype_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "phenotypes", 
       return_var = "phenotype", 
       check_db_table = TRUE
@@ -30,7 +33,7 @@ searchPhenotype <- function(
   }else{
     
     phenotype_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "phenotypes", 
       return_var = "phenotype", 
       filter_coln_var = "phenotype", 
@@ -41,7 +44,7 @@ searchPhenotype <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
   # Return tabl
   return(phenotype_tbl)

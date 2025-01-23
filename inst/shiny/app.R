@@ -27,12 +27,12 @@ ui <- shiny::bootstrapPage(
   tagList(
     tags$head(
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/main.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search-signature.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/fontawesome-all.min.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/main_style.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/sign_in_style.css"),
+      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/app_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/home_style.css"),
-      tags$script(src = "assets/js/main.js", type = "text/javascript")
+      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/sign_in_style.css"),
+      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_signature.css"),
+      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/fontawesome-all.min.css"),
+      tags$script(src = "assets/js/app.js", type = "text/javascript")
     )
   ),
   
@@ -108,7 +108,7 @@ ui <- shiny::bootstrapPage(
         )
       )
     ),
-                   
+    
     # Include the navbar tabs
     htmltools::htmlTemplate("www/nav.html"),
     
@@ -116,23 +116,23 @@ ui <- shiny::bootstrapPage(
     tags$script(src = "assets/js/browser.min.js", type = "text/javascript"),
     tags$script(src = "assets/js/breakpoints.min.js", type= "text/javascript"),
     tags$script(src = "assets/js/util.js", type = "text/javascript"),
-    tags$script(src = "assets/js/main_orig.js", type = "text/javascript"),
-
+    tags$script(src = "assets/js/main.js", type = "text/javascript"),
+    
     # Tab output
     shiny::uiOutput(outputId = "tab_content"),
     
     ### Footer ####
-    div(
+    shiny::div(
       id="footer-wrapper",
       
       tags$footer(
         class="container",
         
-        div(
+        shiny::div(
           class="row footer",
           
           ### copyright ####
-          div(
+          shiny::div(
             class="col-12 col-12-medium box copyright",
             p(HTML('&copy; Montilab | Boston University | ', format(Sys.Date(), format = "%Y"), ' | All rights reserved | Design by <a href="http://html5up.net">HTML5 UP</a>'))
           )
@@ -148,6 +148,10 @@ server <- function(input, output, session) {
   # Create reactive values to store user login information
   user_conn_handler <- shiny::reactiveVal()
   user_login_info <- shiny::reactiveVal()
+  
+  # Create reactive values to store user signature and collection ####
+  user_signature_tbl <- shiny::reactiveVal()
+  user_collection_tbl <- shiny::reactiveVal()
   
   # Print this when a session starts ####
   cat("\nSession started.\n")
@@ -219,8 +223,8 @@ server <- function(input, output, session) {
   #   }
   # 
   # })
-
-  # Observe when sign in buttion is clicked
+  
+  # Observe when sign in button is clicked #####
   shiny::observeEvent({
     input$sign_in_btn
   }, {
@@ -248,18 +252,30 @@ server <- function(input, output, session) {
       
       user_conn_handler(NULL)
       user_login_info(NULL)
+      user_signature_tbl(NULL)
+      user_collection_tbl(NULL)
       shinyjs::show(id = "login-wrapper")
       shinyjs::show(id = "login-error-message")
       shinyjs::hide(id = "content-wrapper")
       
     }else{
       
-      # Update URL search string
+      # Update URL search string ####
       shiny::updateQueryString(session, queryString = sprintf("#user_id=%s&token=%s", user_name, digest::digest(user_password, algo = "md5", serialize = TRUE)), mode = "push")
       
-      # Get user connection info
+      # Get user connection info ####
       user_conn_handler(conn_handler)
+      
+      # Get user login info ####
       user_login_info(user_tbl)
+      
+      # Get user signature table #####
+      user_signature_tbl(SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name))
+      
+      # Get user collection table #### 
+      user_collection_tbl(SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name))
+      
+      # Hide message and display app ####
       shinyjs::hide(id = "login-error-message")
       shinyjs::hide(id = "login-wrapper")
       shinyjs::show(id = "content-wrapper")
@@ -273,12 +289,12 @@ server <- function(input, output, session) {
   output$welcome_msg <- shiny::renderUI({
     
     req(user_login_info())
-  
+    
     # Get user connection info
     shiny::HTML(sprintf("Welcome %s!", user_login_info()$user_name))
-
+    
   })
-
+  
   # Observe when sign out buttion is clicked
   shiny::observeEvent({
     input$log_out_btn
@@ -289,26 +305,26 @@ server <- function(input, output, session) {
     shinyjs::hide(id = "content-wrapper")
     shinyjs::show(id = "login-wrapper")
     shiny::updateQueryString(session, queryString = "#login", mode = "push")
-
+    
   })
   
   # Create reactive values
   tab_selected <- shiny::reactiveVal("home")
-
+  
   # Observe the selected page by users
   shiny::observeEvent({
     input$selected_tab
   }, {
     
     shiny::isolate({ input$selected_tab }) %>% tab_selected()
-
+    
   })
-
+  
   # Output the content page
   output$tab_content <- shiny::renderUI({
-
+    
     req(tab_selected())
-
+    
     if(tab_selected() == "home"){
       htmltools::includeHTML("www/home_content.html")
     }else if(tab_selected() == "search_signature"){
@@ -321,13 +337,13 @@ server <- function(input, output, session) {
     }else if(tab_selected() == "hypeR_analysis"){
     }else if(tab_selected() == "resources"){
     }
-
+    
   })
   
   # Import all source files 
   source("server/search_signature_server.R", local = TRUE)
   source("server/sign_in_server.R", local = TRUE)
-
+  
 }
 
 ## Start the app ####

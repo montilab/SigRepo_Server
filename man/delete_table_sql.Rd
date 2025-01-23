@@ -15,13 +15,13 @@ delete_table_sql(
 \arguments{
 \item{conn}{An established database connection using newConnhandler()}
 
-\item{db_table_name}{A table in the database}
+\item{db_table_name}{Name of a table in the database}
 
-\item{delete_coln_var}{A list of column variables in the given table}
+\item{delete_coln_var}{A column variable in the table for removing rows}
 
-\item{delete_coln_val}{A list of column values associated with the column variables}
+\item{delete_coln_val}{A list of values associated with delete_coln_var to be removed.}
 
-\item{check_db_table}{whether to check database table. Default = TRUE}
+\item{check_db_table}{whether to check database table. Default = TRUE.}
 }
 \description{
 delete an entry from database table

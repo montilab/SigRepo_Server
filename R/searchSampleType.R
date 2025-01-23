@@ -10,9 +10,12 @@ searchSampleType <- function(
     sample_type = NULL
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "SELECT",
     required_role = "viewer"
   )
@@ -21,7 +24,7 @@ searchSampleType <- function(
   if(length(sample_type) == 0 || all(sample_type %in% c("", NA))){
     
     sample_type_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "sample_types", 
       return_var = "*", 
       check_db_table = TRUE
@@ -30,7 +33,7 @@ searchSampleType <- function(
   }else{
     
     sample_type_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "sample_types", 
       return_var = "*", 
       filter_coln_var = "sample_type", 
@@ -41,7 +44,7 @@ searchSampleType <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
   # Return table
   return(sample_type_tbl)

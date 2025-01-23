@@ -4,14 +4,12 @@
 \alias{addSignatureCollection}
 \title{addSignatureCollection}
 \usage{
-addSignatureCollection(conn, omic_signature_collection, user_name)
+addSignatureCollection(conn, omic_signature_collection)
 }
 \arguments{
 \item{conn}{An established connection to database using newConnhandler()}
 
 \item{omic_signature_collection}{A collection of OmicSignature objects from OmicSignature package}
-
-\item{user_name}{An user id}
 }
 \description{
 Add signature collection to database

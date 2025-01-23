@@ -5,39 +5,44 @@
 #'
 #' @export
 addKeyword <- function(
-    conn_handler,
+    conn,
     keyword_tbl
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "INSERT",
-    required_role = "admin"
+    required_role = "editor"
   )
   
   # Create a list of variables to check database ####
-  required_column_fields <- c("keyword")
+  required_column_fields <- "keyword"
   db_table_name <- "keywords"
   table <- keyword_tbl
   
   # Check required column fields
   if(any(!required_column_fields %in% colnames(table))){
-    base::stop(sprintf("the table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
+    base::suppressMessages(DBI::dbDisconnect(conn))     
+    # Show message
+    base::stop(sprintf("Table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(table[,required_column_fields]) == TRUE)){
-    base::stop(sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn_info$conn))    
+    base::suppressMessages(DBI::dbDisconnect(conn))     
+    # Show message
+    base::stop(sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####
   table <- SigRepo::checkTableInput(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = db_table_name,
     table = table, 
     exclude_coln_names = "keyword_id",
@@ -46,7 +51,7 @@ addKeyword <- function(
   
   # Remove duplicates from table before inserting into database ####
   table <- SigRepo::removeDuplicates(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = db_table_name,
     table = table,
     coln_var = "keyword",
@@ -55,14 +60,14 @@ addKeyword <- function(
   
   # Insert table into database ####
   SigRepo::insert_table_sql(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = db_table_name, 
     table = table,
     check_db_table = FALSE
   ) 
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
 }
 

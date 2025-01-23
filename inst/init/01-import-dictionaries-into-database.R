@@ -34,24 +34,15 @@ SigRepo::addOrganism(conn_handler = conn_handler, organism_tbl = organism_tbl)
 
 # Check the imported values
 statement <- "select * FROM organisms"
-organism_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+organism_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 2. Add platforms to database ####
 platform_tbl <- readRDS(file.path(data_path, "platforms/GEO_platforms.rds")) 
-
-platform_tbl <- platform_tbl %>% 
-  dplyr::transmute(
-    platform_id = Accession,
-    platform_name = Name,
-    seq_technology = Technology,
-    organisms = Organism
-  )
-
 SigRepo::addPlatform(conn_handler = conn_handler, platform_tbl = platform_tbl)
 
 # Check the imported values
 statement <- "select * FROM platforms"
-platform_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+platform_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 3. Add phenotypes to database ####
 phenotype_tbl <- readr::read_csv(file.path(data_path, "phenotypes/phenotypes_tbl.csv"), show_col_types = FALSE)
@@ -59,7 +50,7 @@ SigRepo::addPhenotype(conn_handler = conn_handler, phenotype_tbl = phenotype_tbl
 
 # phenotypes 
 statement <- "select * FROM phenotypes"
-phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+phenotype_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 4. Add sample types to database ####
 
@@ -73,35 +64,21 @@ sample_type_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = 
 
 # 5. Add transcriptomics feature set ####
 
-# Read in the human and mouse gene symbols 
-human_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), show_col_types = FALSE) %>% 
-  dplyr::transmute(
-    feature_name = feature_name,
-    organism = "homo sapiens",
-    gene_symbol = gene_symbol,
-    is_current = 1
-  )
-
+# Read in the human gene symbols 
+human_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), show_col_types = FALSE) 
 SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = human_gene_symbol_tbl)
 
 # transcriptomics_features 
 statement <- "select * FROM transcriptomics_features"
-transcriptomics_features_db_tbl <-  suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+transcriptomics_features_db_tbl <-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
-mouse_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv"), show_col_types = FALSE) %>% 
-  dplyr::transmute(
-    feature_name = feature_name,
-    organism = "mus musculus",
-    gene_symbol = gene_symbol,
-    is_current = 1
-  )
-
-## Add reference feature set 
+# Read in the mouse gene symbols 
+mouse_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv"), show_col_types = FALSE) 
 SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
 
 # transcriptomics_features 
 statement <- "select * FROM transcriptomics_features"
-transcriptomics_features_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+transcriptomics_features_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 6. Add users ####
 
@@ -111,7 +88,7 @@ SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
 
 # Check the imported values
 statement <- "select * FROM users"
-user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+user_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # 7. Add signatures ####
 LLFS_Transcriptomic_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
@@ -136,4 +113,8 @@ phenotype_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = st
 # Check the keywords table ####
 statement <- "select * FROM keywords"
 keyword_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# Disconnect from database ####
+base::suppressMessages(DBI::dbDisconnect(conn))    
+
 

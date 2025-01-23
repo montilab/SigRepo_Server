@@ -5,7 +5,7 @@ shiny::fluidRow(
   
   shiny::column(
     width = 12,
-    h2("Search Signature"),
+    shiny::h2("Search Signature")
   ),
   
   shiny::column(
@@ -29,6 +29,7 @@ shiny::fluidRow(
     ),
     
     shiny::uiOutput(outputId = "search_inputs"),
+    
     br(),
     
     shiny::actionButton(

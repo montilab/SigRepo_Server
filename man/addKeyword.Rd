@@ -4,12 +4,12 @@
 \alias{addKeyword}
 \title{addKeyword}
 \usage{
-addKeyword(conn_handler, keyword_tbl)
+addKeyword(conn, keyword_tbl)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
-
 \item{keyword_tbl}{A data frame containing appropriate column names: keyword}
+
+\item{conn_handler}{An established connection to database using newConnhandler()}
 }
 \description{
 Add keywords to database

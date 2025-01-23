@@ -9,10 +9,13 @@ searchOrganism <- function(
     conn_handler,
     organism = NULL
 ){
+
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
   
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "SELECT",
     required_role = "viewer"
   )
@@ -21,7 +24,7 @@ searchOrganism <- function(
   if(length(organism) == 0 || all(organism %in% c("", NA))){
     
     organism_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "organisms", 
       return_var = "organism", 
       check_db_table = TRUE
@@ -30,7 +33,7 @@ searchOrganism <- function(
   }else{
     
     organism_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = "organisms", 
       return_var = "organism", 
       filter_coln_var = "organism", 
@@ -41,7 +44,7 @@ searchOrganism <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
   # Return table
   return(organism_tbl)

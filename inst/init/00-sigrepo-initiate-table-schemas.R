@@ -9,15 +9,17 @@ library(tidyverse)
 library(devtools)
 load_all()
 
-## Establish database connection
-conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
+
+## Establish database connection
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Set foreign key checks to false when dropping tables
 suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
@@ -78,6 +80,8 @@ CREATE TABLE `%s` (
   `year` INT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
+  `num_up_regulated` INT DEFAULT NULL,
+  `num_down_regulated` INT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
@@ -143,7 +147,7 @@ create_table_sql <- sprintf(
 CREATE TABLE `%s` (
   `signature_id` INT UNSIGNED NOT NULL,
   `user_name` VARCHAR(255) NOT NULL,
-  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
+  `access_type` SET("owner", "editor", "viewer") NOT NULL,
   `access_sig_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `user_name`),
   UNIQUE (`signature_id`, `user_name`, `access_type`),
@@ -512,7 +516,8 @@ user_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = stateme
 all_table_results <- suppressWarnings(DBI::dbGetQuery(conn=conn, statement="show tables;"))
 all_table_results
 
-
+# Disconnect from database ####
+base::suppressMessages(DBI::dbDisconnect(conn))    
 
 
 

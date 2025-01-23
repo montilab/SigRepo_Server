@@ -6,25 +6,28 @@ getAPIKey <- function(
     conn_handler
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "SELECT",
     required_role = "editor"
   )
 
   # Look up api key
   api_key_tbl <- SigRepo::lookup_table_sql(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = "users", 
     return_var = c("user_name", "api_key"), 
     filter_coln_var = "user_name", 
-    filter_coln_val = list("user_name" = conn_info$user), 
+    filter_coln_val = list("user_name" = user), 
     check_db_table = TRUE
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn)) 
+  base::suppressMessages(DBI::dbDisconnect(conn)) 
   
   # Return table
   return(api_key_tbl)

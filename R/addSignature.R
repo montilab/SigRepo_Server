@@ -8,9 +8,12 @@ addSignature <- function(
     omic_signature
 ){
   
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
-    conn_handler = conn_handler, 
+    conn = conn, 
     action_type = "INSERT",
     required_role = "editor"
   )
@@ -35,7 +38,7 @@ addSignature <- function(
   
   # Check if signature exists ####
   signature_tbl <- SigRepo::lookup_table_sql(
-    conn = conn_info$conn, 
+    conn = conn, 
     db_table_name = db_table_name, 
     return_var = "*", 
     filter_coln_var = "signature_hashkey",
@@ -46,8 +49,12 @@ addSignature <- function(
   # If the signature exists, throw an error message ####
   if(nrow(signature_tbl) > 0){
     
-    base::warning("\tYou already uploaded a signature with a similar content to SigRepo Database.\n",
-                  "\tUse getSignatures() to see more details about the signature.\n")
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn))
+    
+    # Show message
+    base::warning("\tYou already uploaded a signature with similar contents into SigRepo Database.\n",
+                  "\tUse searchSignatures() to see more details about the signature.\n")
     
   }else{
     
@@ -63,7 +70,7 @@ addSignature <- function(
     
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = db_table_name,
       table = metadata_tbl, 
       exclude_coln_names = c("signature_id", "date_created"),
@@ -72,7 +79,7 @@ addSignature <- function(
     
     # Insert table into database ####
     SigRepo::insert_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = db_table_name, 
       table = metadata_tbl,
       check_db_table = FALSE
@@ -93,15 +100,38 @@ addSignature <- function(
     
     # Look up signature id for the next step ####
     signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn_info$conn, 
+      conn = conn, 
       db_table_name = db_table_name, 
       return_var = "*", 
       filter_coln_var = "signature_hashkey",
       filter_coln_val = list("signature_hashkey" = signature_hashkey),
-      check_db_table = TRUE
+      check_db_table = FALSE
     ) 
     
-    # 2. Importing signature set into database after signature
+    # 2. Adding user to signature access table after signature
+    # was imported successfully in step (1)
+    base::message("Adding user to signature access in database...\n")
+    
+    # If there is a error during the process, remove the signature and output the message
+    base::tryCatch({
+      SigRepo::addUserToSignature(
+        conn_handler = conn_handler,
+        signature_id = signature_tbl$signature_id,
+        user_name = user_name,
+        access_type = "owner"
+      )
+    }, error = function(e){
+      # Delete signature
+      SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
+      # Disconnect from database ####
+      base::suppressWarnings(DBI::dbDisconnect(conn))  
+      # Return error message
+      base::stop(e, "\n")
+    }, warning = function(w){
+      base::message(w, "\n")
+    }) 
+    
+    # 3. Importing signature set into database after signature
     # was imported successfully in step (1)
     base::message("Adding signature set into database...\n")
     
@@ -111,6 +141,7 @@ addSignature <- function(
     # Add signature set to database based on assay types
     if(assay_type == "transcriptomics"){
       
+      # If there is a error during the process, remove the signature and output the message
       base::tryCatch({
         SigRepo::addTranscriptomicsSignatureSet(
           conn_handler = conn_handler,
@@ -119,11 +150,15 @@ addSignature <- function(
           signature_set = omic_signature$signature
         )
       }, error = function(e){
+        # Delete signature
         SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))  
+        # Return error message
         base::stop(e, "\n")
       }, warning = function(w){
         base::message(w, "\n")
-      })  
+      }) 
       
     }else if(assay_type == "proteomics"){
       
@@ -137,32 +172,13 @@ addSignature <- function(
       
     }
     
-    # 3. Adding user to signature access table after signature
-    # was imported successfully in step (1)
-    base::message("Adding user to signature access in database...\n")
-    
-    base::tryCatch({
-      SigRepo::addUserToSignature(
-        conn_handler = conn_info$conn_handler,
-        signature_id = signature_tbl$signature_id,
-        user_name = user_name,
-        access_type = ifelse(user_role %in% "admin", "admin", "owner")
-      )
-    }, error = function(e){
-      SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
-      base::stop(e, "\n")
-    }, warning = function(w){
-      base::message(w, "\n")
-    }) 
-    
     # Return message
     base::message("Finished uploading.\n")
     
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn))    
+    
   } 
-  
-  # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn_info$conn))
-  
 }  
 
 

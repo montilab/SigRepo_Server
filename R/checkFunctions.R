@@ -1,19 +1,18 @@
 
 #' @title checkPermissions
 #' @description Check api key whether it is valid to access the database
-#' @param conn_handler An established connection to database using SigRepo::newConnhandler() 
+#' @param conn An established connection to database using SigRepo::newConnhandler() 
+#' @param action_type An established connection to database using SigRepo::newConnhandler() 
+#' @param required_role An established connection to database using SigRepo::newConnhandler() 
 #' 
 #' @noRd
 #' 
 #' @export
 checkPermissions <- function(
-    conn_handler,
+    conn,
     action_type = c("SELECT", "INSERT", "UPDATE", "DELETE", "CREATE USER"),
     required_role = c("admin", "editor", "viewer")
 ){
-  
-  # Initiate db connection ####
-  conn <- SigRepo::conn_init(conn_handler = conn_handler)
   
   # Check action_type
   action_type <- base::match.arg(action_type)
@@ -34,62 +33,71 @@ checkPermissions <- function(
     check_db_table = TRUE
   )
   
-  # Check if user is root
-  if(conn_info$user == "root"){
-    
-    # If user has a root access but does not exist in users table of the database
-    # Then add root to users table
-    if(nrow(user_tbl) == 0)
-      base::stop(sprintf("User = '%s' has not been added to 'users' table in the database.", conn_info$user),
-                 "\tJust re-run newConnHandler() to add 'root' to the table.\n") 
-    
-  }else{
-    
-    # Check if user existed in the users table in the database
-    if(nrow(user_tbl) == 0)
-      base::stop(sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
-    
-    # Get a list of actions that user can perform in the database
-    user_privileges <- suppressWarnings(
+  # Check if user existed in the users table in the database
+  if(nrow(user_tbl) == 0){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
+  }
+  
+  # Get a list of actions that user can perform in the database
+  user_privileges <- base::tryCatch({
+    base::suppressWarnings(
       DBI::dbGetQuery(conn = conn, statement = sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
     ) %>% 
       dplyr::slice(1) %>% 
       purrr::flatten_chr() %>% 
-      gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
+      base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
       stringr::str_split(., ",") %>% 
       purrr::flatten_chr() %>% 
-      trimws()
-    
-    # Check if user has the permission to perform the selected action in the database
-    if(!action_type %in% user_privileges)
-      base::stop(sprintf("User = '%s' does not have permission to perform this action in the database.\n", conn_info$user)) 
-    
-    # Get the user roles
-    if(user_tbl$user_role == "admin"){
-      all_roles <- c("viewer", "editor", "admin")
-    }else if(user_tbl$user_role == "editor"){
-      all_roles <- c("viewer", "editor")
-    }else{
-      all_roles <- user_tbl$user_role
-    }
-    
-    # Check if user has the permission to perform the selected action in the database
-    if(!required_role %in% all_roles)
-      base::stop(sprintf("User = '%s' does not have permission to perform this action in the database.", conn_info$user)) 
-    
+      base::trimws()
+  }, error = function(e){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(e, "\n")
+  }, warning = function(w){
+    base::message(w, "\n")
+  })
+  
+  # Check if user has the permission to perform the selected action in the database
+  if(!action_type %in% user_privileges){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("User = '%s' does not have permission to perform this action in the database.\n", conn_info$user)) 
+  }
+  
+  # Get the user roles
+  if(user_tbl$user_role == "admin"){
+    all_roles <- c("viewer", "editor", "admin")
+  }else if(user_tbl$user_role == "editor"){
+    all_roles <- c("viewer", "editor")
+  }else if(user_tbl$user_role == "viewer"){
+    all_roles <- c("viewer")
+  }
+  
+  # Check if user has the specific role to perform the selected action in the database
+  if(!required_role %in% all_roles){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("User = '%s' does not have permission to perform this action in the database.", conn_info$user)) 
   }
   
   # Return user connection and user role
   return(
-    c(conn = conn, conn_handler = list(conn_handler), conn_info, user_role = user_tbl$user_role)
+    c(conn_info, user_role = user_tbl$user_role)
   )
   
 }
 
 #' @title checkDBTable
 #' @description Check api key whether it is valid to access the database
-#' @param conn An established connection to database using newConnhandler() 
-#' @param api_key An api key uses to access the database
+#' @param conn An established connection to database using SigRepo::newConnhandler() 
+#' @param db_table_name Name of table in the database
+#' @param check Check whether table exists in the database. Default = TRUE.
 #' 
 #' @noRd
 #' 
@@ -100,32 +108,29 @@ checkDBTable <- function(
     check = TRUE
 ){
   
-  # If check is false, exit
+  # If check is false, exit function
   if(check == FALSE) return(NULL)
   
-  # Check if conn is a MySQLConnection class object
-  if(!is(conn, "MySQLConnection"))
-    base::stop("'conn' must be a MySQLConnection object obtained from newConnHandler().\n") 
-  
   # Check if table exists in database
-  all_tables <- tryCatch({
-    suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "show tables;"))
-  }, error = function(e){
-    base::stop(e, "\n")
-  }, warning = function(w){
-    message(w, "\n")
-  })
+  all_tables <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "show tables;"))
   
   # Check if table exists in the database
-  if(!db_table_name %in% all_tables[,1])
-    base::stop(sprintf("There is no '%s' table in the database.", db_table_name))
+  if(!db_table_name %in% all_tables$Tables_in_sigrepo){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("There is no '%s' table in SigRepo database.", db_table_name))
+  }
   
 }
 
 #' @title checkTableInput
-#' @description Check api key whether it is valid to access the database
+#' @description Check table against a particular table in the database.
 #' @param conn An established connection to database using newConnhandler() 
-#' @param api_key An api key uses to access the database
+#' @param db_table_name Name of a table in the database
+#' @param table A data frame object
+#' @param exclude_coln_names A list of column names to be excluded from the check.
+#' @param check_db_table Check whether table exists in the database. Default = TRUE.
 #' 
 #' @noRd
 #' 
@@ -146,11 +151,12 @@ checkTableInput <- function(
   )
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0)
-    base::stop(sprintf("The table must be a data frame object and cannot be empty.\n"))
-  
-  # Get table column names
-  tbl_col_names <- colnames(table)
+  if(!is(table, "data.frame") || length(table) == 0){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("'table' must be a data frame object and cannot be empty.\n"))
+  }
   
   # Whether to exclude selected column names from the checklist
   if(length(exclude_coln_names) > 0){
@@ -158,12 +164,16 @@ checkTableInput <- function(
   }
   
   # Check column fields
-  if(any(!db_col_names %in% tbl_col_names))
-    base::stop(sprintf("the table is missing the following column names: %s.\n", paste0(db_col_names[which(!db_col_names %in% tbl_col_names)], collapse = ", ")))
+  if(any(!db_col_names %in% colnames(table))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("the table is missing the following column names: %s.\n", paste0(db_col_names[which(!db_col_names %in% colnames(table))], collapse = ", ")))
+  }
   
   # Clean up the table by converting all empty values as NULL 
   table <- table %>% 
-    dplyr::mutate_if(is.character, ~trimws(gsub("'", "", ., perl = TRUE))) %>% 
+    dplyr::mutate_if(is.character, ~base::trimws(base::gsub("'", "", ., perl = TRUE))) %>% 
     base::replace(is.null(.), "'NULL'") %>% 
     base::replace(is.na(.), "'NULL'") %>% 
     base::replace(. == "", "'NULL'") %>% 
@@ -174,20 +184,22 @@ checkTableInput <- function(
   
 }
 
-#' @title checkDuplicatedEmail
-#' @description Check api key whether it is valid to access the database
+#' @title checkDuplicatedEmails
+#' @description Check if provided user table has duplicated emails.
 #' @param conn An established connection to database using newConnhandler() 
-#' @param api_key An api key uses to access the database
+#' @param db_table_name Name of a table in the database
+#' @param table A data frame object
+#' @param coln_var A list of column names to be excluded from the check.
+#' @param check_db_table Check whether table exists in the database. Default = TRUE.
 #' 
 #' @noRd
 #' 
 #' @export
-#' @import digest
-checkDuplicatedEmail <- function( 
+checkDuplicatedEmails <- function( 
     conn,
-    db_table_name,
+    db_table_name = "users",
     table,
-    coln_var,
+    coln_var = "user_email",
     check_db_table = TRUE
 ){
   
@@ -199,25 +211,41 @@ checkDuplicatedEmail <- function(
   )
   
   # Check coln_var
-  stopifnot("'coln_var' cannot be empty." = (length(coln_var) == 1 && !coln_var %in% c(NA, "")))
+  if(!length(coln_var) == 1 || any(coln_var %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'coln_var' must have a length of 1 and cannot be empty.")
+  }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0)
-    base::stop(sprintf("'%s' table must be a data frame object and cannot be empty.", db_table_name))
+  if(!is(table, "data.frame") || length(table) == 0){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'table' must be a data frame object and cannot be empty.")
+  }
   
   ## Check if column variable existed in the table
-  if(!coln_var %in% colnames(table))
+  if(!coln_var %in% colnames(table)){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
     base::stop(sprintf("Column '%s' does not existed in the table.", coln_var))
+  }
   
   ## Check if column variable existed in the database
-  if(!coln_var %in% db_col_names) 
+  if(!coln_var %in% db_col_names){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
     base::stop(sprintf("Columns: %s does not exist in the '%s' table of the database.", paste0("'", coln_var, "'", collapse = ", "), db_table_name))
+  }
   
   # Get number of observations 
-  statement <- sprintf("SELECT COUNT(*) AS count FROM %s", db_table_name)
-  n_obs <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  n_obs <- SigRepo:::getNumOfObs(conn = conn, db_table_name = db_table_name)
   
-  ## Check if table has values. If yes, only return non-overlapping samples
+  ## Check if table has values, only return non-overlapping samples
   if(n_obs$count > 0){
     
     return_var <- coln_var
@@ -234,13 +262,13 @@ checkDuplicatedEmail <- function(
     )
     
     if(nrow(existing_tbl) > 0){
-      base::stop(sprintf("A user will the following email address: %s already existed in the '%s' table of the database.\n", paste0(unique(existing_tbl[,return_var]), collapse = ","), db_table_name))
+      # Disconnect from database ####
+      base::suppressWarnings(DBI::dbDisconnect(conn))  
+      # Return error message
+      base::stop(sprintf("The following email address: %s already existed in the '%s' table of the database.\n", paste0(unique(existing_tbl[,return_var]), collapse = ","), db_table_name))
     }
     
   }
-  
-  return(table)
-  
 }
 
 #' @title checkOmicSignature
@@ -276,14 +304,14 @@ checkOmicSignature <- function(
   metadata_fields <- c('signature_name', 'organism', 'direction_type', 'assay_type', 'phenotype')
   
   if(any(!metadata_fields %in% names(metadata)))
-    base::stop("'metadata' in OmicSignature must have the following column names:", paste0(metadata_fields, collapse = ", "))
+    base::stop("'metadata' in OmicSignature must have the following names:", paste0(metadata_fields, collapse = ", "))
   
   # Extract signature table from omic_signature ####
   signature <- omic_signature$signature  
   
   # Check if signature is a data frame ####
-  if(!is(signature, "data.frame"))
-    base::stop("'signature' in OmicSignature must be a data frame.")
+  if(!is(signature, "data.frame") || length(signature) == 0)
+    base::stop("'signature' in OmicSignature must be a data frame and cannot be empty.")
   
   # Check required signature fields ####
   signature_fields <- c('feature_name', 'probe_id', 'score', 'direction')
@@ -293,7 +321,11 @@ checkOmicSignature <- function(
   
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(signature[,signature_fields]) == TRUE))
-    base::stop(sprintf("All required column names in 'signature' of OmicSignature: %s cannot contain any empty values.\n", paste0(signature_fields, collapse = ", ")))
+    base::stop(sprintf("All required column names in 'signature' of OmicSignature: %s cannot contain any empty values.", paste0(signature_fields, collapse = ", ")))
+  
+  # Check the direction symbols in signature table
+  if(any(!signature$direction %in% c("+", "-")))
+    base::stop("The 'direction' variable in 'signature' table of OmicSignature must contain +/- symbols only.")
   
   # Check difexp is provided ####
   if("difexp" %in% names(omic_signature)){
@@ -301,9 +333,9 @@ checkOmicSignature <- function(
     if(is.null(difexp)){
       difexp <- NULL
     }else{
-      # Check if difexp is a data frame ####
-      if(!is(difexp, "data.frame")) 
-        base::stop("'difexp' in OmicSignature must be a data frame object.")
+      # Check if difexp is a data frame 
+      if(!is(difexp, "data.frame") || length(difexp) == 0) 
+        base::stop("'difexp' in OmicSignature must be a data frame object and cannot be empty.")
     }
   }else{
     difexp <- NULL
@@ -320,7 +352,7 @@ checkOmicSignature <- function(
     base::stop(sprintf("All required column names in 'difexp' of OmicSignature: %s cannot contain any empty values.\n", paste0(difexp_req_fields, collapse = ", ")))
   
   # Check signature name (required) ####
-  if(metadata$signature_name[1] %in% c(NA, "", NULL))
+  if(length(metadata$signature_name[1]) == 0 || metadata$signature_name[1] %in% c(NA, ""))
     base::stop("'signature_name' in OmicSignature's metadata cannot be empty.")
   
   # Check direction_type (required) ####
@@ -336,11 +368,11 @@ checkOmicSignature <- function(
     base::stop("'assay_type' in OmicSignature's metadata object must be: ", paste0(assay_type_options, collapse = "/"))
   
   # Check organism (required) #####
-  if(metadata$organism[1] %in% c(NA, "", NULL))
+  if(length(metadata$organism[1]) == 0 || metadata$organism[1] %in% c(NA, ""))
     base::stop("'organism' in OmicSignature's metadata is required and cannot be empty.")
   
   # Check phenotype (required) #####
-  if(metadata$phenotype[1] %in% c(NA, "", NULL))
+  if(length(metadata$phenotype[1]) == 0 || metadata$phenotype[1] %in% c(NA, ""))
     base::stop("'phenotype' in OmicSignature's metadata is required and cannot be empty.")
   
   # Create has_difexp variable to store whether omic_signature has difexp included ####
@@ -351,12 +383,44 @@ checkOmicSignature <- function(
   
 }
 
-
+#' @title getNumOfObs
+#' @description Check api key whether it is valid to access the database
+#' @param conn An established connection to database using SigRepo::newConnhandler() 
+#' @param db_table_name A table in the database
+#' 
+#' @noRd
+#' 
+#' @export
+getNumOfObs <- function(
+    conn,
+    db_table_name
+){
+  
+  # Create sql statement
+  statement <- base::sprintf("SELECT COUNT(*) AS count FROM %s", db_table_name)
+  
+  # Get number of observations 
+  n_obs <- base::tryCatch({
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  }, error = function(e){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(e, "\n")
+  }, warning = function(w){
+    base::message(w, "\n")
+  })
+  
+  # Return number of observations 
+  return(n_obs)
+  
+}
 
 #' @title getDBColNames
-#' @description Check api key whether it is valid to access the database
-#' @param conn An established connection to database using newConnhandler() 
-#' @param api_key An api key uses to access the database
+#' @description Get column names of a particular table in the database
+#' @param conn An established connection to database using SigRepo::newConnhandler() 
+#' @param db_table_name Name of a table in the database
+#' @param check_db_table Check whether table exists in the database. Default = TRUE
 #' 
 #' @noRd
 #' 
@@ -367,27 +431,30 @@ getDBColNames <- function(
     check_db_table = TRUE
 ){
   
-  # Whether to check database table
+  # Check whether table exists in the database
   SigRepo::checkDBTable(
     conn = conn,
     db_table_name = db_table_name,
     check = check_db_table
   )
   
-  # Get database column names
-  statement <- sprintf("SELECT * FROM %s LIMIT 1", db_table_name)
+  # Get sql statement
+  statement <- base::sprintf("SELECT * FROM %s LIMIT 1", db_table_name)
   
-  db_table <- tryCatch({
-    suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  # Run sql statement
+  db_table <- base::tryCatch({
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
   }, error = function(e){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))    
+    # Return error message
     base::stop(e, "\n")
   }, warning = function(w){
-    message(w, "\n")
+    base::message(w, "\n")
   })
   
-  db_col_names <- colnames(db_table)
-  
-  return(db_col_names)
+  # Return column names ####
+  return(colnames(db_table))
   
 }
 
@@ -413,7 +480,7 @@ getVariableID <- function(
     check_db_table = TRUE
 ){
   
-  # Get able column names
+  # Get table column names
   db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
@@ -421,59 +488,72 @@ getVariableID <- function(
   )
   
   # Check coln_var
-  stopifnot("'coln_var' cannot be empty." = 
-              (length(coln_var) == 1 && !coln_var %in% c(NA, "")))  
+  if(!length(coln_var) == 1 || any(coln_var %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'coln_var' must have a length of 1 and cannot be empty.")
+  }
   
   # Check coln_var_id
-  stopifnot("'coln_var_id' cannot be empty." = 
-              (length(coln_var_id) == 1 && !coln_var_id %in% c(NA, "")))
+  if(!length(coln_var_id) == 1 || any(coln_var_id %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'coln_var_id' must have a length of 1 and cannot be empty.")
+  }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0)
-    base::stop(sprintf("'%s' table must be a data frame object and cannot be empty.", db_table_name))
+  if(!is(table, "data.frame") || length(table) == 0){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'table' must be a data frame object and cannot be empty.")
+  }
   
   ## Check if column variable existed in the table
-  if(!coln_var %in% colnames(table))
+  if(!coln_var %in% colnames(table)){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
     base::stop(sprintf("Column '%s' does not existed in the table.", coln_var))
+  }
   
   # Make sure column variable is not empty
-  if(any(table[, coln_var] %in% c(NA, "", NULL)))
-    base::stop(sprintf("'%s' is required and cannot have any empty values.", coln_var))
+  if(any(table[, coln_var] %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(sprintf("'%s' is a required field and cannot contain any empty values.", coln_var))
+  }
   
   # Check if columns existed in the database
   check_db_var <- c(coln_var, coln_var_id)
   
   ## Check if column variable existed in the database
-  if(any(!check_db_var %in% db_col_names))
+  if(any(!check_db_var %in% db_col_names)){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
     base::stop(sprintf("Columns: %s does not exist in the '%s' table of the database.", paste0("'", check_db_var[which(!check_db_var %in% db_col_names)], "'", collapse = ", "), db_table_name))
-  
-  # Get number of observations 
-  statement <- sprintf("SELECT COUNT(*) AS count FROM %s", db_table_name)
-  n_obs <-  suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  }
   
   # Look up ID in database
-  if(n_obs$count > 0){
-    
-    return_var <- check_db_var
-    filter_coln_var <- coln_var
-    filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
-    
-    tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = db_table_name, 
-      return_var = return_var, 
-      filter_coln_var = filter_coln_var, 
-      filter_coln_val = filter_coln_val,
-      check_db_table = check_db_table
-    )
-    
-    return(tbl)
-    
-  }else{
-    
-    return(data.frame(NULL))
-    
-  }
+  return_var <- check_db_var
+  filter_coln_var <- coln_var
+  filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
+  
+  tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = db_table_name, 
+    return_var = return_var, 
+    filter_coln_var = filter_coln_var, 
+    filter_coln_val = filter_coln_val,
+    check_db_table = FALSE
+  )
+  
+  # Return table
+  return(tbl)
   
 }
 
@@ -482,7 +562,9 @@ getVariableID <- function(
 #' @title createHashKey
 #' @description Check api key whether it is valid to access the database
 #' @param conn An established connection to database using newConnhandler() 
-#' @param api_key An api key uses to access the database
+#' @param hash_var An api key uses to access the database
+#' @param hash_columns An api key uses to access the database
+#' @param hash_method An api key uses to access the database
 #' 
 #' @noRd
 #' 
@@ -490,28 +572,28 @@ getVariableID <- function(
 #' @import digest
 createHashKey <- function(
     table,
-    hash_var = NULL,
-    hash_columns = NULL,
+    hash_var,
+    hash_columns,
     hash_method = c("md5", "sodium")
 ){
   
   # check hash_method
-  hash_method <- match.arg(hash_method)
+  hash_method <- base::match.arg(hash_method)
   
   # Check hash_var
-  base::stopifnot("'hash_var' cannot be empty." = 
-                    (length(hash_var) == 1 && !hash_var %in% c(NA, "")))
+  if(!length(hash_var) == 1 || any(hash_var %in% c(NA, ""))){
+    base::stop("'hash_var' must have a length of 1 and cannot be empty.")
+  }
   
   # Check hash_columns
-  base::stopifnot("'hash_columns' cannot be empty." = 
-                    (length(hash_columns) > 0 && all(!hash_columns %in% c(NA, ""))))   
+  if(length(hash_columns) == 0 || any(hash_columns %in% c(NA, ""))){  
+    base::stop("'hash_columns' cannot be empty.")
+  }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0)
-    base::stop(sprintf("'%s' table must be a data frame object and cannot be empty.\n", db_table_name))
-  
-  ## Check if the hash variable already existed in the table
-  if(hash_var %in% colnames(table)) return("")
+  if(!is(table, "data.frame") || length(table) == 0){
+    base::stop("'table' must be a data frame object and cannot be empty.")
+  }
   
   # Make sure hash columns exist in table and are not empty
   purrr::walk(
@@ -519,13 +601,13 @@ createHashKey <- function(
     function(r){
       #r=1;
       ## Check if the hash column exists in the table
-      if(!hash_columns[r] %in% colnames(table))
+      if(!hash_columns[r] %in% colnames(table)){
         base::stop(sprintf("'%s' is required and does not existed in the table.\n", hash_columns[r]))
-      
+      }      
       ## Make sure hash column is not empty
-      if(any(table[, hash_columns[r]] %in% c(NA, "", NULL)))
-        base::stop(sprintf("'%s' is required and cannot have any empty values.\n", hash_columns[r]))
-      
+      if(any(table[, hash_columns[r]] %in% c(NA, ""))){
+        base::stop(sprintf("'%s' is required and cannot contain any empty values.\n", hash_columns[r]))
+      }      
     }
   )
   
@@ -544,14 +626,18 @@ createHashKey <- function(
     ) %>% 
     dplyr::ungroup()
   
+  # Return table
   return(table)
   
 }
 
 #' @title removeDuplicates
-#' @description Check api key whether it is valid to access the database
-#' @param conn An established connection to database using newConnhandler() 
-#' @param api_key An api key uses to access the database
+#' @description Remove duplicates from table in the database
+#' @param conn An established connection to database using SigRepo::newConnhandler() 
+#' @param db_table_name Name of a table in the database
+#' @param table A data frame object
+#' @param coln_var A column variable in the data table
+#' @param check_db_table whether to check database table. Default = TRUE
 #' 
 #' @noRd
 #' 
@@ -573,26 +659,41 @@ removeDuplicates <- function(
   )
   
   # Check coln_var
-  stopifnot("'coln_var' cannot be empty." = 
-              (length(coln_var) == 1 && !coln_var %in% c(NA, "")))
+  if(!length(coln_var) == 1 || any(coln_var %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'coln_var' must have a length of 1 and cannot be empty.")
+  }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0)
-    base::stop(sprintf("'%s' table must be a data frame object and cannot be empty.", db_table_name))
+  if(!is(table, "data.frame") || length(table) == 0){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop("'table' must be a data frame object and cannot be empty.")
+  }
   
   ## Check if column variable existed in the table
-  if(!coln_var %in% colnames(table))
+  if(!coln_var %in% colnames(table)){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
     base::stop(sprintf("Column '%s' does not existed in the table.", coln_var))
+  }
   
   ## Check if column variable existed in the database
-  if(!coln_var %in% db_col_names) 
+  if(!coln_var %in% db_col_names){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
     base::stop(sprintf("Columns: %s does not exist in the '%s' table of the database.", paste0("'", coln_var, "'", collapse = ", "), db_table_name))
+  }
   
-  # Get number of observations 
-  statement <- sprintf("SELECT COUNT(*) AS count FROM %s", db_table_name)
-  n_obs <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+  # Get number of observations
+  n_obs <- SigRepo::getNumOfObs(conn = conn, db_table_name = db_table_name)
   
-  ## Check if table has values. If yes, only return non-overlapping samples
+  ## Check if table has values, only return non-overlapping samples
   if(n_obs$count > 0){
     
     return_var <- coln_var
@@ -614,12 +715,14 @@ removeDuplicates <- function(
           existing_tbl %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% dplyr::select(-all_of(coln_var)), 
           by = "id"
         )
-      if(nrow(table) == 0)
-        message(sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
+      if(nrow(table) == 0){
+        base::message(base::sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
+      }
     }
     
   }
   
+  # Return table
   return(table)
   
 }
