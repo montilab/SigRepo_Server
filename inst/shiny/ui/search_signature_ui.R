@@ -20,12 +20,12 @@ shiny::div(
         label = "Search Options:",
         choices = c(
           "Choose from a list of options below" = "", 
-          "Signature Name" = "signature_name", 
-          "Organism" = "organism", 
-          "Phenotype" = "phenotype",
-          "Sample Type" = "sample_type", 
-          "Platform ID" = "platform", 
-          "Assay Type" = "assay_type"
+          "signature_name", 
+          "organism", 
+          "phenotype",
+          "sample_type", 
+          "platform", 
+          "assay_type"
         ),
         multiple = TRUE,
         width = "100%"
@@ -34,7 +34,7 @@ shiny::div(
       shinyjs::hidden(
         shiny::selectizeInput(
           inputId = "signature_name",
-          label = "Signature Name:",
+          label = "signature_name:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
           width = "100%",
@@ -44,7 +44,7 @@ shiny::div(
       shinyjs::hidden(
         shiny::selectizeInput(
           inputId = "organism",
-          label = "Organism:",
+          label = "organism:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
           width = "100%",
@@ -54,7 +54,7 @@ shiny::div(
       shinyjs::hidden(
         shiny::selectizeInput(
           inputId = "phenotype",
-          label = "Phenotype:",
+          label = "phenotype:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
           width = "100%",
@@ -64,7 +64,7 @@ shiny::div(
       shinyjs::hidden(
         shiny::selectizeInput(
           inputId = "sample_type",
-          label = "Sample Type:",
+          label = "sample_type:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
           width = "100%",
@@ -74,7 +74,7 @@ shiny::div(
       shinyjs::hidden(
         shiny::selectizeInput(
           inputId = "platform",
-          label = "Platform:",
+          label = "platform:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
           width = "100%",
@@ -84,7 +84,7 @@ shiny::div(
       shinyjs::hidden(
         shiny::selectizeInput(
           inputId = "assay_type",
-          label = "Assay Type:",
+          label = "assay_type:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
           width = "100%"
@@ -107,9 +107,11 @@ shiny::div(
     
     shiny::column(
       width = 8,
-      style = "border: 1px solid gray; padding: 20px 20px 20px 20px;",
+      style = "border: 1px solid gray; padding: 20px 20px 20px 20px; overflow: scroll;",
       
-      DT::dataTableOutput("signature_table")
+      DT::dataTableOutput("signature_table"),
+      shiny::uiOutput(outputId = "sig_tbl_error_msg"),
+      shiny::div(shiny::downloadButton(outputId = "download_oms_handler", label = "Download OMS"), style = "visibility: hidden;")
       
     )
   )
