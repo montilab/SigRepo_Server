@@ -5,7 +5,7 @@
 #'
 #' @export
 addKeyword <- function(
-    conn,
+    conn_handler,
     keyword_tbl
 ){
   
