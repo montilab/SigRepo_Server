@@ -6,26 +6,15 @@ library(DBI)
 # For data cleaning, extraction and manipulation
 library(tidyverse)
 
-# For loading and installing packages
-library(devtools)
-
-# Load SigRepo package
-devtools::load_all()
-
-# Load OmicSignature package
-devtools::load_all("OmicSignature")
-
-## Create a database handler
-conn_handler <- SigRepo::newConnHandler(
+## Establish database connection
+conn <- DBI::dbConnect(
+  drv = RMySQL::MySQL(),
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
-
-## Establish database connection
-conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Set foreign key checks to false when dropping tables
 base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
@@ -418,7 +407,7 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 table_name <- "phenotypes"
 
 drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
-base::base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
 # Create table
 create_table_sql <- base::sprintf(

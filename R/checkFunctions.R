@@ -265,7 +265,7 @@ checkDuplicatedEmails <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
-      base::stop(sprintf("The following email address: %s already existed in the '%s' table of the database.\n", paste0(unique(existing_tbl[,return_var]), collapse = ","), db_table_name))
+      base::stop(sprintf("The following email addresses, %s, are already existed in the '%s' table of the database.\n", paste0(unique(existing_tbl[,return_var]), collapse = ","), db_table_name))
     }
     
   }

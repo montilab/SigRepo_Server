@@ -53,13 +53,13 @@ addSignature <- function(
     base::suppressMessages(DBI::dbDisconnect(conn))
     
     # Show message
-    base::warning("\tYou already uploaded a signature with similar contents into SigRepo Database.\n",
+    base::warning("\tYou already uploaded a signature with similar contents into the SigRepo Database.\n",
                   "\tUse searchSignatures() to see more details about the signature.\n")
     
   }else{
     
     # 1. Uploading signature metadata into database
-    base::message("Uploading signature metadata into database...\n")
+    base::message("Uploading signature metadata into the database...\n")
     
     # Add additional variables in signature metadata table ###
     metadata_tbl <- metadata_tbl %>% 
@@ -90,7 +90,7 @@ addSignature <- function(
     # This helps to make sure data is stored properly if there are interruptions in-between.
     if(metadata_tbl$has_difexp == TRUE){
       # 1.1 Saving signature difexp into database
-      base::message("Saving signature difexp into database...\n")
+      base::message("Saving signature difexp into the database...\n")
       # Extract difexp from omic_signature ####
       difexp <- omic_signature$difexp
       # Save difexp to local storage ####
@@ -110,7 +110,7 @@ addSignature <- function(
     
     # 2. Adding user to signature access table after signature
     # was imported successfully in step (1)
-    base::message("Adding user to signature access in database...\n")
+    base::message("Adding user to signature access in the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
@@ -133,7 +133,7 @@ addSignature <- function(
     
     # 3. Importing signature set into database after signature
     # was imported successfully in step (1)
-    base::message("Adding signature set into database...\n")
+    base::message("Adding signature set into the database...\n")
     
     # Get the signature assay type
     assay_type <- signature_tbl$assay_type
