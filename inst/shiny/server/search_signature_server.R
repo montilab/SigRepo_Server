@@ -1,182 +1,161 @@
 
 # Create reactive values to store error messages #####
-search_sig_error_msg <- reactiveVal()
+search_sig_error_msg <- shiny::reactiveVal()
 
 # Create reactive values to store data tables ####
-search_signature_tbl <- reactiveVal()
+search_signature_tbl <- shiny::reactiveVal()
 
-# Create a search function to look up a signature ####
-create_search_input <- function(
-    conn_handler,
-    search_option,
-    search_value
-){
+# Observe search_options ####
+shiny::observeEvent({
+  user_signature_tbl()
+  input$search_options
+}, {
   
-  if(search_option %in% "assay_type"){
-    
-    input_option <- shiny::selectizeInput(
-      inputId = search_option,
-      label = paste0(search_option, ":"),
-      choices = c(
-        "Transcriptomics" = "transcriptomics", 
-        "Proteomics" = "proteomics", 
-        "Metabolomics" = "metabolomics", 
-        "methylomics" = "methylomics",
-        "Genetic Variations" = "genetic_variations", 
-        "DNA Binding Sites" = "dna_binding_sites"
-      ),
-      selected = search_value,
-      multiple = TRUE,
-      width = "100%"
-    )
-    
-  }else if(search_option %in% "signature_name"){
-    
-    signature_name_choices <- SigRepo::searchSignature(conn_handler = conn_handler)
-    
-    input_option <- shiny::selectizeInput(
-      inputId = search_option,
-      label = paste0(search_option, ":"),
-      choices = unique(signature_name_choices$signature_name),
-      selected = search_value,
-      width = "100%",
-    )
-    
-  }else if(search_option %in% "organism"){
-    
-    organism_choices <- SigRepo::searchOrganism(conn_handler = conn_handler)
-    
-    input_option <- shiny::selectizeInput(
-      inputId = search_option,
-      label = paste0(search_option, ":"),
-      choices = unique(organism_choices$organism),
-      selected = search_value,
-      multiple = TRUE,
-      width = "100%",
-    )
-    
-  }else if(search_option %in% "sample_type"){
-    
-    sample_type_choices <- SigRepo::searchSampleType(conn_handler = conn_handler)
-    
-    input_option <- shiny::selectizeInput(
-      inputId = search_option,
-      label = paste0(search_option, ":"),
-      choices = unique(sample_type_choices$sample_type),
-      selected = search_value,
-      multiple = TRUE,
-      width = "100%",
-    )
-    
-  }else if(search_option %in% "phenotype"){
-    
-    phenotype_choices <- SigRepo::searchPhenotype(conn_handler = conn_handler)
-    
-    input_option <- shiny::selectizeInput(
-      inputId = search_option,
-      label = paste0(search_option, ":"),
-      choices = unique(phenotype_choices$phenotype),
-      selected = search_value,
-      multiple = TRUE,
-      width = "100%",
-    ) 
-    
-  }else if(search_option %in% "platform"){
-    
-    platform_choices <- SigRepo::searchPlatform(conn_handler = conn_handler)
-    
-    input_option <- shiny::selectizeInput(
-      inputId = search_option,
-      label = paste0(search_option, ":"),
-      choices = unique(platform_choices$platform_id),
-      selected = search_value,
-      multiple = TRUE,
-      width = "100%",
-    )
-    
-  }
-  
-  return(input_option)
-  
-}
-
-# Create a list of search inputs ####
-output$search_inputs <- renderUI({
-  
-  req(input$search_options, user_conn_handler())
-  
-  # Extract user connection
-  conn_handler <- shiny::isolate({ user_conn_handler() })
-  
-  # Establish user connection
-  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  # Get user signature tbl
+  user_signature_tbl <- shiny::isolate({ user_signature_tbl() })
   
   # Get search option inputs
   search_options <- shiny::isolate({ input$search_options })
   
-  # Check if options are provided
-  if(length(search_options) == 1){
+  # Update assay_type ####
+  if("assay_type" %in% search_options){
     
-    search_value <- shiny::isolate({ input[[search_options]] })
+    assay_type_choices <- unique(user_signature_tbl$assay_type)
     
-    input_options <- create_search_input(
-      conn_handler = conn_handler,
-      search_option = search_options,
-      search_value = search_value
-    ) %>% as.character()
+    selected_value <- shiny::isolate({ input$assay_type })
     
-  }else{
+    if(length(selected_value) == 0 || all(selected_value %in% c(NA, ""))){
+      selected_value <- assay_type_choices[1]
+    }
     
-    input_options <- seq_along(search_options) %>% 
-      purrr::map_chr(
-        function(p){
-          #p=1;
-          search_value <- shiny::isolate({ input[[search_options[p]]] })
-          
-          if(p < length(search_options)){
-            
-            search_input <- create_search_input(
-              conn_handler = conn_handler,
-              search_option = search_options[p],
-              search_value = search_value
-            )
-            
-            filter_value <- shiny::isolate({ input[[paste0(search_options[p], "_filter")]] })
-            
-            filter_input <- shiny::radioButtons(
-              inputId = paste0(search_options[p], "_filter"),
-              label = NULL,
-              choices = c("AND", "OR"),
-              selected = filter_value,
-              width = "100%",
-              inline = TRUE
-            )
-            
-            paste0(search_input, filter_input, sep="\n")
-            
-          }else{
-            
-            search_input <- create_search_input(
-              conn_handler = conn_handler,
-              search_option = search_options[p],
-              search_value = search_value
-            ) %>% as.character()
-            
-          }
-        }
-      )
+    shiny::updateSelectizeInput(
+      session = session,
+      inputId = "assay_type",
+      choices = assay_type_choices,
+      selected = selected_value
+    )
+    
+    shinyjs::show(id = "assay_type")
+    
   }
   
-  HTML(input_options)
+  # Update signature_name ####
+  if("signature_name" %in% search_options){
+    
+    signature_name_choices <- unique(user_signature_tbl$signature_name)
+    
+    selected_value <- shiny::isolate({ input$signature_name })
+    
+    if(length(selected_value) == 0 || all(selected_value %in% c(NA, ""))){
+      selected_value <- signature_name_choices[1]
+    }
+    
+    input_option <- shiny::updateSelectizeInput(
+      session = session,
+      inputId = "signature_name",
+      choices = signature_name_choices,
+      selected = selected_value
+    )
+    
+    shinyjs::show(id = "signature_name")
+    
+  }
   
-})
+  # Update organism ####
+  if("organism" %in% search_options){
+    
+    organism_choices <- unique(user_signature_tbl$organism)
+    
+    selected_value <- shiny::isolate({ input$organism })
+    
+    if(length(selected_value) == 0 || all(selected_value %in% c(NA, ""))){
+      selected_value <- organism_choices[1]
+    }
+    
+    input_option <- shiny::updateSelectizeInput(
+      session = session,
+      inputId = "organism",
+      choices = organism_choices,
+      selected = selected_value
+    )
+    
+    shinyjs::show(id = "organism")
+    
+  }
+  
+  # Update sample_type ####
+  if("sample_type" %in% search_options){
+    
+    sample_type_choices <- unique(user_signature_tbl$sample_type)
+    
+    selected_value <- shiny::isolate({ input$sample_type })
+    
+    if(length(selected_value) == 0 || all(selected_value %in% c(NA, ""))){
+      selected_value <- sample_type_choices[1]
+    }
+    
+    shiny::updateSelectizeInput(
+      inputId = "sample_type",
+      choices = sample_type_choices,
+      selected = selected_value
+    )
+    
+    shinyjs::show(id = "sample_type")
+    
+  }
+  
+  # Update phenotype ####
+  if("phenotype" %in% search_options){
+    
+    phenotype_choices <- unique(user_signature_tbl$phenotype)
+    
+    selected_value <- shiny::isolate({ input$phenotype })
+    
+    if(length(selected_value) == 0 || all(selected_value %in% c(NA, ""))){
+      selected_value <- phenotype_choices[1]
+    }
+    
+    shiny::updateSelectizeInput(
+      session = session,
+      inputId = "phenotype",
+      choices = phenotype_choices,
+      selected = selected_value
+    ) 
+    
+    shinyjs::show(id = "phenotype")
+    
+  }
+  
+  # Update platform ####
+  if("platform" %in% search_options){
+    
+    platform_choices <- unique(user_signature_tbl$platform_id)
+    
+    selected_value <- shiny::isolate({ input$platform })
+    
+    if(length(selected_value) == 0 || all(selected_value %in% c(NA, ""))){
+      selected_value <- platform_choices[1]
+    }
+    
+    shiny::updateSelectizeInput(
+      session = session,
+      inputId = "platform" ,
+      choices = platform_choices,
+      selected = selected_value
+    )
+    
+    shinyjs::show(id = "platform")
+    
+  }
+  
+}, ignoreNULL = TRUE, ignoreInit = TRUE)
 
 # Observe search_signature ####
 shiny::observeEvent({
   input$search_signature
 }, {
   
-  req(user_conn_handler())
+  req(input$search_options,user_conn_handler())
   
   # Get selected input ####
   search_options <- shiny::isolate({ input$search_options })
@@ -194,19 +173,6 @@ shiny::observeEvent({
         as.character(input[[search_options[p]]])
       }
     ) 
-  
-  # Get search option filter ####
-  if(length(search_options) > 1){
-    search_option_filter <- base::seq_len(length(search_options)-1) %>% 
-      purrr::map_chr(
-        function(p){
-          #p=1;
-          as.character(input[[paste0(search_options[p], "_filter")]])
-        }
-      ) 
-  }else{
-    search_option_filter <- NULL
-  }
   
   # Check if any search inputs are empty ####
   if(any(search_option_values %in% c("", NA))){
@@ -228,9 +194,9 @@ shiny::observeEvent({
   
   # Look up organism id ####
   if("organism" %in% search_options){
-
+    
     lookup_organism <- input[["organism"]]
-
+    
     organism_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "organisms",
@@ -242,14 +208,14 @@ shiny::observeEvent({
     
     search_values <- list("organism_id" = organism_id_tbl$organism_id)
     search_option_list <- c(search_option_list, search_values)
-
+    
   }
-   
+  
   # Look up phenotype id #####
   if("phenotype" %in% search_options){
-
+    
     lookup_phenotype <- input[["phenotype"]]
-
+    
     phenotype_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "phenotypes",
@@ -258,17 +224,17 @@ shiny::observeEvent({
       filter_coln_val = list("phenotype" = lookup_phenotype),
       check_db_table = TRUE
     )
-
+    
     search_values <- list("phenotype_id" = phenotype_id_tbl$phenotype_id)
     search_option_list <- c(search_option_list, search_values)
-
+    
   }
-
+  
   # Look up platform id ####
   if("platform" %in% search_options){
-
+    
     lookup_platform <- input[["platform"]]
-
+    
     # SQL statement to look up platform in database
     platform_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
@@ -278,17 +244,17 @@ shiny::observeEvent({
       filter_coln_val = list("platform_id" = lookup_platform),
       check_db_table = TRUE
     )
-
+    
     search_values <- list("platform_id" = platform_id_tbl$platform_id)
     search_option_list <- c(search_option_list, search_values)
-
+    
   }
-
+  
   # Look up sample_type id ####
   if("sample_type" %in% search_options){
-
+    
     lookup_sample_type <- input[["sample_type"]]
-
+    
     sample_type_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "sample_types",
@@ -297,10 +263,10 @@ shiny::observeEvent({
       filter_coln_val = list("sample_type" = lookup_sample_type),
       check_db_table = TRUE
     )
-
+    
     search_values <- list("sample_type_id" = sample_type_id_tbl$sample_type_id)
     search_option_list <- c(search_option_list, search_values)
-
+    
   }
   
   # Look up signature table
@@ -313,7 +279,7 @@ shiny::observeEvent({
     filter_var_by = search_option_filter,
     check_db_table = TRUE
   )
-
+  
   # Return table
   if(nrow(signature_tbl) == 0){
     search_signature_tbl(data.frame(WARNINGS = "THERE ARE NO DATA RETURNED FROM THE SEARCH PARAMETERS"))
@@ -324,7 +290,7 @@ shiny::observeEvent({
   # Disconnect from database ####
   base::suppressMessages(DBI::dbDisconnect(conn))
   
-})
+}, ignoreNULL = TRUE, ignoreInit = TRUE)
 
 
 # Search signature error message ####
