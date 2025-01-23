@@ -22,3 +22,32 @@ function select_navtab(tab){
   var tab = String(tab);
   Shiny.onInputChange("selected_tab", tab);
 }
+
+function sig_tbl_select_all(){
+  var all_checkbox = document.getElementById('sig_tbl_select_all');
+  var checkboxes = document.getElementsByName('sig_tbl_select_row');
+  if(all_checkbox[0].checked === true){
+    for(var i = 0; i < checkboxes.length; i++){
+      checkboxes[i].checked = true;
+    }
+  }else{
+    for(var i = 0; i < checkboxes.length; i++){
+      checkboxes[i].checked = false;
+    }
+  }
+}
+
+function sig_tbl_select_rows() {
+  var checkboxes = document.getElementsByName('sig_tbl_select_row');
+  var row_number = [];
+  for(var i = 0; i < checkboxes.length; i++){
+    if(checkboxes[i].checked === true){
+      row_number.push(checkboxes[i].value);
+    }else{
+       row_number.push(null);
+    }
+  }
+ Shiny.onInputChange('sig_tbl_selected_rows', row_number)
+}
+
+

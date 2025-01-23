@@ -152,21 +152,27 @@ searchSignature <- function(
       base::replace(., base::match(c("signature_id", "organism_id", "phenotype_id", "sample_type_id"), .), c("signature_name", "organism", "phenotype", "sample_type"))
     
     # Get a list of filtered variables
-    filter_var <- c("signature_name", "organism", "phenotype", "sample_type")
-    filter_val <- c(signature_name, organism, phenotype, sample_type) %>% base::trimws()
+    filter_var_list <- list(
+      "signature_name" = signature_name, 
+      "organism" = organism, 
+      "phenotype" = phenotype, 
+      "sample_type" = sample_type
+    )
     
     # Filter table with given search variables
-    for(r in base::seq_along(filter_var)){
+    for(r in base::seq_along(filter_var_list)){
       #r=1;
-      filter_status <- ifelse(length(filter_val[r]) == 0 || filter_val[r] %in% c("", NA), FALSE, TRUE)
+      filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
       if(filter_status == TRUE){
-        signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var[r]))) %in% trimws(tolower(filter_val[r])))
+        filter_var <- names(filter_var_list)[r]
+        filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
+        signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var))) %in% trimws(tolower(filter_val)))
       }
     }
     
     # Extract the table with appropriate column names ####
-    signature_tbl <- signature_tbl %>% dplyr::select(all_of(coln_names))
-    
+    signature_tbl <- signature_tbl %>%  dplyr::select(all_of(coln_names))
+      
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))
     
