@@ -49,9 +49,9 @@ newConnHandler <- function(
 }
 
 #' @title conn_init
-#' @description Initiate a db connection using handler info obtained from SigRepo::newConnhandler()
-#' @param conn_handler contains a list of user credentials to establish connection to a remote database.
-#' See SigRepo::newConnhandler() for more details.
+#' @description Initiate a remote database connection
+#' @param conn_handler A handler uses to establish connection to a remote database 
+#' obtained from SigRepo::newConnhandler() (required)
 #' 
 #' @noRd
 #' 
