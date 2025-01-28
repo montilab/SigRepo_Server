@@ -19,11 +19,11 @@ deleteUser <- function(
   )
   
   # Check user_name ####
-  if(length(user_name) == 0 || any(user_name %in% c(NA, ""))){
+  if(!length(user_name) == 1 || all(user_name %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop("'user_name' cannot be empty.")
+    base::stop("'user_name' must have a length of 1 and cannot be empty.")
   }
   
   # Create a list of variables to check database ####
@@ -39,6 +39,24 @@ deleteUser <- function(
     check_db_table = FALSE
   )
 
+  # Check if user exists in the database
+  if(nrow(table) == 0){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Show message
+    base::stop(sprintf("There is no user = '%s' existed in the 'users' table of the SigRepo Database.", user_name))
+  }
+  
+  # Remove user from user table 
+  SigRepo::delete_table_sql(
+    conn = conn, 
+    db_table_name = db_table_name, 
+    delete_coln_var = "user_name", 
+    delete_coln_val = user_name,
+    check_db_table = FALSE
+  )
+  
   # DROP USER FROM DATABASE
   purrr::walk(
     base::seq_len(nrow(table)),
@@ -53,11 +71,38 @@ deleteUser <- function(
       }
     }
   )
-  
-  # Remove user from database
+
+  # Remove user from signature table
   SigRepo::delete_table_sql(
     conn = conn, 
-    db_table_name = db_table_name, 
+    db_table_name = "signatures", 
+    delete_coln_var = "user_name", 
+    delete_coln_val = user_name,
+    check_db_table = FALSE
+  )
+  
+  # Remove user from signature access table
+  SigRepo::delete_table_sql(
+    conn = conn, 
+    db_table_name = "signature_access", 
+    delete_coln_var = "user_name", 
+    delete_coln_val = user_name,
+    check_db_table = FALSE
+  )
+  
+  # Remove user from collection table
+  SigRepo::delete_table_sql(
+    conn = conn, 
+    db_table_name = "collection", 
+    delete_coln_var = "user_name", 
+    delete_coln_val = user_name,
+    check_db_table = FALSE
+  )
+  
+  # Remove user from collection access table
+  SigRepo::delete_table_sql(
+    conn = conn, 
+    db_table_name = "collection_access", 
     delete_coln_var = "user_name", 
     delete_coln_val = user_name,
     check_db_table = FALSE

@@ -85,14 +85,6 @@ addUser <- function(
     hash_method = "md5"
   )
   
-  # Create a hash key to check for duplicates
-  table <- SigRepo::createHashKey(
-    table = table,
-    hash_var = "user_hashkey",
-    hash_columns = "user_name",
-    hash_method = "md5"
-  )
-  
   # Check table against database table ####
   table <- SigRepo::checkTableInput(
     conn = conn,
@@ -107,7 +99,7 @@ addUser <- function(
     conn = conn,
     db_table_name = db_table_name,
     table = table,
-    coln_var = "user_hashkey",
+    coln_var = "user_name",
     check_db_table = FALSE
   )
   
