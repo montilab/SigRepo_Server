@@ -132,6 +132,9 @@ delete_table_sql <- function(
     ", db_table_name, delete_where_clause
   )
   
+  # Set foreign key checks to false when dropping tables
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+  
   # Delete entry from database
   base::tryCatch({
     base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))

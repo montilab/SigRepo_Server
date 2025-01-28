@@ -28,7 +28,7 @@ conn_handler <- SigRepo::newConnHandler(
 )
 
 # Get a list of signatures that belongs to user = 'guest'
-signature_tbl <- sigRepo::searchSignature(
+signature_tbl <- SigRepo::searchSignature(
  conn_handler = conn_handler,
  user_name = "guest"
 )

@@ -162,7 +162,7 @@ addTranscriptomicsSignatureSet <- function(
       # Show error 
       SigRepo::showTranscriptomicsErrorMessage(
         db_table_name = ref_table,
-        unknown_features = table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
+        unknown_values = table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
       )
 
     }

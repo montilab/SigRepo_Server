@@ -21,13 +21,18 @@ conn_handler <- SigRepo::newConnHandler(
   password = Sys.getenv("PASSWORD")
 )
 
+# Get data path
+data_path <- base::system.file("inst/data", package = "SigRepo")
+
+## Establish database connection
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 SigRepo::searchSignature(conn_handler = conn_handler)
 SigRepo::searchSignature(conn_handler = conn_handler, signature_name = "kddkdiingn")
 SigRepo::searchSignature(conn_handler = conn_handler, signature_name = "LLFS_Aging_Gene_2023")
 
 
-SigRepo::getSignature(conn_handler = conn_handler, signature_name = "LLFS_Aging_Gene_2023")
+omic_signature <- SigRepo::getSignature(conn_handler = conn_handler, signature_name = "LLFS_Aging_Gene_2023")[[1]]
 
 
 

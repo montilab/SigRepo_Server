@@ -28,7 +28,6 @@ createSignatureMetadata <- function(
   }, warning = function(w){
     base::message(w, "\n")
   }) 
-  
 
   # If has_difexp = TRUE, then get number of difexp
   if(has_difexp == TRUE){

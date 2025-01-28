@@ -101,10 +101,10 @@ addUserToSignature <- function(
     # If user is not admin, check if it has access to the signature
     if(orig_user_role != "admin"){
       
-      # Check if user was the one who uploaded the signature
+      # Check if user is the one who uploaded the signature
       signature_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
-        db_table_name = "signatures",
+        db_table_name = db_table_name,
         return_var = "*",
         filter_coln_var = c("signature_id", "user_name"), 
         filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name),
@@ -127,7 +127,7 @@ addUserToSignature <- function(
         
         # If user does not have permission, throw an error message
         if(nrow(signature_access_tbl) == 0){
-
+          
           # Disconnect from database ####
           base::suppressMessages(DBI::dbDisconnect(conn)) 
           
@@ -150,7 +150,7 @@ addUserToSignature <- function(
     table <- SigRepo::createHashKey(
       table = table,
       hash_var = "access_sig_hashkey",
-      hash_columns = c("signature_id", "user_name", "access_type"),
+      hash_columns = c("signature_id", "user_name"),
       hash_method = "md5"
     )
     
@@ -181,7 +181,10 @@ addUserToSignature <- function(
 
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
-
+    
+    # print message
+    base::message("Adding User = '%' to signature_id = '%s' in the database completed.\n")
+    
   }  
 }  
 
