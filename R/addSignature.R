@@ -33,8 +33,8 @@ addSignature <- function(
     omic_signature = omic_signature
   )
   
-  # Create a hash key to look up whether signature has already existed in the database ####
-  signature_hashkey <- digest::digest(paste0(metadata_tbl$signature_name, metadata_tbl$organism_id, metadata_tbl$direction_type, metadata_tbl$assay_type, metadata_tbl$phenotype_id, user_name), algo = "md5", serialize = FALSE)
+  # Create a hash key to look up whether signature is already existed in the database ####
+  signature_hashkey <- digest::digest(paste0(metadata_tbl$signature_name, user_name), algo = "md5", serialize = FALSE)
   
   # Check if signature exists ####
   signature_tbl <- SigRepo::lookup_table_sql(
@@ -53,8 +53,9 @@ addSignature <- function(
     base::suppressMessages(DBI::dbDisconnect(conn))
     
     # Show message
-    base::warning("\tYou already uploaded a signature with similar contents into the SigRepo Database.\n",
-                  "\tUse searchSignatures() to see more details about the signature.\n")
+    base::stop(sprintf("\tYou already uploaded a signature with signature_name = '%s' into the SigRepo Database.\n", metadata_tbl$signature_name),
+               "\tUse searchSignature() to see more details about the signature.\n",
+               "\tTo re-upload, please use a different signature_name.\n")
     
   }else{
     

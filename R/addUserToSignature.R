@@ -54,7 +54,7 @@ addUserToSignature <- function(
   }) 
   
   # Check signature_id
-  if(!length(signature_id) == 1 || signature_id %in% c(NA, "")){
+  if(!length(signature_id) == 1 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     # Show message
@@ -62,7 +62,7 @@ addUserToSignature <- function(
   }
   
   # Check user_name
-  if(length(user_name) == 0 || user_name %in% c(NA, "")){
+  if(length(user_name) == 0 || all(user_name %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     # Show message
@@ -74,7 +74,7 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("Length of 'user_name' must equal length of 'access_type'.")
+    base::stop("Length of 'user_name' must equal the length of its 'access_type'.")
   }
   
   # Check if signature exists ####

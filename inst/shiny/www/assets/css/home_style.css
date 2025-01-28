@@ -1,4 +1,39 @@
 
+#content-wrapper {
+  width: 100%;
+}
+
+#content-wrapper::-webkit-scrollbar {
+  width: 5px;
+}
+
+#content-wrapper::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+} 
+
+#banner-wrapper {
+  position: relative;
+  margin-bottom: 3px;
+  /*border: 1px solid green;*/
+}
+
+#feature-wrapper {
+  position: relative;
+  margin-bottom: 3px;
+}
+
+#contact-wrapper {
+  position: relative
+	margin-bottom: 3px;
+}
+
+#footer-wrapper {
+  position: relative;
+  margin-top: 3em;
+  margin-bottom: 1em;
+  /*border: 2px solid red;*/
+}
+
 .login-banner {
   width : 100%;
   display: -webkit-box;

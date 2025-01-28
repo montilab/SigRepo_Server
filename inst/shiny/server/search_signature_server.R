@@ -5,11 +5,12 @@ sig_tbl_error_msg <- shiny::reactiveVal()
 
 # Create reactive values to store data tables ####
 search_signature_tbl <- shiny::reactiveVal()
+download_omic_signature <- shiny::reactiveVal()
 
 # Observe search_options ####
 shiny::observeEvent({
-  user_signature_tbl()
   input$search_options
+  user_signature_tbl()
 }, {
   
   # Get user signature tbl
@@ -128,35 +129,33 @@ shiny::observeEvent({
   }
   
   # Update platform ####
-  if("platform" %in% search_options){
+  if("platform_id" %in% search_options){
     
     platform_choices <- unique(user_signature_tbl$platform_id)
     
-    selected_value <- shiny::isolate({ input$platform })
+    selected_value <- shiny::isolate({ input$platform_id })
     
     shiny::updateSelectizeInput(
       session = session,
-      inputId = "platform" ,
+      inputId = "platform_id" ,
       choices = platform_choices,
       selected = selected_value
     )
     
-    shinyjs::show(id = "platform")
+    shinyjs::show(id = "platform_id")
     
   }else{
     
-    shinyjs::hide(id = "platform")
+    shinyjs::hide(id = "platform_id")
     
   }
   
-}, ignoreNULL = TRUE, ignoreInit = TRUE)
+}, ignoreNULL = FALSE, ignoreInit = FALSE)
 
 # Observe search_signature ####
 shiny::observeEvent({
   input$search_signature
 }, {
-  
-  req(input$search_options, user_conn_handler())
   
   # Get user signature tbl
   signature_tbl <- shiny::isolate({ user_signature_tbl() })
@@ -204,20 +203,20 @@ shiny::observeEvent({
   
   # Return table
   if(nrow(signature_tbl) == 0){
-    search_signature_tbl(data.frame(WARNINGS = "THERE ARE NO DATA RETURNED FROM THE SEARCH PARAMETERS"))
+    search_signature_tbl(base::data.frame(WARNINGS = "THERE ARE NO DATA RETURNED FROM THE SEARCH PARAMETERS"))
   }else{
     signature_tbl %>% 
       dplyr::mutate(
-        select = sapply(1:nrow(.), function(r){ sprintf('<label class="checkbox-control"><input type="checkbox" name="sig_tbl_select_row" id="%s" value="%s"></label>', paste0("sig_tbl_select_row_", r), r) })
+        entry = 1:nrow(.),
+        select = base::sapply(base::seq_along(entry), function(r){ base::sprintf('<label class="checkbox-control"><input type="checkbox" name="sig_tbl_select_row" id="%s" value="%s"></label>', paste0("sig_tbl_select_row_", r), r) })
       ) %>% 
       dplyr::select(
-        select, everything()
+        entry, select, everything()
       ) %>% 
       search_signature_tbl()
   }
   
 }, ignoreNULL = TRUE, ignoreInit = TRUE)
-
 
 # Search signature error message ####
 output$search_sig_error_msg <- renderUI({
@@ -229,7 +228,7 @@ output$search_sig_error_msg <- renderUI({
 })
 
 # Output signature_table ####
-output$signature_table <- DT::renderDataTable({
+output$signature_tbl <- DT::renderDataTable({
   
   req(search_signature_tbl())
   
@@ -250,11 +249,14 @@ output$signature_table <- DT::renderDataTable({
     
   }else{
     
+    # Show download_oms
+    shinyjs::delay(1000, shinyjs::show(id = "download_oms"))
+    
     # Get signature table
     signature_tbl <- shiny::isolate({ search_signature_tbl() }) 
     
     # Get no export column numbers
-    no_export_columns <- which(colnames(signature_tbl) %in% c("select"))
+    no_export_columns <- which(colnames(signature_tbl) %in% c("entry", "select"))
     
     # Add overall checkbox to check all boxes
     colnames(signature_tbl)[which(colnames(signature_tbl) %in% "select")] <- sprintf('<label class="checkbox-control"><input type="checkbox" name="sig_tbl_select_all" id="sig_tbl_select_all" onclick="sig_tbl_select_all();"></label>')
@@ -271,13 +273,15 @@ output$signature_table <- DT::renderDataTable({
           columnDefs = list(
             list(className = "dt-center", targets = "_all"),
             list(className = "no-export", targets = as.numeric(no_export_columns)),
-            list(orderable = FALSE, targets = 0)
+            list(orderable = FALSE, targets = 1)
           ),
-          searching = TRUE,
           searchHighlight = TRUE,
+          searching = TRUE,
           ordering = TRUE,
+          deferRender = FALSE,
           paging = TRUE,
           pageLength = 20,
+          scroller = TRUE,
           scrollX = TRUE,
           scrollY = 400,
           dom = 'Bfrtip',
@@ -299,20 +303,6 @@ output$signature_table <- DT::renderDataTable({
               exportOptions = list(
                 modifier = list(page = "all", columns = ":not(.no-export)")
               )
-            ),
-            list(
-              extend = "collection",
-              text = ' Download OmicSignature',
-              className = "fas fa-download",
-              action = DT::JS(
-                sprintf(
-                  paste0(
-                    "function ( e, dt, node, config ) {",
-                    "Shiny.setInputValue('download_oms', true, {priority: 'event'});",
-                    "}"
-                  )
-                )
-              )
             )
           )
         )
@@ -327,9 +317,11 @@ shiny::observeEvent({
   input$download_oms
 }, {
   
-  sig_tbl_selected_rows <- shiny::isolate({ input$sig_tbl_selected_rows })
+  # Get the selected rows
+  selected_rows <- shiny::isolate({ input$sig_tbl_selected_rows })
   
-  if(length(sig_tbl_selected_rows) == 0){
+  # Check if any rows are selected
+  if(length(selected_rows) == 0){
     sig_tbl_error_msg("Please check a list of signatures above to download.")
     return(NULL)
   }
@@ -337,8 +329,31 @@ shiny::observeEvent({
   # Reset message
   sig_tbl_error_msg(NULL)
   
+  # Get user handler
+  conn_handler <- shiny::isolate({ user_conn_handler() })
+  
+  # Get selected signatures
+  signature_tbl <- shiny::isolate({ search_signature_tbl() }) %>% dplyr::filter(entry %in% selected_rows)
+  
+  # Create a list of selected signature objects
+  omic_signatures <- base::tryCatch({
+    SigRepo::getSignature(conn_handler = conn_handler, signature_name = signature_tbl$signature_name)
+  }, error = function(e){
+    sig_tbl_error_msg(paste0(e, "\n"))
+    print(e, "\n")
+    return(NULL)
+  }, warning = function(w){
+    print(w, "\n")
+  }) 
+  
+  # If omic_signatures is empty, escape the function
+  if(is.null(omic_signatures)) return(NULL)
+  
+  # Update omic signature objects
+  download_omic_signature(omic_signatures) 
+    
   # Trigger the download button
-  shinyjs::runjs("document.getElmentByID('download_oms_handler').click();")
+  shinyjs::runjs("alert('here');document.getElementById('download_oms_handler').click();")
   
 })
 
@@ -347,7 +362,7 @@ output$sig_tbl_error_msg <- renderUI({
   
   req(sig_tbl_error_msg())
   
-  shiny::p(class = "error-message", sig_tbl_error_msg())
+  shiny::HTML("<p class = 'error-message'>", sig_tbl_error_msg(), "</p>")
   
 })
 
@@ -355,13 +370,11 @@ output$sig_tbl_error_msg <- renderUI({
 output$download_oms_handler <- shiny::downloadHandler(
   
   filename = function(){
-    paste0("signature-", base::Sys.Date(), ".RDS")
+    paste0("omic-signature-", base::Sys.Date(), ".RDS")
   },
   
   content = function(file){
-    
-    #saveRDS(datalist, file)
-    
+    base::saveRDS(download_omic_signature(), file)
   }
   
 )

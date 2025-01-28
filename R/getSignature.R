@@ -18,7 +18,7 @@ getSignature <- function(
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = "SELECT",
+    action_type = "SELECT", 
     required_role = "editor"
   )
   
@@ -49,7 +49,7 @@ getSignature <- function(
       base::suppressMessages(DBI::dbDisconnect(conn)) 
       
       # Show message
-      base::stop(sprintf("There are no signatures that belong to User = '%s' in the database.\n", user_name))
+      base::stop(sprintf("There are no signatures that belong to user_name = '%s' in the database.\n", user_name))
       
     }
     
@@ -76,15 +76,15 @@ getSignature <- function(
   }
   
   # Get a list of filtered variables
-  filter_var <- c("signature_name")
-  filter_val <- c(signature_name) %>% base::trimws()
+  filter_var <- "signature_name"
+  filter_val <- signature_name
   
   # Filter table with given search variables
   for(r in base::seq_along(filter_var)){
     #r=1;
-    filter_status <- ifelse(length(filter_val[r]) == 0 || filter_val[r] %in% c("", NA), FALSE, TRUE)
+    filter_status <- ifelse(length(filter_val[r]) == 0 || all(filter_val[r] %in% c("", NA)), FALSE, TRUE)
     if(filter_status == TRUE){
-      signature_tbl <- signature_tbl %>% dplyr::filter(tolower(!!!syms(filter_var[r])) %in% tolower(filter_val[r]))
+      signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var[r]))) %in% trimws(tolower(filter_val[r])))
     }
   }
   
@@ -148,7 +148,7 @@ getSignature <- function(
     # Extract the table with appropriate column names ####
     signature_tbl <- signature_tbl %>% dplyr::select(all_of(coln_names))
     
-    # Create a place holder to store signature
+    # Create a place holder to store signatures
     omic_signature_list <- list()
     
     # Create an omic signature object for each signature id ####
@@ -156,12 +156,13 @@ getSignature <- function(
       #r=1;
       db_signature_tbl <- signature_tbl %>% dplyr::slice(r)
       
+      # Create an OmicSignature object
       omic_signature <- SigRepo::createOmicSignature(
         conn_handler = conn_handler,
         db_signature_tbl = db_signature_tbl
       )
       
-      # Append OmicSignature object to list
+      # Append OmicSignature object to overall list
       omic_signature_list <- c(
         omic_signature_list, 
         omic_signature

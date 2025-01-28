@@ -14,7 +14,7 @@ deleteSignature <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = "INSERT",
+    action_type = c("SELECT", "INSERT", "DELETE"),
     required_role = "editor"
   )
   
@@ -52,7 +52,7 @@ deleteSignature <- function(
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There is no signature_id = '%s' in the 'signatures' table of the SigRepo Database.", signature_id))
+    base::stop(sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.", signature_id))
     
   }else{
     

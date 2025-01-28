@@ -68,7 +68,7 @@ searchSignature <- function(
       base::suppressMessages(DBI::dbDisconnect(conn))     
       
       # Show message
-      base::stop(sprintf("There are no signatures that belongs to User = '%s' in the database.\n", user_name))
+      base::stop(sprintf("There are no signatures that belongs to user_name: %s in the database.\n", paste0("'", user_name[which(!user_name %in% c("", NA))], "'", collapse = ",")))
       
     }
     
@@ -79,7 +79,6 @@ searchSignature <- function(
       return_var = "*", 
       filter_coln_var = "signature_id", 
       filter_coln_val = list("signature_id" = unique(signature_access_tbl$signature_id)),
-      filter_var_by = "AND",
       check_db_table = TRUE
     ) 
     
@@ -143,13 +142,13 @@ searchSignature <- function(
     
     # Add variables to table
     signature_tbl <- signature_tbl %>% 
-      dplyr::left_join(organism_id_tbl) %>% 
-      dplyr::left_join(phenotype_id_tbl) %>% 
-      dplyr::left_join(sample_type_id_tbl)
+      dplyr::left_join(organism_id_tbl, by = "organism_id") %>% 
+      dplyr::left_join(phenotype_id_tbl, by = "phenotype_id") %>% 
+      dplyr::left_join(sample_type_id_tbl, by = "sample_type_id")
     
     # Rename table with appropriate column names 
     coln_names <- colnames(signature_tbl) %>% 
-      base::replace(., base::match(c("signature_id", "organism_id", "phenotype_id", "sample_type_id"), .), c("signature_name", "organism", "phenotype", "sample_type"))
+      base::replace(., base::match(c("organism_id", "phenotype_id", "sample_type_id"), .), c("organism", "phenotype", "sample_type"))
     
     # Get a list of filtered variables
     filter_var_list <- list(
@@ -171,7 +170,7 @@ searchSignature <- function(
     }
     
     # Extract the table with appropriate column names ####
-    signature_tbl <- signature_tbl %>%  dplyr::select(all_of(coln_names))
+    signature_tbl <- signature_tbl %>% dplyr::select(all_of(coln_names))
       
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))

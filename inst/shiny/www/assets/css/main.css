@@ -2051,7 +2051,7 @@ input, select, textarea {
   #content-wrapper {
 	  width: 100%;
 	  position: relative;
-	  overflow-y: scroll;
+	  overflow: scroll;
     /*border: 1px solid green;*/
   }
   
