@@ -12,9 +12,11 @@ showOrganismErrorMessage <- function(
     unknown_values
 ){
   
-  base::stop(sprintf("\tThe following organisms: %s do not existed in the '%s' table of the database.\n", paste0("'", unknown_values, "'", collapse = ", "), db_table_name),
-             "\tYou can use 'searchOrganisms()' to see a list of available organisms in the database.\n",
-             "\tTo add these organisms into the database, please contact our admin at montilab@bu.edu for support.\n")
+  base::stop(
+    sprintf("\nThe following organisms do not existed in the '%s' table of the database:\n%s", db_table_name, paste0("'", unknown_values, "'", collapse = "\n")), 
+    sprintf("\nYou can use 'searchOrganism()' to see a list of available organisms in the database.\n"),
+    sprintf("\nTo add these organisms into the database, please contact our admin at montilab@bu.edu for support.\n")
+  )
   
 }
 
@@ -31,9 +33,11 @@ showPlatformErrorMessage <- function(
     unknown_values
 ){
   
-  base::stop(sprintf("\tThe following platforms: %s do not existed in the '%s' table of the database.\n", paste0("'", unknown_values, "'", collapse = ", "), db_table_name), 
-             "\tYou can use 'searchPlatforms()' to see a list of available platforms in the database.\n",
-             "\tTo add these platforms into the database, please contact our admin at montilab@bu.edu for support.\n")
+  base::stop(
+    sprintf("\nThe following platforms do not existed in the '%s' table of the database:\n%s", db_table_name, paste0("'", unknown_values, "'", collapse = "\n")), 
+    sprintf("\nYou can use 'searchPlatform()' to see a list of available platforms in the database.\n"),
+    sprintf("\nTo add these platforms into the database, please contact our admin at montilab@bu.edu for support.\n")
+  )
   
 }
 
@@ -50,9 +54,11 @@ showSampleTypeErrorMessage <- function(
     unknown_values
 ){
   
-  base::stop(sprintf("\tThe following sample types: %s do not existed in the '%s' table of the database.\n", paste0("'", unknown_values, "'", collapse = ", "), db_table_name),
-             "\tYou can use 'searchSampleTypes()' to see a list of available sample types in the database.\n",
-             "\tTo add these sample types into the database, please contact our admin at montilab@bu.edu for support.\n")
+  base::stop(
+    sprintf("\nThe following sample types do not existed in the '%s' table of the database:\n%s", db_table_name, paste0("'", unknown_values, "'", collapse = "\n")), 
+    sprintf("\nYou can use 'searchSampleType()' to see a list of available sample types in the database.\n"),
+    sprintf("\nTo add these sample types into the database, please contact our admin at montilab@bu.edu for support.\n")
+  )
   
 }
 
@@ -69,9 +75,11 @@ showTranscriptomicsErrorMessage <- function(
     unknown_values
 ){
   
-  base::stop(sprintf("\tThe following features: %s do not existed in the '%s' table of the database.\n", paste0("'", unknown_values, "'", collapse = ", "), db_table_name), 
-             sprintf("\tYou can use 'searchFeatures()' to see a list of available features in the database.\n"),
-             "\tTo add these features into the database, please contact our admin at montilab@bu.edu for support.\n")
+  base::stop(
+    sprintf("\nThe following features do not existed in the '%s' table of the database:\n%s", db_table_name, paste0("'", unknown_values, "'", collapse = "\n")), 
+    sprintf("\nYou can use 'searchFeature()' to see a list of available features in the database."),
+    sprintf("\nTo add these features into the database, please contact our admin at montilab@bu.edu for support.\n")
+  )
   
 }
 

@@ -117,6 +117,9 @@ deleteSignature <- function(
       }
     }
     
+    # Return message
+    base::message(sprintf("Remove signature_id = '%s' from 'signatures' table in the database.", signature_id))
+    
     # Delete signature from signatures table in the database ####
     SigRepo::delete_table_sql(
       conn = conn,
@@ -126,6 +129,9 @@ deleteSignature <- function(
       check_db_table = FALSE
     )
     
+    # Return message
+    base::message(sprintf("Remove features belongs to signature_id = '%s' from 'signature_feature_set' table of the database.", signature_id))
+
     # Delete signature from signature_feature_set table in the database ####
     SigRepo::delete_table_sql(
       conn = conn,
@@ -134,7 +140,10 @@ deleteSignature <- function(
       delete_coln_val = signature_id,
       check_db_table = TRUE
     )
-    
+
+    # Return message
+    base::message(sprintf("Remove signature_id = '%s' from 'signature_access' table of the database.", signature_id))
+
     # Delete user from signature_access table in the database ####
     SigRepo::delete_table_sql(
       conn = conn,
@@ -142,7 +151,7 @@ deleteSignature <- function(
       delete_coln_var = "signature_id",
       delete_coln_val = signature_id,
       check_db_table = TRUE
-    )  
+    )
     
     # Return message
     base::message(sprintf("signature_id = '%s' has been deleted.", signature_id))

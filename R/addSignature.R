@@ -8,6 +8,8 @@ addSignature <- function(
     omic_signature
 ){
   
+  base::options(warning.length = 2000L)
+  
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
   
@@ -31,10 +33,18 @@ addSignature <- function(
   metadata_tbl <- SigRepo::createSignatureMetadata(
     conn_handler = conn_handler, 
     omic_signature = omic_signature
-  )
+  ) 
+  
+  # Add additional variables in signature metadata table ####
+  metadata_tbl <- metadata_tbl %>% dplyr::mutate(user_name = user_name)
   
   # Create a hash key to look up whether signature is already existed in the database ####
-  signature_hashkey <- digest::digest(paste0(metadata_tbl$signature_name, user_name), algo = "md5", serialize = FALSE)
+  metadata_tbl <- SigRepo::createHashKey(
+    table = metadata_tbl,
+    hash_var = "signature_hashkey",
+    hash_columns = c("signature_name", "user_name"),
+    hash_method = "md5"
+  )
   
   # Check if signature exists ####
   signature_tbl <- SigRepo::lookup_table_sql(
@@ -42,7 +52,7 @@ addSignature <- function(
     db_table_name = db_table_name, 
     return_var = "*", 
     filter_coln_var = "signature_hashkey",
-    filter_coln_val = list("signature_hashkey" = signature_hashkey),
+    filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey),
     check_db_table = TRUE
   ) 
   
@@ -54,23 +64,16 @@ addSignature <- function(
     
     # Show message
     base::stop(sprintf("\tYou already uploaded a signature with signature_name = '%s' into the SigRepo Database.\n", metadata_tbl$signature_name),
-               "\tUse searchSignature() to see more details about the signature.\n",
-               "\tTo re-upload, please use a different signature_name.\n")
+               sprintf("\tUse searchSignature() to see more details about the signature.\n"),
+               sprintf("\tTo re-upload, try to use a different name.\n"))
     
   }else{
     
     # 1. Uploading signature metadata into database
     base::message("Uploading signature metadata into the database...\n")
     
-    # Add additional variables in signature metadata table ###
-    metadata_tbl <- metadata_tbl %>% 
-      dplyr::mutate(
-        user_name = user_name,
-        signature_hashkey = signature_hashkey
-      )
-    
     # Check table against database table ####
-    table <- SigRepo::checkTableInput(
+    metadata_tbl <- SigRepo::checkTableInput(
       conn = conn, 
       db_table_name = db_table_name,
       table = metadata_tbl, 
@@ -96,7 +99,7 @@ addSignature <- function(
       difexp <- omic_signature$difexp
       # Save difexp to local storage ####
       data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-      base::saveRDS(difexp, file = file.path(data_path, paste0(signature_hashkey, ".RDS")))
+      base::saveRDS(difexp, file = file.path(data_path, paste0(metadata_tbl$signature_hashkey, ".RDS")))
     }
     
     # Look up signature id for the next step ####
@@ -105,7 +108,7 @@ addSignature <- function(
       db_table_name = db_table_name, 
       return_var = "*", 
       filter_coln_var = "signature_hashkey",
-      filter_coln_val = list("signature_hashkey" = signature_hashkey),
+      filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey),
       check_db_table = FALSE
     ) 
     
@@ -123,7 +126,7 @@ addSignature <- function(
       )
     }, error = function(e){
       # Delete signature
-      SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
+      base::suppressMessages(SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id))
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
@@ -152,7 +155,7 @@ addSignature <- function(
         )
       }, error = function(e){
         # Delete signature
-        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
+        base::suppressMessages(SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id))
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return error message

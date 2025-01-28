@@ -124,7 +124,7 @@ CREATE TABLE `%s` (
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `feature_id`),
-  UNIQUE (`signature_id`, `feature_id`, `assay_type`),
+  UNIQUE (`signature_id`, `feature_id`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
@@ -155,7 +155,7 @@ CREATE TABLE `%s` (
   `access_type` SET("owner", "editor", "viewer") NOT NULL,
   `access_sig_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `user_name`),
-  UNIQUE (`signature_id`, `user_name`, `access_type`),
+  UNIQUE (`signature_id`, `user_name`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
   FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
@@ -220,7 +220,7 @@ CREATE TABLE `%s` (
   `access_type` SET("owner", "editor", "viewer") NOT NULL,
   `access_collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`, `user_name`),
-  UNIQUE (`collection_id`, `user_name`, `access_type`),
+  UNIQUE (`collection_id`, `user_name`),
   FOREIGN KEY (`collection_id`) REFERENCES `collection` (`collection_id`),
   FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
@@ -249,6 +249,7 @@ create_table_sql <- base::sprintf(
 CREATE TABLE `%s` (
   `collection_id` INT UNSIGNED NOT NULL,
   `signature_id` INT UNSIGNED NOT NULL,
+  `signature_collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`, `signature_id`),
   UNIQUE (`collection_id`, `signature_id`),
   FOREIGN KEY (`collection_id`) REFERENCES `collection` (`collection_id`),
@@ -319,7 +320,8 @@ CREATE TABLE `%s` (
   `feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`feature_id`), 
   UNIQUE (`feature_name`, `organism_id`),
-  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`)
+  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
+  CHECK (`is_current` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 

@@ -96,6 +96,12 @@ user_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = s
 LLFS_Transcriptomic_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
 SigRepo::addSignature(conn_handler = conn_handler, omic_signature = LLFS_Transcriptomic_AGS_OmS)
 
+omic_signature_MDA_AhR <- readRDS(file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
+SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_MDA_AhR)
+
+omic_signature_MDA_CYP <- readRDS(file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
+SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_MDA_CYP)
+
 # Check the signatures table ####
 statement <- "select * FROM signatures"
 signature_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
