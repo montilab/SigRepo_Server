@@ -31,7 +31,7 @@ updateUser <- function(
   )
   
   # Check user_name ####
-  if(!length(user_name) == 1 || any(user_name %in% c(NA, ""))){
+  if(!length(user_name) == 1 || all(user_name %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))     
     # Show message
@@ -39,15 +39,15 @@ updateUser <- function(
   }
   
   # Check role ####
-  if(length(role[1]) > 0 && !role[1] %in% c("admin", "editor", "viewer")){
+  if(length(role[1]) > 0 && any(!role[1] %in% c("admin", "editor", "viewer"))){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop("'role' must be admin/editor/viewer.")
+    base::stop("'role' must have a length of 1 and have one of the three roles: admin/editor/viewer.")
   }
   
   # Check email ####
-  if(length(email[1]) > 0 && !email[1] %in% c("", NA)){
+  if(length(email[1]) > 0){
     # Check email format ####
     check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(email[1]), ignore.case = TRUE)
     
@@ -69,16 +69,16 @@ updateUser <- function(
       check_db_table = FALSE
     ) 
     
-    # Check if email belongs to user
+    # Check if email not belongs to user
     if(nrow(email_tbl) > 0 && !trimws(tolower(user_name[1])) %in% trimws(tolower(email_tbl$user_name))){
       # Disconnect from database ####
       base::suppressMessages(DBI::dbDisconnect(conn))     
       # Show message
-      base::stop("Email = '%s' is already existed in the database.")
+      base::stop("Someone else with email = '%s' is already existed in the database. Please try another email.")
     }
   }
   
-  # Create a list of variables to check database ####
+  # Get table name ####
   db_table_name <- "users"
   
   # Get user table
@@ -130,20 +130,12 @@ updateUser <- function(
     hash_method = "md5"
   )
   
-  # Create a hash key to check for duplicates
-  table <- SigRepo::createHashKey(
-    table = table,
-    hash_var = "user_hashkey",
-    hash_columns = "user_name",
-    hash_method = "md5"
-  )
-  
   # Remove duplicated hash keys ####
   table <- SigRepo::removeDuplicates(
     conn = conn,
     db_table_name = db_table_name,
     table = table,
-    coln_var = "user_hashkey",
+    coln_var = "user_name",
     check_db_table = FALSE
   )
   

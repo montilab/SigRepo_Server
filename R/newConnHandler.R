@@ -16,23 +16,23 @@ newConnHandler <- function(
 ){
 
   # Check dbname ####
-  base::stopifnot("'dbname' cannot be empty." = 
+  base::stopifnot("'dbname' must have a length of 1 and cannot be empty." = 
               (length(dbname) == 1 && !dbname %in% c(NA, "")))
   
   # Check host ####
-  base::stopifnot("'host' cannot be empty." = 
+  base::stopifnot("'host' must have a length of 1 and cannot be empty." = 
               (length(host) == 1 && !host %in% c(NA, "")))
   
   # Check port ####
-  base::stopifnot("'port' cannot be empty and must be a numeric value." = 
+  base::stopifnot("'port' must have a length of 1 and cannot be empty and must be a numeric value." = 
               (length(port) == 1 && !port %in% c(NA, "")))
   
   # Check user ####
-  base::stopifnot("'user' cannot be empty." = 
+  base::stopifnot("'user' must have a length of 1 and cannot be empty." = 
               (length(user) == 1 && !user %in% c(NA, "")))
   
   # Check password ####
-  base::stopifnot("'password' cannot be empty." = 
+  base::stopifnot("'password' must have a length of 1 and cannot be empty." = 
               (length(password) == 1 && !password %in% c(NA, "")))
   
   # Return connection handler ###
