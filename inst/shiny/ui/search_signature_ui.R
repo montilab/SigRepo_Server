@@ -13,7 +13,7 @@ shiny::div(
     
     shiny::column(
       width = 4,
-      class = "search-signature-content",
+      class = "search-signature-sidebar",
 
       shiny::selectizeInput(
         inputId = "search_options",
@@ -24,7 +24,7 @@ shiny::div(
           "organism", 
           "phenotype",
           "sample_type", 
-          "platform", 
+          "platform_id", 
           "assay_type"
         ),
         multiple = TRUE,
@@ -73,7 +73,7 @@ shiny::div(
       
       shinyjs::hidden(
         shiny::selectizeInput(
-          inputId = "platform",
+          inputId = "platform_id",
           label = "platform:",
           choices = c("Please choose from an option below" = ""),
           multiple = TRUE,
@@ -107,11 +107,17 @@ shiny::div(
     
     shiny::column(
       width = 8,
-      style = "border: 1px solid gray; padding: 20px 20px 20px 20px; overflow: scroll;",
+      class = "search-signature-content",
       
-      DT::dataTableOutput("signature_table"),
+      DT::dataTableOutput("signature_tbl"),
       shiny::uiOutput(outputId = "sig_tbl_error_msg"),
-      shiny::div(shiny::downloadButton(outputId = "download_oms_handler", label = "Download OMS"), style = "visibility: hidden;")
+      br(),
+      shinyjs::hidden(shiny::actionButton(inputId = "download_oms", label = "Download OmicSignature", class = "submit-button", onclick = "sig_tbl_select_rows();")), 
+      shiny::div(shiny::downloadButton(outputId = "download_oms_handler", label = "Download"), style = "visibility: hidden;"),
+      
+      DT::dataTableOutput("difexp_tbl"),
+      DT::dataTableOutput("sig_up_regulated_tbl"),
+      DT::dataTableOutput("sig_down_regulated_tbl")
       
     )
   )

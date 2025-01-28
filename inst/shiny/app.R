@@ -78,7 +78,7 @@ ui <- shiny::bootstrapPage(
         
         shiny::div(
           class = "validate-message", 
-          shinyjs::hidden(p(id = "login-error-message", "Invalid username or password!"))
+          shinyjs::hidden(p(class = "error-message", id = "login-error-message", "Invalid username or password!"))
         ),
         
         shiny::div(
@@ -178,12 +178,26 @@ server <- function(input, output, session) {
     
     cat("\nSession ended.\n")
     
+    all_cons <- DBI::dbListConnections(RMySQL::MySQL())
+    
+    for(con in all_cons)
+      +  dbDisconnect(con)
+    
+    print(paste0(length(all_cons), " connections killed."))
+    
   })
   
   # Observe when session stops ####
   shiny::onStop(function(){
     
     cat("\nSession stopped.\n")
+    
+    all_cons <- DBI::dbListConnections(RMySQL::MySQL())
+    
+    for(con in all_cons)
+      +  dbDisconnect(con)
+    
+    print(paste0(length(all_cons), " connections killed."))
     
   })
   
@@ -237,23 +251,40 @@ server <- function(input, output, session) {
     input$sign_in_btn
   }, {
     
-    req(input$username, input$password)
-    
     # Get user name and password
     user_name <- shiny::isolate({ input$username })
     user_password <- shiny::isolate({ input$password })
     
-    # Validate user
-    conn_handler <- SigRepo::newConnHandler(
-      dbname = Sys.getenv("DBNAME"), 
-      host = Sys.getenv("HOST"), 
-      port = as.integer(Sys.getenv("PORT")), 
-      user = user_name, 
-      password = user_password
-    )
+    # Create a user connection handler
+    conn_handler <- base::tryCatch({
+      SigRepo::newConnHandler(
+        dbname = Sys.getenv("DBNAME"), 
+        host = Sys.getenv("HOST"), 
+        port = as.integer(Sys.getenv("PORT")), 
+        user = user_name, 
+        password = user_password
+      )
+    }, error = function(e){
+      shinyjs::show(id = "login-error-message")
+      print(e, "\n")
+      return(NULL)
+    }, warning = function(w){
+      print(w, "\n")
+    })
     
-    # Look up user in the database
-    user_tbl <- SigRepo::validateUser(conn_handler = conn_handler)
+    # If conn_handler is not valid, escape the function
+    if(is.null(conn_handler)) return(NULL)
+    
+    # Validate user
+    user_tbl <- base::tryCatch({
+      SigRepo::validateUser(conn_handler = conn_handler)
+    }, error = function(e){
+      shinyjs::show(id = "login-error-message")
+      print(e, "\n")
+      return(base::data.frame(NULL))
+    }, warning = function(w){
+      print(w, "\n")
+    })
     
     # Check if conn is a MySQLConnection class object
     if(nrow(user_tbl) == 0){
@@ -353,7 +384,7 @@ server <- function(input, output, session) {
   
   # Import all source files 
   source("server/search_signature_server.R", local = TRUE)
-  # source("server/upload_signature_server.R", local = TRUE)
+  source("server/upload_signature_server.R", local = TRUE)
   source("server/sign_in_server.R", local = TRUE)
   
 }

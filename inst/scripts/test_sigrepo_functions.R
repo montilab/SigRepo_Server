@@ -27,4 +27,49 @@ SigRepo::searchSignature(conn_handler = conn_handler, signature_name = "kddkdiin
 SigRepo::searchSignature(conn_handler = conn_handler, signature_name = "LLFS_Aging_Gene_2023")
 
 
+SigRepo::getSignature(conn_handler = conn_handler, signature_name = "LLFS_Aging_Gene_2023")
+
+
+
+
+
+
+
+
+conn_handler <- SigRepo::newConnHandler(
+  dbname = "sigrepo",
+  host = "montilab.bu.edu",
+  port = 3306,
+  user = "guest",
+  password = "guest"
+)
+
+# Get a list of signatures that belongs to user = 'guest'
+signature_tbl <- SigRepo::searchSignature(
+  conn_handler = conn_handler
+)
+
+# Update the desired signature 
+SigRepo::updateSignature(
+  conn_handler = conn_handler,
+  signature_id = signature_tbl$signature_id,
+  omic_signature = omic_signature
+)
+
+
+
+
+
+signatures <- SigRepo::getSignature(conn_handler = conn_handler, signature_name = "LLFS_Aging_Gene_2023")
+  
+
+
+
+
+
+
+
+
+
+
 

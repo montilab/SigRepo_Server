@@ -45,6 +45,9 @@ purrr::walk(
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "signatures"
 
@@ -75,13 +78,14 @@ CREATE TABLE `%s` (
   `year` INT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
+  `num_of_difexp` INT DEFAULT NULL,
   `num_up_regulated` INT DEFAULT NULL,
   `num_down_regulated` INT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`),
-  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `phenotype_id`, `user_name`),
+  UNIQUE (`signature_name`, `user_name`),
   FOREIGN KEY (`organism_id`) REFERENCES organisms (`organism_id`),
   FOREIGN KEY (`phenotype_id`) REFERENCES phenotypes (`phenotype_id`),
   FOREIGN KEY (`platform_id`) REFERENCES platforms (`platform_id`),
@@ -98,6 +102,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 # SIGNATURE FEATURE SET ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 # Table name
 table_name <- "signature_feature_set"
@@ -130,6 +137,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "signature_access"
 
@@ -158,6 +168,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 # COLLECTION  ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 # Table name
 table_name <- "collection"
@@ -189,6 +202,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "collection_access"
 
@@ -218,6 +234,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "signature_collection_access"
 
@@ -244,6 +263,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #  TRANSCRIPTOMICS FEATURES ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 # Table name
 table_name <- "transcriptomics_features"
@@ -276,6 +298,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "proteomics_features"
 
@@ -306,6 +331,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "metabolomics_features"
 
@@ -317,6 +345,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 #  METHYLOMICS FEATURES ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 # Table name
 table_name <- "methylomics_features"
@@ -330,6 +361,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "genetic_variations_features"
 
@@ -342,6 +376,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 # Table name
 table_name <- "DNA_binding_sites_features"
 
@@ -353,6 +390,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 #  ORGANISMS ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 table_name <- "organisms"
 
@@ -377,6 +417,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #  PLATFORMS ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 table_name <- "platforms"
 
@@ -404,6 +447,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 table_name <- "phenotypes"
 
 drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
@@ -427,6 +473,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #  SAMPLE TYPES ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 table_name <- "sample_types"
 
@@ -453,6 +502,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #
 ############# 
 
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+
 table_name <- "keywords"
 
 drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
@@ -476,6 +528,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql
 #  USERS ####
 #
 ############# 
+
+# Set foreign key checks to false when dropping tables
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
 
 table_name <- "users"
 

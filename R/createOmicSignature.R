@@ -68,8 +68,7 @@ createOmicSignature <- function(
     metadata$others <- base::strsplit(metadata$others, split = ";", perl = TRUE) %>% base::unlist() %>% base::trimws() %>% 
       purrr::lmap(., function(x){ 
         list_name <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\1", x, perl = TRUE) %>% base::trimws()
-        list_value <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\3", x, perl = TRUE) %>% 
-          base::strsplit(., split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
+        list_value <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\3", x, perl = TRUE) %>% base::strsplit(., split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
         list_obj <- list(object = list_value)
         names(list_obj) <- list_name
         return(list_obj)
@@ -83,7 +82,7 @@ createOmicSignature <- function(
     # Read in difexp from local storage ####
     difexp <- base::readRDS(file.path(data_path, paste0(db_signature_tbl$signature_hashkey, ".RDS")))
   }else{
-    difexp = NULL
+    difexp <- NULL
   }
   
   # Create signature set

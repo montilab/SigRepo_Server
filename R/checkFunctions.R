@@ -15,7 +15,7 @@ checkPermissions <- function(
 ){
   
   # Check action_type
-  action_type <- base::match.arg(action_type)
+  action_type <- base::match.arg(action_type, several.ok = TRUE)
   
   # Check required_role
   required_role <- base::match.arg(required_role)
@@ -61,8 +61,8 @@ checkPermissions <- function(
     base::message(w, "\n")
   })
   
-  # Check if user has the permission to perform the selected action in the database
-  if(!action_type %in% user_privileges){
+  # Check if user has the permission to perform the selected actions in the database
+  if(any(!action_type %in% user_privileges)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message

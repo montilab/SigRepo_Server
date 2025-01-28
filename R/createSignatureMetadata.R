@@ -21,13 +21,24 @@ createSignatureMetadata <- function(
       omic_signature = omic_signature
     )
   }, error = function(e){
-    # Disconnect from database ####
+    # Disconnect from database
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
   }, warning = function(w){
     base::message(w, "\n")
   }) 
+  
+
+  # If has_difexp = TRUE, then get number of difexp
+  if(has_difexp == TRUE){
+    # Extract difexp from omic_signature ####
+    difexp <- omic_signature$difexp
+    # Get number of difexp
+    num_of_difexp <- nrow(difexp)
+  }else{
+    num_of_difexp <- 0
+  }
   
   # Extract signature table from omic_signature ####
   signature <- omic_signature$signature 
@@ -332,6 +343,7 @@ createSignatureMetadata <- function(
     year = year,
     others = others,
     has_difexp = has_difexp,
+    num_of_difexp = num_of_difexp,
     num_up_regulated = num_up_regulated,
     num_down_regulated = num_down_regulated
   )

@@ -18,9 +18,14 @@
   padding: 10px 10px 10px 10px;
 }
 
-.search-signature-content {
+.search-signature-sidebar {
    border: 1px solid gray; 
    padding: 20px 20px 20px 20px;
+}
+
+.search-signature-content {
+  border: 1px solid gray; 
+  padding: 20px 20px 20px 20px; 
 }
 
 input:checked {
@@ -113,6 +118,8 @@ input[type="checkbox"]:focus {
 }
 
 
-
+#signature_table {
+  overflow-x: scroll;
+}
 
 

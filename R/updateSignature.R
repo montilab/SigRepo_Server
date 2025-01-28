@@ -16,7 +16,7 @@
 #' )
 #' 
 #' # Get a list of signatures that belongs to user = 'guest'
-#' signature_tbl <- sigRepo::searchSignature(
+#' signature_tbl <- SigRepo::searchSignature(
 #'  conn_handler = conn_handler,
 #'  user_name = "guest"
 #' )
@@ -41,7 +41,7 @@ updateSignature <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = "INSERT",
+    action_type = c("SELECT", "INSERT", "DELETE"),
     required_role = "editor"
   )
 
@@ -140,7 +140,7 @@ updateSignature <- function(
     )
     
     # Create a signature hash key ####
-    signature_hashkey <- digest::digest(paste0(metadata_tbl$signature_name, metadata_tbl$organism_id, metadata_tbl$direction_type, metadata_tbl$assay_type, metadata_tbl$phenotype_id, user_name), algo = "md5", serialize = FALSE)
+    signature_hashkey <- digest::digest(paste0(metadata_tbl$signature_name, user_name), algo = "md5", serialize = FALSE)
     
     # Add additional variables in signature metadata table ###
     metadata_tbl <- metadata_tbl %>% 
