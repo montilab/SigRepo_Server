@@ -14,9 +14,9 @@ updateUser <- function(
     user_name,
     password = NULL,
     email = NULL,
-    affiliation = NULL,
     first_name = NULL,
     last_name = NULL,
+    affiliation = NULL,
     role = NULL
 ){
   
@@ -36,46 +36,6 @@ updateUser <- function(
     base::suppressMessages(DBI::dbDisconnect(conn))     
     # Show message
     base::stop("'user_name' must have a length of 1 and cannot be empty.")
-  }
-  
-  # Check role ####
-  if(length(role[1]) > 0 && any(!role[1] %in% c("admin", "editor", "viewer"))){
-    # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
-    # Show message
-    base::stop("'role' must have a length of 1 and have one of the three roles: admin/editor/viewer.")
-  }
-  
-  # Check email ####
-  if(length(email[1]) > 0){
-    # Check email format ####
-    check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(email[1]), ignore.case = TRUE)
-    
-    # If any emails do not have correct format, throw an error message
-    if(any(check_email == FALSE)){
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn))  
-      # Return error message
-      base::stop("Invalid email format.\n")
-    }
-    
-    # Get email table
-    email_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = db_table_name,
-      return_var = "*",
-      filter_coln_var = "user_email", 
-      filter_coln_val = list("user_email" = email[1]),
-      check_db_table = FALSE
-    ) 
-    
-    # Check if email not belongs to user
-    if(nrow(email_tbl) > 0 && !trimws(tolower(user_name[1])) %in% trimws(tolower(email_tbl$user_name))){
-      # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn))     
-      # Show message
-      base::stop("Someone else with email = '%s' is already existed in the database. Please try another email.")
-    }
   }
   
   # Get table name ####
@@ -102,7 +62,47 @@ updateUser <- function(
     
   }
   
-  # Remove user from database
+  # Check role ####
+  if(length(role[1]) > 0 && all(!role[1] %in% c("admin", "editor", "viewer"))){
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn))     
+    # Show message
+    base::stop("'role' must have a length of 1 and can have one of the three roles: admin/editor/viewer.")
+  }
+  
+  # Check email ####
+  if(length(email[1]) > 0){
+    # Check email format ####
+    check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(email[1]), ignore.case = TRUE)
+    
+    # If any emails do not have a correct format, throw an error message
+    if(any(check_email == FALSE)){
+      # Disconnect from database ####
+      base::suppressWarnings(DBI::dbDisconnect(conn))  
+      # Return error message
+      base::stop("Invalid email format.\n")
+    }
+    
+    # Get email table
+    email_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = db_table_name,
+      return_var = "*",
+      filter_coln_var = "user_email", 
+      filter_coln_val = list("user_email" = email[1]),
+      check_db_table = FALSE
+    ) 
+    
+    # Check if email not belongs to other users
+    if(nrow(email_tbl) > 0 && !trimws(tolower(user_name[1])) %in% trimws(tolower(email_tbl$user_name))){
+      # Disconnect from database ####
+      base::suppressMessages(DBI::dbDisconnect(conn))     
+      # Show message
+      base::stop("Someone with an email = '%s' already existed in the database. Please try another email.")
+    }
+  }
+
+  # Remove user from users table of the database
   SigRepo::delete_table_sql(
     conn = conn, 
     db_table_name = db_table_name, 
@@ -149,28 +149,29 @@ updateUser <- function(
   
   # IF USER IS NOT ROOT AND NOT EXIST IN DATABASE, CREATE USER AND GRANT USER PERMISSIONS TO DATABASE
   purrr::walk(
-    seq_len(nrow(table)),
+    base::seq_len(nrow(table)),
     function(u){
       #u=1;
       # CHECK IF USER EXIST IN DATABASE
       check_user_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
-      
       # CREATE USER IF NOT EXIST
-      if(nrow(check_user_tbl) == 0){
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u])))
-      }
-      
-      # GRANT USER PERMISSIONS TO DATABASE BASED ON THEIR ROLES
-      if(table$user_role[u] == "admin"){
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
-      }else if(table$user_role[u] == "editor"){
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT INSERT, UPDATE, DELETE ON sigrepo.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
-      }else if(table$user_role[u] == "viewer"){
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-        suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+      if(nrow(check_user_tbl) > 0){
+        # CHANGE PASSWORD IF A NEW PASSWORD IS GIVEN
+        if(length(password[1]) == 1 && all(!password[1] %in% c("", NA))){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], password[1])))
+        }
+        # GRANT USER PERMISSIONS TO DATABASE BASED ON THEIR ROLES
+        if(table$user_role[u] == "admin"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
+        }else if(table$user_role[u] == "editor"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT INSERT, UPDATE, DELETE ON sigrepo.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+        }else if(table$user_role[u] == "viewer"){
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+          suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+        }
       }
     }
   )

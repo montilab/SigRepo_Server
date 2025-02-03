@@ -279,8 +279,34 @@ checkDuplicatedEmails <- function(
 #' 
 #' @export
 checkOmicSignature <- function(
-    omic_signature
+    omic_signature,
+    check = TRUE
 ){
+  
+  # Whether to validate the object
+  if(check == FALSE){
+    
+    # Check difexp is provided ####
+    if("difexp" %in% names(omic_signature)){
+      difexp <- omic_signature$difexp
+      if(is.null(difexp)){
+        difexp <- NULL
+      }else{
+        # Check if difexp is a data frame 
+        if(!is(difexp, "data.frame") || length(difexp) == 0) 
+          base::stop("'difexp' in OmicSignature must be a data frame object and cannot be empty.")
+      }
+    }else{
+      difexp <- NULL
+    }
+    
+    # Create has_difexp variable to store whether omic_signature has difexp included ####
+    has_difexp <- ifelse(!is.null(difexp), 1, 0) 
+    
+    # Return difexp status
+    return(has_difexp)
+    
+  }
   
   # Check if omic_signature is an OmicSignature class object ####
   if(!is(omic_signature, "OmicSignature"))
@@ -345,11 +371,11 @@ checkOmicSignature <- function(
   difexp_req_fields <- c('feature_name', 'probe_id', 'score'); difexp_opt_fields <- c('p_value', 'q_value','adj_p')
   
   if(!is.null(difexp) && any(!difexp_req_fields %in% colnames(difexp)) && all(!difexp_opt_fields %in% colnames(difexp)))
-    base::stop("'difexp' in OmicSignature must have the following column names: ", paste0("'", difexp_req_fields, "'", collapse = ", "), " and one of the following fields: ", paste0("'", difexp_opt_fields, "'", collapse = " or "))
+    base::stop("'difexp' in OmicSignature must have the following required column names: ", paste0("'", difexp_req_fields, "'", collapse = ", "), " and one of the following fields: ", paste0("'", difexp_opt_fields, "'", collapse = " or "))
   
   # Make sure required column fields do not have any empty values ####
   if(!is.null(difexp) && any(is.na(difexp[,difexp_req_fields]) == TRUE))
-    base::stop(sprintf("All required column names in 'difexp' of OmicSignature: %s cannot contain any empty values.\n", paste0(difexp_req_fields, collapse = ", ")))
+    base::stop(sprintf("% are required column names in 'difexp' of OmicSignature, and they cannot contain any empty values.\n", paste0(difexp_req_fields, collapse = ", ")))
   
   # Check signature name (required) ####
   if(length(metadata$signature_name[1]) == 0 || metadata$signature_name[1] %in% c(NA, ""))
@@ -381,6 +407,60 @@ checkOmicSignature <- function(
   # Return difexp status
   return(has_difexp)
   
+}
+
+
+#' @title checkOmicCollection
+#' @description Check omic_signature is a valid R6 object
+#' @param omic_collection An OmicSignatureCollection object from OmicSignature package
+#' 
+#' @noRd
+#' 
+#' @export
+checkOmicCollection <- function(
+    omic_collection
+){
+  
+  # Check if metadata exists in the collection
+  if(!"metadata" %in% names(omic_collection))
+    base::stop("'OmicSignatureCollection' must contain a metadata object.\n")
+  
+  # Check if OmicSigList exists in the collection
+  if(!"OmicSigList" %in% names(omic_collection))
+    base::stop("'OmicSignatureCollection' must contain a OmicSigList object.\n")
+  
+  # Extract metadata from omic_collection ####
+  metadata <- omic_collection$metadata
+  
+  # Check if metadata is a list ####
+  if(!is(metadata, "list"))
+    base::stop("'metadata' in OmicSignatureCollection must be a list.")
+  
+  # Check required metadata fields ####
+  metadata_fields <- c('collection_name', 'description')
+  
+  if(any(!metadata_fields %in% names(metadata)))
+    base::stop("'metadata' in OmicSignatureCollection must have the following names:", paste0(metadata_fields, collapse = ", "))
+  
+  # Extract OmicSigList from omic_collection ####
+  omic_sig_list <- omic_collection$OmicSigList  
+  
+  # Check if OmicSigList is a list ####
+  if(!is(omic_sig_list, "list"))
+    base::stop("'OmicSigList' in OmicSignatureCollection must be a list containning a list of signature objects.")
+  
+  # Check required signature fields ####
+  purrr::walk(
+    base::seq_along(omic_sig_list),
+    function(c){
+      #c=1;
+      SigRepo::checkOmicSignature(
+        omic_signature = omic_sig_list[[c]],
+        check = TRUE
+      )
+    }
+  )
+
 }
 
 #' @title getNumOfObs
