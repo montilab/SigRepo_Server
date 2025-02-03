@@ -8,6 +8,7 @@ addSignature <- function(
     omic_signature
 ){
   
+  # Allow messages to be printed up to 2000 length long
   base::options(warning.length = 2000L)
   
   # Establish user connection ###
@@ -137,7 +138,7 @@ addSignature <- function(
     
     # 3. Importing signature set into database after signature
     # was imported successfully in step (1)
-    base::message("Adding signature set into the database...\n")
+    base::message("Adding signature feature set into the database...\n")
     
     # Get the signature assay type
     assay_type <- signature_tbl$assay_type
@@ -176,11 +177,14 @@ addSignature <- function(
       
     }
     
-    # Return message
-    base::message("Finished uploading.\n")
-    
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))    
+    
+     # Return message
+    base::message("Finished uploading.\n")
+       
+    # Return signature id
+    return(signature_tbl$signature_id)
     
   } 
 }  

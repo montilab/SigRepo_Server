@@ -9,9 +9,9 @@ updateUser(
   user_name,
   password = NULL,
   email = NULL,
-  affiliation = NULL,
   first_name = NULL,
   last_name = NULL,
+  affiliation = NULL,
   role = NULL
 )
 }
@@ -24,9 +24,9 @@ updateUser(
 
 \item{email}{Email of a user to be updated. Default is NULL.}
 
-\item{affiliation}{First name of a user to be updated. Default is NULL.}
-
 \item{last_name}{Last name of a user to be updated. Default is NULL.}
+
+\item{affiliation}{First name of a user to be updated. Default is NULL.}
 
 \item{role}{Role of a user to be updated. Choices are admin/editor/viewer.}
 }

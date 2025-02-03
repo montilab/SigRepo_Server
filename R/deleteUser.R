@@ -43,19 +43,9 @@ deleteUser <- function(
   if(nrow(table) == 0){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
-    
     # Show message
     base::stop(sprintf("There is no user = '%s' existed in the 'users' table of the SigRepo Database.", user_name))
   }
-  
-  # Remove user from user table 
-  SigRepo::delete_table_sql(
-    conn = conn, 
-    db_table_name = db_table_name, 
-    delete_coln_var = "user_name", 
-    delete_coln_val = user_name,
-    check_db_table = FALSE
-  )
   
   # DROP USER FROM DATABASE
   purrr::walk(
@@ -64,7 +54,6 @@ deleteUser <- function(
       #u=1;
       # CHECK IF USER EXIST IN DATABASE
       check_user_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
-      
       # CREATE USER IF NOT EXIST
       if(nrow(check_user_tbl) == 0){
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", table$user_name[u])))
@@ -72,42 +61,6 @@ deleteUser <- function(
     }
   )
 
-  # Remove user from signature table
-  SigRepo::delete_table_sql(
-    conn = conn, 
-    db_table_name = "signatures", 
-    delete_coln_var = "user_name", 
-    delete_coln_val = user_name,
-    check_db_table = FALSE
-  )
-  
-  # Remove user from signature access table
-  SigRepo::delete_table_sql(
-    conn = conn, 
-    db_table_name = "signature_access", 
-    delete_coln_var = "user_name", 
-    delete_coln_val = user_name,
-    check_db_table = FALSE
-  )
-  
-  # Remove user from collection table
-  SigRepo::delete_table_sql(
-    conn = conn, 
-    db_table_name = "collection", 
-    delete_coln_var = "user_name", 
-    delete_coln_val = user_name,
-    check_db_table = FALSE
-  )
-  
-  # Remove user from collection access table
-  SigRepo::delete_table_sql(
-    conn = conn, 
-    db_table_name = "collection_access", 
-    delete_coln_var = "user_name", 
-    delete_coln_val = user_name,
-    check_db_table = FALSE
-  )
-  
   # Disconnect from database ####
   base::suppressMessages(DBI::dbDisconnect(conn)) 
   
