@@ -108,7 +108,7 @@ updateSignature <- function(
             db_table_name = "signature_access",
             return_var = "*",
             filter_coln_var = c("signature_id", "user_name", "access_type"),
-            filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, access_type = c("owner", "editor")),
+            filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
             filter_var_by = c("AND", "AND"),
             check_db_table = TRUE
           )

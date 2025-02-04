@@ -17,10 +17,12 @@ a remote database obtained from SigRepo::newConnhandler()}
 
 \item{signature_id}{ID of the signature in the database}
 
-\item{user_name}{user name to be added to the signature}
+\item{user_name}{A list of users to be added to the signature}
 
-\item{access_type}{give permission to users to access the signature 
-in the database as admin/owner/editor/viewer
+\item{access_type}{A list of permissions to be given to users in order for 
+them to access or manage the signatures in the database. 
+
+There are three types of permissions:
 
 \code{admin} has read and write access to all signatures
 \code{owner} has read and write access to their own uploaded signatures

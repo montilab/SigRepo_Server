@@ -3,9 +3,11 @@
 #' @param conn_handler A handler uses to establish connection to  
 #' a remote database obtained from SigRepo::newConnhandler() 
 #' @param signature_id ID of the signature in the database
-#' @param user_name user name to be added to the signature
-#' @param access_type give permission to users to access the signature 
-#' in the database as admin/owner/editor/viewer
+#' @param user_name A list of users to be added to the signature
+#' @param access_type A list of permissions to be given to users in order for 
+#' them to access or manage the signatures in the database. 
+#' 
+#' There are three types of permissions:
 #' 
 #' \code{admin} has read and write access to all signatures
 #' \code{owner} has read and write access to their own uploaded signatures
@@ -138,7 +140,7 @@ addUserToSignature <- function(
           db_table_name = db_table_name,
           return_var = "*",
           filter_coln_var = c("signature_id", "user_name", "access_type"),
-          filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name, access_type = c("owner", "editor")),
+          filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
