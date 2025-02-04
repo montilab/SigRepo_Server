@@ -2,8 +2,8 @@
 #' @description Get the collection set uploaded by a specific user in the database.
 #' @param conn_handler A handler uses to establish connection to the database
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param db_collection_tbl The name of a collection that belongs to a specific user 
-#' (\code{user_name}) who previously uploaded the collection into the database (required. 
+#' @param db_collection_tbl A collection table in the database with associated 
+#' a list of signature ids to be made into an OmicSignatureCollection object (required)
 #' 
 #' @noRd
 #' 
