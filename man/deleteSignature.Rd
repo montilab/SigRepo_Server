@@ -9,7 +9,7 @@ deleteSignature(conn_handler, signature_id)
 \arguments{
 \item{conn_handler}{An established connection to the database using newConnhandler()}
 
-\item{signature_id}{The name of the signature being deleted from the database}
+\item{signature_id}{ID of signature to be removed from the database}
 }
 \description{
 Delete a signature from the signature table of the database

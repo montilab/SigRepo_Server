@@ -110,7 +110,7 @@ deleteCollection <- function(
     # Return message
     base::message(sprintf("Remove collection_id = '%s' from 'collection' table of the database.", collection_id))
     
-    # Delete signature from collection table in the database ####
+    # Delete signature from collection metadata table in the database ####
     SigRepo::delete_table_sql(
       conn = conn,
       db_table_name = db_table_name,

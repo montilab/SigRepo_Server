@@ -1,20 +1,20 @@
 #' @title addUserToSignature
-#' @description Add user to signature access table in the database
+#' @description Add a list of users with specific access to a signature 
+#' in the database
 #' @param conn_handler A handler uses to establish connection to  
 #' a remote database obtained from SigRepo::newConnhandler() 
-#' @param signature_id ID of the signature in the database
-#' @param user_name A list of users to be added to the signature
+#' @param signature_id An ID of signature in the database
+#' @param user_name A list of users to be added to a signature
 #' @param access_type A list of permissions to be given to users in order for 
-#' them to access or manage the signatures in the database. 
+#' them to view or manage the signature in the database. 
 #' 
 #' There are three types of permissions:
 #' 
-#' \code{admin} has read and write access to all signatures
-#' \code{owner} has read and write access to their own uploaded signatures
-#' \code{editor} has read and write access to only the signatures that other 
-#' users were given them access to
-#' \code{viewer} has only read access to the only the signatures that other 
-#' users were given them access to
+#' \code{owner} has Read and Write access to their own uploaded signatures.
+#' \code{editor} has Read and Write access to signatures that other users were 
+#' given them access to.
+#' \code{viewer} has ONLY Read access to signatures that other users were 
+#' given them access to.
 #' 
 #' @export
 addUserToSignature <- function(
@@ -39,9 +39,6 @@ addUserToSignature <- function(
   
   # Get user_name ####
   orig_user_name <- conn_info$user[1]
-  
-  # Get table name in database
-  db_table_name <- "signature_access" 
   
   # Check access_type
   access_type <- base::tryCatch({
@@ -112,7 +109,6 @@ addUserToSignature <- function(
     
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
-    
     # Show message
     base::stop(sprintf("There is no signature_id = '%s' in the 'signatures' table of the SigRepo Database.", signature_id))
     
@@ -122,7 +118,7 @@ addUserToSignature <- function(
     if(orig_user_role != "admin"){
       
       # Check if user is the one who uploaded the signature
-      signature_tbl <- SigRepo::lookup_table_sql(
+      signature_user_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
         db_table_name = "signatures",
         return_var = "*",
@@ -133,11 +129,11 @@ addUserToSignature <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(signature_tbl) == 0){
+      if(nrow(signature_user_tbl) == 0){
         
         signature_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
-          db_table_name = db_table_name,
+          db_table_name = "signature_access",
           return_var = "*",
           filter_coln_var = c("signature_id", "user_name", "access_type"),
           filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
@@ -147,13 +143,10 @@ addUserToSignature <- function(
         
         # If user does not have permission, throw an error message
         if(nrow(signature_access_tbl) == 0){
-          
           # Disconnect from database ####
           base::suppressMessages(DBI::dbDisconnect(conn)) 
-          
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to add User = % to signature_id = '%s' in the database.", orig_user_name, paste0("'", user_name, "'", collapse = ", "), signature_id))
-          
+          base::stop(sprintf("User = '%s' does not have the permission to add User = % to signature_id = '%s' in the database.", orig_user_name, paste0("'", user_name, "'", collapse = ", "), signature_id))
         }
       }
     }
@@ -177,7 +170,7 @@ addUserToSignature <- function(
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
       conn = conn,
-      db_table_name = db_table_name,
+      db_table_name = "signature_access",
       table = table, 
       check_db_table = TRUE
     )
@@ -185,7 +178,7 @@ addUserToSignature <- function(
     # Remove duplicates from table before inserting into database ####
     table <- SigRepo::removeDuplicates(
       conn = conn,
-      db_table_name = db_table_name,
+      db_table_name = "signature_access",
       table = table,
       coln_var = "access_sig_hashkey",
       check_db_table = FALSE
@@ -194,7 +187,7 @@ addUserToSignature <- function(
     # Insert table into database ####
     SigRepo::insert_table_sql(
       conn = conn,
-      db_table_name = db_table_name, 
+      db_table_name = "signature_access", 
       table = table,
       check_db_table = FALSE
     )
@@ -203,7 +196,7 @@ addUserToSignature <- function(
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
     # print message
-    base::message(sprintf("Adding User = % to signature_id = '%s' in the database completed.\n", paste0("'", user_name, "'", collapse = ", "), signature_id))
+    base::message("Adding user(s) to signature completed.\n")
     
   }  
 }  

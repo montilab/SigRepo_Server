@@ -1,18 +1,20 @@
 #' @title addUserToCollection
-#' @description Add user to signature access table in the database
+#' @description Add a list of users with specific access to a collection 
+#' in the database
 #' @param conn_handler A handler uses to establish connection to  
 #' a remote database obtained from SigRepo::newConnhandler() 
-#' @param collection_id ID of the signature in the database
-#' @param user_name user name to be added to the signature
-#' @param access_type give permission to users to access the signature 
-#' in the database as admin/owner/editor/viewer
+#' @param collection_id An ID of collection in the database
+#' @param user_name A list of users to be added to a collection
+#' @param access_type A list of permissions to be given to users in order for 
+#' them to view or manage the collection in the database. 
 #' 
-#' \code{admin} has read and write access to all signatures
-#' \code{owner} has read and write access to their own uploaded signatures
-#' \code{editor} has read and write access to only the signatures that other 
-#' users were given them access to
-#' \code{viewer} has only read access to the only the signatures that other 
-#' users were given them access to
+#' There are three types of permissions:
+#' 
+#' \code{owner} has Read and Write access to their own uploaded collection.
+#' \code{editor} has Read and Write access to collection that other users were 
+#' given them access to.
+#' \code{viewer} has ONLY Read access to collection that other users were 
+#' given them access to.
 #' 
 #' @export
 addUserToCollection <- function(
@@ -37,9 +39,6 @@ addUserToCollection <- function(
   
   # Get user_name ####
   orig_user_name <- conn_info$user[1]
-  
-  # Get table name in database
-  db_table_name <- "collection_access" 
   
   # Check access_type
   access_type <- base::tryCatch({
@@ -120,7 +119,7 @@ addUserToCollection <- function(
     if(orig_user_role != "admin"){
       
       # Check if user is the one who uploaded the signature
-      collection_tbl <- SigRepo::lookup_table_sql(
+      collection_user_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
         db_table_name = "collection",
         return_var = "*",
@@ -131,11 +130,11 @@ addUserToCollection <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(collection_tbl) == 0){
+      if(nrow(collection_user_tbl) == 0){
         
         signature_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
-          db_table_name = db_table_name,
+          db_table_name = "collection_access",
           return_var = "*",
           filter_coln_var = c("collection_id", "user_name", "access_type"),
           filter_coln_val = list("collection_id" = collection_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
@@ -148,7 +147,7 @@ addUserToCollection <- function(
           # Disconnect from database ####
           base::suppressMessages(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to add User = % to collection_id = '%s' in the database.", orig_user_name, paste0("'", user_name, "'", collapse = ", "), collection_id))
+          base::stop(sprintf("User = '%s' does not have the permission to add user = % to collection_id = '%s' in the database.", orig_user_name, paste0("'", user_name, "'", collapse = ", "), collection_id))
         }
       }
     }
@@ -172,7 +171,7 @@ addUserToCollection <- function(
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
       conn = conn,
-      db_table_name = db_table_name,
+      db_table_name = "collection_access",
       table = table, 
       check_db_table = TRUE
     )
@@ -180,7 +179,7 @@ addUserToCollection <- function(
     # Remove duplicates from table before inserting into database ####
     table <- SigRepo::removeDuplicates(
       conn = conn,
-      db_table_name = db_table_name,
+      db_table_name = "collection_access",
       table = table,
       coln_var = "access_collection_hashkey",
       check_db_table = FALSE
@@ -189,7 +188,7 @@ addUserToCollection <- function(
     # Insert table into database ####
     SigRepo::insert_table_sql(
       conn = conn,
-      db_table_name = db_table_name, 
+      db_table_name = "collection_access", 
       table = table,
       check_db_table = FALSE
     )
@@ -198,7 +197,7 @@ addUserToCollection <- function(
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
     # print message
-    base::message(sprintf("Adding User = % to collection_id = '%s' in the database completed.\n", paste0("'", user_name, "'", collapse = ", "), collection_id))
+    base::message("Adding user(s) to collection completed.\n")
     
   }  
 }  

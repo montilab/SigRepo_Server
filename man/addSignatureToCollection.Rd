@@ -10,10 +10,11 @@ addSignatureToCollection(conn_handler, collection_id, signature_id)
 \item{conn_handler}{A handler uses to establish connection to
 a remote database obtained from SigRepo::newConnhandler()}
 
-\item{collection_id}{ID of the collection in the database}
+\item{collection_id}{ID of collection in the database}
 
-\item{signature_id}{ID of the signature to be added to the collection}
+\item{signature_id}{A list of signature IDs to be added to a collection 
+in the database}
 }
 \description{
-Add signature to collection table in the database
+Add a list of signatures to a collection in the database
 }
