@@ -14,7 +14,7 @@ deleteSignature <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = c("SELECT", "INSERT", "DELETE"),
+    action_type = c("SELECT", "DELETE"),
     required_role = "editor"
   )
   
@@ -78,7 +78,7 @@ deleteSignature <- function(
           db_table_name = "signature_access",
           return_var = "*",
           filter_coln_var = c("signature_id", "user_name", "access_type"),
-          filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, access_type = c("owner", "editor")),
+          filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
@@ -118,7 +118,7 @@ deleteSignature <- function(
     }
     
     # Return message
-    base::message(sprintf("Remove signature_id = '%s' from 'signatures' table in the database.", signature_id))
+    base::message(sprintf("Remove signature_id = '%s' from 'signatures' table of the database.", signature_id))
     
     # Delete signature from signatures table in the database ####
     SigRepo::delete_table_sql(
@@ -154,7 +154,7 @@ deleteSignature <- function(
     )
     
     # Return message
-    base::message(sprintf("signature_id = '%s' has been deleted.", signature_id))
+    base::message(sprintf("signature_id = '%s' has been removed.", signature_id))
     
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 

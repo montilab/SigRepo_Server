@@ -138,7 +138,7 @@ addUserToCollection <- function(
           db_table_name = db_table_name,
           return_var = "*",
           filter_coln_var = c("collection_id", "user_name", "access_type"),
-          filter_coln_val = list("collection_id" = collection_id, "user_name" = orig_user_name, access_type = c("owner", "editor")),
+          filter_coln_val = list("collection_id" = collection_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )

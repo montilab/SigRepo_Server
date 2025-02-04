@@ -14,7 +14,7 @@ deleteCollection <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = c("SELECT", "INSERT", "DELETE"),
+    action_type = c("SELECT", "DELETE"),
     required_role = "editor"
   )
   
@@ -25,7 +25,7 @@ deleteCollection <- function(
   user_name <- conn_info$user[1]
   
   # Get table name in database ####
-  db_table_name <- "signatures"
+  db_table_name <- "collection"
   
   # Check collection_id
   if(!length(collection_id) == 1 || collection_id %in% c(NA, "")){
@@ -36,7 +36,7 @@ deleteCollection <- function(
   }
   
   # Check if signature exists ####
-  signature_tbl <- SigRepo::lookup_table_sql(
+  collection_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
     db_table_name = db_table_name,
     return_var = "*",
@@ -46,13 +46,13 @@ deleteCollection <- function(
   )
   
   # If signature exists, return the signature table else throw an error message
-  if(nrow(signature_tbl) == 0){
+  if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There is no collection_id = '%s' existed in the 'signatures' table of the SigRepo Database.", collection_id))
+    base::stop(sprintf("There is no collection_id = '%s' existed in the 'collection' table of the SigRepo Database.", collection_id))
     
   }else{
     
@@ -60,7 +60,7 @@ deleteCollection <- function(
     if(user_role != "admin"){
       
       # Check if user is the one who uploaded the signature
-      signature_tbl <- SigRepo::lookup_table_sql(
+      collection_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
         db_table_name = db_table_name,
         return_var = "*",
@@ -71,11 +71,11 @@ deleteCollection <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(signature_tbl) == 0){
+      if(nrow(collection_tbl) == 0){
         
-        signature_access_tbl <- SigRepo::lookup_table_sql(
+        collection_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
-          db_table_name = "signature_access",
+          db_table_name = "collection_access",
           return_var = "*",
           filter_coln_var = c("collection_id", "user_name", "access_type"),
           filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name, access_type = c("owner", "editor")),
@@ -84,14 +84,14 @@ deleteCollection <- function(
         )
         
         # If user has access, get the signature metadata table 
-        if(nrow(signature_access_tbl) > 0){
+        if(nrow(collection_access_tbl) > 0){
           
-          signature_tbl <- SigRepo::lookup_table_sql(
+          collection_tbl <- SigRepo::lookup_table_sql(
             conn = conn,
             db_table_name = db_table_name,
             return_var = "*",
             filter_coln_var = "collection_id",
-            filter_coln_val = list("collection_id" = signature_access_tbl$collection_id),
+            filter_coln_val = list("collection_id" = collection_access_tbl$collection_id),
             check_db_table = FALSE
           )
           
@@ -107,20 +107,10 @@ deleteCollection <- function(
       }
     }
     
-    # Check if signature has difexp, remove it
-    if(signature_tbl$has_difexp[1] == 1){
-      data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-      file_path <- base::file.path(data_path, paste0(signature_tbl$signature_hashkey[1], ".RDS"))
-      
-      if(base::file.exists(file_path)) {
-        base::unlink(file_path)
-      }
-    }
-    
     # Return message
-    base::message(sprintf("Remove collection_id = '%s' from 'signatures' table in the database.", collection_id))
+    base::message(sprintf("Remove collection_id = '%s' from 'collection' table of the database.", collection_id))
     
-    # Delete signature from signatures table in the database ####
+    # Delete signature from collection table in the database ####
     SigRepo::delete_table_sql(
       conn = conn,
       db_table_name = db_table_name,
@@ -128,33 +118,33 @@ deleteCollection <- function(
       delete_coln_val = collection_id,
       check_db_table = FALSE
     )
-    
-    # Return message
-    base::message(sprintf("Remove features belongs to collection_id = '%s' from 'signature_feature_set' table of the database.", collection_id))
-
-    # Delete signature from signature_feature_set table in the database ####
-    SigRepo::delete_table_sql(
-      conn = conn,
-      db_table_name = "signature_feature_set",
-      delete_coln_var = "collection_id",
-      delete_coln_val = collection_id,
-      check_db_table = TRUE
-    )
 
     # Return message
-    base::message(sprintf("Remove collection_id = '%s' from 'signature_access' table of the database.", collection_id))
+    base::message(sprintf("Remove collection_id = '%s' from 'collection_access' table of the database.", collection_id))
 
-    # Delete user from signature_access table in the database ####
+    # Delete user from collection_access table in the database ####
     SigRepo::delete_table_sql(
       conn = conn,
-      db_table_name = "signature_access",
+      db_table_name = "collection_access",
       delete_coln_var = "collection_id",
       delete_coln_val = collection_id,
       check_db_table = TRUE
     )
     
     # Return message
-    base::message(sprintf("collection_id = '%s' has been deleted.", collection_id))
+    base::message(sprintf("Remove signatures belongs to collection_id = '%s' from 'signature_collection_access' table of the database.", collection_id))
+    
+    # Delete signature from signature_collection_access table in the database ####
+    SigRepo::delete_table_sql(
+      conn = conn,
+      db_table_name = "signature_collection_access",
+      delete_coln_var = "collection_id",
+      delete_coln_val = collection_id,
+      check_db_table = TRUE
+    )
+    
+    # Return message
+    base::message(sprintf("collection_id = '%s' has been removed.", collection_id))
     
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 

@@ -1,9 +1,9 @@
-#' @title addSignatureCollection
+#' @title addCollection
 #' @description Add signature collection to database
 #' @param conn_handler An established connection to database using newConnhandler() 
 #' @param omic_collection A collection of OmicSignature objects from OmicSignature package
 #' @export
-addSignatureCollection <- function(
+addCollection <- function(
     conn_handler,
     omic_collection
 ){
@@ -76,7 +76,7 @@ addSignatureCollection <- function(
     # Extract omic_sig_list from omic_collection ####
     omic_sig_list <- omic_collection$OmicSigList
     
-    # Add signature into the database ####
+    # Add signature into the database and make sure the signature is not exits ####
     signature_id_list <- base::seq_along(omic_sig_list) %>% 
       purrr::map_chr(
         function(c){
@@ -87,8 +87,6 @@ addSignatureCollection <- function(
           )
         }
       )
-    
-    print(signature_id_list)
     
     # 2. Uploading collection metadata into database
     base::message("Uploading collection metadata into the database...\n")
