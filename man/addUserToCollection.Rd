@@ -15,20 +15,22 @@ addUserToCollection(
 \item{conn_handler}{A handler uses to establish connection to
 a remote database obtained from SigRepo::newConnhandler()}
 
-\item{collection_id}{ID of the signature in the database}
+\item{collection_id}{An ID of collection in the database}
 
-\item{user_name}{user name to be added to the signature}
+\item{user_name}{A list of users to be added to a collection}
 
-\item{access_type}{give permission to users to access the signature 
-in the database as admin/owner/editor/viewer
+\item{access_type}{A list of permissions to be given to users in order for 
+them to view or manage the collection in the database. 
 
-\code{admin} has read and write access to all signatures
-\code{owner} has read and write access to their own uploaded signatures
-\code{editor} has read and write access to only the signatures that other 
-users were given them access to
-\code{viewer} has only read access to the only the signatures that other 
-users were given them access to}
+There are three types of permissions:
+
+\code{owner} has Read and Write access to their own uploaded collection.
+\code{editor} has Read and Write access to collection that other users were 
+given them access to.
+\code{viewer} has ONLY Read access to collection that other users were 
+given them access to.}
 }
 \description{
-Add user to signature access table in the database
+Add a list of users with specific access to a collection 
+in the database
 }

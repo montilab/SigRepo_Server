@@ -59,7 +59,7 @@ getSignature <- function(
       db_table_name = "signatures", 
       return_var = "*", 
       filter_coln_var = "signature_id", 
-      filter_coln_val = list("signature_id" = unique(signature_access_tbl$signature_id)),
+      filter_coln_val = list("signature_id" = signature_access_tbl$signature_id),
       check_db_table = TRUE
     ) 
     
@@ -76,8 +76,7 @@ getSignature <- function(
   }
   
   # Get a list of filtered variables
-  filter_var <- "signature_name"
-  filter_val <- signature_name
+  filter_var <- "signature_name"; filter_val <- signature_name;
   
   # Filter table with given search variables
   for(r in base::seq_along(filter_var)){

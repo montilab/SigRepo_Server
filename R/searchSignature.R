@@ -48,7 +48,7 @@ searchSignature <- function(
   user_role <- conn_info$user_role[1] 
   
   # If user_role is not admin, check user access to the signature ####
-  if(user_role != "admin" && length(user_name) > 0 && all(!user_name %in% c("", NA))){
+  if(all(!user_name %in% c("", NA))){
     
     # Check user access ####
     signature_access_tbl <- SigRepo::lookup_table_sql(

@@ -87,7 +87,7 @@ updateSignature <- function(
     if(user_role != "admin"){
       
       # Check if user is the one who uploaded the signature
-      signature_tbl <- SigRepo::lookup_table_sql(
+      signature_user_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
         db_table_name = db_table_name,
         return_var = "*",
@@ -98,31 +98,28 @@ updateSignature <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(signature_tbl) == 0){
+      if(nrow(signature_user_tbl) == 0){
         
-        # If user is not admin, check if user has access to the signature
-        if(user_role != "admin"){
-          # Get access signature table
-          signature_access_tbl <- SigRepo::lookup_table_sql(
-            conn = conn,
-            db_table_name = "signature_access",
-            return_var = "*",
-            filter_coln_var = c("signature_id", "user_name", "access_type"),
-            filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
-            filter_var_by = c("AND", "AND"),
-            check_db_table = TRUE
-          )
+        # Get access signature table
+        signature_access_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = "signature_access",
+          return_var = "*",
+          filter_coln_var = c("signature_id", "user_name", "access_type"),
+          filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
+          filter_var_by = c("AND", "AND"),
+          check_db_table = TRUE
+        )
+        
+        # If user does not have permission, throw an error message
+        if(nrow(signature_access_tbl) == 0){
           
-          # If user does not have permission, throw an error message
-          if(nrow(signature_access_tbl) == 0){
-            
-            # Disconnect from database ####
-            base::suppressMessages(DBI::dbDisconnect(conn)) 
-            
-            # Show message
-            base::stop(sprintf("User = '%s' does not have permission to update signature_id = '%s' in the database.", user_name, signature_id))
-            
-          }
+          # Disconnect from database ####
+          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          
+          # Show message
+          base::stop(sprintf("User = '%s' does not have permission to update signature_id = '%s' in the database.", user_name, signature_id))
+          
         }
       }
     }

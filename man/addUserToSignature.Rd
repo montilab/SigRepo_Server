@@ -15,22 +15,22 @@ addUserToSignature(
 \item{conn_handler}{A handler uses to establish connection to
 a remote database obtained from SigRepo::newConnhandler()}
 
-\item{signature_id}{ID of the signature in the database}
+\item{signature_id}{An ID of signature in the database}
 
-\item{user_name}{A list of users to be added to the signature}
+\item{user_name}{A list of users to be added to a signature}
 
 \item{access_type}{A list of permissions to be given to users in order for 
-them to access or manage the signatures in the database. 
+them to view or manage the signature in the database. 
 
 There are three types of permissions:
 
-\code{admin} has read and write access to all signatures
-\code{owner} has read and write access to their own uploaded signatures
-\code{editor} has read and write access to only the signatures that other 
-users were given them access to
-\code{viewer} has only read access to the only the signatures that other 
-users were given them access to}
+\code{owner} has Read and Write access to their own uploaded signatures.
+\code{editor} has Read and Write access to signatures that other users were 
+given them access to.
+\code{viewer} has ONLY Read access to signatures that other users were 
+given them access to.}
 }
 \description{
-Add user to signature access table in the database
+Add a list of users with specific access to a signature 
+in the database
 }

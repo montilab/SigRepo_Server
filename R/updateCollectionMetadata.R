@@ -41,9 +41,6 @@ updateCollectionMetadata <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]    
   
-  # Get table name in database ####
-  db_table_name <- "collection"
-  
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
     # Disconnect from database ####
@@ -55,7 +52,7 @@ updateCollectionMetadata <- function(
   # Check if collection exists ####
   collection_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
-    db_table_name = db_table_name,
+    db_table_name = "collection",
     return_var = "*",
     filter_coln_var = "collection_id",
     filter_coln_val = list("collection_id" = collection_id),
@@ -77,9 +74,9 @@ updateCollectionMetadata <- function(
     if(user_role != "admin"){
       
       # Check if user is the one who uploaded the collection
-      collection_tbl <- SigRepo::lookup_table_sql(
+      collection_user_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
-        db_table_name = db_table_name,
+        db_table_name = "collection",
         return_var = "*",
         filter_coln_var = c("collection_id", "user_name"), 
         filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name),
@@ -88,31 +85,28 @@ updateCollectionMetadata <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(collection_tbl) == 0){
+      if(nrow(collection_user_tbl) == 0){
         
-        # If user is not admin, check if user has access to the collection
-        if(user_role != "admin"){
-          # Get access collection table
-          collection_access_tbl <- SigRepo::lookup_table_sql(
-            conn = conn,
-            db_table_name = "collection_access",
-            return_var = "*",
-            filter_coln_var = c("collection_id", "user_name", "access_type"),
-            filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name, access_type = c("owner", "editor")),
-            filter_var_by = c("AND", "AND"),
-            check_db_table = TRUE
-          )
+        # Get access collection table
+        collection_access_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = "collection_access",
+          return_var = "*",
+          filter_coln_var = c("collection_id", "user_name", "access_type"),
+          filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
+          filter_var_by = c("AND", "AND"),
+          check_db_table = TRUE
+        )
+        
+        # If user does not have permission, throw an error message
+        if(nrow(collection_access_tbl) == 0){
           
-          # If user does not have permission, throw an error message
-          if(nrow(collection_access_tbl) == 0){
-            
-            # Disconnect from database ####
-            base::suppressMessages(DBI::dbDisconnect(conn)) 
-            
-            # Show message
-            base::stop(sprintf("User = '%s' does not have permission to update collection_id = '%s' in the database.", user_name, collection_id))
-            
-          }
+          # Disconnect from database ####
+          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          
+          # Show message
+          base::stop(sprintf("User = '%s' does not have permission to update collection_id = '%s' in the database.", user_name, collection_id))
+          
         }
       }
     }
@@ -124,32 +118,11 @@ updateCollectionMetadata <- function(
       # Show message
       base::stop("'collection_name' and 'description' cannot both be empty. Please provide a value to either variable.")
     }
-    
-    # Check collection_name is given ####
-    if(length(collection_name[1]) > 0){
-      
-      collection_name_tbl <- SigRepo::lookup_table_sql(
-        conn = conn,
-        db_table_name = db_table_name,
-        return_var = "*",
-        filter_coln_var = "collection_name", 
-        filter_coln_val = list("collection_name" = collection_name[1]),
-        check_db_table = FALSE
-      ) 
-      
-      # Check if collection_name not belongs to other users in the database
-      if(nrow(collection_name_tbl) > 0 && !trimws(tolower(user_name[1])) %in% trimws(tolower(collection_name_tbl$user_name))){
-        # Disconnect from database ####
-        base::suppressMessages(DBI::dbDisconnect(conn))     
-        # Show message
-        base::stop("Someone already uploaded a collection_name = '%s' into the database. Please try another name.")
-      }
-    }
 
-    # 1. Delete collection from collection table in the database ####
+    # 1. Delete collection id from collection metadata table ####
     SigRepo::delete_table_sql(
       conn = conn,
-      db_table_name = db_table_name,
+      db_table_name = "collection",
       delete_coln_var = "collection_id",
       delete_coln_val = collection_tbl$collection_id[1],
       check_db_table = FALSE
@@ -158,6 +131,8 @@ updateCollectionMetadata <- function(
     # Add updated variables
     metadata_tbl <- collection_tbl %>% 
       dplyr::mutate(
+        collection_id = collection_tbl$collection_id,
+        user_name = collection_tbl$user_name,
         collection_name = ifelse(length(!!collection_name[1]) == 0 || all(!!collection_name[1] %in% c("", NA)), collection_name, !!collection_name[1]),
         description = ifelse(length(!!description[1]) == 0 || all(!!description[1] %in% c("", NA)), description, !!description[1])
       )
@@ -173,7 +148,7 @@ updateCollectionMetadata <- function(
     # Check table against database table ####
     metadata_tbl <- SigRepo::checkTableInput(
       conn = conn,
-      db_table_name = db_table_name,
+      db_table_name = "collection",
       table = metadata_tbl, 
       exclude_coln_names = "date_created",
       check_db_table = FALSE
@@ -182,7 +157,7 @@ updateCollectionMetadata <- function(
     # Insert table into database ####
     SigRepo::insert_table_sql(
       conn = conn,
-      db_table_name = db_table_name, 
+      db_table_name = "collection", 
       table = metadata_tbl,
       check_db_table = FALSE
     ) 

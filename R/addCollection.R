@@ -30,7 +30,7 @@ addCollection <- function(
   # Get table name in database ####
   db_table_name <- "collection"
   
-  # Create collection metadata table ####
+  # Check and create collection metadata table ####
   metadata_tbl <- SigRepo::createCollectionMetadata(
     conn_handler = conn_handler, 
     omic_collection = omic_collection
@@ -66,6 +66,7 @@ addCollection <- function(
     # Show message
     base::stop(sprintf("\tYou already uploaded a collection with collection_name = '%s' into the SigRepo Database.\n", metadata_tbl$collection_name),
                sprintf("\tUse searchCollection() to see more details about the collection.\n"),
+               sprintf("\tUse addSignatureToCollection() to add additional signatures to the collection.\n"),
                sprintf("\tTo re-upload, try to use a different name.\n"))
     
   }else{
@@ -76,7 +77,7 @@ addCollection <- function(
     # Extract omic_sig_list from omic_collection ####
     omic_sig_list <- omic_collection$OmicSigList
     
-    # Add signature into the database and make sure the signature is not exits ####
+    # Add signature into the database and make sure each signature does not already exit in the database####
     signature_id_list <- base::seq_along(omic_sig_list) %>% 
       purrr::map_chr(
         function(c){

@@ -1,13 +1,13 @@
-#' @title deleteSignatureFromCollection
-#' @description Delete a list of signatures from collection table in the database
+#' @title removeSignatureFromCollection
+#' @description Delete a list of signatures from a collection in the database
 #' @param conn_handler A handler uses to establish connection to  
 #' a remote database obtained from SigRepo::newConnhandler() 
-#' @param collection_id ID of the collection in the database
-#' @param signature_id A list of signature IDs to be removed from the 
-#' collection in the databse 
+#' @param collection_id ID of collection in the database
+#' @param signature_id A list of signature IDs to be removed from a collection 
+#' in the database 
 #' 
 #' @export
-deleteSignatureFromCollection <- function(
+removeSignatureFromCollection <- function(
     conn_handler,
     collection_id,
     signature_id
@@ -60,7 +60,7 @@ deleteSignatureFromCollection <- function(
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(sprintf("signature_id = %s does not exist in the signatures table of the database.", paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", ")))
+    base::stop(sprintf("signature_id = %s does not exist in the signatures table of the SigRepo Database.", paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", ")))
   }
   
   # Check if collection exists ####
@@ -88,7 +88,7 @@ deleteSignatureFromCollection <- function(
     if(user_role != "admin"){
       
       # Check if user was the one who uploaded the collection
-      collection_tbl <- SigRepo::lookup_table_sql(
+      collection_user_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
         db_table_name = "collection",
         return_var = "*",
@@ -99,14 +99,14 @@ deleteSignatureFromCollection <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(collection_tbl) == 0){
+      if(nrow(collection_user_tbl) == 0){
         
         signature_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "collection_access",
           return_var = "*",
           filter_coln_var = c("collection_id", "user_name", "access_type"),
-          filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name, signature_id, "access_type" = c("owner", "editor")),
+          filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
@@ -116,27 +116,46 @@ deleteSignatureFromCollection <- function(
           # Disconnect from database ####
           base::suppressMessages(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to delete signature_id = % belong(s) to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
+          base::stop(sprintf("User = '%s' does not have permission to remove signature_id = % that belong(s) to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
         }
       }
     }
     
     # Delete selected signatures associated with collection in the database ####
     signature_collection_hashkey <- paste0(collection_id, signature_id) %>% tolower(.) %>% digest::digest(., algo = "md5", serialize = FALSE)
-      
+    
+    # Check if signature id exists collection by its hash key ####
+    signature_collection_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "signature_collection_access",
+      return_var = "*",
+      filter_coln_var = "signature_collection_hashkey",
+      filter_coln_val = list("signature_collection_hashkey" = signature_collection_hashkey),
+      check_db_table = TRUE
+    )
+    
+    # If signature does not exist in collection, throw an error message
+    if(nrow(signature_collection_tbl) != length(unique(signature_id))){
+      # Disconnect from database ####
+      base::suppressMessages(DBI::dbDisconnect(conn)) 
+      # Show message
+      base::stop(sprintf("signature_id = %s does not belongs to collection_id = %s.", paste0("'", signature_id[which(!signature_id %in% signature_collection_tbl$signature_id)], "'", collapse = ", ")))
+    }
+    
+    # If signature does exist in collection, remove them from collection
     SigRepo::delete_table_sql(
       conn = conn,
       db_table_name = "signature_collection_access",
       delete_coln_var = "signature_collection_hashkey", 
       delete_coln_val = signature_collection_hashkey,
-      check_db_table = TRUE
+      check_db_table = FALSE
     )
 
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
     # print message
-    base::message(sprintf("Removing signature_id = % from collection_id = '%s' in the database completed.\n", paste0("'", signature_id, "'", collapse = ", "), collection_id))
+    base::message("Removing signature(s) from collection completed.\n")
     
   }  
 }  
