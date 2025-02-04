@@ -2,9 +2,7 @@
 #' @description Get a list of signatures uploaded by a specified user in the database.
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param user_name The name of the user who uploaded the signature into the database. 
-#' @param signature_name The name of a signature that belongs to a specific user 
-#' (\code{user_name}) who previously uploaded the signature into the database. 
+#' @param signature_name The name of signatures to be returned
 #' @export
 #' @import doParallel plyr
 getSignature <- function(

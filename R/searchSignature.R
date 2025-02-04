@@ -44,11 +44,8 @@ searchSignature <- function(
     required_role = "viewer"
   )
   
-  # Get user_role ####
-  user_role <- conn_info$user_role[1] 
-  
   # If user_role is not admin, check user access to the signature ####
-  if(all(!user_name %in% c("", NA))){
+  if(length(username) > 0 && all(!user_name %in% c("", NA))){
     
     # Check user access ####
     signature_access_tbl <- SigRepo::lookup_table_sql(
@@ -56,7 +53,7 @@ searchSignature <- function(
       db_table_name = "signature_access", 
       return_var = "*", 
       filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, access_type = c("owner", "editor", "viewer")),
+      filter_coln_val = list("user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
       filter_var_by = "AND",
       check_db_table = TRUE
     ) 
@@ -68,7 +65,7 @@ searchSignature <- function(
       base::suppressMessages(DBI::dbDisconnect(conn))     
       
       # Show message
-      base::stop(sprintf("There are no signatures that belongs to user_name: %s in the database.\n", paste0("'", user_name[which(!user_name %in% c("", NA))], "'", collapse = ",")))
+      base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
       
     }
     
@@ -167,6 +164,17 @@ searchSignature <- function(
         filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
         signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var))) %in% trimws(tolower(filter_val)))
       }
+    }
+    
+    # Check if signature is empty, throw an error message
+    if(nrow(signature_tbl) == 0){
+      
+      # Disconnect from database ####
+      base::suppressMessages(DBI::dbDisconnect(conn))     
+      
+      # Show message
+      base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+      
     }
     
     # Extract the table with appropriate column names ####

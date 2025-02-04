@@ -1,15 +1,12 @@
-#' @title getSignature
-#' @description Get a list of signatures uploaded by a specified user in the database.
+#' @title getCollection
+#' @description Get a list of collection uploaded by a specified user in the database.
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param user_name The name of the user who uploaded the signature into the database. 
-#' @param signature_name The name of a signature that belongs to a specific user 
-#' (\code{user_name}) who previously uploaded the signature into the database. 
+#' @param collection_name The name of collection to be returned
 #' @export
-#' @import doParallel plyr
-getSignature <- function(
+getCollection <- function(
     conn_handler,
-    signature_name = NULL
+    collection_name = NULL
 ){
   
   # Establish user connection ###
@@ -32,43 +29,43 @@ getSignature <- function(
   if(user_role != "admin"){
     
     # Check user access ####
-    signature_access_tbl <- SigRepo::lookup_table_sql(
+    collection_access_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
-      db_table_name = "signature_access", 
+      db_table_name = "collection_access", 
       return_var = "*", 
       filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, access_type = c("owner", "editor", "viewer")),
+      filter_coln_val = list("user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
       filter_var_by = "AND",
       check_db_table = TRUE
     ) 
     
     # If user does not have owner or editor permission, throw an error message
-    if(nrow(signature_access_tbl) == 0){
+    if(nrow(collection_access_tbl) == 0){
       
       # Disconnect from database ####
       base::suppressMessages(DBI::dbDisconnect(conn)) 
       
       # Show message
-      base::stop(sprintf("There are no signatures that belong to user_name = '%s' in the database.\n", user_name))
+      base::stop(sprintf("There are no collection that belong to user_name = '%s' in the database.\n", user_name))
       
     }
     
-    # Look up signatures
-    signature_tbl <- SigRepo::lookup_table_sql(
+    # Look up collection
+    collection_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
-      db_table_name = "signatures", 
+      db_table_name = "collection", 
       return_var = "*", 
-      filter_coln_var = "signature_id", 
-      filter_coln_val = list("signature_id" = unique(signature_access_tbl$signature_id)),
+      filter_coln_var = "collection_id", 
+      filter_coln_val = list("collection_id" = unique(collection_access_tbl$collection_id)),
       check_db_table = TRUE
     ) 
     
   }else{
     
-    # Look up signatures
-    signature_tbl <- SigRepo::lookup_table_sql(
+    # Look up collection
+    collection_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
-      db_table_name = "signatures", 
+      db_table_name = "collection", 
       return_var = "*", 
       check_db_table = TRUE
     ) 
@@ -76,96 +73,46 @@ getSignature <- function(
   }
   
   # Get a list of filtered variables
-  filter_var <- "signature_name"
-  filter_val <- signature_name
+  filter_var <- "collection_name"; filter_val <- collection_name;
   
   # Filter table with given search variables
   for(r in base::seq_along(filter_var)){
     #r=1;
     filter_status <- ifelse(length(filter_val[r]) == 0 || all(filter_val[r] %in% c("", NA)), FALSE, TRUE)
     if(filter_status == TRUE){
-      signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var[r]))) %in% trimws(tolower(filter_val[r])))
+      collection_tbl <- collection_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var[r]))) %in% trimws(tolower(filter_val[r])))
     }
   }
   
   # Check if signature exists
-  if(nrow(signature_tbl) == 0){
+  if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+    base::stop(sprintf("There are no collection returned from the search parameters.\n"))
     
   }else{
     
-    # Look up organism ####
-    lookup_organism_id <- signature_tbl$organism_id
-    
-    organism_id_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "organisms", 
-      return_var = c("organism_id", "organism"), 
-      filter_coln_var = "organism_id", 
-      filter_coln_val = list("organism_id" = lookup_organism_id),
-      check_db_table = TRUE
-    ) 
-    
-    # Look up phenotype id ####
-    lookup_phenotype_id <- signature_tbl$phenotype_id
-    
-    phenotype_id_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "phenotypes", 
-      return_var = c("phenotype_id", "phenotype"), 
-      filter_coln_var = "phenotype_id", 
-      filter_coln_val = list("phenotype_id" = lookup_phenotype_id),
-      check_db_table = TRUE
-    ) 
-    
-    # Look up sample_type_id ####
-    lookup_sample_type_id <- signature_tbl$sample_type_id
-    
-    sample_type_id_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "sample_types", 
-      return_var = c("sample_type_id", "sample_type"), 
-      filter_coln_var = "sample_type_id", 
-      filter_coln_val = list("sample_type_id" = lookup_sample_type_id),
-      check_db_table = TRUE
-    ) 
-    
-    # Add variables to table
-    signature_tbl <- signature_tbl %>% 
-      dplyr::left_join(organism_id_tbl, by = "organism_id") %>% 
-      dplyr::left_join(phenotype_id_tbl, by = "phenotype_id") %>% 
-      dplyr::left_join(sample_type_id_tbl, by = "sample_type_id")
-    
-    # Rename table with appropriate column names 
-    coln_names <- colnames(signature_tbl) %>% 
-      base::replace(., base::match(c("organism_id", "phenotype_id", "sample_type_id"), .), c("organism", "phenotype", "sample_type"))
-    
-    # Extract the table with appropriate column names ####
-    signature_tbl <- signature_tbl %>% dplyr::select(all_of(coln_names))
-    
-    # Create a place holder to store signatures
-    omic_signature_list <- list()
+    # Create a place holder to store collection
+    omic_collection_list <- list()
     
     # Create an omic signature object for each signature id ####
-    for(r in 1:nrow(signature_tbl)){
+    for(r in 1:nrow(collection_tbl)){
       #r=1;
-      db_signature_tbl <- signature_tbl %>% dplyr::slice(r)
+      db_collection_tbl <- collection_tbl %>% dplyr::slice(r)
       
       # Create an OmicSignature object
-      omic_signature <- SigRepo::createOmicSignature(
+      omic_signature_collection <- SigRepo::createOmicSignatureCollection(
         conn_handler = conn_handler,
-        db_signature_tbl = db_signature_tbl
+        db_collection_tbl = db_collection_tbl
       )
       
       # Append OmicSignature object to overall list
-      omic_signature_list <- c(
-        omic_signature_list, 
-        omic_signature
+      omic_collection_list <- c(
+        omic_collection_list, 
+        omic_signature_collection
       )
     }
 
@@ -173,7 +120,7 @@ getSignature <- function(
     base::suppressMessages(DBI::dbDisconnect(conn))
     
     # Return table
-    return(omic_signature_list)
+    return(omic_collection_list)
     
   }  
 }
