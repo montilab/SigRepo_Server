@@ -38,11 +38,11 @@ addSignatureToCollection <- function(
   }
   
   # Check signature_id
-  if(!length(signature_id) == 1 || all(signature_id %in% c(NA, ""))){
+  if(length(signature_id) == 0 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+    base::stop("'signature_id' cannot be empty.")
   }
   
   # Check if signature exists in the signatures table of the database
@@ -199,10 +199,7 @@ addSignatureToCollection <- function(
 
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
-    
-    # print message
-    base::message("Adding signature(s) to collection completed.\n")
-    
+
   }  
 }  
 

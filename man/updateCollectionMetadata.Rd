@@ -7,8 +7,8 @@
 updateCollectionMetadata(
   conn_handler,
   collection_id,
-  collection_name,
-  description
+  collection_name = NULL,
+  description = NULL
 )
 }
 \arguments{

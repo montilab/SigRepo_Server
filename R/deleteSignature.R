@@ -152,7 +152,7 @@ deleteSignature <- function(
     )
 
     # Return message
-    base::message("signature(s) has been removed.")
+    base::message(sprintf("signature_id = '%s' has been removed.", signature_id))
     
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 

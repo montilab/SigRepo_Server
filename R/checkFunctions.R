@@ -691,8 +691,12 @@ createHashKey <- function(
     }
   )
   
+  # Get column names without the creating harh_var
+  tbl_colnames <- colnames(table)[which(!colnames(table) %in% hash_var)]
+  
   # Create the hash variable
   table <- table %>% 
+    dplyr::select(all_of(tbl_colnames)) %>% 
     dplyr::rowwise() %>% 
     dplyr::mutate(
       hash_key = ifelse(

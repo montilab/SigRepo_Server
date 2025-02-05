@@ -4,7 +4,10 @@
 #' @param conn An established database connection using newConnhandler() 
 #' @param db_table_name Name of a table in the database
 #' @param table A table in the database
-#' @param check_db_table whether to check database table. Default = TRUE
+#' @param check_db_table whether to check database table. Default = TRUE.
+#' 
+#' @noRd
+#' 
 #' @export
 insert_table_sql <- function(
     conn, 

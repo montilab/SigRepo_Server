@@ -195,9 +195,6 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn)) 
     
-    # print message
-    base::message("Adding user(s) to signature completed.\n")
-    
   }  
 }  
 
