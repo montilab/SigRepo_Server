@@ -550,7 +550,8 @@ CREATE TABLE `%s` (
   `user_last` VARCHAR(255) DEFAULT NULL,
   `user_affiliation` TEXT DEFAULT NULL,
   `user_role` SET("admin", "editor", "viewer") NOT NULL,
-  `api_key` VARCHAR(32) NOT NULL
+  `api_key` VARCHAR(32) NOT NULL,
+  `user_hashkey` VARCHAR(32) NOT NULL,                 
   PRIMARY KEY (`user_name`),
   UNIQUE (`user_name`),
   CHECK (`user_email` REGEXP "^[a-zA-Z0-9][+a-zA-Z0-9._-]*@[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,4}$")

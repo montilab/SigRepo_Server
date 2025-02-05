@@ -1,0 +1,341 @@
+---
+title: "SigRepo Function Suite"
+author: "Monti Lab"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+
+knitr::opts_chunk$set(
+  message = TRUE,
+  warning = FALSE,
+  error = TRUE,
+  collapse = TRUE,
+  comment = "#>"
+)
+
+# Load R packages
+# For data cleaning, extraction and manipulation
+library(tidyverse)
+
+# For loading and installing packages
+library(devtools)
+
+# Load SigRepo package
+devtools::load_all()
+
+# Load OmicSignature package
+devtools::load_all("OmicSignature")
+
+```
+
+# Introduction
+
+The `SigRepo` package includes a suite of functions for easily storing and managing biological signatures and its constituents. Currently, `Sigrepo` is capable of storing, searching, and retrieving signatures and its signature collections from a MySQL Database of choice. See <a href="">here</a> for documentation of how set-up the MySQL database with the appropriate schema.
+
+In order to interact with a suite of functions in `SigRepo` package, the input data must be in a format of R6 objects for the representation of signatures and signature collections, and they can be created using our proprietary package, <a href="https://github.com/montilab/OmicSignature">OmicSignature</a>. 
+
+For more information click the links below.
+
+- [Overview of the object structure](https://montilab.github.io/OmicSignature/articles/ObjectStructure.html)
+- [Create an OmicSignature (OmS)](https://montilab.github.io/OmicSignature/articles/CreateOmS.html)
+- [Create an OmicSignatureCollection (OmSC)](https://montilab.github.io/OmicSignature/articles/CreateOmSC.html)
+
+For demonstrations, we will walk through the steps of how to use `SigRepo` package to store, retrieve, and interact with a list of signatures stored in our MySQL SigRepo Database. 
+
+# Installation
+
+- Using `devtools` package
+
+```
+
+# Load devtools package
+library(devtools)
+
+# Install SigRepo
+devtools::install_github(repo = 'montilab/SigRepo')
+
+# Install OmicSignature
+devtools::install_github(repo = 'montilab/OmicSignature')
+
+```
+
+# Connect to SigRepo Database
+
+We adopted a MySQL Database structure for efficiently storing, searching, and retrieving the biological signatures and its constituents. To access the signatures stored in our database, you MUST <a href="">register here</a> to create an account or contact our <a href="">admin</a> to be added.
+
+There are three types of user accounts:<br>
+- `admin` has <b>READ</b> and <b>WRITE</b> access to all signatures in the database.<br>
+- `editor` has <b>READ</b> and <b>WRITE</b> access to ONLY their own uploaded signatures in the database.<br>
+- `viewer` has <b>ONLY READ</b> access to view a list of signatures in the database but <b>DO NOT HAVE WRITE</b> access to the database.<br>
+
+Once you have a valid account, to connection to our SigRepo Database, one can use `newConnHandler()` function to create a handler which will contain appropriate credentials to establish connection to our database.
+
+```{r}
+# Create a connection handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
+)
+```
+
+# Load Signatures
+
+Here, we provided two signature objects that came with the package for demonstrations:
+
+1. omic_signature_AGS_OmS
+2. omic_signature_MDA_CYP
+
+```{r}
+# Getting the signature path
+signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+
+# Read in the signature object
+omic_signature_AGS_OmS <- base::readRDS(file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
+omic_signature_MDA_CYP <- base::readRDS(file.path(signature_path, "omic_signature_MDA_CYP.RDS"))
+```
+
+# Upload a signature
+
+The function `addSignature()` allows the user to upload a signature to the database. 
+
+__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. 
+
+- **Example 1**: Create an omic signature using **OmicSignature** package and upload to database 
+
+```{r}
+
+# Create signature metadata
+metadata <- OmicSignature::createMetadata(
+  
+  # required attributes:
+  signature_name = "Myc_reduce_mice_liver_24m",
+  organism = "Mus Musculus",
+  direction_type = "bi-directional",
+  assay_type = "transcriptomics",
+  phenotype = "Myc_reduce",
+  
+  # optional and recommended:
+  covariates = "none",
+  description = "mice MYC reduced expression",
+  platform = "GPL6246", # use GEO platform ID
+  sample_type = "liver", # use BRENDA ontology
+  
+  # optional cut-off attributes.
+  # specifying them can facilitate the extraction of signatures.
+  logfc_cutoff = NULL,
+  p_value_cutoff = NULL,
+  adj_p_cutoff = 0.05,
+  score_cutoff = 5,
+  
+  # other optional built-in attributes:
+  keywords = c("Myc", "KO", "longevity"),
+  cutoff_description = NULL,
+  author = NULL,
+  PMID = 25619689,
+  year = 2015,
+  
+  # example of customized attributes:
+  others = list("animal_strain" = "C57BL/6")
+)
+
+# Create difexp object
+difexp <- readRDS(file.path(system.file("extdata", package = "OmicSignature"), "difmatrix_Myc_mice_liver_24m.rds")) %>% dplyr::rename(feature_name = ensembl)
+colnames(difexp) <- OmicSignature::replaceDifexpCol(colnames(difexp))
+
+# Create signature object
+signature <- difexp %>%
+  dplyr::filter(abs(score) > metadata$score_cutoff & adj_p < metadata$adj_p_cutoff) %>%
+  dplyr::select(probe_id, feature_name, score) %>%
+  dplyr::mutate(direction = ifelse(score > 0, "+", "-"))
+
+# Create signature object 
+omic_signature <- OmicSignature::OmicSignature$new(
+  metadata = metadata,
+  signature = signature,
+  difexp = difexp
+)
+
+# Add signature to database
+SigRepo::addSignature(
+  conn_handler = conn_handler, 
+  omic_signature = omic_signature
+)
+
+```
+
+- **Example 2**: Upload `omic_signature_AGS_OmS` signature
+
+```{r}
+SigRepo::addSignature(
+  conn_handler = conn_handler, 
+  omic_signature = omic_signature_AGS_OmS
+)
+```
+
+- **Example 3**: Upload `omic_signature_MDA_CYP` signature
+
+```{r}
+SigRepo::addSignature(
+  conn_handler = conn_handler, 
+  omic_signature = omic_signature_MDA_CYP
+)
+```
+
+# Search for a signature
+
+The function `searchSignature()` allows the user to search for all or a specific signature that is available in the database. 
+
+- Search for all signatures 
+
+```{r}
+
+knitr::kable(
+  SigRepo::searchSignature(conn_handler = conn_handler), 
+  row.names = FALSE
+)
+
+```
+
+- Search for a specific signature, e.g., **"LLFS_Aging_Gene_2023"**, in the database
+
+```{r}
+
+knitr::kable(
+  SigRepo::searchSignature(
+    conn_handler = conn_handler, 
+    signature_name = "LLFS_Aging_Gene_2023"
+  ),
+  row.names = FALSE
+)
+
+```
+
+# Retrieve an omic signature
+
+The function `getSignature()` allows the user to retrieve a list of omic signature objects that belongs to themselves from the database. 
+
+__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY RETRIEVE** their own uploaded signatures or was given the `editor` permission from other users to do so.
+
+- Retrieve all signatures
+
+```{r}
+signature_list <- SigRepo::getSignature(conn_handler = conn_handler)
+```
+
+- Retrieve a specific signature
+
+```{r}
+LLFS_signature <- SigRepo::getSignature(
+  conn_handler = conn_handler, 
+  signature_name = "LLFS_Aging_Gene_2023"
+)
+```
+
+# Update a signature 
+
+The function `updateSignature()` allows the user to update a signature in the sigrepo database. 
+
+__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY UPDATE** their own uploaded signatures or was given the `editor` permission from other users to do so.
+
+For example, if the platform in the previous uploaded **"Myc_reduce_mice_liver_24m"** object is incorrect, and you wish to update the signature with the correct value, e.g., **GPLXXXXX**. Then you can use this function as follows:
+
+```{r}
+
+# Search for Myc_reduce_mice_liver_24m in the database
+# in which we would like to revise the value of platform with GPLXXXXX
+signature_tbl <- SigRepo::searchSignature(
+  conn_handler = conn_handler, 
+  signature_name = "Myc_reduce_mice_liver_24m"
+)
+
+# Revise the metadata object with new platform = GPLXXXXX
+metadata_revised <- OmicSignature::createMetadata(
+  
+  # required attributes:
+  signature_name = "Myc_reduce_mice_liver_24m",
+  organism = "Mus Musculus",
+  direction_type = "bi-directional",
+  assay_type = "transcriptomics",
+  phenotype = "Myc_reduce",
+  
+  # optional and recommended:
+  covariates = "none",
+  description = "mice MYC reduced expression",
+  platform = "GPLXXXXX", # use GEO platform ID
+  sample_type = "liver", # use BRENDA ontology
+  
+  # optional cut-off attributes.
+  # specifying them can facilitate the extraction of signatures.
+  logfc_cutoff = NULL,
+  p_value_cutoff = NULL,
+  adj_p_cutoff = 0.05,
+  score_cutoff = 5,
+  
+  # other optional built-in attributes:
+  keywords = c("Myc", "KO", "longevity"),
+  cutoff_description = NULL,
+  author = NULL,
+  PMID = 25619689,
+  year = 2015,
+  
+  # example of customized attributes:
+  others = list("animal_strain" = "C57BL/6")
+)
+
+# create the updated OmicSignature object
+updated_omic_signature <- OmicSignature::OmicSignature$new(
+  signature = signature,
+  metadata = metadata_revised,
+  difexp = difexp
+)
+
+# Updating the signature
+SigRepo::updateSignature(
+  conn_handler = conn_handler, 
+  signature_id = signature_tbl$signature_id, 
+  omic_signature = updated_omic_signature
+)
+
+```
+
+```{r}
+knitr::kable(
+  SigRepo::searchSignature(
+    conn_handler = conn_handler, 
+    signature_name = "Myc_reduce_mice_liver_24m"
+  ),
+  row.names = FALSE
+)
+```
+
+# Delete a signature
+
+The function `deleteSignature()` allows the user to delete a signature from the database. 
+
+__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY DELETE** their own uploaded signatures or was given the `editor` permission from other users to do so.
+
+```{r}
+
+# Search for Myc_reduce_mice_liver_24m in the database and remove it
+signature_tbl <- SigRepo::searchSignature(
+  conn_handler = conn_handler, 
+  signature_name = "Myc_reduce_mice_liver_24m"
+)
+
+# Remove signature from the database
+SigRepo::deleteSignature(
+  conn_handler = conn_handler, 
+  signature_id = signature_tbl$signature_id
+)
+
+```
+

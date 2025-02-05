@@ -8,6 +8,7 @@
 #' @noRd
 #' 
 #' @export
+#' 
 #' @import OmicSignature
 createOmicSignatureCollection <- function(
     conn_handler,
