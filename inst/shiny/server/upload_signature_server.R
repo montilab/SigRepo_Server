@@ -7,6 +7,8 @@ shiny::observeEvent({
   input$upload_signature
 }, {
   
+  req(user_conn_handler())
+  
   # Reset message
   upload_sig_error_msg(NULL)
   
@@ -38,20 +40,24 @@ shiny::observeEvent({
   conn_handler <- shiny::isolate({ user_conn_handler() })
   
   # Upload signature
-  base::tryCatch({
+  upload_message <- base::tryCatch({
     SigRepo::addSignature(
       conn_handler = conn_handler,
       omic_signature = omic_signature
     )
   }, error = function(e){
-    upload_sig_error_msg(paste0(e, "\n"))
+    upload_sig_error_msg(gsub("\\n|\\t", "<br>", e, perl = TRUE))
     print(e, "\n")
     return(NULL)
   }, warning = function(w){
     print(w, "\n")
-  }, finally = function(m){
-    upload_sig_error_msg("Signature has been uploaded successfully.\n")
+  }, message = function(m){
+    print(m, "\n")
+    return(base::gsub("\\n|\\t", "<br>", m, perl = TRUE))
   })
+  
+  # Update message
+  upload_sig_error_msg(upload_message)
 
   # Update user signature tbl
   promises::future_promise({
@@ -65,7 +71,7 @@ output$upload_sig_error_msg <- renderUI({
   
   req(upload_sig_error_msg())
   
-  shiny::p(class = "error-message", upload_sig_error_msg())
+  shiny::p(class = "error-message", HTML(upload_sig_error_msg()))
   
 })
 

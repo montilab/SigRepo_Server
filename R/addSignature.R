@@ -67,7 +67,7 @@ addSignature <- function(
     base::message(sprintf("\tYou already uploaded a signature with signature_name = '%s' into the SigRepo Database.\n", metadata_tbl$signature_name),
                   sprintf("\tUse searchSignature() to see more details about the signature.\n"),
                   sprintf("\tTo re-upload, try to use a different name.\n"),
-                  sprintf("\tID of the uploaded signature:\n"))
+                  sprintf("\tID of the uploaded signature: %s\n", signature_tbl$signature_id))
     
     # Return signature id
     return(signature_tbl$signature_id)

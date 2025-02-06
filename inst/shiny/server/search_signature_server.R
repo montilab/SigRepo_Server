@@ -5,6 +5,8 @@ sig_tbl_error_msg <- shiny::reactiveVal()
 
 # Create reactive values to store data tables ####
 search_signature_tbl <- shiny::reactiveVal()
+sig_up_regulated_tbl <- shiny::reactiveVal()
+sig_down_regulated_tbl <- shiny::reactiveVal()
 download_omic_signature <- shiny::reactiveVal()
 
 # Observe search_options ####
@@ -253,7 +255,15 @@ output$signature_tbl <- DT::renderDataTable({
     shinyjs::delay(1000, shinyjs::show(id = "download_oms"))
     
     # Get signature table
-    signature_tbl <- shiny::isolate({ search_signature_tbl() }) 
+    signature_tbl <- shiny::isolate({ search_signature_tbl() }) %>% 
+      dplyr::mutate(
+        num_up_regulated = base::sapply(seq_along(signature_id), function(i){ 
+          ifelse(has_difexp[i] == 1, base::sprintf("<a id='num_up_regulated' href='#' onclick=\"get_up_regulated_id(id='%s');\">%s</a>", signature_id[i], num_up_regulated[i]), num_up_regulated[i])
+        }),
+        num_down_regulated = base::sapply(seq_along(signature_id), function(i){ 
+          ifelse(has_difexp[i] == 1, base::sprintf("<a id='num_down_regulated' href='#' onclick=\"get_down_regulated_id(id='%s');\">%s</a>", signature_id[i], num_down_regulated[i]), num_down_regulated[i])
+        })
+      )
     
     # Get no export column numbers
     no_export_columns <- which(colnames(signature_tbl) %in% c("entry", "select"))
@@ -344,6 +354,8 @@ shiny::observeEvent({
     return(NULL)
   }, warning = function(w){
     print(w, "\n")
+  }, message = function(m){
+    print(m, "\n")
   }) 
   
   # If omic_signatures is empty, escape the function
@@ -355,7 +367,8 @@ shiny::observeEvent({
   # Trigger the download button
   shinyjs::runjs("alert('here');document.getElementById('download_oms_handler').click();")
   
-})
+}, ignoreNULL = TRUE, ignoreInit = TRUE)
+
 
 # Signature tbl error message ####
 output$sig_tbl_error_msg <- renderUI({
@@ -378,4 +391,162 @@ output$download_oms_handler <- shiny::downloadHandler(
   }
   
 )
+
+# Observe sig_up_regulated_id #####
+shiny::observeEvent({
+  input$sig_up_regulated_id
+}, {
+  
+  req(search_signature_tbl())
+  
+  # Get input
+  id <- shiny::isolate({ input$sig_up_regulated_id })
+  
+  # Get signature metadata tbl
+  metadata_tbl <- shiny::isolate({ search_signature_tbl() }) %>% 
+    dplyr::filter(signature_id %in% id)
+  
+  # Read in difexp table
+  data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+  difexp <- base::readRDS(file.path(data_path, paste0(metadata_tbl$signature_hashkey, ".RDS")))
+  
+  # Get number of up regulated features
+  up_regulated_tbl <- difexp %>% dplyr::filter(direction %in% "+")
+
+  # Update table
+  sig_up_regulated_tbl(up_regulated_tbl)
+  
+})
+
+
+# Observe sig_down_regulated_id #####
+shiny::observeEvent({
+  input$sig_down_regulated_id
+}, {
+  
+  req(search_signature_tbl())
+  
+  # Get input
+  id <- shiny::isolate({ input$sig_down_regulated_id })
+  
+  # Get signature metadata tbl
+  metadata_tbl <- shiny::isolate({ search_signature_tbl() }) %>% 
+    dplyr::filter(signature_id %in% id)
+  
+  # Read in difexp table
+  data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+  difexp <- base::readRDS(file.path(data_path, paste0(metadata_tbl$signature_hashkey, ".RDS")))
+  
+  # Get number of down regulated features
+  down_regulated_tbl <- difexp %>% dplyr::filter(direction %in% "-")
+  
+  # downdate table
+  sig_down_regulated_tbl(down_regulated_tbl)
+  
+})
+
+# Output sig_up_regulated_tbl ####
+output$sig_up_regulated_tbl <- DT::renderDataTable({
+  
+  req(sig_up_regulated_tbl()) %>% 
+    DT::datatable(
+      filter = list(position = "top", clear = TRUE),
+      escape = FALSE,
+      rownames = FALSE,
+      extensions = 'Buttons',
+      selection = "single",
+      options = list(
+        columnDefs = list(
+          list(className = "dt-center", targets = "_all")
+        ),
+        searchHighlight = TRUE,
+        searching = TRUE,
+        ordering = TRUE,
+        deferRender = FALSE,
+        paging = TRUE,
+        pageLength = 20,
+        scroller = TRUE,
+        scrollX = TRUE,
+        scrollY = 400,
+        dom = 'Bfrtip',
+        buttons = list(
+          list(
+            extend = "csv",
+            text = " CSV",
+            className = "fas fa-download",
+            filename = "up_regulated_table",
+            exportOptions = list(
+              modifier = list(page = "all", columns = ":not(.no-export)")
+            )
+          ),
+          list(
+            extend = "excel",
+            text = " EXCEL",
+            className = "fas fa-download",
+            filename = "up_regulated_table",
+            exportOptions = list(
+              modifier = list(page = "all", columns = ":not(.no-export)")
+            )
+          )
+        )
+      )
+    )
+  
+})
+
+# Output sig_down_regulated_tbl ####
+output$sig_down_regulated_tbl <- DT::renderDataTable({
+  
+  req(sig_down_regulated_tbl()) %>% 
+    DT::datatable(
+      filter = list(position = "top", clear = TRUE),
+      escape = FALSE,
+      rownames = FALSE,
+      extensions = 'Buttons',
+      selection = "single",
+      options = list(
+        columnDefs = list(
+          list(className = "dt-center", targets = "_all")
+        ),
+        searchHighlight = TRUE,
+        searching = TRUE,
+        ordering = TRUE,
+        deferRender = FALSE,
+        paging = TRUE,
+        pageLength = 20,
+        scroller = TRUE,
+        scrollX = TRUE,
+        scrollY = 400,
+        dom = 'Bfrtip',
+        buttons = list(
+          list(
+            extend = "csv",
+            text = " CSV",
+            className = "fas fa-download",
+            filename = "down_regulated_table",
+            exportOptions = list(
+              modifier = list(page = "all", columns = ":not(.no-export)")
+            )
+          ),
+          list(
+            extend = "excel",
+            text = " EXCEL",
+            className = "fas fa-download",
+            filename = "down_regulated_table",
+            exportOptions = list(
+              modifier = list(page = "all", columns = ":not(.no-export)")
+            )
+          )
+        )
+      )
+    )
+  
+})
+
+
+
+
+
+
+
 

@@ -48,7 +48,7 @@ ui <- shiny::bootstrapPage(
   
   ### Login Page ####
   shiny::div(
-    class = "login-wrapper", id = "login-wrapper", #style = "display: none;",
+    class = "login-wrapper", id = "login-wrapper", 
     shiny::div(
       class = "login-container",
       
