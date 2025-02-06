@@ -225,7 +225,7 @@ output$search_sig_error_msg <- renderUI({
   
   req(search_sig_error_msg())
   
-  p(class = "error-message", search_sig_error_msg())
+  shiny::p(class = "error-message", HTML(search_sig_error_msg()))
   
 })
 
@@ -397,21 +397,36 @@ shiny::observeEvent({
   input$sig_up_regulated_id
 }, {
   
-  req(search_signature_tbl())
+  req(search_signature_tbl(), user_conn_handler())
+  
+  # Get user handler
+  conn_handler <- shiny::isolate({ user_conn_handler() })
+  
+  # Establish connection to DB
+  conn <- conn_init(conn_handler = conn_handler)
   
   # Get input
-  id <- shiny::isolate({ input$sig_up_regulated_id })
+  signature_id <- shiny::isolate({ input$sig_up_regulated_id })
   
   # Get signature metadata tbl
   metadata_tbl <- shiny::isolate({ search_signature_tbl() }) %>% 
-    dplyr::filter(signature_id %in% id)
+    dplyr::filter(signature_id %in% !!signature_id)
   
-  # Read in difexp table
-  data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-  difexp <- base::readRDS(file.path(data_path, paste0(metadata_tbl$signature_hashkey, ".RDS")))
+  # Get signature feature set table
+  signature <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "signature_feature_set", 
+    return_var = "*", 
+    filter_coln_var = "signature_id",
+    filter_coln_val = list("signature_id" = signature_id),
+    check_db_table = TRUE
+  ) 
+  
+  # Disconnect from database ####
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
   # Get number of up regulated features
-  up_regulated_tbl <- difexp %>% dplyr::filter(direction %in% "+")
+  up_regulated_tbl <- signature %>% dplyr::filter(direction %in% "+")
 
   # Update table
   sig_up_regulated_tbl(up_regulated_tbl)
@@ -424,21 +439,36 @@ shiny::observeEvent({
   input$sig_down_regulated_id
 }, {
   
-  req(search_signature_tbl())
+  req(search_signature_tbl(), user_conn_handler())
+  
+  # Get user handler
+  conn_handler <- shiny::isolate({ user_conn_handler() })
+  
+  # Establish connection to DB
+  conn <- conn_init(conn_handler = conn_handler)
   
   # Get input
-  id <- shiny::isolate({ input$sig_down_regulated_id })
+  signature_id <- shiny::isolate({ input$sig_down_regulated_id })
   
   # Get signature metadata tbl
   metadata_tbl <- shiny::isolate({ search_signature_tbl() }) %>% 
-    dplyr::filter(signature_id %in% id)
+    dplyr::filter(signature_id %in% !!signature_id)
   
-  # Read in difexp table
-  data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-  difexp <- base::readRDS(file.path(data_path, paste0(metadata_tbl$signature_hashkey, ".RDS")))
+  # Get signature feature set table
+  signature <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "signature_feature_set", 
+    return_var = "*", 
+    filter_coln_var = "signature_id",
+    filter_coln_val = list("signature_id" = signature_id),
+    check_db_table = TRUE
+  ) 
+  
+  # Disconnect from database ####
+  base::suppressMessages(DBI::dbDisconnect(conn))
   
   # Get number of down regulated features
-  down_regulated_tbl <- difexp %>% dplyr::filter(direction %in% "-")
+  down_regulated_tbl <- signature %>% dplyr::filter(direction %in% "-")
   
   # downdate table
   sig_down_regulated_tbl(down_regulated_tbl)
@@ -451,6 +481,7 @@ output$sig_up_regulated_tbl <- DT::renderDataTable({
   req(sig_up_regulated_tbl()) %>% 
     DT::datatable(
       filter = list(position = "top", clear = TRUE),
+      caption = HTML("<p style='font-size:20px; font-weight:bold;'>Up Regulated Features Table</p>"),
       escape = FALSE,
       rownames = FALSE,
       extensions = 'Buttons',
@@ -500,6 +531,7 @@ output$sig_down_regulated_tbl <- DT::renderDataTable({
   req(sig_down_regulated_tbl()) %>% 
     DT::datatable(
       filter = list(position = "top", clear = TRUE),
+      caption = HTML("<p style='font-size:20px; font-weight:bold;'>Down Regulated Features Table</p>"),
       escape = FALSE,
       rownames = FALSE,
       extensions = 'Buttons',

@@ -38,6 +38,7 @@ ui <- shiny::bootstrapPage(
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/home_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/sign_in_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_signature.css"),
+      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_collection.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_signature.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/fontawesome-all.min.css"),
       tags$script(src = "assets/js/app.js", type = "text/javascript")
@@ -315,7 +316,7 @@ server <- function(input, output, session) {
       
       # Get user collection table #### 
       promises::future_promise({
-        SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name)
+        SigRepo::searchCollection(conn_handler = conn_handler, user_name = user_name)
       }, package = "tidyverse") %...>% user_collection_tbl()
       
       # Hide message and display app ####
@@ -372,6 +373,7 @@ server <- function(input, output, session) {
     }else if(tab_selected() == "search_signature"){
       base::source("ui/search_signature_ui.R")$value
     }else if(tab_selected() == "search_collection"){
+      base::source("ui/search_collection_ui.R")$value
     }else if(tab_selected() == "upload_signature"){
       base::source("ui/upload_signature_ui.R")$value
     }else if(tab_selected() == "upload_collection"){
@@ -384,6 +386,7 @@ server <- function(input, output, session) {
   
   # Import all source files 
   source("server/search_signature_server.R", local = TRUE)
+  source("server/search_collection_server.R", local = TRUE)
   source("server/upload_signature_server.R", local = TRUE)
   source("server/sign_in_server.R", local = TRUE)
   
