@@ -503,7 +503,7 @@ function.</p>
 <span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; Adding signature feature set into the database...</span></span>
 <span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; Finished uploading.</span></span>
 <span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; ID of the uploaded signature:</span></span>
-<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; [1] 14</span></span></code></pre></div>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; [1] 16</span></span></code></pre></div>
 <ul>
 <li><strong>Example 2</strong>: Upload
 <code>omic_signature_AGS_OmS</code> signature</li>
@@ -515,7 +515,8 @@ function.</p>
 <span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co">#&gt;  You already uploaded a signature with signature_name = &#39;LLFS_Aging_Gene_2023&#39; into the SigRepo Database.</span></span>
 <span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt;  Use searchSignature() to see more details about the signature.</span></span>
 <span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;  To re-upload, try to use a different name.</span></span>
-<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span></code></pre></div>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt;  ID of the uploaded signature:</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; [1] 1</span></span></code></pre></div>
 <ul>
 <li><strong>Example 3</strong>: Upload
 <code>omic_signature_MDA_CYP</code> signature</li>
@@ -751,7 +752,7 @@ for all or a specific signature that is available in the database.</p>
 <td align="left">ec356cabc33fcc22f8a0b77b24db91ab</td>
 </tr>
 <tr class="even">
-<td align="right">14</td>
+<td align="right">16</td>
 <td align="left">Myc_reduce_mice_liver_24m</td>
 <td align="left">Mus musculus</td>
 <td align="left">bi-directional</td>
@@ -775,7 +776,7 @@ for all or a specific signature that is available in the database.</p>
 <td align="right">5</td>
 <td align="right">10</td>
 <td align="left">root</td>
-<td align="left">2025-02-05 10:48:52</td>
+<td align="left">2025-02-05 11:06:27</td>
 <td align="left">a97e48241eae7cff270c0341555e90d2</td>
 </tr>
 </tbody>
@@ -981,7 +982,7 @@ follows:</p>
 <span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="at">omic_signature =</span> updated_omic_signature</span>
 <span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>)</span>
 <span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt;   [Success] OmicSignature object Myc_reduce_mice_liver_24m created.</span></span>
-<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; signature_id = &#39;14&#39; has been updated.</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; signature_id = &#39;16&#39; has been updated.</span></span>
 <span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 <div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
 <span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  SigRepo<span class="sc">::</span><span class="fu">searchSignature</span>(</span>
@@ -1051,7 +1052,7 @@ follows:</p>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="right">14</td>
+<td align="right">16</td>
 <td align="left">Myc_reduce_mice_liver_24m</td>
 <td align="left">Mus musculus</td>
 <td align="left">bi-directional</td>
@@ -1075,7 +1076,7 @@ follows:</p>
 <td align="right">5</td>
 <td align="right">10</td>
 <td align="left">root</td>
-<td align="left">2025-02-05 10:48:56</td>
+<td align="left">2025-02-05 11:06:31</td>
 <td align="left">a97e48241eae7cff270c0341555e90d2</td>
 </tr>
 </tbody>
@@ -1102,11 +1103,11 @@ other users to do so.</p>
 <span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>  <span class="at">conn_handler =</span> conn_handler, </span>
 <span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>  <span class="at">signature_id =</span> signature_tbl<span class="sc">$</span>signature_id</span>
 <span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>)</span>
-<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt; Remove signature_id = &#39;14&#39; from &#39;signatures&#39; table of the database.</span></span>
-<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; Remove features belongs to signature_id = &#39;14&#39; from &#39;signature_feature_set&#39; table of the database.</span></span>
-<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; Remove user access to signature_id = &#39;14&#39; from &#39;signature_access&#39; table of the database.</span></span>
-<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt; Remove signature_id = &#39;14&#39; from &#39;signature_collection_access&#39; table of the database.</span></span>
-<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt; signature_id = &#39;14&#39; has been removed.</span></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="co">#&gt; Remove signature_id = &#39;16&#39; from &#39;signatures&#39; table of the database.</span></span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; Remove features belongs to signature_id = &#39;16&#39; from &#39;signature_feature_set&#39; table of the database.</span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt; Remove user access to signature_id = &#39;16&#39; from &#39;signature_access&#39; table of the database.</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#&gt; Remove signature_id = &#39;16&#39; from &#39;signature_collection_access&#39; table of the database.</span></span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt; signature_id = &#39;16&#39; has been removed.</span></span>
 <span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 </div>
 

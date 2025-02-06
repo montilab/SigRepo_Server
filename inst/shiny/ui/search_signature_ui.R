@@ -114,8 +114,6 @@ shiny::div(
       br(),
       shinyjs::hidden(shiny::actionButton(inputId = "download_oms", label = "Download OmicSignature", class = "submit-button", onclick = "sig_tbl_select_rows();")), 
       shiny::div(shiny::downloadButton(outputId = "download_oms_handler", label = "Download"), style = "visibility: hidden;"),
-      
-      DT::dataTableOutput("difexp_tbl"),
       DT::dataTableOutput("sig_up_regulated_tbl"),
       DT::dataTableOutput("sig_down_regulated_tbl")
       

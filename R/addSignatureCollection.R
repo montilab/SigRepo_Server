@@ -67,7 +67,7 @@ addSignatureCollection <- function(
     base::message(sprintf("\tYou already uploaded a collection with collection_name = '%s' into the SigRepo Database.\n", metadata_tbl$collection_name),
                   sprintf("\tUse searchCollection() to see more details about the collection.\n"),
                   sprintf("\tTo re-upload, try to use a different name.\n"),
-                  sprintf("\tID of the uploaded collection:\n"))
+                  sprintf("\tID of the uploaded collection: %s\n", collection_tbl$collection_id))
     
     # Return collection id
     return(collection_tbl$collection_id)
