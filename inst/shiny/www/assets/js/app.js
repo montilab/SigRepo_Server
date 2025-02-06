@@ -52,13 +52,13 @@ function sig_tbl_select_rows() {
 
 
 function get_up_regulated_id(id) {
-  alert("here");
+  //alert("here");
   var id = String(id);
   Shiny.onInputChange('sig_up_regulated_id', id);
 }
   
 function get_down_regulated_id(id) {
-  alert("there");
+  //alert("there");
   var id = String(id);
   Shiny.onInputChange('sig_down_regulated_id', id);
 }  
