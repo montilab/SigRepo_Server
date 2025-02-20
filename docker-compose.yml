@@ -10,15 +10,15 @@ services:
         - mysql_image=mysql:8.0-bookworm
     env_file:
       - mysql.env
-    volumes:
-      - /montilab-p/mysql/database:/var/lib/mysql:rw
-      - /montilab-p/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
     networks:
       - db-net
     ports:
       - 3306:3306
     restart: always
-    
+    volumes:
+      - /montilab-p/mysql/database:/var/lib/mysql:rw
+      - /montilab-p/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
+      
   sigrepo-rstudio:
     container_name: sigrepo-rstudio
     image: sigrepo-rstudio:latest
@@ -47,8 +47,6 @@ services:
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.4.0
-    env_file:
-      - rstudio-server.env  
     networks:
       - db-net
     ports:
