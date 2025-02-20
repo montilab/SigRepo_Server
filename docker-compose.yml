@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
   sigrepo-mysql:
@@ -13,7 +12,6 @@ services:
       - mysql.env
     volumes:
       - /montilab-p/mysql/database:/var/lib/mysql:rw
-      - /montilab-p/SigRepo/inst/mysql/conf.d:/etc/mysql/conf.d:ro
       - /montilab-p/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
     networks:
       - db-net
@@ -38,7 +36,6 @@ services:
     restart: always
     working_dir: /home
     volumes:
-      - /montilab-p/SigRepoShiny:/home/SigRepoShiny:rw 
       - /montilab-p/OmicSignature:/home/OmicSignature:rw
       - /montilab-p/SigRepo:/home/SigRepo:rw
       
@@ -58,7 +55,6 @@ services:
       - 8050:3838
     restart: always
     volumes:
-      - /montilab-p/SigRepo:/SigRepo
       - /montilab-p/SigRepo:/SigRepo
       - /montilab-p/SigRepo/inst/shiny/shiny-server.sh:/SigRepo/inst/shiny/shiny-server.sh
       - /montilab-p/Sigrepo/.Renviron:/root/.Renviron

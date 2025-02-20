@@ -97,11 +97,6 @@ omic_signature_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/omic_si
 SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_AGS_OmS)
 
 
-
-
-
-
-
 # Check the signatures table ####
 statement <- "select * FROM signatures"
 signature_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
