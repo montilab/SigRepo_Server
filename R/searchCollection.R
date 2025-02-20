@@ -152,8 +152,6 @@ searchCollection <- function(
       
     }
     
-    print(collection_tbl)
-    
     # Disconnect from database ####
     base::suppressMessages(DBI::dbDisconnect(conn))
     
