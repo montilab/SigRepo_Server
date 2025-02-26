@@ -16,8 +16,8 @@ services:
       - 3306:3306
     restart: always
     volumes:
-      - /montilab-p/mysql/database:/var/lib/mysql:rw
-      - /montilab-p/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
+      - /mysql/database:/var/lib/mysql:rw
+      - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
       
   sigrepo-rstudio:
     container_name: sigrepo-rstudio
@@ -27,8 +27,8 @@ services:
       dockerfile: Dockerfile-rstudio-server
       args:
         - R_VERSION=4.4.0
-    env_file:
-      - rstudio-server.env 
+    environment:
+        - PASSWORD=sigrepo
     networks:
       - db-net
     ports:
@@ -36,8 +36,7 @@ services:
     restart: always
     working_dir: /home
     volumes:
-      - /montilab-p/OmicSignature:/home/OmicSignature:rw
-      - /montilab-p/SigRepo:/home/SigRepo:rw
+      - /SigRepo:/home/SigRepo:rw
       
   sigrepo-shiny:
     container_name: sigrepo-shiny
@@ -53,24 +52,10 @@ services:
       - 8050:3838
     restart: always
     volumes:
-      - /montilab-p/SigRepo:/SigRepo
-      - /montilab-p/SigRepo/inst/shiny/shiny-server.sh:/SigRepo/inst/shiny/shiny-server.sh
-      - /montilab-p/Sigrepo/.Renviron:/root/.Renviron
+      - /SigRepo:/SigRepo
+      - /SigRepo/inst/shiny/shiny-server.sh:/SigRepo/inst/shiny/shiny-server.sh
+      - /Sigrepo/.Renviron:/root/.Renviron
 
-  sigrepo-api:
-    container_name: sigrepo-api
-    image: sigrepo-shiny:latest
-    depends_on:
-      - sigrepo-shiny
-    networks:
-      - db-net
-    ports:
-      - 8020:3838
-    restart: always
-    volumes:
-      - /montilab-p/SigRepo:/SigRepo
-      - /montilab-p/SigRepo/inst/api/shiny-server.sh:/SigRepo/inst/shiny/shiny-server.sh
-      - /montilab-p/Sigrepo/.Renviron:/root/.Renviron
 
 networks:
   db-net:
