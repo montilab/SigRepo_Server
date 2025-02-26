@@ -180,26 +180,12 @@ server <- function(input, output, session) {
     
     cat("\nSession ended.\n")
     
-    all_cons <- DBI::dbListConnections(RMySQL::MySQL())
-    
-    for(con in all_cons)
-      +  dbDisconnect(con)
-    
-    print(paste0(length(all_cons), " connections killed."))
-    
   })
   
   # Observe when session stops ####
   shiny::onStop(function(){
     
     cat("\nSession stopped.\n")
-    
-    all_cons <- DBI::dbListConnections(RMySQL::MySQL())
-    
-    for(con in all_cons)
-      +  dbDisconnect(con)
-    
-    print(paste0(length(all_cons), " connections killed."))
     
   })
   
