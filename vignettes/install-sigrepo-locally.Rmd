@@ -48,19 +48,14 @@ MYSQL_PASSWORD='admin'
 MYSQL_ROOT_PASSWORD='123456'
 ```
 
-3. Create a MySQL directory to store database tables and schemas
-
-```bash
-mkdir /montilab-p/mysql/database
-```
-
 4. Create a network **db-net** to host MySQL locally
 
 ```bash
-docker network create -d bridge db-net
+
+
 ```
 
-5. Edit **docker-compose.yml** to configure how to build MySQL database, RStudio Server, and Sigrepo Shiny images and containers.
+5. Create **docker-compose-sigrepo-mysql.yml** to configure how to build MySQL database images and containers.
 
 ```text
 services:
@@ -82,7 +77,27 @@ services:
     ports:
       - 3306:3306
     restart: always
-
+    
+  sigrepo-rstudio:
+    container_name: sigrepo-rstudio
+    image: sigrepo-rstudio:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-rstudio-server
+      args:
+        - R_VERSION=4.4.0
+    env_file:
+      - rstudio-server.env 
+    networks:
+      - db-net
+    ports:
+      - 7878:8787
+    restart: always
+    working_dir: /home
+    volumes:
+      - /montilab-p/OmicSignature:/home/OmicSignature:rw
+      - /montilab-p/SigRepo:/home/SigRepo:rw
+      
 networks:
   db-net:
     external: true
@@ -91,12 +106,22 @@ networks:
 6. Start MySQL database, RStudio Server, and Sigrepo Shiny containers
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose-sigrepo-mysql.yml up -d
 ```
 
 **`-d`**: run container in detached mode <br>
 
-7. Inspect mysql container to get network IP address to establish connection locally
+7. Check if the container is built successfully
+
+```bash
+docker ps
+
+
+CONTAINER ID   IMAGE                  COMMAND                    CREATED        STATUS        PORTS                    NAMES
+b37b6b19c4e8   sigrepo-mysql:latest   "docker-entrypoint.s..."   5 hours ago    Up 5 hours    0.0.0.0:8050->3838/tcp   sigrepo-mysql
+```
+
+8. Inspect mysql container to get network IP address to establish connection locally
 
 ```bash
 docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql
@@ -104,7 +129,7 @@ docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sig
 
 For example: 172.18.0.3
 
-8. Create an **.Renviron** file and store it in your **$HOME** or Project directory in order to retrieve credentials to log into MySQL server
+9. Create an **.Renviron** file and store it in your **$HOME** or Project directory in order to retrieve credentials to log into MySQL server
 
 ```text
 DBNAME = "sigrepo"
@@ -114,7 +139,7 @@ USER = "root"
 PASSWORD = "123456"
 ```
 
-9. Connect to MySQL server from your local RStudio Server
+10. Connect to MySQL server from your local RStudio Server
 
 ```
 # For DB connection
