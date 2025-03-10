@@ -30,7 +30,7 @@ library(devtools)
 devtools::load_all()
 
 # Load OmicSignature package
-devtools::load_all("OmicSignature")
+#devtools::load_all("OmicSignature")
 
 ```
 
