@@ -4,7 +4,6 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param signature_name The name of signatures to be returned
 #' @export
-#' @import doParallel plyr
 getSignature <- function(
     conn_handler,
     signature_name = NULL

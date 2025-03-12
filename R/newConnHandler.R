@@ -105,7 +105,7 @@ conn_init <- function(conn_handler){
       table <- base::data.frame(
         user_name = user,
         user_password = password,
-        user_email = paste0(user, "@", host), 
+        user_email = "root@bu.edu", 
         user_first = "root", 
         user_last = "root", 
         user_affiliation = "Boston University",

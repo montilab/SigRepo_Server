@@ -17,7 +17,7 @@ services:
     volumes:
       - $HOME/Github/test/mysql/database:/var/lib/mysql:rw
       - $HOME/Github/test/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
-
+    
   sigrepo:
     container_name: sigrepo
     image: sigrepo:latest
@@ -44,7 +44,6 @@ services:
     restart: always
     volumes:
       - $HOME/Github/test/SigRepo:/SigRepo
-      - $HOME/Github/test/SigRepo/.Renviron:/root/.Renviron
       - $HOME/Github/test/mysql/difexp:/difexp:rw
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
 

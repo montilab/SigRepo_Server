@@ -45,6 +45,9 @@ COPY install_r_packages.R ${PACKAGE_DIR}/install_r_packages.R
 
 # Load package and install dependencies
 RUN Rscript "${PACKAGE_DIR}/install_r_packages.R"  
+
+# Install OmicSignature 
+RUN Rscript -e "devtools::install_github(repo = 'montilab/OmicSignature')"
   
 # Create package directory 
 ENV TMP_DIR=/tmp 

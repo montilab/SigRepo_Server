@@ -12,11 +12,11 @@ load_all()
 ## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = "sigrepo", 
+  host = "127.0.0.1", 
+  port = 3306, 
+  user = "root", 
+  password = "123456"
 )
 
 

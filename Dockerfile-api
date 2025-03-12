@@ -31,13 +31,13 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   vim \
   && apt clean autoclean \
   && apt autoremove --yes \
-	&& rm -rf /var/lib/{apt,dpkg,cache,log}/
-	
-# Create a difexp directory 
+	&& rm -rf /var/lib/{apt,dpkg,cache,log}
+
+# Create a project directory 
 ENV DIFEXP_DIR=/difexp
 
-# Set up a volume to mount difexp data
-VOLUME ${DIFEXP_DIR}	
+# Set up volume directory 
+VOLUME ${DIFEXP_DIR}
 
 # Create package directory 
 ENV PACKAGE_DIR=/SigRepo 
@@ -57,23 +57,11 @@ COPY install_r_packages.R ${PACKAGE_DIR}/install_r_packages.R
 # Install package dependencies 
 RUN Rscript "${PACKAGE_DIR}/install_r_packages.R"
 
-# Install dependencies for OmicSignature 
-RUN R -e "BiocManager::install('limma')"
-
 # Install OmicSignature 
-RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies=TRUE)"
+RUN Rscript -e "devtools::install_github(repo = 'montilab/OmicSignature')"
 
-# Make Shiny App or Plumber API available at port 3838
+# Make Plumber API available at port 3838
 EXPOSE 3838
-
-# Copy bash script that starts shiny-server to Docker image
-COPY inst/shiny/shiny-server.sh ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
-
-# Convert bash script from Windows style line endings to Unix-like control characters
-RUN dos2unix ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
-
-# Allow permissions to execute the bash script
-RUN chmod a+x ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
 
 # Copy bash script that starts shiny-server to Docker image
 COPY inst/api/shiny-server.sh ${PACKAGE_DIR}/inst/api/shiny-server.sh
@@ -83,5 +71,8 @@ RUN dos2unix ${PACKAGE_DIR}/inst/api/shiny-server.sh
 
 # Allow permissions to execute the bash script
 RUN chmod a+x ${PACKAGE_DIR}/inst/api/shiny-server.sh
+
+# Execute the bash script to launch plumber api
+CMD ["/bin/bash", "-c", "${PACKAGE_DIR}/inst/api/shiny-server.sh"]
 
 
