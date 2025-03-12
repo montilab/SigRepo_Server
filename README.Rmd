@@ -3,6 +3,7 @@ output: rmarkdown::github_document
 ---
 
 ```{r, include=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# Setting up knitting options
 knitr::opts_chunk$set(fig.path="./man/figures/", message=FALSE, collapse = TRUE, comment="")
 
 # For loading and installing packages

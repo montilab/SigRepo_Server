@@ -12,9 +12,6 @@ library(devtools)
 # Load SigRepo package
 devtools::load_all()
 
-# Load OmicSignature package
-devtools::load_all("OmicSignature")
-
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 

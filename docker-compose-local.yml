@@ -1,0 +1,64 @@
+
+services:
+  sigrepo-mysql:
+    container_name: sigrepo-mysql
+    image: sigrepo-mysql:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-mysql
+      args:
+        - mysql_image=mysql:8.0-bookworm
+    env_file:
+      - mysql.env
+    networks:
+      - db-net
+    ports:
+      - 3306:3306
+    restart: always
+    volumes:
+      - /mysql/database:/var/lib/mysql:rw
+      - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
+      
+  sigrepo-rstudio:
+    container_name: sigrepo-rstudio
+    image: sigrepo-rstudio:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-rstudio-server
+      args:
+        - R_VERSION=4.4.0
+    environment:
+        - PASSWORD=sigrepo
+    networks:
+      - db-net
+    ports:
+      - 7878:8787
+    restart: always
+    working_dir: /home
+    volumes:
+      - /SigRepo:/home/SigRepo:rw
+      
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    image: sigrepo-shiny:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - R_VERSION=4.4.0
+    networks:
+      - db-net
+    ports:
+      - 8050:3838
+    restart: always
+    volumes:
+      - /SigRepo:/SigRepo
+      - /SigRepo/inst/shiny/shiny-server.sh:/SigRepo/inst/shiny/shiny-server.sh
+      - /Sigrepo/.Renviron:/root/.Renviron
+
+
+networks:
+  db-net:
+    external: true   
+    
+    

@@ -9,6 +9,23 @@ library(DBI)
 # For data cleaning, extraction and manipulation
 library(tidyverse)
 
+library(OmicSignature)
+
+# For loading and installing packages
+library(devtools)
+
+# Load SigRepo package
+devtools::load_all(".")
+
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = "172.18.0.2", 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
+)
+
 # 
 # This is a Plumber API. You can run the API by clicking the 'run API' button above
 # 
@@ -39,72 +56,6 @@ function(req){
   plumber::forward()
 }
 
-# Function to check api key
-check_api_key <- function(res, api_key){
-  
-  # Check if api_key exists in the database
-  statement <- SigRepoR::lookup_table_sql(
-    table_name = "users",
-    return_var = "user_id",
-    filter_coln_var = "api_key",
-    filter_coln_val = list("api_key" = api_key)
-  )
-  
-  result <- tryCatch({
-    DBI::dbGetQuery(conn = SigRepoR::newConnHandler(), statement = statement)
-  }, error = function(e){
-    # Initialize the serializers
-    res$serializer <- serializer[["html"]]
-    res$status <- 500
-    res$body <- page_not_found(status="500", message=paste0(e))
-    return(res)
-  })
-  
-  if(nrow(result) == 0){
-    
-    error_message <- sprintf("api_key = `%s` currently not existed in our database. To add an API Key, please contact our admin for more details.\n", api_key)
-    
-    # Initialize the serializers
-    res$serializer <- serializer[["html"]]
-    res$status <- 500
-    res$body <- page_not_found(status="500", message=error_message)
-    return(res)
-    
-  }
-  
-}
-
-
-## Function to create an error page ####
-page_not_found <- function(status, message){
-  
-  sprintf(
-    '
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-     <title>%s Error</title>
-    </head>
-    <body>
-      <div id="error-404" style="text-align: center;
-      margin: 0;
-      padding: 0.6em 2em 0.4em;
-      border-bottom: 2px solid #000;
-      color: #fff;
-      background-color: #900;
-      font-size: 0.9em;
-      font-weight: normal;
-      font-family: sans-serif, helvetica;"><h1><strong>%s Error</strong></h1></div>
-      <div id="error-message" style="padding: 1em 5em;
-      text-align: center;
-      border-bottom: 2px solid #000;"><h3>%s</h3></div>
-    </body>
-    </html>
-    ', status, status, message
-  )
-  
-}
-
 # Create a list of serializers to return the object ####
 serializer <- list(
   "html" = plumber::serializer_html(),
@@ -115,6 +66,276 @@ serializer <- list(
   "text" = plumber::serializer_text(),
   "htmlwidget" = plumber::serializer_htmlwidget()
 )
+
+#* Store difexp in the database
+#* @parser multi
+#* @parser rds
+#* @param api_key
+#* @param signature_hashkey
+#* @param difexp:file
+#' @post /store_difexp
+store_difexp <- function(res, api_key, signature_hashkey, difexp){
+  
+  # parameters
+  variables <- c('api_key', 'signature_hashkey')
+  
+  # Check parameters
+  if(base::missing(api_key)){
+    
+    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
+    error_message <- sprintf('Missing required parameter(s): %s', paste0(variables[which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check parameters and trim white spaces
+  api_key <- base::trimws(api_key[1]); 
+  signature_hashkey <- base::trimws(signature_hashkey[1]); 
+  
+  # Check signature_hashkey ####
+  if(signature_hashkey %in% c(NA, "")){
+    
+    error_message <- "signature_hashkey cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check api_key ####
+  if(api_key %in% ""){
+    
+    error_message <- "api_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else{
+    
+    ## Establish database connection
+    conn <- SigRepo::conn_init(conn_handler = conn_handler)
+    
+    # Check if api_key exists in the database
+    user_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "users",
+      return_var = "*",
+      filter_coln_var = "api_key",
+      filter_coln_val = list("api_key" = api_key),
+      check_db_table = TRUE
+    )
+    
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Check user tbl
+    if(nrow(user_tbl) == 0){
+      error_message <- "Invalid api key."
+      res$serializer <- serializers[["json"]]
+      res$status <- 404
+      warn_tbl <- base::data.frame(MESSAGES = error_message)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    }
+    
+  }
+  
+  # Store difexp
+  if(base::is.data.frame(difexp[[1]])){
+    base::saveRDS(difexp[[1]], file = base::file.path("/difexp", base::paste0(signature_hashkey, ".RDS")))
+  }else{
+    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("difexp is not a valid file."))
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  }  
+  
+}
+
+
+#* Get difexp from the database
+#* @param api_key
+#* @param signature_hashkey
+#' @get /get_difexp
+get_difexp <- function(res, api_key, signature_hashkey){
+  
+  # Parameters
+  variables <- c('api_key', 'signature_hashkey')
+  
+  # Check parameters
+  if(base::missing(api_key)){
+    
+    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
+    error_message <- sprintf('Missing required parameter(s): %s', paste0(variables[which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check parameters and trim white spaces
+  api_key <- base::trimws(api_key[1]); 
+  signature_hashkey <- base::trimws(signature_hashkey[1]); 
+  
+  # Check signature_hashkey ####
+  if(signature_hashkey %in% c(NA, "")){
+    
+    error_message <- "signature_hashkey cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check api_key ####
+  if(api_key %in% ""){
+    
+    error_message <- "api_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else{
+    
+    ## Establish database connection
+    conn <- SigRepo::conn_init(conn_handler = conn_handler)
+    
+    # Check if api_key exists in the database
+    user_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "users",
+      return_var = "*",
+      filter_coln_var = "api_key",
+      filter_coln_val = list("api_key" = api_key),
+      check_db_table = TRUE
+    )
+    
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Check user tbl
+    if(nrow(user_tbl) == 0){
+      error_message <- "Invalid API Key."
+      res$serializer <- serializers[["json"]]
+      res$status <- 404
+      warn_tbl <- base::data.frame(MESSAGES = error_message)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    }
+    
+  }
+  
+  # Get difexp path
+  difexp_path <- base::file.path("/difexp", base::paste0(signature_hashkey, ".RDS"))
+  
+  # Check if file exists
+  if(base::file.exists(difexp_path)){
+    difexp <- base::readRDS(difexp_path)
+    return(jsonlite::toJSON(difexp, pretty=TRUE))
+  }else{
+    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("There is no difexp file found for signature_hashkey = '%s'", signature_hashkey))
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  }  
+  
+}
+
+#* Delete difexp from the database
+#* @param api_key
+#* @param signature_hashkey
+#' @delete /delete_difexp
+delete_difexp <- function(res, api_key, signature_hashkey){
+  
+  # Parameters
+  variables <- c('api_key', 'signature_hashkey')
+  
+  # Check parameters
+  if(base::missing(api_key)){
+    
+    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
+    error_message <- sprintf('Missing required parameter(s): %s', paste0(variables[which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check parameters and trim white spaces
+  api_key <- base::trimws(api_key[1]); 
+  signature_hashkey <- base::trimws(signature_hashkey[1]); 
+  
+  # Check signature_hashkey ####
+  if(signature_hashkey %in% c(NA, "")){
+    
+    error_message <- "signature_hashkey cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check api_key ####
+  if(api_key %in% ""){
+    
+    error_message <- "api_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else{
+    
+    ## Establish database connection
+    conn <- SigRepo::conn_init(conn_handler = conn_handler)
+    
+    # Check if api_key exists in the database
+    user_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "users",
+      return_var = "*",
+      filter_coln_var = "api_key",
+      filter_coln_val = list("api_key" = api_key),
+      check_db_table = TRUE
+    )
+    
+    # Disconnect from database ####
+    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    
+    # Check user tbl
+    if(nrow(user_tbl) == 0){
+      error_message <- "Invalid API Key."
+      res$serializer <- serializers[["json"]]
+      res$status <- 404
+      warn_tbl <- base::data.frame(MESSAGES = error_message)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    }
+    
+  }
+  
+  # Get difexp path
+  difexp_path <- base::file.path("/difexp", base::paste0(signature_hashkey, ".RDS"))
+  
+  # Check if file exists
+  if(base::file.exists(difexp_path)){
+    base::unlink(difexp_path)
+  }
+  
+  # Return messages
+  tbl <- base::data.frame(MESSAGES = base::sprintf("difexp file has been removed for signature_hashkey = '%s'", signature_hashkey))
+  return(jsonlite::toJSON(tbl, pretty=TRUE))
+  
+}
 
 #* Get a list of signatures available in the database
 #* @param author_id
@@ -143,10 +364,10 @@ signatures <- function(res, author_id="all", api_key){
   check_api_key(res=res, api_key = api_key)
   
   ## Establish database connection
-  conn <- SigRepoR::newConnHandler()
+  conn <- SigRepo::newConnHandler()
   
   # Get signatures table from database
-  statement <- SigRepoR::lookup_var_sql(
+  statement <- SigRepo::lookup_var_sql(
     table = "signatures",
     return_var = c("signature_name", "user_id", "uploaded_date"),
     filter_coln_var = ifelse(author_id == "all", NULL, "user_id"),
@@ -195,16 +416,17 @@ organisms <- function(res, organism="all", api_key){
   }
   
   ## Establish database connection
-  conn <- SigRepoR::newConnHandler()  
+  conn <- SigRepo::newConnHandler()  
   
   # Get organisms table from database
-  statement <- SigRepoR::lookup_var_sql(
+  statement <- SigRepo::lookup_var_sql(
     table = "organisms",
     return_var = c("organism"),
     filter_coln_var = ifelse(organisms == "all", NULL, "organism"),
     filter_coln_val = ifelse(organisms == "all", NULL, organisms)
   )  
   
+  # Get 
   table <- tryCatch({
     DBI::dbGetQuery(conn = conn, statement = statement)
   }, error = function(e){
