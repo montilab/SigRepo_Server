@@ -2,11 +2,18 @@
 #' @description Delete a signature from the signature table of the database
 #' @param conn_handler An established connection to the database using newConnhandler() 
 #' @param signature_id ID of signature to be removed from the database 
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 deleteSignature <- function(
     conn_handler, 
-    signature_id
+    signature_id,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -25,9 +32,9 @@ deleteSignature <- function(
   user_name <- conn_info$user[1]
   
   # Check signature_id
-  if(!length(signature_id) == 1 || signature_id %in% c(NA, "")){
+  if(length(signature_id) != 1 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
     base::stop("'signature_id' must have a length of 1 and cannot be empty.")
   }
@@ -46,10 +53,10 @@ deleteSignature <- function(
   if(nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.", signature_id))
+    base::stop(base::sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.", signature_id))
     
   }else{
     
@@ -84,7 +91,7 @@ deleteSignature <- function(
         if(nrow(signature_access_tbl) == 0){
           
           # Disconnect from database ####
-          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          base::suppressWarnings(DBI::dbDisconnect(conn)) 
           
           # Show message
           base::stop(sprintf("User = '%s' does not have permission to delete signature_id = '%s' from the database.", user_name, signature_id))
@@ -95,16 +102,21 @@ deleteSignature <- function(
     
     # Check if signature has difexp, remove it
     if(signature_tbl$has_difexp[1] == 1){
-      data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-      file_path <- base::file.path(data_path, paste0(signature_tbl$signature_hashkey[1], ".RDS"))
-      
-      if(base::file.exists(file_path)) {
-        base::unlink(file_path)
+      # Get API URL
+      api_url <- base::sprintf("http://%s:%s/delete_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], signature_tbl$signature_hashkey[1])
+      # Delete difexp from database
+      res <- httr::DELETE(url = api_url)
+      # Check status code
+      if(res$status_code != 200){
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))
+        # Show message
+        base::stop("Something went wrong with API. Cannot upload difexp table into the SigRepo Database. Please contact admin for more details.\n")
       }
     }
     
     # Return message
-    base::message(sprintf("Remove signature_id = '%s' from 'signatures' table of the database.", signature_id))
+    SigRepo::verbose(base::sprintf("Remove signature_id = '%s' from 'signatures' table of the database.", signature_id))
     
     # Delete signature from signatures table in the database ####
     SigRepo::delete_table_sql(
@@ -116,7 +128,7 @@ deleteSignature <- function(
     )
     
     # Return message
-    base::message(sprintf("Remove features belongs to signature_id = '%s' from 'signature_feature_set' table of the database.", signature_id))
+    SigRepo::verbose(base::sprintf("Remove features belongs to signature_id = '%s' from 'signature_feature_set' table of the database.", signature_id))
 
     # Delete signature from signature_feature_set table in the database ####
     SigRepo::delete_table_sql(
@@ -128,7 +140,7 @@ deleteSignature <- function(
     )
 
     # Return message
-    base::message(sprintf("Remove user access to signature_id = '%s' from 'signature_access' table of the database.", signature_id))
+    SigRepo::verbose(base::sprintf("Remove user access to signature_id = '%s' from 'signature_access' table of the database.", signature_id))
 
     # Delete user from signature_access table in the database ####
     SigRepo::delete_table_sql(
@@ -140,7 +152,7 @@ deleteSignature <- function(
     )
     
     # Return message
-    base::message(sprintf("Remove signature_id = '%s' from 'signature_collection_access' table of the database.", signature_id))
+    SigRepo::verbose(base::sprintf("Remove signature_id = '%s' from 'signature_collection_access' table of the database.", signature_id))
     
     # Delete user from signature_access table in the database ####
     SigRepo::delete_table_sql(
@@ -150,13 +162,13 @@ deleteSignature <- function(
       delete_coln_val = signature_id,
       check_db_table = TRUE
     )
-
-    # Return message
-    base::message(sprintf("signature_id = '%s' has been removed.", signature_id))
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
+    # Return message
+    SigRepo::verbose(base::sprintf("signature_id = '%s' has been removed.", signature_id))
+
   } 
 }
 

@@ -5,7 +5,9 @@
 #' @param organism_id A signature name
 #' @param signature_set A data frame containing the appropriate column names:
 #' feature_name, probe_id, score, direction
-#' 
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#'  
 #' @noRd
 #' 
 #' @export
@@ -13,8 +15,12 @@ addTranscriptomicsSignatureSet <- function(
     conn_handler,
     signature_id,
     organism_id,
-    signature_set
+    signature_set,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -35,7 +41,7 @@ addTranscriptomicsSignatureSet <- function(
   # Check signature_id ####
   if(!length(signature_id) == 1 || signature_id %in% c(NA, "")){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
     base::stop("'signature_id' must have a length of 1 and cannot be empty.")
   }
@@ -43,7 +49,7 @@ addTranscriptomicsSignatureSet <- function(
   # Check organism_id ####
   if(!length(organism_id) == 1 || organism_id %in% c(NA, "")){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
     base::stop("'organism_id' must have a length of 1 and cannot be empty.")
   }
@@ -51,7 +57,7 @@ addTranscriptomicsSignatureSet <- function(
   # Check if signature is a data frame ####
   if(!is(signature_set, "data.frame") || length(signature_set) == 0){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
     base::stop("'signature_set' must be a data frame and cannot be empty.")
   }
@@ -61,7 +67,7 @@ addTranscriptomicsSignatureSet <- function(
   
   if(any(!signature_fields %in% colnames(signature_set))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
     base::stop("'signature_set' must have the following column names:", paste0(signature_fields, collapse = ", "))
   }
@@ -69,15 +75,15 @@ addTranscriptomicsSignatureSet <- function(
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(signature_set[,signature_fields]) == TRUE)){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop(sprintf("All required column names in 'signature_set': %s cannot contain any empty values.\n", paste0(signature_fields, collapse = ", ")))
+    base::stop(base::sprintf("All required column names in 'signature_set': %s cannot contain any empty values.\n", base::paste0(signature_fields, collapse = ", ")))
   }
   
   # Check the direction symbols in signature table
   if(any(!signature_set$direction %in% c("+", "-"))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
     base::stop("The 'direction' variable in 'signature_set' must contain +/- symbols only.")
   }
@@ -118,10 +124,10 @@ addTranscriptomicsSignatureSet <- function(
   if(nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show error message
-    base::stop(sprintf("There is no signature_id = '%s' belong to user = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id, user_name))
+    base::stop(base::sprintf("There is no signature_id = '%s' belong to user = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id, user_name))
     
   }else{
 
@@ -157,7 +163,7 @@ addTranscriptomicsSignatureSet <- function(
     if(nrow(lookup_feature_id_tbl) != length(lookup_hashkey)){
       
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn))  
+      base::suppressWarnings(DBI::dbDisconnect(conn))  
       
       # Show error 
       SigRepo::showTranscriptomicsErrorMessage(
@@ -207,7 +213,7 @@ addTranscriptomicsSignatureSet <- function(
     )  
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
   }  
 }

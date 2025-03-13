@@ -4,12 +4,15 @@
 \alias{deleteCollection}
 \title{deleteCollection}
 \usage{
-deleteCollection(conn_handler, collection_id)
+deleteCollection(conn_handler, collection_id, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{An established connection to the database using newConnhandler()}
 
 \item{collection_id}{The name of the signature being deleted from the database}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Delete a signature from the signature table of the database

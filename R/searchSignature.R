@@ -2,11 +2,14 @@
 #' @description Get a list of signatures available in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param signature_name The name of the signatures to be looked up by.
+#' @param signature_id ID of the signatures to be looked up by.
+#' @param signature_name Name of the signatures to be looked up by.
 #' @param user_name The name of the user to be looked up by.
 #' @param organism The organism to be looked up by.
 #' @param phenotype The phenotype to be looked up by.
 #' @param sample_type The sample type to be looked up by.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @examples 
 #' 
@@ -27,12 +30,17 @@
 #' @export
 searchSignature <- function(
     conn_handler,
+    signature_id = NULL,
     signature_name = NULL,
     user_name = NULL,
     organism = NULL,    
     phenotype = NULL,
-    sample_type = NULL
+    sample_type = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -60,12 +68,25 @@ searchSignature <- function(
     
     # If user does not have owner or editor permission, throw an error message
     if(nrow(signature_access_tbl) == 0){
+  
+      # Look up signatures
+      signature_tbl <- SigRepo::lookup_table_sql(
+        conn = conn, 
+        db_table_name = "signatures", 
+        return_var = "*", 
+        filter_coln_var = "signature_id", 
+        filter_coln_val = list("signature_id" = ""),
+        check_db_table = TRUE
+      )
       
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn))     
+      base::suppressWarnings(DBI::dbDisconnect(conn))     
       
       # Show message
-      base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+      SigRepo::verbose(base::sprintf("There are no signatures returned from the search parameters.\n"))
+      
+      # Return table
+      return(signature_tbl)
       
     }
     
@@ -94,13 +115,16 @@ searchSignature <- function(
   if(nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     
     # Show message
-    base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+    SigRepo::verbose(base::sprintf("There are no signatures returned from the search parameters.\n"))
+    
+    # Return table
+    return(signature_tbl)
     
   }else{
-  
+    
     # Look up organism id ####
     lookup_organism_id <- signature_tbl$organism_id
     
@@ -144,11 +168,12 @@ searchSignature <- function(
       dplyr::left_join(sample_type_id_tbl, by = "sample_type_id")
     
     # Rename table with appropriate column names 
-    coln_names <- colnames(signature_tbl) %>% 
+    coln_names <- base::colnames(signature_tbl) %>% 
       base::replace(., base::match(c("organism_id", "phenotype_id", "sample_type_id"), .), c("organism", "phenotype", "sample_type"))
     
     # Get a list of filtered variables
     filter_var_list <- list(
+      "signature_id" = signature_id,
       "signature_name" = signature_name, 
       "organism" = organism, 
       "phenotype" = phenotype, 
@@ -160,9 +185,9 @@ searchSignature <- function(
       #r=1;
       filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
       if(filter_status == TRUE){
-        filter_var <- names(filter_var_list)[r]
+        filter_var <- base::names(filter_var_list)[r]
         filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
-        signature_tbl <- signature_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var))) %in% trimws(tolower(filter_val)))
+        signature_tbl <- signature_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
       }
     }
     
@@ -170,22 +195,25 @@ searchSignature <- function(
     if(nrow(signature_tbl) == 0){
       
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn))     
+      base::suppressWarnings(DBI::dbDisconnect(conn))     
       
       # Show message
-      base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+      SigRepo::verbose(base::sprintf("There are no signatures returned from the search parameters.\n"))
+      
+      # Return table
+      return(signature_tbl)
       
     }
     
     # Extract the table with appropriate column names ####
     signature_tbl <- signature_tbl %>% dplyr::select(all_of(coln_names))
-      
+    
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))
+    base::suppressWarnings(DBI::dbDisconnect(conn))
     
     # Return table
     return(signature_tbl)
-
+    
   }
 }
 

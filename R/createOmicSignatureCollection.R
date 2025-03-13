@@ -85,7 +85,7 @@ createOmicSignatureCollection <- function(
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return collection
   return(OmicCol)

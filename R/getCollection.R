@@ -2,12 +2,21 @@
 #' @description Get a list of collection uploaded by a specified user in the database.
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param collection_name The name of collection to be returned
+#' @param collection_name Name of collection to be returned
+#' @param signature_id ID of collection to be returned
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 getCollection <- function(
     conn_handler,
-    collection_name = NULL
+    collection_name = NULL,
+    collection_id = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -43,7 +52,7 @@ getCollection <- function(
     if(nrow(collection_access_tbl) == 0){
       
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn)) 
+      base::suppressWarnings(DBI::dbDisconnect(conn)) 
       
       # Show message
       base::stop(sprintf("There are no collection that belong to user_name = '%s' in the database.\n", user_name))
@@ -71,16 +80,21 @@ getCollection <- function(
     ) 
     
   }
-  
+
   # Get a list of filtered variables
-  filter_var <- "collection_name"; filter_val <- collection_name;
+  filter_var_list <- list(
+    "collection_id" = collection_id,
+    "collection_name" = collection_name
+  )
   
   # Filter table with given search variables
-  for(r in base::seq_along(filter_var)){
+  for(r in base::seq_along(filter_var_list)){
     #r=1;
-    filter_status <- ifelse(length(filter_val[r]) == 0 || all(filter_val[r] %in% c("", NA)), FALSE, TRUE)
+    filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
     if(filter_status == TRUE){
-      collection_tbl <- collection_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var[r]))) %in% trimws(tolower(filter_val[r])))
+      filter_var <- base::names(filter_var_list)[r]
+      filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
+      collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
     }
   }
   
@@ -88,10 +102,10 @@ getCollection <- function(
   if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There are no collection returned from the search parameters.\n"))
+    base::stop(base::sprintf("There are no collection returned from the search parameters.\n"))
     
   }else{
     
@@ -117,7 +131,7 @@ getCollection <- function(
     }
 
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))
+    base::suppressWarnings(DBI::dbDisconnect(conn))
     
     # Return table
     return(omic_collection_list)

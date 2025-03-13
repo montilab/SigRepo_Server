@@ -54,7 +54,7 @@ createCollectionMetadata <- function(
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn)) 
+  base::suppressWarnings(DBI::dbDisconnect(conn)) 
   
   # Return the metadata tbl ####
   return(metadata_tbl)

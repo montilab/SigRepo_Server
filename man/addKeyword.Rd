@@ -4,12 +4,15 @@
 \alias{addKeyword}
 \title{addKeyword}
 \usage{
-addKeyword(conn_handler, keyword_tbl)
+addKeyword(conn_handler, keyword_tbl, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{keyword_tbl}{A data frame containing appropriate column names: keyword}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add keywords to database

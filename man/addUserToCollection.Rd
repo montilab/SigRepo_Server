@@ -8,7 +8,8 @@ addUserToCollection(
   conn_handler,
   collection_id,
   user_name,
-  access_type = c("owner", "editor", "viewer")
+  access_type = c("owner", "editor", "viewer"),
+  verbose = TRUE
 )
 }
 \arguments{
@@ -29,6 +30,9 @@ There are three types of permissions:
 given them access to.
 \code{viewer} has ONLY Read access to collection that other users were 
 given them access to.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add a list of users with specific access to a collection 

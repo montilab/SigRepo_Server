@@ -5,13 +5,19 @@
 #' @param collection_id ID of collection in the database
 #' @param signature_id A list of signature IDs to be removed from a collection 
 #' in the database 
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @export
 removeSignatureFromCollection <- function(
     conn_handler,
     collection_id,
-    signature_id
+    signature_id,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -32,7 +38,7 @@ removeSignatureFromCollection <- function(
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
     base::stop("'collection_id' must have a length of 1 and cannot be empty.")
   }
@@ -40,7 +46,7 @@ removeSignatureFromCollection <- function(
   # Check signature_id
   if(length(signature_id) == 0 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
     base::stop("'signature_id' cannot be empty.")
   }
@@ -58,9 +64,9 @@ removeSignatureFromCollection <- function(
   # If any signatures does not exit in the database, throw an error message
   if(nrow(signature_tbl) != length(unique(signature_id))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(sprintf("signature_id = %s does not exist in the signatures table of the SigRepo Database.", paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", ")))
+    base::stop(base::sprintf("signature_id = %s does not exist in the signatures table of the SigRepo Database.", base::paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", ")))
   }
   
   # Check if collection exists ####
@@ -77,10 +83,10 @@ removeSignatureFromCollection <- function(
   if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There is no collection_id = '%s' in the 'collection' table of the SigRepo Database.", collection_id))
+    base::stop(base::sprintf("There is no collection_id = '%s' in the 'collection' table of the SigRepo Database.", collection_id))
     
   }else{
     
@@ -114,9 +120,9 @@ removeSignatureFromCollection <- function(
         # If user does not have permission, throw an error message
         if(nrow(signature_access_tbl) == 0){
           # Disconnect from database ####
-          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          base::suppressWarnings(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to remove signature_id = % that belong(s) to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
+          base::stop(base::sprintf("User = '%s' does not have permission to remove signature_id = % that belong(s) to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
         }
       }
     }
@@ -137,9 +143,9 @@ removeSignatureFromCollection <- function(
     # If signature does not exist in collection, throw an error message
     if(nrow(signature_collection_tbl) != length(unique(signature_id))){
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn)) 
+      base::suppressWarnings(DBI::dbDisconnect(conn)) 
       # Show message
-      base::stop(sprintf("signature_id = %s does not belongs to collection_id = %s.", paste0("'", signature_id[which(!signature_id %in% signature_collection_tbl$signature_id)], "'", collapse = ", ")))
+      base::stop(base::sprintf("signature_id = %s does not belongs to collection_id = %s.", base::paste0("'", signature_id[which(!signature_id %in% signature_collection_tbl$signature_id)], "'", collapse = ", ")))
     }
     
     # If signature does exist in collection, remove them from collection
@@ -152,10 +158,10 @@ removeSignatureFromCollection <- function(
     )
 
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # print message
-    base::message("Removing signature(s) from collection completed.\n")
+    SigRepo::verbose("Removing signature(s) from collection completed.\n")
     
   }  
 }  

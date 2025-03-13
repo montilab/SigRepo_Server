@@ -4,11 +4,18 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param platform_id a list of platform accession ids to search by. Default is NULL which
 #' includes all platforms in the database.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 searchPlatform <- function(
     conn_handler,
-    platform_id = NULL
+    platform_id = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -44,7 +51,7 @@ searchPlatform <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return table
   return(platform_tbl)

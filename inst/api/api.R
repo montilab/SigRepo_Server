@@ -133,7 +133,7 @@ store_difexp <- function(res, api_key, signature_hashkey, difexp){
     )
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Check user tbl
     if(nrow(user_tbl) == 0){
@@ -220,7 +220,7 @@ get_difexp <- function(res, api_key, signature_hashkey){
     )
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Check user tbl
     if(nrow(user_tbl) == 0){
@@ -310,7 +310,7 @@ delete_difexp <- function(res, api_key, signature_hashkey){
     )
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Check user tbl
     if(nrow(user_tbl) == 0){
@@ -427,7 +427,7 @@ organisms <- function(res, organism="all", api_key){
   )  
   
   # Get 
-  table <- tryCatch({
+  table <- base::tryCatch({
     DBI::dbGetQuery(conn = conn, statement = statement)
   }, error = function(e){
     # Initialize the serializers

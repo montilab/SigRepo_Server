@@ -3,7 +3,12 @@
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param collection_name Name of collection to be looked up by.
+#' @param collection_id ID of collection to be looked up by.
+#' @param signature_name Name of signatures to be looked up by.
+#' @param signature_id ID of signatures to be looked up by.
 #' @param user_name Name of users that the collection belongs to.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @examples 
 #' 
@@ -25,9 +30,15 @@
 searchCollection <- function(
     conn_handler,
     collection_name = NULL,
+    collection_id = NULL,
     signature_name = NULL,
-    user_name = NULL
+    signature_id = NULL,
+    user_name = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -57,10 +68,13 @@ searchCollection <- function(
     if(nrow(collection_access_tbl) == 0){
       
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn))     
+      base::suppressWarnings(DBI::dbDisconnect(conn))     
       
       # Show message
-      base::stop(sprintf("There are no collection returned from the search parameters.\n"))
+      SigRepo::verbose(base::sprintf("There are no collection returned from the search parameters.\n"))
+      
+      # Return NULL
+      return(base::data.frame(NULL))
       
     }
     
@@ -89,10 +103,13 @@ searchCollection <- function(
   if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     
     # Show message
-    base::stop(sprintf("There are no collection returned from the search parameters.\n"))
+    SigRepo::verbose(base::sprintf("There are no collection returned from the search parameters.\n"))
+    
+    # Return NULL
+    return(base::data.frame(NULL))
     
   }else{
     
@@ -127,7 +144,9 @@ searchCollection <- function(
     # Get a list of filtered variables
     filter_var_list <- list(
       "collection_name" = collection_name,
-      "signature_name" = signature_name
+      "collection_id" = collection_id,
+      "signature_name" = signature_name,
+      "signature_id" = signature_id
     )
     
     # Filter table with given search variables
@@ -145,15 +164,18 @@ searchCollection <- function(
     if(nrow(collection_tbl) == 0){
       
       # Disconnect from database ####
-      base::suppressMessages(DBI::dbDisconnect(conn))     
+      base::suppressWarnings(DBI::dbDisconnect(conn))     
       
       # Show message
-      base::stop(sprintf("There are no collection returned from the search parameters.\n"))
+      SigRepo::verbose(base::sprintf("There are no collection returned from the search parameters.\n"))
+      
+      # Return NULL
+      return(base::data.frame(NULL))
       
     }
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))
+    base::suppressWarnings(DBI::dbDisconnect(conn))
     
     # Return table
     return(collection_tbl)
