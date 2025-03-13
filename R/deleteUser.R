@@ -2,11 +2,18 @@
 #' @description Delete user information in the database
 #' @param conn_handler An established database connection using SigRepo::newConnhandler() 
 #' @param user_name Name of a user to be deleted (required).
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#'
 #' @export
 deleteUser <- function(
     conn_handler,
-    user_name
+    user_name,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -21,7 +28,7 @@ deleteUser <- function(
   # Check user_name ####
   if(!length(user_name) == 1 || all(user_name %in% c(NA, ""))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
     base::stop("'user_name' must have a length of 1 and cannot be empty.")
   }
@@ -42,9 +49,9 @@ deleteUser <- function(
   # Check if user exists in the database
   if(nrow(table) == 0){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(sprintf("There is no user = '%s' existed in the 'users' table of the SigRepo Database.", user_name))
+    base::stop(base::sprintf("There is no user = '%s' existed in the 'users' table of the SigRepo Database.", user_name))
   }
   
   # DROP USER FROM DATABASE
@@ -53,7 +60,7 @@ deleteUser <- function(
     function(u){
       #u=1;
       # CHECK IF USER EXIST IN DATABASE
-      check_user_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
+      check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
       # CREATE USER IF NOT EXIST
       if(nrow(check_user_tbl) == 0){
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", table$user_name[u])))
@@ -62,7 +69,10 @@ deleteUser <- function(
   )
 
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn)) 
+  base::suppressWarnings(DBI::dbDisconnect(conn)) 
+  
+  # Return message
+  SigRepo::verbose(base::sprintf("user_name = '%s' has been removed.", user_name))
   
 }
 

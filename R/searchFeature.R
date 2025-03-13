@@ -5,13 +5,20 @@
 #' @param assay_type Type of assays: transcriptomics, proteomics, metabolomics, 
 #' methylomics, genetic_variations, dna_binding_sites (required)
 #' @param feature_name A list of feature names to look up.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 searchFeature <- function(
     conn_handler,
     assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
                    "genetic_variations", "dna_binding_sites"),
-    feature_name = NULL
+    feature_name = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -31,8 +38,6 @@ searchFeature <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
   })  
   
   # Get reference table
@@ -77,10 +82,10 @@ searchFeature <- function(
   if(nrow(feature_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+    base::stop(base::sprintf("There are no signatures returned from the search parameters.\n"))
     
   }else{
     
@@ -109,7 +114,7 @@ searchFeature <- function(
     feature_tbl <- feature_tbl %>% dplyr::select(all_of(coln_names))
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))  
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
     
     # Return table
     return(feature_tbl)

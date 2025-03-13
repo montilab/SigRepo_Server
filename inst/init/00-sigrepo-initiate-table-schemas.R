@@ -6,15 +6,23 @@ library(DBI)
 # For data cleaning, extraction and manipulation
 library(tidyverse)
 
-## Establish database connection
-conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
+# For loading and installing packages
+library(devtools)
+
+# Load SigRepo package
+devtools::load_all()
+
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
+
+## Establish database connection
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Set foreign key checks to false when dropping tables
 base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
@@ -569,7 +577,7 @@ all_table_results <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, stateme
 all_table_results
 
 # Disconnect from database ####
-base::suppressMessages(DBI::dbDisconnect(conn))    
+base::suppressWarnings(DBI::dbDisconnect(conn))    
 
 
 

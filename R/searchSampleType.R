@@ -4,11 +4,18 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param sample_type a list of sample types to search by. Default is NULL which
 #' includes all sample types in the database.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#'
 #' @export
 searchSampleType <- function(
     conn_handler,
-    sample_type = NULL
+    sample_type = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -44,7 +51,7 @@ searchSampleType <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return table
   return(sample_type_tbl)

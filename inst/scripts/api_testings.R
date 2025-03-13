@@ -13,12 +13,12 @@ res1$status_code
 
 res2 <- 
   httr::GET(
-    url = "http://127.0.0.1:8020/get_difexp?api_key=1bcc4d9e4aa18d29098822d7a546241f&signature_hashkey=af7b21277e406e106fd2a42ef75267e2"
+    url = "http://127.0.0.1:8020/get_difexp?api_key=45e79339091be8861e8b917fca5c2afb&signature_hashkey=af7b21277e406e106fd2a42ef75267e2"
   )
 
 res2$status_code
 
-difexp <- fromJSON(fromJSON(rawToChar(res2$content)))
+difexp <- jsonlite::fromJSON(jsonlite::fromJSON(base::rawToChar(res2$content)))
 
 
 res3 <- 

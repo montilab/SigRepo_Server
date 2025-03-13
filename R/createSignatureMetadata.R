@@ -16,19 +16,10 @@ createSignatureMetadata <- function(
   
   # Check if omic_signature is a valid R6 object ####
   # If yes, return whether it has difexp included ####
-  has_difexp <- base::tryCatch({
-    SigRepo::checkOmicSignature(
-      omic_signature = omic_signature
-    )
-  }, error = function(e){
-    # Disconnect from database
-    base::suppressWarnings(DBI::dbDisconnect(conn))  
-    # Return error message
-    base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
-  }) 
-
+  has_difexp <- SigRepo::checkOmicSignature(
+    omic_signature = omic_signature
+  )
+  
   # If has_difexp = TRUE, then get number of difexp
   if(has_difexp == TRUE){
     # Extract difexp from omic_signature ####
@@ -75,7 +66,7 @@ createSignatureMetadata <- function(
   # If organism is not existed in database, throw an error message
   if(nrow(organism_id_tbl) == 0){
     # Disconnect from database
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message ####
     SigRepo::showOrganismErrorMessage(
       db_table_name = "organisms",
@@ -100,11 +91,10 @@ createSignatureMetadata <- function(
   # If phenotype is not existed in database, add to database
   if(nrow(phenotype_id_tbl) == 0){
     # Add phenotype to database ####
-    base::suppressMessages(
-      SigRepo::addPhenotype(
-        conn_handler = conn_handler,
-        phenotype_tbl = base::data.frame(phenotype = lookup_phenotype)
-      )
+    SigRepo::addPhenotype(
+      conn_handler = conn_handler,
+      phenotype_tbl = base::data.frame(phenotype = lookup_phenotype),
+      verbose = FALSE
     )
     # Get the updated phenotype id
     phenotype_id <- SigRepo::lookup_table_sql(
@@ -140,7 +130,7 @@ createSignatureMetadata <- function(
   # If ID not exists in database, throw an error message
   if(nrow(platform_id_tbl) == 0){
     # Disconnect from database
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message ####
     SigRepo::showPlatformErrorMessage(
       db_table_name = "platforms",
@@ -171,7 +161,7 @@ createSignatureMetadata <- function(
   # If ID not exists in database, throw an error message
   if(nrow(sample_type_tbl) == 0){
     # Disconnect from database
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message ####
     SigRepo::showSampleTypeErrorMessage(
       db_table_name = "platforms",
@@ -270,11 +260,10 @@ createSignatureMetadata <- function(
         stringsAsFactors = FALSE
       )
       # Add keyword to database
-      base::suppressMessages(
-        SigRepo::addKeyword(
-          conn_handler = conn_handler, 
-          keyword_tbl = keyword_tbl
-        )
+      SigRepo::addKeyword(
+        conn_handler = conn_handler, 
+        keyword_tbl = keyword_tbl,
+        verbose = FALSE
       )
     }
   }else{
@@ -286,7 +275,7 @@ createSignatureMetadata <- function(
     if(length(metadata$PMID) == 0){
       PMID <- 'NULL'
     }else{
-      PMID <- paste0(metadata$PMID, collapse = ",")
+      PMID <- base::paste0(metadata$PMID, collapse = ",")
     }
   }else{
     PMID <- 'NULL'
@@ -297,7 +286,7 @@ createSignatureMetadata <- function(
     if(length(metadata$year) == 0){
       year <- 'NULL'
     }else{
-      year <- paste0(metadata$year, collapse = ",")
+      year <- base::paste0(metadata$year, collapse = ",")
     }
   }else{
     year <- 'NULL'
@@ -312,10 +301,10 @@ createSignatureMetadata <- function(
         purrr::map_chr(
           function(l){
             #l=1;
-            list_name <- names(metadata$others)[l]
-            paste0(list_name, ": ", paste0("<", metadata$others[[l]], ">", collapse = ","))
+            list_name <- base::names(metadata$others)[l]
+            base::paste0(list_name, ": ", base::paste0("<", metadata$others[[l]], ">", collapse = ","))
           }
-        ) %>% paste0(., collapse = ";")
+        ) %>% base::paste0(., collapse = ";")
     }
   }else{
     others <- 'NULL'
@@ -348,7 +337,7 @@ createSignatureMetadata <- function(
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn)) 
+  base::suppressWarnings(DBI::dbDisconnect(conn)) 
   
   # Return the metadata tbl ####
   return(metadata_tbl)

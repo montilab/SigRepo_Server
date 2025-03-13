@@ -8,7 +8,8 @@ searchFeature(
   conn_handler,
   assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
     "genetic_variations", "dna_binding_sites"),
-  feature_name = NULL
+  feature_name = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -19,6 +20,9 @@ obtained from SigRepo::newConnhandler() (required)}
 methylomics, genetic_variations, dna_binding_sites (required)}
 
 \item{feature_name}{A list of feature names to look up.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Search for a list of features based on an assay type in the database

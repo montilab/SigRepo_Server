@@ -4,11 +4,18 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param phenotypes a list of phenotypes to search by. Default is NULL which
 #' includes all phenotypes in the database
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 searchPhenotype <- function(
     conn_handler,
-    phenotype = NULL
+    phenotype = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -26,7 +33,7 @@ searchPhenotype <- function(
     phenotype_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "phenotypes", 
-      return_var = "phenotype", 
+      return_var = "*", 
       check_db_table = TRUE
     )  
     
@@ -35,7 +42,7 @@ searchPhenotype <- function(
     phenotype_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "phenotypes", 
-      return_var = "phenotype", 
+      return_var = "*", 
       filter_coln_var = "phenotype", 
       filter_coln_val = list("phenotype" = phenotype),
       check_db_table = TRUE
@@ -44,7 +51,7 @@ searchPhenotype <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return tabl
   return(phenotype_tbl)

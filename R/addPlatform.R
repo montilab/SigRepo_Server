@@ -4,11 +4,18 @@
 #' @param platform_tbl An data frame containing appropriate column names: 
 #' platform_id, platform_name, seq_technology, organisms to be uploaded into 
 #' the database.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 addPlatform <- function(
     conn_handler,
-    platform_tbl
+    platform_tbl,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -28,17 +35,17 @@ addPlatform <- function(
   # Check required column fields
   if(any(!required_column_fields %in% colnames(table))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(sprintf("the table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("the table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####
@@ -68,7 +75,10 @@ addPlatform <- function(
   ) 
 
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
+  
+  # Return message
+  SigRepo::verbose("Finished uploading.\n")
   
 }
 

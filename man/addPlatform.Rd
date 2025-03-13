@@ -4,7 +4,7 @@
 \alias{addPlatform}
 \title{addPlatform}
 \usage{
-addPlatform(conn_handler, platform_tbl)
+addPlatform(conn_handler, platform_tbl, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{An established connection to database using newConnhandler()}
@@ -12,6 +12,9 @@ addPlatform(conn_handler, platform_tbl)
 \item{platform_tbl}{An data frame containing appropriate column names: 
 platform_id, platform_name, seq_technology, organisms to be uploaded into 
 the database.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add platform to database

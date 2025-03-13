@@ -1,16 +1,18 @@
 #' @title newConnHandler
-#' @description create a handler to connect to a remote database
-#' @param dbname table schema of which you want the handle to point.
-#' @param host host server in which you want to connect
-#' @param port host port in which you wish to use
-#' @param user the user who is establishing the connection
-#' @param password password associated with the user
-#' @return a list with user credentials to establish connection to a remote database
+#' @description Create a handler to connect to a remote database.
+#' @param dbname Name of MySQL database to point to.
+#' @param host Name of the server where MySQL database is hosted on.
+#' @param port Port on the server to connect to MySQL database.
+#' @param api_port Port on the server to access database API.
+#' @param user Name of user to establish the connection.
+#' @param password Password associated with the user.
+#' @return A list of user credentials to establish connection to the remote database.
 #' @export
 newConnHandler <- function(
     dbname = 'sigrepo', 
     host = "montilab.bu.edu", 
     port = 3306, 
+    api_port = 8020,
     user = "guest", 
     password = "guest"
 ){
@@ -27,6 +29,10 @@ newConnHandler <- function(
   base::stopifnot("'port' must have a length of 1 and cannot be empty and must be a numeric value." = 
               (length(port) == 1 && !port %in% c(NA, "")))
   
+  # Check api_port ####
+  base::stopifnot("'api_port' must have a length of 1 and cannot be empty and must be a numeric value." = 
+                    (length(api_port) == 1 && !api_port %in% c(NA, ""))) 
+  
   # Check user ####
   base::stopifnot("'user' must have a length of 1 and cannot be empty." = 
               (length(user) == 1 && !user %in% c(NA, "")))
@@ -37,10 +43,11 @@ newConnHandler <- function(
   
   # Return connection handler ###
   return(
-    list(
+    base::list(
       dbname = dbname,
       host = host,
       port = port,
+      api_port = api_port,
       user = user,
       password = password
     )

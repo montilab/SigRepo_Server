@@ -129,7 +129,7 @@ createOmicSignature <- function(
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return Signature
   return(OmS)

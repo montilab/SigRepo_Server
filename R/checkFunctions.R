@@ -1,4 +1,42 @@
 
+#' @title print_messages
+#' @description Function to whether print diagnostic messages or not
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @noRd
+#' 
+#' @export
+print_messages <- function(verbose){
+  
+  if(verbose == TRUE){
+    base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
+  }else if(verbose == FALSE){
+    base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
+  }
+  
+}
+
+#' @title verbose
+#' @description Function to whether print diagnostic messages or not
+#' 
+#' @noRd
+#' 
+#' @export
+verbose <- function(...){
+  
+  # Fetch verbose option
+  opt <- base::getOption("verbose", FALSE)
+
+  # If opt is FALSE
+  if(!opt) return(base::invisible(NULL))
+  
+  # Return messages
+  msgs <- base::list(...)
+  base::message(msgs, "\n")
+
+}
+
 #' @title checkPermissions
 #' @description Check api key whether it is valid to access the database
 #' @param conn An established connection to database using SigRepo::newConnhandler() 
@@ -27,7 +65,7 @@ checkPermissions <- function(
   user_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "users", 
-    return_var = c("user_name", "user_role"), 
+    return_var = c("user_name", "user_role", "api_key"), 
     filter_coln_var = "user_name", 
     filter_coln_val = list("user_name" = conn_info$user), 
     check_db_table = TRUE
@@ -88,7 +126,7 @@ checkPermissions <- function(
   
   # Return user connection and user role
   return(
-    c(conn_info, user_role = user_tbl$user_role)
+    c(conn_info, user_role = user_tbl$user_role, api_key = user_tbl$api_key)
   )
   
 }
@@ -248,7 +286,7 @@ checkDuplicatedEmails <- function(
   ## Check if table has values, only return non-overlapping samples
   if(n_obs$count > 0){
     
-    return_var <- coln_var
+    return_var <- "*"
     filter_coln_var <- coln_var
     filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
     
@@ -262,14 +300,23 @@ checkDuplicatedEmails <- function(
     )
     
     if(nrow(existing_tbl) > 0){
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn))  
-      # Return error message
-      base::stop(
-        sprintf("\tThe following email address(es):\n"),
-        sprintf("\t%s\n", paste0(unique(existing_tbl[,return_var]), collapse = ",\n")),
-        sprintf("\talready existed in the '%s' table of the database.\n", db_table_name),
-        sprintf("\tUser email address must be unique.\n")
+      purrr::walk(
+        1:nrow(table),
+        function(s){
+          #s=1;
+          check_email <- existing_tbl %>% dplyr::filter(user_email %in% table$user_email[s])
+          if(nrow(check_email) > 0 && !base::trimws(base::tolower(table$user_name[s])) %in% base::trimws(base::tolower(check_email$user_name))){
+            # Disconnect from database ####
+            base::suppressWarnings(DBI::dbDisconnect(conn))  
+            # Return error message
+            base::stop(
+              base::sprintf("\tThe following email address:\n"),
+              base::sprintf("\t%s\n", base::paste0(unique(existing_tbl[,return_var]), collapse = ",\n")),
+              base::sprintf("\talready existed in the '%s' table of the database.\n", db_table_name),
+              base::sprintf("\tEmail address must be unique for each user. Please provide a different email for user = '%s'.\n", table$user_name[s])
+            )
+          }
+        }
       )
     }
     
@@ -365,7 +412,7 @@ checkOmicSignature <- function(
       difexp <- NULL
     }else{
       # Check if difexp is a data frame 
-      if(!is(difexp, "data.frame") || length(difexp) == 0) 
+      if(!is(difexp, "data.frame") || nrow(difexp) == 0) 
         base::stop("'difexp' in OmicSignature must be a data frame object and cannot be empty.")
     }
   }else{
@@ -408,6 +455,11 @@ checkOmicSignature <- function(
   
   # Create has_difexp variable to store whether omic_signature has difexp included ####
   has_difexp <- ifelse(!is.null(difexp), 1, 0) 
+  
+  # Check probe_id in signature are in difexp table if difexp is provided
+  if(has_difexp == 1 && any(!signature$probe_id %in% difexp$probe_id)){
+    base::stop("Some probe_id in the signature are not included in the probe_id in the difexp.")
+  }
   
   # Return difexp status
   return(has_difexp)
@@ -805,7 +857,7 @@ removeDuplicates <- function(
           by = "id"
         )
       if(nrow(table) == 0){
-        base::message(base::sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
+        base::warnings(base::sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
       }
     }
     

@@ -4,12 +4,23 @@
 \alias{addSignature}
 \title{addSignature}
 \usage{
-addSignature(conn_handler, omic_signature)
+addSignature(
+  conn_handler,
+  omic_signature,
+  return_signature_id = FALSE,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{omic_signature}{An R6 class object from OmicSignature package}
+
+\item{return_signature_id}{a logical value indicates whether or not to return
+the ID of the uploaded signature. Default is \code{FALSE}.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add signature to database

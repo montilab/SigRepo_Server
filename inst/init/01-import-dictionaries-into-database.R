@@ -114,6 +114,6 @@ statement <- "select * FROM keywords"
 keyword_db_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
 
 # Disconnect from database ####
-base::suppressMessages(DBI::dbDisconnect(conn))    
+base::suppressWarnings(DBI::dbDisconnect(conn))    
 
 

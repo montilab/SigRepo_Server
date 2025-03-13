@@ -40,7 +40,7 @@ services:
     networks:
       - db-net
     ports:
-      - 8020:3838
+      - 8050:3838
     restart: always
     volumes:
       - $HOME/Github/test/SigRepo:/SigRepo
