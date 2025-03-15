@@ -28,6 +28,22 @@ OmS_SUM_CYP <- brca_diffanal$SUM.CYP
 
 OmS_SUM_AhR <- brca_diffanal$SUM.AhR
 
+
+# filtering out the depricated ids
+
+filter_list <- read.csv(file.path(data_path,"feature_tables/Transcriptomics_HomoSapiens.csv"))
+
+filter_list <- filter_list[1]
+
+
+OmS_MDA_CYP <- dplyr::filter(OmS_MDA_CYP, ensembl_gene_id %in% filter_list$feature_name)
+
+OmS_MDA_AhR <- dplyr::filter(OmS_MDA_AhR, ensembl_gene_id %in% filter_list$feature_name)
+
+OmS_SUM_CYP <- dplyr::filter(OmS_SUM_CYP, ensembl_gene_id %in% filter_list$feature_name)
+
+OmS_SUM_AhR <- dplyr::filter(OmS_SUM_AhR, ensembl_gene_id %in% filter_list$feature_name)
+
 # Creating metadata for all 4, The xxxx is either AhR or CYP1B1. "MDA-MB-231 cell" or "SUM-149PT cell",
 
 metadata_MDA_CYP <- OmicSignature::createMetadata(
@@ -185,4 +201,15 @@ OmSC <- OmicSignature::OmicSignatureCollection$new(
   metadata = colMeta
 )
 
-colnames(OmS_SUM_AhR)
+# saving the RDS objcts to the siganture folder
+
+saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
+
+saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
+
+saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
+
+saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
+
+saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
+
