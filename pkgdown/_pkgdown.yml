@@ -82,9 +82,8 @@ reference:
   desc: 
   contents:
   - '`validateUser`'
-  - '`createOmicSignature`'
-  - '`createOmicCollection`'
-  - '`createSignatureMetadata`'
+  - '`delete_table_sql`'
+  - '`lookup_table_sql`'
   - '`removeSignatureFromCollection`'
   
 navbar:
