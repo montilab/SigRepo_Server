@@ -31,6 +31,9 @@ deleteSignature <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
+  # Get unique signature id
+  signature_id <- base::unique(signature_id) 
+  
   # Check signature_id
   if(length(signature_id) != 1 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####

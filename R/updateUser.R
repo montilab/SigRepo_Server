@@ -36,6 +36,9 @@ updateUser <- function(
     required_role = "admin"
   )
   
+  # Get unique signature id
+  user_name <- base::unique(user_name) 
+  
   # Check user_name ####
   if(!length(user_name) == 1 || all(user_name %in% c(NA, ""))){
     # Disconnect from database ####

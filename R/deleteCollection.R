@@ -54,6 +54,9 @@ deleteCollection <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
+  # Get unique collection id
+  collection_id <- base::unique(collection_id) 
+  
   # Get table name in database ####
   db_table_name <- "collection"
   
