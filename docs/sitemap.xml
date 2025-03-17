@@ -7,10 +7,25 @@
     <loc>https://montilab.github.io/SigRepo/LICENSE-text.html</loc>
   </url>
   <url>
+    <loc>https://montilab.github.io/SigRepo/articles/collection-tutorials.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/articles/docker.html</loc>
+  </url>
+  <url>
     <loc>https://montilab.github.io/SigRepo/articles/index.html</loc>
   </url>
   <url>
+    <loc>https://montilab.github.io/SigRepo/articles/install-sigrepo-externally.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html</loc>
+  </url>
+  <url>
     <loc>https://montilab.github.io/SigRepo/articles/retrieveSignatures.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/articles/signature-tutorials.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/articles/uploadSignatures.html</loc>
@@ -26,6 +41,9 @@
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/news/news-1.0.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/reference/addCollection.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/addKeyword.html</loc>
@@ -49,13 +67,19 @@
     <loc>https://montilab.github.io/SigRepo/reference/addSignature.html</loc>
   </url>
   <url>
-    <loc>https://montilab.github.io/SigRepo/reference/addSignatureCollection.html</loc>
+    <loc>https://montilab.github.io/SigRepo/reference/addSignatureToCollection.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/addUser.html</loc>
   </url>
   <url>
+    <loc>https://montilab.github.io/SigRepo/reference/addUserToCollection.html</loc>
+  </url>
+  <url>
     <loc>https://montilab.github.io/SigRepo/reference/addUserToSignature.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/reference/deleteCollection.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/deleteSignature.html</loc>
@@ -70,19 +94,28 @@
     <loc>https://montilab.github.io/SigRepo/reference/getAPIKey.html</loc>
   </url>
   <url>
+    <loc>https://montilab.github.io/SigRepo/reference/getCollection.html</loc>
+  </url>
+  <url>
     <loc>https://montilab.github.io/SigRepo/reference/getSignature.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/index.html</loc>
   </url>
   <url>
-    <loc>https://montilab.github.io/SigRepo/reference/insert_table_sql.html</loc>
-  </url>
-  <url>
     <loc>https://montilab.github.io/SigRepo/reference/lookup_table_sql.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/newConnHandler.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/reference/pipe.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/reference/removeSignatureFromCollection.html</loc>
+  </url>
+  <url>
+    <loc>https://montilab.github.io/SigRepo/reference/searchCollection.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/searchFeature.html</loc>
@@ -103,13 +136,13 @@
     <loc>https://montilab.github.io/SigRepo/reference/searchSignature.html</loc>
   </url>
   <url>
+    <loc>https://montilab.github.io/SigRepo/reference/updateCollectionMetadata.html</loc>
+  </url>
+  <url>
     <loc>https://montilab.github.io/SigRepo/reference/updateSignature.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/updateUser.html</loc>
-  </url>
-  <url>
-    <loc>https://montilab.github.io/SigRepo/reference/update_table_sql.html</loc>
   </url>
   <url>
     <loc>https://montilab.github.io/SigRepo/reference/validateUser.html</loc>
