@@ -118,7 +118,7 @@ getCollection <- function(
       db_collection_tbl <- collection_tbl %>% dplyr::slice(r)
       
       # Create an OmicSignature object
-      omic_signature_collection <- SigRepo::createOmicSignatureCollection(
+      omic_signature_collection <- SigRepo::createOmicCollection(
         conn_handler = conn_handler,
         db_collection_tbl = db_collection_tbl
       )
@@ -129,6 +129,9 @@ getCollection <- function(
         omic_signature_collection
       )
     }
+    
+    # Add names to signatures
+    names(omic_collection_list) <- collection_tbl$collection_name
 
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))

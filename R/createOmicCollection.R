@@ -1,17 +1,18 @@
-#' @title createOmicSignature
-#' @description Get the signature set uploaded by a specific user in the database.
+#' @title createOmicCollection
+#' @description Get the collection set uploaded by a specific user in the database.
 #' @param conn_handler A handler uses to establish connection to the database
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param db_signature_tbl The name of a signature that belongs to a specific user 
-#' (\code{user_name}) who previously uploaded the signature into the database (required. 
+#' @param db_collection_tbl A collection table in the database with associated 
+#' a list of signature ids to be made into an OmicSignatureCollection object (required)
 #' 
 #' @noRd
 #' 
 #' @export
+#' 
 #' @import OmicSignature
-createOmicSignature <- function(
+createOmicCollection <- function(
     conn_handler,
-    db_signature_tbl
+    db_collection_tbl
 ){
   
   # Establish user connection ###
@@ -25,114 +26,121 @@ createOmicSignature <- function(
   )
   
   # Check if table is a data frame object and not empty
-  if(!is(db_signature_tbl, "data.frame") || length(db_signature_tbl) == 0){
+  if(!is(db_collection_tbl, "data.frame") || length(db_collection_tbl) == 0){
     # Disconnect from database ####
     DBI::dbDisconnect(conn)    
     # Show message
-    base::stop(sprintf("'db_signature_tbl' must be a data frame and cannot be empty.\n"))
-  }
-  
-  # Get assay_type
-  assay_type <- db_signature_tbl$assay_type  
-  
-  # Get reference table
-  if(assay_type == "transcriptomics"){
-    ref_table <- "transcriptomics_features"
-  }else if(assay_type == "proteomics"){
-    ref_table <- "proteomics_features"
-  }else if(assay_type == "metabolomics"){
-    ref_table <- "metabolomics_features"
-  }else if(assay_type == "methylomics"){
-    ref_table <- "methylomics_features"
-  }else if(assay_type == "genetic_variations"){
-    ref_table <- "genetic_variations_features"
-  }else if(assay_type == "dna_binding_sites"){
-    ref_table <- "dna_binding_sites_features"
+    base::stop(base::sprintf("'db_collection_tbl' must be a data frame and cannot be empty.\n"))
   }
   
   # Create metadata
-  metadata <- db_signature_tbl %>% base::as.list()
+  metadata <- db_collection_tbl %>% base::as.list()
   
-  # Clean-up covariates ###
-  if(length(metadata$covariates) > 0 & all(!metadata$covariates %in% c("", NA))){
-    metadata$covariates <- base::strsplit(metadata$covariates, split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
-  }
-  
-  # Clean-up keywords ###
-  if(length(metadata$keywords) > 0 & all(!metadata$keywords %in% c("", NA))){
-    metadata$keywords <- base::strsplit(metadata$keywords, split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
-  }
-  
-  # Clean-up others ###
-  if(length(metadata$others) > 0 & all(!metadata$others %in% c("", NA))){
-    metadata$others <- base::strsplit(metadata$others, split = ";", perl = TRUE) %>% base::unlist() %>% base::trimws() %>% 
-      purrr::lmap(., function(x){ 
-        list_name <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\1", x, perl = TRUE) %>% base::trimws()
-        list_value <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\3", x, perl = TRUE) %>% base::strsplit(., split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
-        list_obj <- list(object = list_value)
-        names(list_obj) <- list_name
-        return(list_obj)
-      }) 
-  }
-  
-  # If signature has difexp, get a copy by its signature hash key ####
-  if(db_signature_tbl$has_difexp == TRUE){
-    # data path to difexp in local storage ####
-    data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-    # Read in difexp from local storage ####
-    difexp <- base::readRDS(file.path(data_path, paste0(db_signature_tbl$signature_hashkey, ".RDS")))
-  }else{
-    difexp <- NULL
-  }
-  
-  # Create signature set
-  signature <- SigRepo::lookup_table_sql(
+  # Look up signatures in the signature collection table
+  signature_collection_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
-    db_table_name = "signature_feature_set", 
+    db_table_name = "signature_collection_access", 
     return_var = "*", 
-    filter_coln_var = "signature_id", 
-    filter_coln_val = list("signature_id" = db_signature_tbl$signature_id),
-    check_db_table = TRUE
-  )
-  
-  # Look up feature_id ####
-  lookup_feature_id <- signature$feature_id
-  
-  feature_id_tbl <- SigRepo::lookup_table_sql(
-    conn = conn, 
-    db_table_name = ref_table, 
-    return_var = c("feature_id", "feature_name"), 
-    filter_coln_var = "feature_id", 
-    filter_coln_val = list("feature_id" = lookup_feature_id),
+    filter_coln_var = "collection_id", 
+    filter_coln_val = base::list("collection_id" = base::unique(db_collection_tbl$collection_id)),
     check_db_table = TRUE
   ) 
   
-  # Add variables to table
-  signature <- signature %>% 
-    dplyr::left_join(
-      feature_id_tbl,
-      by = "feature_id"
+  # Add signatures to collection table
+  signature_collection_tbl <- db_collection_tbl %>% 
+    dplyr::left_join(signature_collection_tbl, by = "collection_id")  
+  
+  # Create a place holder to store signatures
+  omic_signature_list <- base::list()
+  
+  # Create an omic signature object for each signature id ####
+  for(r in 1:nrow(signature_collection_tbl)){
+    #r=1;
+    db_signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "signatures", 
+      return_var = "*", 
+      filter_coln_var = "signature_id", 
+      filter_coln_val = base::list("signature_id" = signature_collection_tbl$signature_id[r]),
+      check_db_table = TRUE
+    ) 
+    
+    # Look up organism ####
+    lookup_organism_id <- db_signature_tbl$organism_id
+    
+    organism_id_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "organisms", 
+      return_var = c("organism_id", "organism"), 
+      filter_coln_var = "organism_id", 
+      filter_coln_val = list("organism_id" = lookup_organism_id),
+      check_db_table = TRUE
+    ) 
+    
+    # Look up phenotype id ####
+    lookup_phenotype_id <- db_signature_tbl$phenotype_id
+    
+    phenotype_id_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "phenotypes", 
+      return_var = c("phenotype_id", "phenotype"), 
+      filter_coln_var = "phenotype_id", 
+      filter_coln_val = list("phenotype_id" = lookup_phenotype_id),
+      check_db_table = TRUE
+    ) 
+    
+    # Look up sample_type_id ####
+    lookup_sample_type_id <- db_signature_tbl$sample_type_id
+    
+    sample_type_id_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "sample_types", 
+      return_var = c("sample_type_id", "sample_type"), 
+      filter_coln_var = "sample_type_id", 
+      filter_coln_val = list("sample_type_id" = lookup_sample_type_id),
+      check_db_table = TRUE
+    ) 
+    
+    # Add variables to table
+    db_signature_tbl <- db_signature_tbl %>% 
+      dplyr::left_join(organism_id_tbl, by = "organism_id") %>% 
+      dplyr::left_join(phenotype_id_tbl, by = "phenotype_id") %>% 
+      dplyr::left_join(sample_type_id_tbl, by = "sample_type_id")
+    
+    # Rename table with appropriate column names 
+    coln_names <- base::colnames(db_signature_tbl) %>% 
+      base::replace(., base::match(c("organism_id", "phenotype_id", "sample_type_id"), .), c("organism", "phenotype", "sample_type"))
+    
+    # Extract the table with appropriate column names ####
+    db_signature_tbl <- db_signature_tbl %>% dplyr::select(all_of(coln_names))
+    
+    # Create an OmicSignature object
+    omic_signature <- SigRepo::createOmicSignature(
+      conn_handler = conn_handler,
+      db_signature_tbl = db_signature_tbl
     )
+    
+    # Append OmicSignature object to overall list
+    omic_signature_list <- c(
+      omic_signature_list, 
+      omic_signature
+    )
+  }
   
-  # Rename table with appropriate column names 
-  coln_names <- colnames(signature) %>% 
-    base::replace(., base::match(c("feature_id"), .), c("feature_name"))
-
-  # Extract the table with appropriate column names ####
-  signature <- signature %>% dplyr::select(all_of(coln_names))
+  # Add names to signatures
+  names(omic_signature_list) <- db_signature_tbl$signature_name
   
-  # Create the OmicSignature object
-  OmS <- OmicSignature::OmicSignature$new(
+  # Create an OmicSignatureCollection object
+  OmicCol <- OmicSignature::OmicSignatureCollection$new(
     metadata = metadata,
-    signature = signature,
-    difexp = difexp
+    OmicSigList = omic_signature_list
   )
   
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))
   
-  # Return Signature
-  return(OmS)
+  # Return collection
+  return(OmicCol)
   
 }
 

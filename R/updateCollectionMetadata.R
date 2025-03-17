@@ -45,7 +45,10 @@ updateCollectionMetadata <- function(
   user_role <- conn_info$user_role[1] 
   
   # Get user_name ####
-  user_name <- conn_info$user[1]    
+  user_name <- conn_info$user[1]  
+  
+  # Get unique collection id
+  collection_id <- base::unique(collection_id) 
   
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){

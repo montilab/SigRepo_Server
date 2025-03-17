@@ -57,6 +57,9 @@ updateSignature <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]    
   
+  # Get unique signature id
+  signature_id <- base::unique(signature_id) 
+  
   # Get table name in database ####
   db_table_name <- "signatures"
   
