@@ -3,7 +3,7 @@ services:
     container_name: sigrepo-mysql
     image: sigrepo-mysql:latest
     build:
-      context: .
+      context: https://github.com/montilab/SigRepo.git
       dockerfile: Dockerfile-mysql
       args:
         - mysql_image=mysql:8.0-bookworm
@@ -15,14 +15,14 @@ services:
       - 3306:3306
     restart: always
     volumes:
-      - $HOME/Github/test/mysql/database:/var/lib/mysql:rw
-      - $HOME/Github/test/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
-    
+      - /mysql/database:/var/lib/mysql:rw
+      - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
+
   sigrepo:
     container_name: sigrepo
     image: sigrepo:latest
     build:
-      context: .
+      context: https://github.com/montilab/SigRepo.git
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.4.0
@@ -43,8 +43,9 @@ services:
       - 8020:3838
     restart: always
     volumes:
-      - $HOME/Github/test/SigRepo:/SigRepo
-      - $HOME/Github/test/mysql/difexp:/difexp:rw
+      - /SigRepo:/SigRepo
+      - /SigRepo/.Renviron:/root/.Renviron
+      - /mysql/difexp:/difexp:rw
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
 
   sigrepo-shiny:
@@ -59,10 +60,12 @@ services:
       - 8050:3838
     restart: always
     volumes:
-      - $HOME/Github/test/SigRepo:/SigRepo
-      - $HOME/Github/test/SigRepo/.Renviron:/root/.Renviron
+      - /SigRepo:/SigRepo
+      - /SigRepo/.Renviron:/root/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
-    
+
 networks:
   db-net:
-    external: true
+    external: true   
+    
+    

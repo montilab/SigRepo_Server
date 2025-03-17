@@ -29,6 +29,7 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   git \
   dos2unix \
   vim \
+  curl \
   && apt clean autoclean \
   && apt autoremove --yes \
 	&& rm -rf /var/lib/{apt,dpkg,cache,log}/
