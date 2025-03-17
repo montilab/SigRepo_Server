@@ -27,11 +27,16 @@ For demonstrations, we will walk through the steps of how to use
 `SigRepo` package to store, retrieve, and interact with a list of
 signatures stored in our MySQL SigRepo Database.
 
+# Additional Guides
+
+- [How to install SigRepo via
+  Docker](https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html)
+
 # Contacts
 
-Reina Chau - `rchau88@bu.edu` <br>  
-Cameron Vicnaire - `camv@bu.edu` <br> Vanessa Mengze Li - `vmli@bu.edu`
-<br> Stefano Monti - `smonti@bu.edu` <br>
+Reina Chau - `rchau88@bu.edu`  
+Cameron Vicnaire - `camv@bu.edu`<br> Vanessa Mengze Li -
+`vmli@bu.edu`<br> Stefano Monti - `smonti@bu.edu`<br>
 
 # Installation
 
@@ -184,7 +189,7 @@ SigRepo::addSignature(
 #> Adding user to the signature access table of the database...
 #> Adding signature feature set to the database...
 #> Finished uploading.
-#> ID of the uploaded signature: 12
+#> ID of the uploaded signature: 26
 ```
 
 ## **Example 2**: Upload `omic_signature_AGS_OmS` signature
@@ -300,7 +305,7 @@ if(nrow(signature_tbl) > 0){
 | 3 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | montilab | 2025-03-17 16:56:20 | b35b7c1d387440d474bfcb3cb162c9a6 |
 | 5 | Myc_reduce_mice_liver_24m_v1 | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:02:10 | d6f0247a37eec0e3a6b6285dc7394d88 |
 | 6 | Myc_reduce_mice_liver_24m_v2 | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:02:11 | e67a6b45899dc0f8d7eaa2cedec4d622 |
-| 12 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:17:21 | 1873c11dbbd138281361bed28899c17d |
+| 26 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:51:51 | 1873c11dbbd138281361bed28899c17d |
 
 ## Example 2: Search for a specific signature, e.g., **signature_name = “LLFS_Aging_Gene_2023”**.
 
@@ -445,7 +450,7 @@ if(nrow(signature_tbl) > 0){
   )
 }
 #>   [Success] OmicSignature object Myc_reduce_mice_liver_24m created.
-#>  signature_id = '12' has been updated.
+#>  signature_id = '26' has been updated.
 ```
 
 Now look up **signature_name = “Myc_reduce_mice_liver_24m”** and see if
@@ -467,7 +472,7 @@ if(nrow(signature_tbl) > 0){
 
 | signature_id | signature_name | organism | direction_type | assay_type | phenotype | platform_id | sample_type | covariates | description | score_cutoff | logfc_cutoff | p_value_cutoff | adj_p_cutoff | cutoff_description | keywords | PMID | year | others | has_difexp | num_of_difexp | num_up_regulated | num_down_regulated | user_name | date_created | signature_hashkey |
 |---:|:---|:---|:---|:---|:---|:---|:---|:---|:---|---:|---:|---:|---:|:---|:---|---:|---:|:---|---:|---:|---:|---:|:---|:---|:---|
-| 12 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPLXXXXX | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:17:27 | 1873c11dbbd138281361bed28899c17d |
+| 26 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPLXXXXX | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:51:56 | 1873c11dbbd138281361bed28899c17d |
 
 # Delete a signature
 
@@ -499,9 +504,9 @@ if(nrow(signature_tbl) > 0){
     signature_id = signature_tbl$signature_id
   )
 }
-#> Remove signature_id = '12' from 'signatures' table of the database.
-#> Remove features belongs to signature_id = '12' from 'signature_feature_set' table of the database.
-#> Remove user access to signature_id = '12' from 'signature_access' table of the database.
-#> Remove signature_id = '12' from 'signature_collection_access' table of the database.
-#> signature_id = '12' has been removed.
+#> Remove signature_id = '26' from 'signatures' table of the database.
+#> Remove features belongs to signature_id = '26' from 'signature_feature_set' table of the database.
+#> Remove user access to signature_id = '26' from 'signature_access' table of the database.
+#> Remove signature_id = '26' from 'signature_collection_access' table of the database.
+#> signature_id = '26' has been removed.
 ```
