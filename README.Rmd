@@ -49,10 +49,10 @@ For demonstrations, we will walk through the steps of how to use `SigRepo` packa
 
 # Contacts 
 
-Reina Chau - `rchau88@bu.edu` <br>  
-Cameron Vicnaire - `camv@bu.edu` <br>
-Vanessa Mengze Li - `vmli@bu.edu` <br> 
-Stefano Monti - `smonti@bu.edu` <br>
+Reina Chau - `rchau88@bu.edu`  
+Cameron Vicnaire - `camv@bu.edu`<br>
+Vanessa Mengze Li - `vmli@bu.edu`<br>
+Stefano Monti - `smonti@bu.edu`<br>
 
 # Installation
 
