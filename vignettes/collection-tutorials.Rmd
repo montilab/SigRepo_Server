@@ -13,7 +13,7 @@ vignette: >
 
 knitr::opts_chunk$set(
   message = TRUE,
-  warning = FALSE,
+  warning = TRUE,
   error = TRUE,
   collapse = TRUE,
   comment = "#>"
@@ -92,20 +92,20 @@ Once you have a valid account, to connection to our SigRepo Database, one can us
 ```{r}
 # Create a connection handler
 conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = "sigrepo", 
+  host = "142.93.67.157", 
+  port = 3306, 
+  user = "montilab", 
+  password = "sigrepo"
 )
 ```
 
-# Load Signatures
+# Load signatures
 
 Here, we provided two signature objects that came with the package for demonstrations:
 
-1. omic_signature_1
-2. omic_signature_2
+1. omic_signature_1 (**Myc_reduce_mice_liver_24m_v1**)
+2. omic_signature_2 (**Myc_reduce_mice_liver_24m_v2**)
 
 ```{r}
 # Getting the signature path
@@ -114,48 +114,49 @@ signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
 # Read in the signature object
 omic_signature_1 <- base::readRDS(base::file.path(signature_path, "omic_signature_1.RDS"))
 omic_signature_2 <- base::readRDS(base::file.path(signature_path, "omic_signature_2.RDS"))
-
 ```
 
-# Create a signature collection 
+# Create an omic collection 
 
-Here, we will create a signature collection object using **OmicSignature** package
+Here, we will create a collection with two signatures, **omic_signature_1** and **omic_signature_1**, provided above. See `?OmicSignatureCollection()` from **OmicSignature** package for more details on how to create an omic collection.
 
 ```{r}
-# Create collection metadata
+# Create a metadata object for the collection
 metadata <- base::list(
-  "collection_name" = "Example_Collection",
-  "description" = "An example of signature collection",
-  "author" = "montilab"
+  "collection_name" = "my_collection",
+  "description" = "An example of signature collection"
 )
 
+# Create an omic collection using OmicSignatureCollection() from OmicSignature package
 omic_collection <- OmicSignature::OmicSignatureCollection$new(
   OmicSigList = base::list(omic_signature_1, omic_signature_2),
   metadata = metadata
 )
 ```
 
-# Upload a collection
+# Upload a collection to the database
 
-The `addSignatureCollection()` function allows users to upload a collection to the database. 
+The `addCollection()` function allows users to upload a collection to the database. 
 
-__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. 
+__IMPORTANT NOTE:__ 
+
+- The user **MUST HAVE** an `editor` or `admin` role to use this function. 
+- A collection **MUST BE** an R6 object obtained from **OmicSignature::OmicSignatureCollection()**
 
 ```{r}
-
-# Add collection to database
 SigRepo::addCollection(
-  conn_handler = conn_handler, 
-  omic_collection = omic_collection
+  conn_handler = conn_handler,        # A handler contains user credentials to establish connection to a remote database
+  omic_collection = omic_collection,  # An R6 object obtained from OmicSignature::OmicSignatureCollection()
+  return_collection_id = FALSE,       # Whether to return the uploaded collection id
+  verbose = TRUE                      # Whether to print diagnostic messages
 )
-
 ```
 
-# Search for a collection
+# Search for a collection in the database
 
-The `searchCollection()` function allows users to search for all or a specific set of collection that are available in the database. 
+The `searchCollection()` function allows users to search for all or a specific set of collection that is available in the database. 
 
-## Example 1: Search for all signatures 
+## Example 1: Search for all collection 
 
 ```{r}
 collection_tbl_1 <- SigRepo::searchCollection(conn_handler = conn_handler)
@@ -168,13 +169,13 @@ if(nrow(collection_tbl_1) > 0){
 }
 ```
 
-## Example 2: Search for a specific collection, e.g., **collection_name = "Example_Collection"**.
+## Example 2: Search for a specific collection, e.g., **collection_name = "my_collection"**.
 
 ```{r}
 collection_tbl_2 <- SigRepo::searchCollection(
-    conn_handler = conn_handler, 
-    collection_name = "Example_Collection"
-  )
+  conn_handler = conn_handler, 
+  collection_name = "my_collection"
+)
 
 if(nrow(collection_tbl_2) > 0){
   knitr::kable(
@@ -184,38 +185,111 @@ if(nrow(collection_tbl_2) > 0){
 }
 ```
 
+# Get a set of collection in the database
 
-# Update a collection 
+The `getCollection()` function allows users to retrieve a set of collection that is available in the database. 
 
-The `updateCollection()` function allows users to update a collection in the SigRepo database. 
-
-__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY UPDATE** their own uploaded signatures or was given the `editor` permission from other users to do so.
-
-For example, if you wish to replace the description of **"Example_Collection"** in the database
+## Example 1: Get all collection in the database
 
 ```{r}
-
-# Search for Example_Collection in the database
-collection_tbl <- SigRepo::searchCollection(
-  conn_handler = conn_handler, 
-  collection_name = "Example_Collection"
-)
-
-# Updating the collection with a new description
-SigRepo::updateCollectionMetadata(
-  conn_handler = conn_handler, 
-  collection_id = unique(collection_tbl$collection_id),
-  description =  "This is the updated description." 
-)
-
+collection_list_1 <- SigRepo::getCollection(conn_handler = conn_handler)
 ```
 
-```{r}
+## Example 2: Get a specific collection in the database, e.g., **collection_name = "my_collection"**
 
-# Search for updated Example_Collection
+```{r}
+collection_list_2 <- SigRepo::getCollection(
+  conn_handler = conn_handler,
+  collection_name = "my_collection"
+)
+```
+
+# Update a collection metadata
+
+The `updateCollectionMetadata()` function allows users to update metadata information of a collection in the database. 
+
+__IMPORTANT NOTE:__ 
+
+- The user **MUST HAVE** an `editor` or `admin` access to use this function. 
+- Furthermore, the user can **ONLY UPDATE** their own uploaded signatures or was given an `editor` permission from other users in the database to access and perform such action.
+
+For example, if you wish to change the description of **"my_collection"** in the database
+
+```{r}
+# Search for my_collection in the database
 collection_tbl <- SigRepo::searchCollection(
   conn_handler = conn_handler, 
-  collection_name = "Example_Collection"
+  collection_name = "my_collection"
+)
+
+# If the collection exists, update the collection with a new description
+if(nrow(collection_tbl) > 0){
+  SigRepo::updateCollectionMetadata(
+    conn_handler = conn_handler, 
+    collection_id = collection_tbl$collection_id,
+    description =  "This is the updated description." 
+  )
+}
+```
+
+Now, let's search for `my_collection` in the database and see if its description has been updated.
+
+```{r}
+# Search for my_collection in the database
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "my_collection"
+)
+
+# If the collection exists, output data table
+if(nrow(collection_tbl) > 0){
+  knitr::kable(
+    collection_tbl,
+    row.names = FALSE
+  )
+}
+```
+
+# Add signatures to a collection in the database
+
+The `updateCollectionMetadata()` function allows users to add a set of signatures to a collection in the database. 
+
+__IMPORTANT NOTE:__ 
+
+- The user **MUST HAVE** an `editor` or `admin` access to use this function. 
+- Furthermore, the user can **ONLY UPDATE** their own uploaded signatures or was given an `editor` permission from other users in the database to access and perform such action.
+
+For example, if you wish to add an existing signature, e.g., **"LLFS_Aging_Gene_2023"** to **"my_collection"** in the database.
+
+```{r}
+# Search for my_collection in the database
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "my_collection"
+)
+
+# Search for signature in the database
+signature_tbl <- SigRepo::searchSignature(
+  conn_handler = conn_handler, 
+  signature_name = "LLFS_Aging_Gene_2023"
+)
+
+# If both collection and signature exists, add signature to collection.
+if(nrow(collection_tbl) > 0 && nrow(signature_tbl) > 0){
+  SigRepo::addSignatureToCollection(
+    conn_handler = conn_handler, 
+    collection_id = collection_tbl$collection_id,
+    signature_id =  signature_tbl$signature_id
+  )
+}
+```
+
+Now, let's search for `my_collection` in the database and see if signature is added to the collection.
+
+```{r}
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "my_collection"
 )
 
 if(nrow(collection_tbl) > 0){
@@ -226,28 +300,90 @@ if(nrow(collection_tbl) > 0){
 }
 ```
 
+# Remove a list of signatures from a collection in the database
 
-# Delete a collection
+The `removeSignatureFromCollection()` function allows users to remove a list of signatures from a collection in the database. 
+
+__IMPORTANT NOTE:__ 
+
+- The user **MUST HAVE** an `editor` or `admin` access to use this function. 
+- Furthermore, the user can **ONLY UPDATE** their own uploaded signatures or was given an `editor` permission from other users in the database to access and perform such action.
+
+For example, if you wish to remove **Myc_reduce_mice_liver_24m_v1** from **"my_collection"** in the database
+
+```{r}
+# Check if signature is in the collection of the database
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "my_collection",
+  signature_name = "Myc_reduce_mice_liver_24m_v1"
+)
+
+# If signature collection combo exists, remove the signature.
+if(nrow(collection_tbl) > 0){
+  SigRepo::removeSignatureFromCollection(
+    conn_handler = conn_handler, 
+    collection_id = collection_tbl$collection_id,
+    signature_id = collection_tbl$signature_id
+  )
+}
+```
+
+Now, let's search for `my_collection` in the database and see if the signature has been removed from the collection.
+
+```{r}
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "my_collection"
+)
+
+if(nrow(collection_tbl) > 0){
+  knitr::kable(
+    collection_tbl,
+    row.names = FALSE
+  )
+}
+```
+
+# Delete a collection from the database
 
 The `deleteCollection()` function allows users to delete a collection from the database. 
 
-__IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY DELETE** their own uploaded collections or was given the `editor` permission from other users to do so.
+__IMPORTANT NOTE:__ 
+
+- The user **MUST HAVE** an `editor` or `admin` access to use this function. 
+- Furthermore, the user can **ONLY DELETE** their own uploaded collections or was given an `editor` permission from other users in the database to access and delete the collection.
+- A collection can **ONLY BE REMOVED OR DELETED** once at a time.
 
 ```{r}
-
-# Search for Example_Collection in the database 
+# Search for my_collection in the database 
 collection_tbl <- SigRepo::searchCollection(
   conn_handler = conn_handler, 
-  collection_name = "Example_Collection"
+  collection_name = "my_collection"
 )
 
-# Remove collection from the database
+# If the collection exists, remove it from the database
 if(nrow(collection_tbl) > 0){
   SigRepo::deleteCollection(
     conn_handler = conn_handler, 
-    collection_id = unique(collection_tbl$collection_id)
+    collection_id = collection_tbl$collection_id
   )
 }
+```
 
+Now, let's search for `my_collection` in the database and see if the collection has been removed.
+
+```{r}
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "my_collection"
+)
+
+if(nrow(collection_tbl) > 0){
+  knitr::kable(
+    collection_tbl,
+    row.names = FALSE
+  )
+}
 ```
 

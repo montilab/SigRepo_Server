@@ -49,7 +49,7 @@ addUser <- function(
   }
   
   # Check user roles ####
-  if(any(!table[,"user_role"] %in% user_role_options)){
+  if(any(!table$user_role %in% user_role_options)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -149,7 +149,7 @@ addUser <- function(
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
       }else if(table$user_role[u] == "editor"){
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT INSERT, UPDATE, DELETE ON sigrepo.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
       }else if(table$user_role[u] == "viewer"){
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
