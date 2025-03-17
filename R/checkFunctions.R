@@ -76,28 +76,36 @@ checkPermissions <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
+    base::stop(base::sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
   }
   
-  # Get a list of actions that user can perform in the database
-  user_privileges <- base::tryCatch({
+  # Get the grant tables
+  grant_tbl <- base::tryCatch({
     base::suppressWarnings(
-      DBI::dbGetQuery(conn = conn, statement = sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
-    ) %>% 
-      dplyr::slice(1) %>% 
-      purrr::flatten_chr() %>% 
-      base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
-      stringr::str_split(., ",") %>% 
-      purrr::flatten_chr() %>% 
-      base::trimws()
+      DBI::dbGetQuery(conn = conn, statement = base::sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
+    ) 
   }, error = function(e){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
-  })
+  })    
+  
+  # Create a placeholder to store all privileges
+  user_privileges <- NULL
+  
+  # Loop through each grant and extract list of actions that user can perform in the database
+  for(s in 1:nrow(grant_tbl)){ 
+    #s=1;
+    privs <- grant_tbl %>% 
+      dplyr::slice(s) %>% 
+      purrr::flatten_chr() %>% 
+      base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
+      stringr::str_split(., ",") %>% 
+      purrr::flatten_chr() %>% 
+      base::trimws()
+    user_privileges <- c(user_privileges, privs)
+  }
   
   # Check if user has the permission to perform the selected actions in the database
   if(any(!action_type %in% user_privileges)){

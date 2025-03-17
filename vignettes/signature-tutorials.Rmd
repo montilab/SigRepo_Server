@@ -90,11 +90,11 @@ Once you have a valid account, to connection to our SigRepo Database, one can us
 ```{r}
 # Create a connection handler
 conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = "sigrepo", 
+  host = "142.93.67.157", 
+  port = 3306, 
+  user = "montilab", 
+  password = "sigrepo"
 )
 ```
 
@@ -125,7 +125,6 @@ __IMPORTANT NOTE:__ The user **MUST HAVE** an `editor` or `admin` access to use 
 ```{r Example 1}
 # Create signature metadata
 metadata <- base::list(
-  
   # required attributes:
   signature_name = "Myc_reduce_mice_liver_24m",
   organism = "Mus Musculus",
@@ -176,10 +175,11 @@ omic_signature <- OmicSignature::OmicSignature$new(
 
 # Add signature to database
 SigRepo::addSignature(
-  conn_handler = conn_handler, 
-  omic_signature = omic_signature
+  conn_handler = conn_handler,        # A handler contains user credentials to establish connection to a remote database
+  omic_signature = omic_signature,    # An R6 object obtained from OmicSignature::OmicSignature()
+  return_signature_id = FALSE,        # Whether to return the uploaded signature id
+  verbose = TRUE                      # Whether to print diagnostic messages
 )
-
 ```
 
 ## **Example 2**: Upload `omic_signature_AGS_OmS` signature
@@ -207,7 +207,6 @@ The `searchSignature()` function allows users to search for all or a specific se
 ## Example 1: Search for all signatures 
 
 ```{r}
-
 signature_tbl <- SigRepo::searchSignature(conn_handler = conn_handler)
 
 if(nrow(signature_tbl) > 0){
@@ -216,13 +215,11 @@ if(nrow(signature_tbl) > 0){
     row.names = FALSE
   )
 }
-
 ```
 
 ## Example 2: Search for a specific signature, e.g., **signature_name = "LLFS_Aging_Gene_2023"**.
 
 ```{r} 
-
 signature_tbl <- SigRepo::searchSignature(
   conn_handler = conn_handler, 
   signature_name = "LLFS_Aging_Gene_2023"
@@ -234,7 +231,6 @@ if(nrow(signature_tbl) > 0){
     row.names = FALSE
   )
 }
-
 ```
 
 # Retrieve a list of omic signatures
@@ -273,10 +269,8 @@ __IMPORTANT NOTE:__
 **For example:** If the `platform` information in the previous uploaded signature, **"Myc_reduce_mice_liver_24m"**, is incorrect, and you wish to update the platform information with a correct value, e.g., **platform = "GPLXXXXX"**. You can use the `updateSignature()` function as follows:
 
 ```{r}
-
 # Revise the metadata object with new platform = GPLXXXXX
 metadata_revised <- base::list(
-  
   # required attributes:
   signature_name = "Myc_reduce_mice_liver_24m",
   organism = "Mus Musculus",
@@ -331,14 +325,14 @@ updated_omic_signature <- OmicSignature::OmicSignature$new(
 # in which we would like to revise the value of platform to GPLXXXXX
 signature_tbl <- SigRepo::searchSignature(
   conn_handler = conn_handler, 
-  signature_name = metadata_revised$signature_name[1]
+  signature_name = metadata_revised$signature_name
 )
 
 # Updating the signature with the revised omic_signature object
 if(nrow(signature_tbl) > 0){
   SigRepo::updateSignature(
     conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id[1], 
+    signature_id = signature_tbl$signature_id, 
     omic_signature = updated_omic_signature
   )
 }
@@ -382,7 +376,7 @@ signature_tbl <- SigRepo::searchSignature(
 if(nrow(signature_tbl) > 0){
   SigRepo::deleteSignature(
     conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id[1]
+    signature_id = signature_tbl$signature_id
   )
 }
 ```

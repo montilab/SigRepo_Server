@@ -101,7 +101,7 @@ addTranscriptomicsSignatureSet <- function(
       conn = conn,
       db_table_name = "signatures",
       return_var = "*",
-      filter_coln_var = "signature_id",
+      filter_coln_var = c("signature_id", "user_name"),
       filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name),
       filter_var_by = "AND",
       check_db_table = TRUE
