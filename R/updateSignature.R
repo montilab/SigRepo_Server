@@ -213,6 +213,9 @@ updateSignature <- function(
       difexp <- omic_signature$difexp
       # Save difexp to local storage ####
       data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+      if(!base::dir.exists(data_path)){
+        base::dir.create(path = base::file.path(base::system.file("inst", package = "SigRepo"), "data/difexp"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
+      }
       base::saveRDS(difexp, file = base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
       # Get API URL
       api_url <- base::sprintf("http://%s:%s/store_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], metadata_tbl$signature_hashkey[1])

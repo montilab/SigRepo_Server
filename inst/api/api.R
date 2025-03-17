@@ -9,18 +9,16 @@ library(DBI)
 # For data cleaning, extraction and manipulation
 library(tidyverse)
 
-library(OmicSignature)
-
 # For loading and installing packages
 library(devtools)
 
 # Load SigRepo package
-devtools::load_all(".")
+devtools::load_all()
 
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
-  host = "172.18.0.2", 
+  host = Sys.getenv("HOST_DB_NET"), 
   port = as.integer(Sys.getenv("PORT")), 
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
@@ -66,6 +64,10 @@ serializer <- list(
   "text" = plumber::serializer_text(),
   "htmlwidget" = plumber::serializer_htmlwidget()
 )
+
+# Create difexp directory
+data_path <- base::file.path("/difexp")
+base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
 #* Store difexp in the database
 #* @parser multi
@@ -148,7 +150,7 @@ store_difexp <- function(res, api_key, signature_hashkey, difexp){
   
   # Store difexp
   if(base::is.data.frame(difexp[[1]])){
-    base::saveRDS(difexp[[1]], file = base::file.path("/difexp", base::paste0(signature_hashkey, ".RDS")))
+    base::saveRDS(difexp[[1]], file = base::file.path(data_path, base::paste0(signature_hashkey, ".RDS")))
   }else{
     warn_tbl <- base::data.frame(MESSAGES = base::sprintf("difexp is not a valid file."))
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
@@ -234,7 +236,7 @@ get_difexp <- function(res, api_key, signature_hashkey){
   }
   
   # Get difexp path
-  difexp_path <- base::file.path("/difexp", base::paste0(signature_hashkey, ".RDS"))
+  difexp_path <- base::file.path(data_path, base::paste0(signature_hashkey, ".RDS"))
   
   # Check if file exists
   if(base::file.exists(difexp_path)){
@@ -324,7 +326,7 @@ delete_difexp <- function(res, api_key, signature_hashkey){
   }
   
   # Get difexp path
-  difexp_path <- base::file.path("/difexp", base::paste0(signature_hashkey, ".RDS"))
+  difexp_path <- base::file.path(data_path, base::paste0(signature_hashkey, ".RDS"))
   
   # Check if file exists
   if(base::file.exists(difexp_path)){

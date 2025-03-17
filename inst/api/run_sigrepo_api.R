@@ -2,8 +2,6 @@
 # Load R packages
 library(plumber)
 
-print("here")
-
 # The package path
 api_path <- "/SigRepo/inst/api/api.R"
 

@@ -1,0 +1,19 @@
+services:
+  sigrepo-rstudio:
+    container_name: sigrepo-rstudio
+    image: sigrepo-rstudio:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-rstudio-server
+      args:
+        - R_VERSION=4.4.0
+    environment:
+        - PASSWORD=sigrepo
+    networks:
+      - db-net
+    ports:
+      - 7878:8787
+    restart: always
+    working_dir: /home
+    volumes:
+      - /SigRepo:/home/SigRepo:rw

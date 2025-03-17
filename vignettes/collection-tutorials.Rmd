@@ -1,10 +1,10 @@
 ---
-title: "SigRepo Function Suite"
+title: "SigRepo"
 author: "Monti Lab"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteIndexEntry{SigRepo}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -30,7 +30,7 @@ library(devtools)
 devtools::load_all()
 
 # Load OmicSignature package
-devtools::load_all("OmicSignature")
+library("OmicSignature")
 
 ```
 
@@ -63,6 +63,19 @@ devtools::install_github(repo = 'montilab/SigRepo')
 # Install OmicSignature
 devtools::install_github(repo = 'montilab/OmicSignature')
 
+```
+
+# Load packages 
+
+```
+# Load tidyverse package
+library(tidyverse)
+
+# Load SigRepo package
+library(SigRepo)
+
+# Load OmicSignature package
+library(OmicSignature)
 ```
 
 # Connect to SigRepo Database
@@ -99,8 +112,8 @@ Here, we provided two signature objects that came with the package for demonstra
 signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
 
 # Read in the signature object
-omic_signature_1 <- base::readRDS(file.path(signature_path, "omic_signature_1.RDS"))
-omic_signature_2 <- base::readRDS(file.path(signature_path, "omic_signature_2.RDS"))
+omic_signature_1 <- base::readRDS(base::file.path(signature_path, "omic_signature_1.RDS"))
+omic_signature_2 <- base::readRDS(base::file.path(signature_path, "omic_signature_2.RDS"))
 
 ```
 
@@ -110,28 +123,28 @@ Here, we will create a signature collection object using **OmicSignature** packa
 
 ```{r}
 # Create collection metadata
-metadata <- list(
+metadata <- base::list(
   "collection_name" = "Example_Collection",
   "description" = "An example of signature collection",
-  "author" = "me"
+  "author" = "montilab"
 )
 
 omic_collection <- OmicSignature::OmicSignatureCollection$new(
-  OmicSigList = list(omic_signature_1, omic_signature_2),
+  OmicSigList = base::list(omic_signature_1, omic_signature_2),
   metadata = metadata
 )
 ```
 
 # Upload a collection
 
-The function `addSignatureCollection()` allows the user to upload a collection to the database. 
+The `addSignatureCollection()` function allows users to upload a collection to the database. 
 
 __IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. 
 
 ```{r}
 
 # Add collection to database
-SigRepo::addSignatureCollection(
+SigRepo::addCollection(
   conn_handler = conn_handler, 
   omic_collection = omic_collection
 )
@@ -140,39 +153,41 @@ SigRepo::addSignatureCollection(
 
 # Search for a collection
 
-The function `searchCollection()` allows the user to search for all or a specific signature that is available in the database. 
+The `searchCollection()` function allows users to search for all or a specific set of collection that are available in the database. 
 
-- Search for all signatures 
+## Example 1: Search for all signatures 
 
 ```{r}
+collection_tbl_1 <- SigRepo::searchCollection(conn_handler = conn_handler)
 
-knitr::kable(
-  SigRepo::searchCollection(
-    conn_handler = conn_handler
-  ), 
-  row.names = FALSE
-)
-
+if(nrow(collection_tbl_1) > 0){
+  knitr::kable(
+    collection_tbl_1, 
+    row.names = FALSE
+  )
+}
 ```
 
-- Search for a specific collection, e.g., **"Example_Collection"**, in the database
+## Example 2: Search for a specific collection, e.g., **collection_name = "Example_Collection"**.
 
 ```{r}
-
-knitr::kable(
-  SigRepo::searchCollection(
+collection_tbl_2 <- SigRepo::searchCollection(
     conn_handler = conn_handler, 
     collection_name = "Example_Collection"
-  ),
-  row.names = FALSE
-)
+  )
 
+if(nrow(collection_tbl_2) > 0){
+  knitr::kable(
+    collection_tbl_2, 
+    row.names = FALSE
+  )
+}
 ```
 
 
 # Update a collection 
 
-The function `updateCollection()` allows the user to update a collection in the sigrepo database. 
+The `updateCollection()` function allows users to update a collection in the SigRepo database. 
 
 __IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY UPDATE** their own uploaded signatures or was given the `editor` permission from other users to do so.
 
@@ -186,13 +201,10 @@ collection_tbl <- SigRepo::searchCollection(
   collection_name = "Example_Collection"
 )
 
-# Get the collection id
-collection_id <- unique(collection_tbl$collection_id)
-
 # Updating the collection with a new description
 SigRepo::updateCollectionMetadata(
   conn_handler = conn_handler, 
-  collection_id = collection_id,
+  collection_id = unique(collection_tbl$collection_id),
   description =  "This is the updated description." 
 )
 
@@ -200,20 +212,24 @@ SigRepo::updateCollectionMetadata(
 
 ```{r}
 
-knitr::kable(
-  SigRepo::searchCollection(
-    conn_handler = conn_handler, 
-    collection_name = "Example_Collection"
-  ),
-  row.names = FALSE
+# Search for updated Example_Collection
+collection_tbl <- SigRepo::searchCollection(
+  conn_handler = conn_handler, 
+  collection_name = "Example_Collection"
 )
 
+if(nrow(collection_tbl) > 0){
+  knitr::kable(
+    collection_tbl,
+    row.names = FALSE
+  )
+}
 ```
 
 
 # Delete a collection
 
-The function `deleteCollection()` allows the user to delete a collection from the database. 
+The `deleteCollection()` function allows users to delete a collection from the database. 
 
 __IMPORTANT NOTE:__ The user must have `editor` or `admin` access to use this function. Furthermore, the user can **ONLY DELETE** their own uploaded collections or was given the `editor` permission from other users to do so.
 
@@ -225,14 +241,13 @@ collection_tbl <- SigRepo::searchCollection(
   collection_name = "Example_Collection"
 )
 
-# Get the collection id
-collection_id <- unique(collection_tbl$collection_id)
-
 # Remove collection from the database
-SigRepo::deleteCollection(
-  conn_handler = conn_handler, 
-  collection_id = collection_id
-)
+if(nrow(collection_tbl) > 0){
+  SigRepo::deleteCollection(
+    conn_handler = conn_handler, 
+    collection_id = unique(collection_tbl$collection_id)
+  )
+}
 
 ```
 

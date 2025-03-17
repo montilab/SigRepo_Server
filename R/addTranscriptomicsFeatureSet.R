@@ -120,6 +120,9 @@ addTranscriptomicsFeatureSet <- function(
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))  
   
+  # Return message
+  SigRepo::verbose("Finished uploading.\n")
+  
 }
 
 
