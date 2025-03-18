@@ -40,7 +40,7 @@ addTranscriptomicsFeatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("The table is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
@@ -48,7 +48,7 @@ addTranscriptomicsFeatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Get organism id ####

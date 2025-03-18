@@ -16,18 +16,9 @@ createCollectionMetadata <- function(
   
   # Check if omic_signature is a valid R6 object ####
   # If yes, return whether it has difexp included ####
-  base::tryCatch({
-    SigRepo::checkOmicCollection(
-      omic_collection = omic_collection
-    )
-  }, error = function(e){
-    # Disconnect from database
-    base::suppressWarnings(DBI::dbDisconnect(conn))  
-    # Return error message
-    base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
-  })  
+  SigRepo::checkOmicCollection(
+    omic_collection = omic_collection
+  )
   
   # Extract metadata from omic_collection ####
   metadata <- omic_collection$metadata
