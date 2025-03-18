@@ -83,8 +83,8 @@ getCollection <- function(
 
   # Get a list of filtered variables
   filter_var_list <- list(
-    "collection_id" = collection_id,
-    "collection_name" = collection_name
+    "collection_id" = base::unique(collection_id),
+    "collection_name" = base::unique(collection_name)
   )
   
   # Filter table with given search variables

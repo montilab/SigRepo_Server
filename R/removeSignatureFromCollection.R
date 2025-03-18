@@ -161,7 +161,7 @@ removeSignatureFromCollection <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # print message
-    SigRepo::verbose("Removing signature(s) from collection completed.\n")
+    SigRepo::verbose(base::sprintf("Removing signature_id = %s from collection_id = '%s' completed.\n", base::paste0("'", signature_id, "'", collapse = ", "), collection_id))
     
   }  
 }  

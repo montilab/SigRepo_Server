@@ -35,6 +35,12 @@ addSignatureToCollection <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
+  # Get unique collection id
+  collection_id <- base::unique(collection_id) 
+
+  # Get unique signature id
+  signature_id <- base::unique(signature_id) 
+  
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
     # Disconnect from database ####
@@ -56,13 +62,14 @@ addSignatureToCollection <- function(
     conn = conn,
     db_table_name = "signatures",
     return_var = "*",
-    filter_coln_var = "signature_id", 
-    filter_coln_val = list("signature_id" = signature_id),
+    filter_coln_var = c("signature_id", "user_name"),
+    filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name),
+    filter_var_by = "AND",
     check_db_table = FALSE
   )
   
   # If any signatures does not exit in the database, throw an error message
-  if(nrow(signature_tbl) != length(unique(signature_id))){
+  if(nrow(signature_tbl) != length(signature_id)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -158,7 +165,7 @@ addSignatureToCollection <- function(
           # Disconnect from database ####
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to add signature_id = % to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
+          base::stop(base::sprintf("User = '%s' does not have permission to add signature_id = %s to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
         }
       }
     }
