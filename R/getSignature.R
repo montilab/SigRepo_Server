@@ -86,8 +86,8 @@ getSignature <- function(
   
   # Get a list of filtered variables
   filter_var_list <- list(
-    "signature_id" = signature_id,
-    "signature_name" = signature_name
+    "signature_id" = base::unique(signature_id),
+    "signature_name" = base::unique(signature_name)
   )
   
   # Filter table with given search variables

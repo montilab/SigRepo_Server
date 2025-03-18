@@ -45,18 +45,15 @@ addUserToCollection <- function(
   
   # Get user_name ####
   orig_user_name <- conn_info$user[1]
+
+  # Check access_type for each user
+  access_type <- base::match.arg(access_type, several.ok = TRUE)  
   
-  # Check access_type
-  access_type <- base::tryCatch({
-    base::match.arg(access_type, several.ok = TRUE)  
-  }, error = function(e){
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn))  
-    # Return error message
-    base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
-  }) 
+  # Get unique user_name
+  user_name <- base::unique(user_name) 
+  
+  # Get unique collection id
+  collection_id <- base::unique(collection_id)     
   
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){

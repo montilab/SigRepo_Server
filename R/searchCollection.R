@@ -143,10 +143,10 @@ searchCollection <- function(
     
     # Get a list of filtered variables
     filter_var_list <- list(
-      "collection_name" = collection_name,
-      "collection_id" = collection_id,
-      "signature_name" = signature_name,
-      "signature_id" = signature_id
+      "collection_name" = base::unique(collection_name),
+      "collection_id" = base::unique(collection_id),
+      "signature_name" = base::unique(signature_name),
+      "signature_id" = base::unique(signature_id)
     )
     
     # Filter table with given search variables

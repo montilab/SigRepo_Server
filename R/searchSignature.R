@@ -173,11 +173,11 @@ searchSignature <- function(
     
     # Get a list of filtered variables
     filter_var_list <- list(
-      "signature_id" = signature_id,
-      "signature_name" = signature_name, 
-      "organism" = organism, 
-      "phenotype" = phenotype, 
-      "sample_type" = sample_type
+      "signature_id" = base::unique(signature_id),
+      "signature_name" = base::unique(signature_name), 
+      "organism" = base::unique(organism), 
+      "phenotype" = base::unique(phenotype), 
+      "sample_type" = base::unique(sample_type)
     )
     
     # Filter table with given search variables
