@@ -43,7 +43,7 @@ addTranscriptomicsSignatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'signature_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check organism_id ####
@@ -51,7 +51,7 @@ addTranscriptomicsSignatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop("'organism_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'organism_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check if signature is a data frame ####
@@ -59,7 +59,7 @@ addTranscriptomicsSignatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop("'signature_set' must be a data frame and cannot be empty.")
+    base::stop("\n'signature_set' must be a data frame and cannot be empty.\n")
   }
   
   # Check required signature fields ####
@@ -69,7 +69,7 @@ addTranscriptomicsSignatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop("'signature_set' must have the following column names:", paste0(signature_fields, collapse = ", "))
+    base::stop(base::sprintf("\n'signature_set' must have the following column names: %s.\n", paste0(signature_fields, collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
@@ -77,7 +77,7 @@ addTranscriptomicsSignatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop(base::sprintf("All required column names in 'signature_set': %s cannot contain any empty values.\n", base::paste0(signature_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names in 'signature_set': %s cannot contain any empty values.\n", base::paste0(signature_fields, collapse = ", ")))
   }
   
   # Check the direction symbols in signature table
@@ -85,7 +85,7 @@ addTranscriptomicsSignatureSet <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop("The 'direction' variable in 'signature_set' must contain +/- symbols only.")
+    base::stop("\nThe 'direction' variable in 'signature_set' must contain +/- symbols only.\n")
   }
   
   # Define table in database ####
@@ -127,7 +127,7 @@ addTranscriptomicsSignatureSet <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show error message
-    base::stop(base::sprintf("There is no signature_id = '%s' belong to user = '%s' existed in the 'signatures' table of the SigRepo Database.\n", signature_id, user_name))
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' belong to user = '%s' existed in the 'signatures' table of the SigRepo database.\n", signature_id, user_name))
     
   }else{
 

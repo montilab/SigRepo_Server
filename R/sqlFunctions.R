@@ -28,31 +28,31 @@ insert_table_sql <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop("'table' must be a data frame object and cannot be empty.")
+      base::stop("\n'table' must be a data frame object and cannot be empty.\n")
   }
   
   # If table is not empty, import table into database
   if(nrow(table) > 0){
     
     # Get overlapping column names
-    tbl_col_names <- colnames(table)[which(colnames(table) %in% db_col_names)]
+    tbl_col_names <- base::colnames(table)[which(colnames(table) %in% db_col_names)]
     
     # Join column variables
-    coln_var <- paste0("(", paste0(tbl_col_names, collapse = ", "), ")")    
+    coln_var <- paste0("(", base::paste0(tbl_col_names, collapse = ", "), ")")    
     
     # Get values of each row
     coln_val <- base::seq_len(nrow(table)) %>% 
       purrr::map_chr(
         function(r){
           #r=1;
-          values <- paste0("'", table[r, tbl_col_names], "'", collapse = ", ")
+          values <- base::paste0("'", table[r, tbl_col_names], "'", collapse = ", ")
           if(r < nrow(table)){
-            values <- paste0("(", values, "),\n")
+            values <- base::paste0("(", values, "),\n")
           }else{
-            values <- paste0("(", values, ");\n")
+            values <- base::paste0("(", values, ");\n")
           }
         }
-      ) %>% paste0(., collapse = "") %>% gsub("'NULL'", "NULL", .)
+      ) %>% base::paste0(., collapse = "") %>% base::gsub("'NULL'", "NULL", .)
     
     # Create a SQL query to insert table into database
     statement <- base::sprintf(
@@ -70,8 +70,6 @@ insert_table_sql <- function(
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
       base::stop(e, "\n")
-    }, warning = function(w){
-      base::message(w, "\n")
     })
     
   }
@@ -105,7 +103,7 @@ delete_table_sql <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop("'delete_coln_var' must have length of 1 and cannot be empty.")
+    base::stop("\n'delete_coln_var' must have length of 1 and cannot be empty.\n")
   }
   
   # Check column fields
@@ -113,7 +111,7 @@ delete_table_sql <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("'%s' table does not have the following column names: %s.\n", db_table_name, paste0(delete_coln_var[which(!delete_coln_var %in% db_col_names)], collapse = ", ")))
+    base::stop(base::sprintf("\n'%s' table does not have the following column names: %s.\n", db_table_name, base::paste0(delete_coln_var[which(!delete_coln_var %in% db_col_names)], collapse = ", ")))
   }
   
   # Check delete_coln_val
@@ -121,14 +119,14 @@ delete_table_sql <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop("'delete_coln_val' cannot be empty.")
+    base::stop("\n'delete_coln_val' cannot be empty.\n")
   }
   
   # Create a where clause to remove entry 
-  delete_where_clause <- paste0(delete_coln_var, " IN (", paste0("'", delete_coln_val, "'", collapse = ", "), ")")
+  delete_where_clause <- base::paste0(delete_coln_var, " IN (", base::paste0("'", delete_coln_val, "'", collapse = ", "), ")")
   
   # Create sql statement
-  statement <- sprintf(
+  statement <- base::sprintf(
     "
     DELETE FROM %s \n
     WHERE %s;
@@ -146,8 +144,6 @@ delete_table_sql <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
   })
   
 }
@@ -190,7 +186,7 @@ lookup_table_sql <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop("'return_var' cannot be empty.")
+    base::stop("\n'return_var' cannot be empty.\n")
   }
 
   # Check filter_coln_var and filter_coln_val
@@ -204,15 +200,17 @@ lookup_table_sql <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
-      base::stop("The length of 'filter_coln_var' must equal to the length of 'filter_coln_val'. ",
-           "Furthermore, 'filter_coln_val' must a list with names or labels that matched the values of 'filter_coln_var'.")
+      base::stop(
+        "\nThe length of 'filter_coln_var' must equal to the length of 'filter_coln_val'.\n",
+        "\nFurthermore, 'filter_coln_val' must a list with names or labels that matched the values of 'filter_coln_var'.\n"
+      )
     }
     
     if((length(filter_coln_var) > 1) && (length(filter_var_by) != (length(filter_coln_var)-1)) && (!any(toupper(filter_var_by) %in% c("OR", "AND")))){
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
-      base::stop("'filter_var_by' must contain a vector of logical operators (e.g, AND/OR) with n = length(filter_coln_var) - 1")
+      base::stop("\n'filter_var_by' must contain a vector of logical operators (e.g, AND/OR) with n = length(filter_coln_var) - 1.\n")
     }
     
     # Create a where clause to look up values
@@ -220,21 +218,21 @@ lookup_table_sql <- function(
       purrr::map_chr(
         function(s){
           #s=1;
-          clause <- sprintf("trim(lower(%s)) IN (%s)", filter_coln_var[s], paste0(paste0("'", base::trimws(tolower(filter_coln_val[[filter_coln_var[s]]])), "'"), collapse = ", "))
+          clause <- base::sprintf("trim(lower(%s)) IN (%s)", filter_coln_var[s], base::paste0(paste0("'", base::trimws(base::tolower(filter_coln_val[[filter_coln_var[s]]])), "'"), collapse = ", "))
           if(s < length(filter_coln_var)){
-            clause <- paste0(clause, " ", filter_var_by[s], " ")
+            clause <- base::paste0(clause, " ", filter_var_by[s], " ")
           }
           return(clause)
         }
-      ) %>% paste0(., collapse="") %>% paste0("WHERE ", .)
+      ) %>% base::paste0(., collapse="") %>% base::paste0("WHERE ", .)
     
   }
   
   # Create a list of return variables
-  return_var_list <- paste0(return_var, collapse = ", ")
+  return_var_list <- base::paste0(return_var, collapse = ", ")
   
   # Create SQL statement to return table
-  statement <- sprintf(
+  statement <- base::sprintf(
     "
     SELECT %s
     FROM %s %s
@@ -249,8 +247,6 @@ lookup_table_sql <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
   }) 
   
   # Return table

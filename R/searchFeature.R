@@ -85,7 +85,7 @@ searchFeature <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("There are no signatures returned from the search parameters.\n"))
+    base::stop(base::sprintf("\nThere are no features returned from the search parameters.\n"))
     
   }else{
     
@@ -107,7 +107,7 @@ searchFeature <- function(
       dplyr::left_join(organism_id_tbl, by = "organism_id") 
     
     # Rename table with appropriate column names 
-    coln_names <- colnames(feature_tbl) %>% 
+    coln_names <- base::colnames(feature_tbl) %>% 
       base::replace(., base::match(c("organism_id"), .), c("organism"))
     
     # Extract the table with appropriate column names ####

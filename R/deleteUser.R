@@ -30,7 +30,7 @@ deleteUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop("'user_name' must have a length of 1 and cannot be empty.")
+    base::stop("\n'user_name' must have a length of 1 and cannot be empty.\n")
   }
   
   # Create a list of variables to check database ####
@@ -51,7 +51,7 @@ deleteUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("There is no user = '%s' existed in the 'users' table of the SigRepo Database.", user_name))
+    base::stop(base::sprintf("\nThere is no user = '%s' existed in the 'users' table of the SigRepo database.\n", user_name))
   }
   
   # DROP USER FROM DATABASE
