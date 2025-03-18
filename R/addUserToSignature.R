@@ -60,7 +60,7 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'signature_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check user_name
@@ -68,7 +68,7 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'user_name' cannot be empty.")
+    base::stop("\n'user_name' cannot be empty.\n")
   }
   
   # Make sure length of user_name equal to length of its access_type
@@ -76,7 +76,7 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("Length of 'user_name' must equal the length of its 'access_type'.")
+    base::stop("\nLength of 'user_name' must equal the length of its 'access_type'.\n")
   }
   
   # Check if user exist in the users table of the database
@@ -94,7 +94,7 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(sprintf("user_name = %s does not exist in the users table of the database.", paste0("'", username[which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
+    base::stop(base::sprintf("\nUser = %s do(es) not exist in the 'users' table of the SigRepo database.\n", paste0("'", username[which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
   }
   
   # Check if signature exists ####
@@ -113,7 +113,7 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(sprintf("There is no signature_id = '%s' in the 'signatures' table of the SigRepo Database.", signature_id))
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' in the 'signatures' table of the SigRepo database.\n", signature_id))
     
   }else{
     
@@ -149,7 +149,7 @@ addUserToSignature <- function(
           # Disconnect from database ####
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(base::sprintf("User = '%s' does not have the permission to add User = % to signature_id = '%s' in the database.", orig_user_name, base::paste0("'", user_name, "'", collapse = ", "), signature_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have the permission to add User = % to signature_id = '%s' in the SigRepo database.\n", orig_user_name, base::paste0("'", user_name, "'", collapse = ", "), signature_id))
         }
       }
     }

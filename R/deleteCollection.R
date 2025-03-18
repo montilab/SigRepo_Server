@@ -65,7 +65,7 @@ deleteCollection <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'collection_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'collection_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check if signature exists ####
@@ -85,7 +85,7 @@ deleteCollection <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("There is no collection_id = '%s' existed in the 'collection' table of the SigRepo Database.", collection_id))
+    base::stop(base::sprintf("\nThere is no collection_id = '%s' existed in the 'collection' table of the SigRepo database.\n", collection_id))
     
   }else{
     
@@ -134,7 +134,7 @@ deleteCollection <- function(
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           
           # Show message
-          base::stop(base::sprintf("User = '%s' does not have permission to delete collection_id = '%s' from the database.", user_name, collection_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have permission to delete collection_id = '%s' from the SigRepo database.\n", user_name, collection_id))
           
         }
       }

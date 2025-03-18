@@ -44,7 +44,7 @@ updateUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop("'user_name' must have a length of 1 and cannot be empty.")
+    base::stop("\n'user_name' must have a length of 1 and cannot be empty.\n")
   }
   
   # Get table name ####
@@ -67,7 +67,7 @@ updateUser <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("Cannot update user = '%s' as user does not exist in the 'users' table of the database.", user_name))
+    base::stop(base::sprintf("\nCannot update user = '%s' as user does not exist in the 'users' table of the SigRepo database.\n", user_name))
     
   }
   
@@ -76,7 +76,7 @@ updateUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop("'role' must have a length of 1 and can have one of the three roles: admin/editor/viewer.")
+    base::stop("\n'role' must have a length of 1 and can have one of the three roles: admin/editor/viewer.\n")
   }
   
   # Check email ####
@@ -89,7 +89,7 @@ updateUser <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
-      base::stop("Invalid email format.\n")
+      base::stop("\nInvalid email format.\n")
     }
     
     # Get email table
@@ -107,7 +107,7 @@ updateUser <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))     
       # Show message
-      base::stop("Someone with an email = '%s' already existed in the database. Please try another email.")
+      base::stop("\nSomeone with the same email = '%s' already existed in the SigRepo database. Please try another email.\n")
     }
   }
 

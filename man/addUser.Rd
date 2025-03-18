@@ -10,8 +10,9 @@ addUser(conn_handler, user_tbl, verbose = TRUE)
 \item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
 
 \item{user_tbl}{A data frame containing appropriate column names:
-user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role
-#' @param verbose a logical value indicates whether or not to print the
+user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role}
+
+\item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{

@@ -128,7 +128,7 @@ addSignature <- function(
         # Show message
         base::stop(
           base::sprintf("\tAPI Link: %s\n", api_url),
-          base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to SigRepo Database. Please contact admin for more details.\n")
+          base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n")
         )
       }else{
         # Remove files from file system 
