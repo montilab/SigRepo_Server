@@ -29,7 +29,7 @@ createOmicSignature <- function(
     # Disconnect from database ####
     DBI::dbDisconnect(conn)    
     # Show message
-    base::stop(sprintf("'db_signature_tbl' must be a data frame and cannot be empty.\n"))
+    base::stop(base::sprintf("\n'db_signature_tbl' must be a data frame and cannot be empty.\n"))
   }
   
   # Get assay_type
@@ -86,7 +86,7 @@ createOmicSignature <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))
       # Show message
-      base::stop("Something went wrong with API. Cannot get difexp table from SigRepo Database. Please contact admin for more details.\n")
+      base::stop("\nSomething went wrong with API. Cannot get difexp table from the SigRepo database. Please contact admin for support.\n")
     }else{
       difexp <- jsonlite::fromJSON(jsonlite::fromJSON(base::rawToChar(res$content)))
     }

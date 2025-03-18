@@ -68,7 +68,7 @@ updateSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'signature_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check if signature exists ####
@@ -88,7 +88,7 @@ updateSignature <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("There is no signature_id = '%s' in the 'signatures' table of the SigRepo Database.", signature_id))
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' in the 'signatures' table of the SigRepo database.\n", signature_id))
     
   }else{
     
@@ -127,7 +127,7 @@ updateSignature <- function(
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           
           # Show message
-          base::stop(base::sprintf("User = '%s' does not have permission to update signature_id = '%s' in the database.", user_name, signature_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have the permission to update signature_id = '%s' in the SigRepo database.\n", user_name, signature_id))
           
         }
       }
@@ -168,7 +168,7 @@ updateSignature <- function(
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))
         # Show message
-        base::stop("Something went wrong with API. Cannot upload difexp table into the SigRepo Database. Please contact admin for more details.\n")
+        base::stop("\nSomething went wrong with API. Cannot upload the difexp table into the SigRepo database. Please contact admin for support.\n")
       }
     }
     
@@ -235,7 +235,7 @@ updateSignature <- function(
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))
         # Show message
-        base::stop("Something went wrong with API. Cannot upload difexp table into the SigRepo Database. Please contact admin for more details.\n")
+        base::stop("\nSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n")
       }else{
         # Remove files from file system 
         base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))

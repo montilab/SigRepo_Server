@@ -72,7 +72,7 @@ addCollection <- function(
     
     # Show message
     SigRepo::verbose(
-      base::sprintf("\tYou already uploaded a collection with the name = '%s' into the SigRepo Database.\n", metadata_tbl$collection_name),
+      base::sprintf("\tYou already uploaded a collection with the name = '%s' to the SigRepo database.\n", metadata_tbl$collection_name),
       base::sprintf("\tID of the uploaded collection: %s\n", collection_tbl$collection_id)
     )
     
@@ -84,7 +84,7 @@ addCollection <- function(
   }else{
     
     # 1. Uploading each signature in the collection into the database
-    SigRepo::verbose("Uploading each signature in the collection into the database...\n")
+    SigRepo::verbose("Uploading each signature in the collection to the database...\n")
     
     # Extract omic_sig_list from omic_collection ####
     omic_sig_list <- omic_collection$OmicSigList
@@ -110,7 +110,7 @@ addCollection <- function(
     }
     
     # 2. Uploading collection metadata into database
-    SigRepo::verbose("Uploading collection metadata into the database...\n")
+    SigRepo::verbose("Uploading collection metadata to the database...\n")
     
     # Check table against database table ####
     metadata_tbl <- SigRepo::checkTableInput(
@@ -141,7 +141,7 @@ addCollection <- function(
     
     # 3. Adding user to collection access table after collection
     # was imported successfully in step (1)
-    SigRepo::verbose("Adding user to collection access table in the database...\n")
+    SigRepo::verbose("Adding user to the collection access table in the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
@@ -163,7 +163,7 @@ addCollection <- function(
     
     # 4. Adding signature to collection access table after collection
     # was imported successfully in step (1)
-    SigRepo::verbose("Adding signature to collection access table in the database...\n")
+    SigRepo::verbose("Adding signature to the collection access table of the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({

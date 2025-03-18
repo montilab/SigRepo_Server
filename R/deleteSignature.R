@@ -39,7 +39,7 @@ deleteSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'signature_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'signature_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check if signature exists ####
@@ -48,7 +48,7 @@ deleteSignature <- function(
     db_table_name  = "signatures",
     return_var = "*",
     filter_coln_var = "signature_id",
-    filter_coln_val = list("signature_id" = signature_id),
+    filter_coln_val = base::list("signature_id" = signature_id),
     check_db_table = TRUE
   )
   
@@ -59,7 +59,7 @@ deleteSignature <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("There is no signature_id = '%s' existed in the 'signatures' table of the SigRepo Database.", signature_id))
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' existed in the 'signatures' table of the SigRepo database.\n", signature_id))
     
   }else{
     
@@ -97,7 +97,7 @@ deleteSignature <- function(
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to delete signature_id = '%s' from the database.", user_name, signature_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have permission to delete signature_id = '%s' from the SigRepo database.\n", user_name, signature_id))
           
         }
       }
@@ -114,7 +114,7 @@ deleteSignature <- function(
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))
         # Show message
-        base::stop("Something went wrong with API. Cannot upload difexp table into the SigRepo Database. Please contact admin for more details.\n")
+        base::stop("\nSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n")
       }
     }
     

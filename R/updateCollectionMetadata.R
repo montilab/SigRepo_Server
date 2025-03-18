@@ -55,7 +55,7 @@ updateCollectionMetadata <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'collection_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'collection_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check if collection exists ####
@@ -75,7 +75,7 @@ updateCollectionMetadata <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("There is no collection_id = '%s' in the 'collection' table of the SigRepo Database.", collection_id))
+    base::stop(base::sprintf("\nThere is no collection_id = '%s' in the 'collection' table of the SigRepo database.\n", collection_id))
     
   }else{
     
@@ -114,7 +114,7 @@ updateCollectionMetadata <- function(
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           
           # Show message
-          base::stop(base::sprintf("User = '%s' does not have permission to update collection_id = '%s' in the database.", user_name, collection_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have the permission to update collection_id = '%s' in the SigRepo database.\n", user_name, collection_id))
           
         }
       }
@@ -125,7 +125,7 @@ updateCollectionMetadata <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn)) 
       # Show message
-      base::stop("'collection_name' and 'description' cannot both be empty. Please provide a value to either variable.")
+      base::stop("\n'collection_name' and 'description' cannot both be empty. Please provide a value to either variable.\n")
     }
 
     # 1. Delete collection id from collection metadata table ####

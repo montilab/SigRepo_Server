@@ -60,7 +60,7 @@ addUserToCollection <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'collection_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'collection_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check user_name
@@ -68,7 +68,7 @@ addUserToCollection <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'user_name' cannot be empty.")
+    base::stop("\n'user_name' cannot be empty.\n")
   }
   
   # Make sure length of user_name equal to length of its access_type
@@ -76,7 +76,7 @@ addUserToCollection <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("Length of 'user_name' must equal the length of its 'access_type'.")
+    base::stop("\nLength of 'user_name' must equal the length of its 'access_type'.\n")
   }
   
   # Check if user exist in the users table of the database
@@ -94,7 +94,7 @@ addUserToCollection <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("user_name = %s does not exist in the users table of the database.", base::paste0("'", username[which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
+    base::stop(base::sprintf("\nUser = %s do(es) not exist in the users table of the SigRepo database.\n", base::paste0("'", username[which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
   }
   
   # Check if signature exists ####
@@ -114,7 +114,7 @@ addUserToCollection <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There is no collection_id = '%s' in the 'collection' table of the SigRepo Database.", collection_id))
+    base::stop(base::sprintf("\nThere is no collection_id = '%s' in the 'collection' table of the SigRepo database.\n", collection_id))
     
   }else{
     
@@ -150,7 +150,7 @@ addUserToCollection <- function(
           # Disconnect from database ####
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(base::sprintf("User = '%s' does not have the permission to add user = % to collection_id = '%s' in the database.", orig_user_name, base::paste0("'", user_name, "'", collapse = ", "), collection_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have the permission to add user = % to collection_id = '%s' in the SigRepo database.\n", orig_user_name, base::paste0("'", user_name, "'", collapse = ", "), collection_id))
         }
       }
     }

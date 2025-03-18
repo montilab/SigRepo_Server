@@ -3,7 +3,7 @@
 #' @param conn_handler An established database connection using SigRepo::newConnhandler() 
 #' @param user_tbl A data frame containing appropriate column names:
 #' user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role
-#' #' @param verbose a logical value indicates whether or not to print the
+#' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @export
@@ -37,7 +37,7 @@ addUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(base::sprintf("The table is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\nThe table is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
@@ -45,7 +45,7 @@ addUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check user roles ####
@@ -53,7 +53,7 @@ addUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(base::sprintf("The 'user_role' column must contain one of the following roles: %s.\n", base::paste0(user_role_options, collapse = "/")))
+    base::stop(base::sprintf("\nThe 'user_role' column must contain one of the following roles: %s.\n", base::paste0(user_role_options, collapse = "/")))
   }
   
   # Check user emails ####
@@ -64,7 +64,7 @@ addUser <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop("Invalid email format.\n")
+    base::stop("\nInvalid email format.\n")
   }
   
   # Check for duplicated emails ####
@@ -133,26 +133,26 @@ addUser <- function(
       #u=1;
       # CHECK IF USER EXIST IN DATABASE
       check_user_tbl <- base::suppressWarnings(
-        DBI::dbGetQuery(conn = conn, statement = sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u]))
+        DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u]))
       )
       
       # CREATE USER IF NOT EXIST
       if(nrow(check_user_tbl) == 0){
         base::suppressWarnings(
-          DBI::dbGetQuery(conn = conn, statement = sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u]))
+          DBI::dbGetQuery(conn = conn, statement = base::sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u]))
         )
       }
       
       # GRANT USER PERMISSIONS TO DATABASE BASED ON THEIR ROLES
       if(table$user_role[u] == "admin"){
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
       }else if(table$user_role[u] == "editor"){
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
       }else if(table$user_role[u] == "viewer"){
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
       }
     }

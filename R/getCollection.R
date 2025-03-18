@@ -55,7 +55,7 @@ getCollection <- function(
       base::suppressWarnings(DBI::dbDisconnect(conn)) 
       
       # Show message
-      base::stop(sprintf("There are no collection that belong to user_name = '%s' in the database.\n", user_name))
+      base::stop(base::sprintf("\nThere are no collection that belong to user_name = '%s' in the SigRepo database.\n", user_name))
       
     }
     
@@ -105,12 +105,12 @@ getCollection <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("There are no collection returned from the search parameters.\n"))
+    base::stop(base::sprintf("\nThere are no collection returned from the search parameters.\n"))
     
   }else{
     
     # Create a place holder to store collection
-    omic_collection_list <- list()
+    omic_collection_list <- base::list()
     
     # Create an omic signature object for each signature id ####
     for(r in 1:nrow(collection_tbl)){
@@ -131,7 +131,7 @@ getCollection <- function(
     }
     
     # Add names to signatures
-    names(omic_collection_list) <- collection_tbl$collection_name
+    base::names(omic_collection_list) <- collection_tbl$collection_name
 
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))
