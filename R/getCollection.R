@@ -3,7 +3,7 @@
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param collection_name Name of collection to be returned
-#' @param signature_id ID of collection to be returned
+#' @param collection_id ID of collection to be returned
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
@@ -34,53 +34,14 @@ getCollection <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
-  # If user_role is not admin, check user access to the signature ####
-  if(user_role != "admin"){
-    
-    # Check user access ####
-    collection_access_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "collection_access", 
-      return_var = "*", 
-      filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
-      filter_var_by = "AND",
-      check_db_table = TRUE
-    ) 
-    
-    # If user does not have owner or editor permission, throw an error message
-    if(nrow(collection_access_tbl) == 0){
-      
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn)) 
-      
-      # Show message
-      base::stop(base::sprintf("\nThere are no collection that belong to user_name = '%s' in the SigRepo database.\n", user_name))
-      
-    }
-    
-    # Look up collection
-    collection_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "collection", 
-      return_var = "*", 
-      filter_coln_var = "collection_id", 
-      filter_coln_val = list("collection_id" = unique(collection_access_tbl$collection_id)),
-      check_db_table = TRUE
-    ) 
-    
-  }else{
-    
-    # Look up collection
-    collection_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "collection", 
-      return_var = "*", 
-      check_db_table = TRUE
-    ) 
-    
-  }
-
+  # Look up collection
+  collection_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "collection", 
+    return_var = "*", 
+    check_db_table = TRUE
+  ) 
+  
   # Get a list of filtered variables
   filter_var_list <- list(
     "collection_id" = base::unique(collection_id),
@@ -96,6 +57,34 @@ getCollection <- function(
       filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
       collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
     }
+  }
+  
+  # If user_role is not admin, check if user has the permission to access the collection ####
+  if(user_role != "admin"){
+    
+    # Get a list of collection with visibility = FALSE
+    collection_visibility <- collection_tbl %>% dplyr::filter(visibility == FALSE) %>% dplyr::distinct(collection_id, visibility) 
+    
+    # Check if user has the permission to view the signatures ####
+    for(w in 1:nrow(collection_visibility)){
+      #w=1;
+      # Check user access ####
+      collection_access_tbl <- SigRepo::lookup_table_sql(
+        conn = conn,
+        db_table_name = "collection_access", 
+        return_var = "*", 
+        filter_coln_var = c("collection_id", "user_name", "access_type"),
+        filter_coln_val = list("collection_id" = collection_visibility$collection_id[w], "user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
+        filter_var_by = c("AND", "AND"),
+        check_db_table = TRUE
+      ) 
+      
+      # If user does not have owner or editor permission, throw an error message
+      if(nrow(collection_access_tbl) == 0){
+        collection_tbl <- collection_tbl %>% dplyr::filter(!collection_id %in% collection_visibility$collection_id[w])
+      }
+    }
+    
   }
   
   # Check if signature exists
@@ -132,7 +121,7 @@ getCollection <- function(
     
     # Add names to signatures
     base::names(omic_collection_list) <- collection_tbl$collection_name
-
+    
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))
     

@@ -4,8 +4,6 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param collection_name Name of collection to be looked up by.
 #' @param collection_id ID of collection to be looked up by.
-#' @param signature_name Name of signatures to be looked up by.
-#' @param signature_id ID of signatures to be looked up by.
 #' @param user_name Name of users that the collection belongs to.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
@@ -31,8 +29,6 @@ searchCollection <- function(
     conn_handler,
     collection_name = NULL,
     collection_id = NULL,
-    signature_name = NULL,
-    signature_id = NULL,
     user_name = NULL,
     verbose = TRUE
 ){
@@ -50,53 +46,30 @@ searchCollection <- function(
     required_role = "viewer"
   )
   
-  # If user_role is not admin, check user access to the signature ####
-  if(length(user_name) > 0 && all(!user_name %in% c("", NA))){
-    
-    # Check user access ####
-    collection_access_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "collection_access", 
-      return_var = "*", 
-      filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
-      filter_var_by = "AND",
-      check_db_table = TRUE
-    ) 
-    
-    # If user does not have owner or editor permission, throw an error message
-    if(nrow(collection_access_tbl) == 0){
-      
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn))     
-      
-      # Show message
-      SigRepo::verbose(base::sprintf("There are no collection returned from the search parameters.\n"))
-      
-      # Return NULL
-      return(base::data.frame(NULL))
-      
+  # Look up collection
+  collection_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "collection", 
+    return_var = "*", 
+    check_db_table = TRUE
+  ) 
+  
+  # Get a list of filtered variables
+  filter_var_list <- list(
+    "collection_id" = base::unique(collection_id),
+    "collection_name" = base::unique(collection_name),
+    "user_name" = base::unique(user_name)
+  )
+  
+  # Filter table with given search variables
+  for(r in base::seq_along(filter_var_list)){
+    #r=1;
+    filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
+    if(filter_status == TRUE){
+      filter_var <- base::names(filter_var_list)[r]
+      filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
+      collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
     }
-    
-    # Look up collection
-    collection_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "collection", 
-      return_var = "*", 
-      filter_coln_var = "collection_id", 
-      filter_coln_val = list("collection_id" = unique(collection_access_tbl$collection_id)),
-      check_db_table = TRUE
-    ) 
-    
-  }else{
-    
-    collection_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "collection", 
-      return_var = "*", 
-      check_db_table = TRUE
-    ) 
-    
   }
   
   # Check if signature exists

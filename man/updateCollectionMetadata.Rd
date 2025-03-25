@@ -9,6 +9,7 @@ updateCollectionMetadata(
   collection_id,
   collection_name = NULL,
   description = NULL,
+  visibility = NULL,
   verbose = TRUE
 )
 }
@@ -21,6 +22,9 @@ a remote database obtained from SigRepo::newConnhandler()}
 \item{collection_name}{Name of the collection to be changed.}
 
 \item{description}{Description of the collection to be changed.}
+
+\item{visibility}{A logical value indicates whether or not to allow others
+to view and access one's uploaded collection. Default is \code{FALSE}.}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}

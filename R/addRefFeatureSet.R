@@ -22,6 +22,7 @@ addRefFeatureSet <- function(
   # Check assay_type
   assay_type <- base::match.arg(assay_type)
   
+  # Add reference feature set for a specified assay type
   if(assay_type == "transcriptomics"){
     SigRepo::addTranscriptomicsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }else if(assay_type == "proteomics"){

@@ -43,17 +43,6 @@ For more information click the links below.
 
 For demonstrations, we will walk through the steps of how to use `SigRepo` package to store, retrieve, and interact with a list of signatures stored in our MySQL SigRepo Database. 
 
-# Additional Guides
-
-- [How to install SigRepo via Docker](https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html)
-
-# Contacts 
-
-Reina Chau - `rchau88@bu.edu`  
-Cameron Vicnaire - `camv@bu.edu`<br>
-Vanessa Mengze Li - `vmli@bu.edu`<br>
-Stefano Monti - `smonti@bu.edu`<br>
-
 # Installation
 
 - Using `devtools` package
@@ -186,6 +175,24 @@ SigRepo::addSignature(
   return_signature_id = FALSE,        # Whether to return the uploaded signature id
   verbose = TRUE                      # Whether to print diagnostic messages
 )
+
+# Now search for Myc_reduce_mice_liver_24m in the database
+# in which we would like to revise the value of platform to GPLXXXXX
+signature_tbl <- SigRepo::searchSignature(
+  conn_handler = conn_handler, 
+  signature_name = metadata$signature_name
+)
+
+# Updating the signature with the revised omic_signature object
+if(nrow(signature_tbl) > 0){
+  SigRepo::updateSignature(
+    conn_handler = conn_handler, 
+    signature_id = signature_tbl$signature_id, 
+    omic_signature = omic_signature_MDA_CYP,
+    visibility = TRUE
+  )
+}
+
 ```
 
 ## **Example 2**: Upload `omic_signature_AGS_OmS` signature
@@ -202,7 +209,8 @@ SigRepo::addSignature(
 ```{r Example 3}
 SigRepo::addSignature(
   conn_handler = conn_handler, 
-  omic_signature = omic_signature_MDA_CYP
+  omic_signature = omic_signature_MDA_CYP,
+  verbose = FALSE
 )
 ```
 
@@ -339,7 +347,8 @@ if(nrow(signature_tbl) > 0){
   SigRepo::updateSignature(
     conn_handler = conn_handler, 
     signature_id = signature_tbl$signature_id, 
-    omic_signature = updated_omic_signature
+    omic_signature = omic_signature_MDA_CYP,
+    visibility = TRUE
   )
 }
 ```
@@ -386,3 +395,6 @@ if(nrow(signature_tbl) > 0){
   )
 }
 ```
+# Additional Guides
+
+- [How to install SigRepo via Docker](https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html)

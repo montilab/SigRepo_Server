@@ -34,55 +34,13 @@ getSignature <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
-  # If user_role is not admin, check user access to the signature ####
-  if(user_role != "admin"){
-    
-    # Check user access ####
-    signature_access_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "signature_access", 
-      return_var = "*", 
-      filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
-      filter_var_by = "AND",
-      check_db_table = TRUE
-    ) 
-    
-    # If user does not have owner or editor permission, throw an error message
-    if(nrow(signature_access_tbl) == 0){
-      
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn)) 
-      
-      # Show message
-      SigRepo::verbose(base::sprintf("There are no signatures that belong to user_name = '%s' in the database.\n", user_name))
-      
-      # Return NULL
-      return(NULL)
-      
-    }
-    
-    # Look up signatures
-    signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "signatures", 
-      return_var = "*", 
-      filter_coln_var = "signature_id", 
-      filter_coln_val = list("signature_id" = signature_access_tbl$signature_id),
-      check_db_table = TRUE
-    ) 
-    
-  }else{
-    
-    # Look up signatures
-    signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "signatures", 
-      return_var = "*", 
-      check_db_table = TRUE
-    ) 
-    
-  }
+  # Look up signatures
+  signature_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "signatures", 
+    return_var = "*", 
+    check_db_table = TRUE
+  ) 
   
   # Get a list of filtered variables
   filter_var_list <- list(
@@ -100,7 +58,34 @@ getSignature <- function(
       signature_tbl <- signature_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
     }
   }
-
+  
+  # If user_role is not admin, check if user has the permission to access the signature ####
+  if(user_role != "admin"){
+    
+    # Get a list of signature with visibility = FALSE
+    signature_visibility <- signature_tbl %>% dplyr::filter(visibility == FALSE) %>% dplyr::distinct(signature_id, visibility) 
+    
+    # Check if user has the permission to view the signatures ####
+    for(w in 1:nrow(signature_visibility)){
+      #w=1;
+      signature_access_tbl <- SigRepo::lookup_table_sql(
+        conn = conn,
+        db_table_name = "signature_access", 
+        return_var = "*", 
+        filter_coln_var = c("signature_id", "user_name", "access_type"),
+        filter_coln_val = list("signature_id" = signature_visibility$signature_id[w], "user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
+        filter_var_by = c("AND", "AND"),
+        check_db_table = TRUE
+      ) 
+      
+      # If user does not have owner or editor permission, remove from the returned list
+      if(nrow(signature_access_tbl) == 0){
+        signature_tbl <- signature_tbl %>% dplyr::filter(!signature_id %in% signature_visibility$signature_id[w])
+      }
+    }
+    
+  }
+  
   # Check if signature exists
   if(nrow(signature_tbl) == 0){
     

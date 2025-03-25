@@ -1,15 +1,22 @@
 #' @title createSignatureMetadata
 #' @description Create a metadata object for a signature
-#' @param conn_handler An established connection to database using SigRepo::conn_init() 
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
 #' @param omic_signature An R6 class object from OmicSignature package
+#' @param verbose A logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{FALSE}. 
 #' 
 #' @noRd
 #' 
 #' @export
 createSignatureMetadata <- function(
     conn_handler,
-    omic_signature
+    omic_signature,
+    verbose = FALSE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -94,7 +101,7 @@ createSignatureMetadata <- function(
     SigRepo::addPhenotype(
       conn_handler = conn_handler,
       phenotype_tbl = base::data.frame(phenotype = lookup_phenotype),
-      verbose = FALSE
+      verbose = verbose
     )
     # Get the updated phenotype id
     phenotype_id <- SigRepo::lookup_table_sql(
@@ -263,7 +270,7 @@ createSignatureMetadata <- function(
       SigRepo::addKeyword(
         conn_handler = conn_handler, 
         keyword_tbl = keyword_tbl,
-        verbose = FALSE
+        verbose = verbose
       )
     }
   }else{
