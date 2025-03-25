@@ -162,6 +162,25 @@ addSignature <- function(
       
     }else if(assay_type == "proteomics"){
       
+      # If there is a error during the process, remove the signature and output the message
+      base::tryCatch({
+        SigRepo::addProteomicsSignatureSet(
+          conn_handler = conn_handler,
+          signature_id = signature_tbl$signature_id,
+          organism_id = signature_tbl$organism_id,
+          signature_set = omic_signature$signature
+        )
+      }, error = function(e){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))  
+        # Return error message
+        base::stop(e, "\n")
+      }, warning = function(w){
+        base::message(w, "\n")
+      }) 
+      
     }else if(assay_type == "metabolomics"){
       
     }else if(assay_type == "methylomics"){

@@ -1,5 +1,6 @@
 # For DB connection
 library(RMySQL)
+library(RMariaDB)
 library(DBI)
 
 # For data cleaning, extraction and manipulation
@@ -11,11 +12,11 @@ load_all()
 
 ## Establish database connection
 conn <- DBI::dbConnect(
-  drv = RMySQL::MySQL(),
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
+  drv = RMySQL::MySQL(),  # Ensure you're using MariaDB connection
+  dbname = Sys.getenv("DBNAME"),
+  host = Sys.getenv("HOST"),
+  port = as.integer(Sys.getenv("PORT")),
+  user = Sys.getenv("USER"),
   password = Sys.getenv("PASSWORD")
 )
 
@@ -26,6 +27,10 @@ conn <- DBI::dbConnect(
 # Get data path
 data_path <- system.file("data", package="SigRepo")
 
+
+# conn init 
+
+SigRepo::conn_init(conn_handler)
 
 SigRepo::searchSignature(
   conn_handler,
