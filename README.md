@@ -27,17 +27,6 @@ For demonstrations, we will walk through the steps of how to use
 `SigRepo` package to store, retrieve, and interact with a list of
 signatures stored in our MySQL SigRepo Database.
 
-# Additional Guides
-
-- [How to install SigRepo via
-  Docker](https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html)
-
-# Contacts
-
-Reina Chau - `rchau88@bu.edu`  
-Cameron Vicnaire - `camv@bu.edu`<br> Vanessa Mengze Li -
-`vmli@bu.edu`<br> Stefano Monti - `smonti@bu.edu`<br>
-
 # Installation
 
 - Using `devtools` package
@@ -189,7 +178,7 @@ SigRepo::addSignature(
 #> Adding user to the signature access table of the database...
 #> Adding signature feature set to the database...
 #> Finished uploading.
-#> ID of the uploaded signature: 26
+#> ID of the uploaded signature: 20
 ```
 
 ## **Example 2**: Upload `omic_signature_AGS_OmS` signature
@@ -200,7 +189,7 @@ SigRepo::addSignature(
   omic_signature = omic_signature_AGS_OmS
 )
 #>  You already uploaded a signature with the name = 'LLFS_Aging_Gene_2023' to the SigRepo Database.
-#>  ID of the uploaded signature: 3
+#>  ID of the uploaded signature: 9
 ```
 
 ## **Example 3**: Upload `omic_signature_MDA_CYP` signature
@@ -208,13 +197,10 @@ SigRepo::addSignature(
 ``` r
 SigRepo::addSignature(
   conn_handler = conn_handler, 
-  omic_signature = omic_signature_MDA_CYP
+  omic_signature = omic_signature_MDA_CYP,
+  verbose = FALSE
 )
-#> Uploading signature metadata into the database...
-#> Saving difexp to the database...
-#> Adding user to the signature access table of the database...
-#> Adding signature feature set to the database...
-#> Error in value[[3L]](cond): Error in SigRepo::showTranscriptomicsErrorMessage(db_table_name = ref_table, : 
+#> Warning in SigRepo::showTranscriptomicsErrorMessage(db_table_name = ref_table, : 
 #> The following features do not existed in the 'transcriptomics_features' table of the database:
 #> 'ENSG00000281508'
 #> 'ENSG00000199900'
@@ -279,6 +265,68 @@ SigRepo::addSignature(
 #> 'ENSG00000242349'
 #> You can use 'searchFeature()' to see a list of available features in the database.
 #> To add these features to our database, please contact our admin for support.
+#>                       table  unknown_values
+#> 1  transcriptomics_features ENSG00000281508
+#> 2  transcriptomics_features ENSG00000199900
+#> 3  transcriptomics_features ENSG00000247844
+#> 4  transcriptomics_features ENSG00000258777
+#> 5  transcriptomics_features ENSG00000230836
+#> 6  transcriptomics_features ENSG00000204282
+#> 7  transcriptomics_features ENSG00000179979
+#> 8  transcriptomics_features ENSG00000198384
+#> 9  transcriptomics_features ENSG00000277203
+#> 10 transcriptomics_features ENSG00000250889
+#> 11 transcriptomics_features ENSG00000170647
+#> 12 transcriptomics_features ENSG00000276797
+#> 13 transcriptomics_features ENSG00000237975
+#> 14 transcriptomics_features ENSG00000241990
+#> 15 transcriptomics_features ENSG00000155640
+#> 16 transcriptomics_features ENSG00000199404
+#> 17 transcriptomics_features ENSG00000230641
+#> 18 transcriptomics_features ENSG00000227895
+#> 19 transcriptomics_features ENSG00000150526
+#> 20 transcriptomics_features ENSG00000277555
+#> 21 transcriptomics_features ENSG00000274744
+#> 22 transcriptomics_features ENSG00000250588
+#> 23 transcriptomics_features ENSG00000223414
+#> 24 transcriptomics_features ENSG00000184258
+#> 25 transcriptomics_features ENSG00000228265
+#> 26 transcriptomics_features ENSG00000146521
+#> 27 transcriptomics_features ENSG00000232224
+#> 28 transcriptomics_features ENSG00000256045
+#> 29 transcriptomics_features ENSG00000240875
+#> 30 transcriptomics_features ENSG00000182584
+#> 31 transcriptomics_features ENSG00000239332
+#> 32 transcriptomics_features ENSG00000186354
+#> 33 transcriptomics_features ENSG00000200649
+#> 34 transcriptomics_features ENSG00000225163
+#> 35 transcriptomics_features ENSG00000255145
+#> 36 transcriptomics_features ENSG00000228439
+#> 37 transcriptomics_features ENSG00000201126
+#> 38 transcriptomics_features ENSG00000225986
+#> 39 transcriptomics_features ENSG00000238648
+#> 40 transcriptomics_features ENSG00000228393
+#> 41 transcriptomics_features ENSG00000112096
+#> 42 transcriptomics_features ENSG00000170590
+#> 43 transcriptomics_features ENSG00000269028
+#> 44 transcriptomics_features ENSG00000280524
+#> 45 transcriptomics_features ENSG00000238266
+#> 46 transcriptomics_features ENSG00000235825
+#> 47 transcriptomics_features ENSG00000243587
+#> 48 transcriptomics_features ENSG00000203441
+#> 49 transcriptomics_features ENSG00000207770
+#> 50 transcriptomics_features ENSG00000132832
+#> 51 transcriptomics_features ENSG00000236850
+#> 52 transcriptomics_features ENSG00000235884
+#> 53 transcriptomics_features ENSG00000249860
+#> 54 transcriptomics_features ENSG00000215271
+#> 55 transcriptomics_features ENSG00000256164
+#> 56 transcriptomics_features ENSG00000215067
+#> 57 transcriptomics_features ENSG00000223797
+#> 58 transcriptomics_features ENSG00000244349
+#> 59 transcriptomics_features ENSG00000208035
+#> 60 transcriptomics_features ENSG00000255090
+#> 61 transcriptomics_features ENSG00000242349
 ```
 
 # Search for a list of signatures
@@ -299,13 +347,11 @@ if(nrow(signature_tbl) > 0){
 }
 ```
 
-| signature_id | signature_name | organism | direction_type | assay_type | phenotype | platform_id | sample_type | covariates | description | score_cutoff | logfc_cutoff | p_value_cutoff | adj_p_cutoff | cutoff_description | keywords | PMID | year | others | has_difexp | num_of_difexp | num_up_regulated | num_down_regulated | user_name | date_created | signature_hashkey |
-|---:|:---|:---|:---|:---|:---|:---|:---|:---|:---|---:|---:|---:|---:|:---|:---|---:|---:|:---|---:|---:|---:|---:|:---|:---|:---|
-| 1 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | root | 2025-03-17 16:55:45 | 7fdecac66691beed1703efc25487768c |
-| 3 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | montilab | 2025-03-17 16:56:20 | b35b7c1d387440d474bfcb3cb162c9a6 |
-| 5 | Myc_reduce_mice_liver_24m_v1 | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:02:10 | d6f0247a37eec0e3a6b6285dc7394d88 |
-| 6 | Myc_reduce_mice_liver_24m_v2 | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:02:11 | e67a6b45899dc0f8d7eaa2cedec4d622 |
-| 26 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:51:51 | 1873c11dbbd138281361bed28899c17d |
+| signature_id | signature_name | organism | direction_type | assay_type | phenotype | platform_id | sample_type | covariates | description | score_cutoff | logfc_cutoff | p_value_cutoff | adj_p_cutoff | cutoff_description | keywords | PMID | year | others | has_difexp | num_of_difexp | num_up_regulated | num_down_regulated | user_name | date_created | visibility | signature_hashkey |
+|---:|:---|:---|:---|:---|:---|:---|:---|:---|:---|---:|---:|---:|---:|:---|:---|---:|---:|:---|---:|---:|---:|---:|:---|:---|---:|:---|
+| 1 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | root | 2025-03-25 15:51:22 | 0 | 7fdecac66691beed1703efc25487768c |
+| 9 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | montilab | 2025-03-25 16:42:43 | 0 | b35b7c1d387440d474bfcb3cb162c9a6 |
+| 20 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPL6246 | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-25 17:38:00 | 0 | 1873c11dbbd138281361bed28899c17d |
 
 ## Example 2: Search for a specific signature, e.g., **signature_name = “LLFS_Aging_Gene_2023”**.
 
@@ -323,10 +369,10 @@ if(nrow(signature_tbl) > 0){
 }
 ```
 
-| signature_id | signature_name | organism | direction_type | assay_type | phenotype | platform_id | sample_type | covariates | description | score_cutoff | logfc_cutoff | p_value_cutoff | adj_p_cutoff | cutoff_description | keywords | PMID | year | others | has_difexp | num_of_difexp | num_up_regulated | num_down_regulated | user_name | date_created | signature_hashkey |
-|---:|:---|:---|:---|:---|:---|:---|:---|:---|:---|---:|---:|---:|---:|:---|:---|---:|---:|:---|---:|---:|---:|---:|:---|:---|:---|
-| 1 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | root | 2025-03-17 16:55:45 | 7fdecac66691beed1703efc25487768c |
-| 3 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | montilab | 2025-03-17 16:56:20 | b35b7c1d387440d474bfcb3cb162c9a6 |
+| signature_id | signature_name | organism | direction_type | assay_type | phenotype | platform_id | sample_type | covariates | description | score_cutoff | logfc_cutoff | p_value_cutoff | adj_p_cutoff | cutoff_description | keywords | PMID | year | others | has_difexp | num_of_difexp | num_up_regulated | num_down_regulated | user_name | date_created | visibility | signature_hashkey |
+|---:|:---|:---|:---|:---|:---|:---|:---|:---|:---|---:|---:|---:|---:|:---|:---|---:|---:|:---|---:|---:|---:|---:|:---|:---|---:|:---|
+| 1 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | root | 2025-03-25 15:51:22 | 0 | 7fdecac66691beed1703efc25487768c |
+| 9 | LLFS_Aging_Gene_2023 | Homo sapiens | bi-directional | transcriptomics | Aging | GPLXXXXX | blood | sex,fc,education,percent_intergenic,PC1-4,GRM | NA | 6 | NA | NA | 0.01 | NA | human,aging,LLFS | NA | 2023 | NA | 1 | 11159 | 882 | 957 | montilab | 2025-03-25 16:42:43 | 0 | b35b7c1d387440d474bfcb3cb162c9a6 |
 
 # Retrieve a list of omic signatures
 
@@ -346,8 +392,6 @@ signature objects that they previously uploaded to the database.
 ``` r
 signature_list <- SigRepo::getSignature(conn_handler = conn_handler)
 #>   [Success] OmicSignature object LLFS_Aging_Gene_2023 created.
-#>   [Success] OmicSignature object Myc_reduce_mice_liver_24m_v1 created.
-#>   [Success] OmicSignature object Myc_reduce_mice_liver_24m_v2 created.
 #>   [Success] OmicSignature object Myc_reduce_mice_liver_24m created.
 ```
 
@@ -446,11 +490,77 @@ if(nrow(signature_tbl) > 0){
   SigRepo::updateSignature(
     conn_handler = conn_handler, 
     signature_id = signature_tbl$signature_id, 
-    omic_signature = updated_omic_signature
+    omic_signature = omic_signature_MDA_CYP,
+    visibility = TRUE
   )
 }
 #>   [Success] OmicSignature object Myc_reduce_mice_liver_24m created.
-#>  signature_id = '26' has been updated.
+#> Warning in SigRepo::showTranscriptomicsErrorMessage(db_table_name = ref_table, : 
+#> The following features do not existed in the 'transcriptomics_features' table of the database:
+#> 'ENSG00000281508'
+#> 'ENSG00000199900'
+#> 'ENSG00000247844'
+#> 'ENSG00000258777'
+#> 'ENSG00000230836'
+#> 'ENSG00000204282'
+#> 'ENSG00000179979'
+#> 'ENSG00000198384'
+#> 'ENSG00000277203'
+#> 'ENSG00000250889'
+#> 'ENSG00000170647'
+#> 'ENSG00000276797'
+#> 'ENSG00000237975'
+#> 'ENSG00000241990'
+#> 'ENSG00000155640'
+#> 'ENSG00000199404'
+#> 'ENSG00000230641'
+#> 'ENSG00000227895'
+#> 'ENSG00000150526'
+#> 'ENSG00000277555'
+#> 'ENSG00000274744'
+#> 'ENSG00000250588'
+#> 'ENSG00000223414'
+#> 'ENSG00000184258'
+#> 'ENSG00000228265'
+#> 'ENSG00000146521'
+#> 'ENSG00000232224'
+#> 'ENSG00000256045'
+#> 'ENSG00000240875'
+#> 'ENSG00000182584'
+#> 'ENSG00000239332'
+#> 'ENSG00000186354'
+#> 'ENSG00000200649'
+#> 'ENSG00000225163'
+#> 'ENSG00000255145'
+#> 'ENSG00000228439'
+#> 'ENSG00000201126'
+#> 'ENSG00000225986'
+#> 'ENSG00000238648'
+#> 'ENSG00000228393'
+#> 'ENSG00000112096'
+#> 'ENSG00000170590'
+#> 'ENSG00000269028'
+#> 'ENSG00000280524'
+#> 'ENSG00000238266'
+#> 'ENSG00000235825'
+#> 'ENSG00000243587'
+#> 'ENSG00000203441'
+#> 'ENSG00000207770'
+#> 'ENSG00000132832'
+#> 'ENSG00000236850'
+#> 'ENSG00000235884'
+#> 'ENSG00000249860'
+#> 'ENSG00000215271'
+#> 'ENSG00000256164'
+#> 'ENSG00000215067'
+#> 'ENSG00000223797'
+#> 'ENSG00000244349'
+#> 'ENSG00000208035'
+#> 'ENSG00000255090'
+#> 'ENSG00000242349'
+#> You can use 'searchFeature()' to see a list of available features in the database.
+#> To add these features to our database, please contact our admin for support.
+#> Error in value[[3L]](cond): Error in private$checkSignature(signature, signatureType = metadata$direction_type, : Signature is empty.
 ```
 
 Now look up **signature_name = “Myc_reduce_mice_liver_24m”** and see if
@@ -461,6 +571,10 @@ signature_tbl <- SigRepo::searchSignature(
   conn_handler = conn_handler, 
   signature_name = "Myc_reduce_mice_liver_24m"
 )
+#> There are no signatures returned from the search parameters.
+```
+
+``` r
 
 if(nrow(signature_tbl) > 0){
   knitr::kable(
@@ -469,10 +583,6 @@ if(nrow(signature_tbl) > 0){
   )
 }
 ```
-
-| signature_id | signature_name | organism | direction_type | assay_type | phenotype | platform_id | sample_type | covariates | description | score_cutoff | logfc_cutoff | p_value_cutoff | adj_p_cutoff | cutoff_description | keywords | PMID | year | others | has_difexp | num_of_difexp | num_up_regulated | num_down_regulated | user_name | date_created | signature_hashkey |
-|---:|:---|:---|:---|:---|:---|:---|:---|:---|:---|---:|---:|---:|---:|:---|:---|---:|---:|:---|---:|---:|---:|---:|:---|:---|:---|
-| 26 | Myc_reduce_mice_liver_24m | Mus musculus | bi-directional | transcriptomics | Myc_reduce | GPLXXXXX | liver | none | mice MYC reduced expression | 5 | NA | NA | 0.05 | NA | Myc,KO,longevity | 25619689 | 2015 | animal_strain: \<C57BL/6\> | 1 | 884 | 5 | 10 | montilab | 2025-03-17 17:51:56 | 1873c11dbbd138281361bed28899c17d |
 
 # Delete a signature
 
@@ -496,6 +606,10 @@ signature_tbl <- SigRepo::searchSignature(
   conn_handler = conn_handler, 
   signature_name = "Myc_reduce_mice_liver_24m"
 )
+#> There are no signatures returned from the search parameters.
+```
+
+``` r
 
 # Remove signature from the database
 if(nrow(signature_tbl) > 0){
@@ -504,9 +618,9 @@ if(nrow(signature_tbl) > 0){
     signature_id = signature_tbl$signature_id
   )
 }
-#> Remove signature_id = '26' from 'signatures' table of the database.
-#> Remove features belongs to signature_id = '26' from 'signature_feature_set' table of the database.
-#> Remove user access to signature_id = '26' from 'signature_access' table of the database.
-#> Remove signature_id = '26' from 'signature_collection_access' table of the database.
-#> signature_id = '26' has been removed.
 ```
+
+# Additional Guides
+
+- [How to install SigRepo via
+  Docker](https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html)

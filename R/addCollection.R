@@ -2,6 +2,8 @@
 #' @description Add signature collection to database
 #' @param conn_handler An established connection to database using newConnhandler() 
 #' @param omic_collection A collection of OmicSignature objects from OmicSignature package
+#' @param visibility A logical value indicates whether or not to allow others 
+#' to view and access one's uploaded collection. Default is \code{FALSE}.
 #' @param return_collection_id a logical value indicates whether or not to return
 #' the ID of the uploaded collection. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
@@ -11,6 +13,7 @@
 addCollection <- function(
     conn_handler,
     omic_collection,
+    visibility = FALSE,
     return_collection_id = FALSE,
     verbose = TRUE
 ){
@@ -37,6 +40,9 @@ addCollection <- function(
   # Get table name in database ####
   db_table_name <- "collection"
   
+  # Get visibility ####
+  visibility <- ifelse(visibility == TRUE, 1, 0)
+  
   # Create collection metadata table ####
   metadata_tbl <- SigRepo::createCollectionMetadata(
     conn_handler = conn_handler, 
@@ -44,7 +50,11 @@ addCollection <- function(
   ) 
   
   # Add additional variables in collection metadata table ####
-  metadata_tbl <- metadata_tbl %>% dplyr::mutate(user_name = user_name)
+  metadata_tbl <- metadata_tbl %>% 
+    dplyr::mutate(
+      user_name = user_name,
+      visibility = visibility
+    )
   
   # Create a hash key to look up whether collection is already existed in the database ####
   metadata_tbl <- SigRepo::createHashKey(
@@ -98,6 +108,7 @@ addCollection <- function(
         SigRepo::addSignature(
           omic_signature = omic_sig_list[[c]],
           conn_handler = conn_handler,
+          visibility = visibility,
           return_signature_id = TRUE
         )
       }, error = function(e){

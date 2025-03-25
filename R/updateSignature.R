@@ -3,6 +3,8 @@
 #' @param conn_handler An established connection handler using SigRepo::newConnhandler()
 #' @param signature_id a unique signature id in the database that needs to be updated
 #' @param omic_signature An R6 class object from the OmicSignature package
+#' @param visibility A logical value indicates whether or not to allow others  
+#' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #'  
@@ -35,6 +37,7 @@ updateSignature <- function(
     conn_handler,
     signature_id,
     omic_signature,
+    visibility = NULL,
     verbose = TRUE
 ){
   
@@ -177,18 +180,27 @@ updateSignature <- function(
     # Check and create signature metadata table ####
     metadata_tbl <- SigRepo::createSignatureMetadata(
       conn_handler = conn_handler,
-      omic_signature = omic_signature
+      omic_signature = omic_signature,
+      verbose = FALSE
     )
     
     # Reset the options message
     SigRepo::print_messages(verbose = verbose)
     
+    # Get visibility ####
+    if(length(visibility) > 0 && all(!visibility %in% c("", NA))){
+      visibility <- ifelse(visibility[1] == TRUE, 1, 0)
+    }else{
+      visibility <- signature_tbl$visibility[1]
+    }
+    
     # Add additional variables in signature metadata table ####
     # Keep its original id and name of the user who owned the signature
     metadata_tbl <- metadata_tbl %>% 
       dplyr::mutate(
-        signature_id = signature_tbl$signature_id,
-        user_name = signature_tbl$user_name
+        signature_id = signature_tbl$signature_id[1],
+        user_name = signature_tbl$user_name[1],
+        visibility = visibility
       )
     
     # Create a new hash key for the signature ####
@@ -259,7 +271,7 @@ updateSignature <- function(
     if(assay_type == "transcriptomics"){
       
       # If there is a error during the process, restore the signature to its origin structure and output the messages
-      base::tryCatch({
+      warn_tbl <- base::tryCatch({
         SigRepo::addTranscriptomicsSignatureSet(
           conn_handler = conn_handler,
           signature_id = metadata_tbl$signature_id[1],
@@ -269,12 +281,20 @@ updateSignature <- function(
         )
       }, error = function(e){
         # Update the signature back to its origin form
-        SigRepo::updateSignature(conn_handler = conn_handler, signature_id = signature_id, omic_signature = orig_omic_signature, verbose = FALSE)
+        SigRepo::updateSignature(conn_handler = conn_handler, signature_id = signature_id, omic_signature = orig_omic_signature, visibility = signature_tbl$visibility[1], verbose = FALSE)
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return error message
         base::stop(base::paste0(e, "\n"))
       }) 
+      
+      # Check if warning table is returned
+      if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+        # Update the signature back to its origin form
+        SigRepo::updateSignature(conn_handler = conn_handler, signature_id = signature_id, omic_signature = orig_omic_signature, visibility = signature_tbl$visibility[1], verbose = FALSE)
+        # Return warning table
+        return(warn_tbl)
+      }
       
     }else if(assay_type == "proteomics"){
       

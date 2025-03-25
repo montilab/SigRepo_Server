@@ -89,29 +89,15 @@ searchFeature <- function(
     
   }else{
     
-    # look up organism
-    lookup_organism_id <- unique(feature_tbl$organism_id)
-    
-    # Look up organism id
-    organism_id_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "organisms", 
-      return_var = c("organism_id", "organism"), 
-      filter_coln_var = "organism_id", 
-      filter_coln_val = list("organism_id" = lookup_organism_id),
-      check_db_table = TRUE
-    )  
-    
-    # Add variables to table
-    feature_tbl <- feature_tbl %>% 
-      dplyr::left_join(organism_id_tbl, by = "organism_id") 
-    
-    # Rename table with appropriate column names 
-    coln_names <- base::colnames(feature_tbl) %>% 
-      base::replace(., base::match(c("organism_id"), .), c("organism"))
-    
-    # Extract the table with appropriate column names ####
-    feature_tbl <- feature_tbl %>% dplyr::select(all_of(coln_names))
+    # Get reference table
+    if(assay_type == "transcriptomics"){
+      feature_tbl <- SigRepo::retrieveTranscriptomicsFeatureSet(conn = conn, feature_tbl = feature_tbl)
+    }else if(assay_type == "proteomics"){
+    }else if(assay_type == "metabolomics"){
+    }else if(assay_type == "methylomics"){
+    }else if(assay_type == "genetic_variations"){
+    }else if(assay_type == "dna_binding_sites"){
+    }
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  

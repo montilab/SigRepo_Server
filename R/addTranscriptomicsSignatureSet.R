@@ -165,12 +165,18 @@ addTranscriptomicsSignatureSet <- function(
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       
-      # Show error 
+      # Get the unknown values
+      unknown_values <- table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
+      
+      # Show error message 
       SigRepo::showTranscriptomicsErrorMessage(
         db_table_name = ref_table,
-        unknown_values = table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
+        unknown_values = unknown_values
       )
-
+      
+      # Return a list of unknown values
+      return(base::data.frame(table = ref_table, "unknown_values" = unknown_values))
+      
     }
     
     # Add feature id to table

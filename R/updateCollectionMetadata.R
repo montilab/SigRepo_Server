@@ -5,6 +5,8 @@
 #' @param collection_id ID of collection in the database to be updated.
 #' @param collection_name Name of the collection to be changed.
 #' @param description Description of the collection to be changed.
+#' @param visibility A logical value indicates whether or not to allow others  
+#' to view and access one's uploaded collection. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
@@ -25,6 +27,7 @@ updateCollectionMetadata <- function(
     collection_id,
     collection_name = NULL,
     description = NULL,
+    visibility = NULL,
     verbose = TRUE
 ){
   
@@ -49,6 +52,11 @@ updateCollectionMetadata <- function(
   
   # Get unique collection id
   collection_id <- base::unique(collection_id) 
+  
+  # Get visibility ####
+  if(length(visibility) > 0 && all(!visibility %in% c("", NA))){
+    visibility <- ifelse(visibility[1] == TRUE, 1, 0)
+  }
   
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
@@ -143,7 +151,8 @@ updateCollectionMetadata <- function(
         collection_id = collection_tbl$collection_id,
         user_name = collection_tbl$user_name,
         collection_name = ifelse(length(!!collection_name[1]) == 0 || all(!!collection_name[1] %in% c("", NA)), collection_name, !!collection_name[1]),
-        description = ifelse(length(!!description[1]) == 0 || all(!!description[1] %in% c("", NA)), description, !!description[1])
+        description = ifelse(length(!!description[1]) == 0 || all(!!description[1] %in% c("", NA)), description, !!description[1]),
+        visibility = ifelse(length(!!visibility[1]) == 0 || all(!!visibility[1] %in% c("", NA)), visibility, !!visibility[1])
       )
     
     # Create a new hash key for the collection ####

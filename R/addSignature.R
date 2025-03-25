@@ -1,15 +1,20 @@
 #' @title addSignature
 #' @description Add signature to database
-#' @param conn_handler An established connection to database using newConnhandler() 
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
 #' @param omic_signature An R6 class object from OmicSignature package
-#' @param return_signature_id a logical value indicates whether or not to return
+#' @param visibility A logical value indicates whether or not to allow others  
+#' to view and access one's uploaded signature. Default is \code{FALSE}.
+#' @param return_signature_id A logical value indicates whether or not to return
 #' the ID of the uploaded signature. Default is \code{FALSE}.
-#' @param verbose a logical value indicates whether or not to print the
-#' diagnostic messages. Default is \code{TRUE}. 
+#' @param verbose A logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#'
 #' @export
 addSignature <- function(
     conn_handler,
     omic_signature,
+    visibility = FALSE,
     return_signature_id = FALSE,
     verbose = TRUE
 ){
@@ -36,6 +41,9 @@ addSignature <- function(
   # Get table name in database ####
   db_table_name <- "signatures"
   
+  # Get visibility ####
+  visibility <- ifelse(visibility == TRUE, 1, 0)
+  
   # Create signature metadata table ####
   metadata_tbl <- SigRepo::createSignatureMetadata(
     conn_handler = conn_handler, 
@@ -46,7 +54,11 @@ addSignature <- function(
   SigRepo::print_messages(verbose = verbose)
   
   # Add additional variables in signature metadata table ####
-  metadata_tbl <- metadata_tbl %>% dplyr::mutate(user_name = user_name)
+  metadata_tbl <- metadata_tbl %>% 
+    dplyr::mutate(
+      user_name = user_name,
+      visibility = visibility
+    )
   
   # Create a hash key to look up whether signature is already existed in the database ####
   metadata_tbl <- SigRepo::createHashKey(
@@ -187,7 +199,7 @@ addSignature <- function(
     if(assay_type == "transcriptomics"){
       
       # If there is a error during the process, remove the signature and output the message
-      base::tryCatch({
+      warn_tbl <- base::tryCatch({
         SigRepo::addTranscriptomicsSignatureSet(
           conn_handler = conn_handler,
           signature_id = signature_tbl$signature_id[1],
@@ -203,6 +215,14 @@ addSignature <- function(
         # Return error message
         base::stop(e, "\n")
       }) 
+      
+      # Check if warning table is returned
+      if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Return warning table
+        return(warn_tbl)
+      }
       
     }else if(assay_type == "proteomics"){
       

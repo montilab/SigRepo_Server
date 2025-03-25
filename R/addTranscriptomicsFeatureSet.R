@@ -76,11 +76,17 @@ addTranscriptomicsFeatureSet <- function(
   if(any(table$organism_id %in% c("", NA))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
+    
+    # Get the unknown values
+    unknown_values <- table$organism[which(table$organism_id %in% c("", NA))]
+    
     # Return error message
     SigRepo::showOrganismErrorMessage(
       db_table_name = 'organisms',
-      unknown_values = table$organism[which(table$organism_id %in% c("", NA))]
+      unknown_values = unknown_values
     )
+    # Return a list of unknown values
+    return(base::data.frame(table = "organisms", "unknown_values" = unknown_values))
   }
   
   # Create a hash key to look up values in database ####

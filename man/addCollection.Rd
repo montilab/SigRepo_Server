@@ -7,6 +7,7 @@
 addCollection(
   conn_handler,
   omic_collection,
+  visibility = FALSE,
   return_collection_id = FALSE,
   verbose = TRUE
 )
@@ -15,6 +16,9 @@ addCollection(
 \item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{omic_collection}{A collection of OmicSignature objects from OmicSignature package}
+
+\item{visibility}{A logical value indicates whether or not to allow others 
+to view and access one's uploaded collection. Default is \code{FALSE}.}
 
 \item{return_collection_id}{a logical value indicates whether or not to return
 the ID of the uploaded collection. Default is \code{FALSE}.}

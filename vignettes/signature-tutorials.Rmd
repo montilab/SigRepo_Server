@@ -177,6 +177,7 @@ omic_signature <- OmicSignature::OmicSignature$new(
 SigRepo::addSignature(
   conn_handler = conn_handler,        # A handler contains user credentials to establish connection to a remote database
   omic_signature = omic_signature,    # An R6 object obtained from OmicSignature::OmicSignature()
+  visibility = FALSE,                 # Whether to make signature public for everyone to use or allow access to authorized users only
   return_signature_id = FALSE,        # Whether to return the uploaded signature id
   verbose = TRUE                      # Whether to print diagnostic messages
 )
