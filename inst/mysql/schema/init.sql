@@ -35,20 +35,24 @@ CREATE TABLE `signatures` (
   `keywords` TEXT DEFAULT NULL,
   `PMID` INT DEFAULT NULL,
   `year` INT DEFAULT NULL,
-  `author` TEXT DEFAULT NULL,
   `others` TEXT DEFAULT NULL,
   `has_difexp` BOOL DEFAULT 0,
+  `num_of_difexp` INT DEFAULT NULL,
+  `num_up_regulated` INT DEFAULT NULL,
+  `num_down_regulated` INT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
+  `visibility` BOOL DEFAULT 0,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`),
-  UNIQUE (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `phenotype_id`, `user_name`),
+  UNIQUE (`signature_name`, `user_name`),
   FOREIGN KEY (`organism_id`) REFERENCES organisms (`organism_id`),
   FOREIGN KEY (`phenotype_id`) REFERENCES phenotypes (`phenotype_id`),
   FOREIGN KEY (`platform_id`) REFERENCES platforms (`platform_id`),
   FOREIGN KEY (`sample_type_id`) REFERENCES sample_types (`sample_type_id`),
   FOREIGN KEY (`user_name`) REFERENCES users (`user_name`),
-  CHECK (`has_difexp` IN (0,1))
+  CHECK (`has_difexp` IN (0,1)),
+  CHECK (`visibility` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `signature_feature_set`
@@ -63,7 +67,7 @@ CREATE TABLE `signature_feature_set` (
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `feature_id`),
-  UNIQUE (`signature_id`, `feature_id`, `assay_type`),
+  UNIQUE (`signature_id`, `feature_id`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
@@ -73,27 +77,42 @@ DROP TABLE IF EXISTS `signature_access`;
 CREATE TABLE `signature_access` (
   `signature_id` INT UNSIGNED NOT NULL,
   `user_name` VARCHAR(255) NOT NULL,
-  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
+  `access_type` SET("owner", "editor", "viewer") NOT NULL,
   `access_sig_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `user_name`),
-  UNIQUE (`signature_id`, `user_name`, `access_type`),
+  UNIQUE (`signature_id`, `user_name`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
   FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
--- Table structure for table `signature_collection`
+-- Table structure for table `collection`
 --
-DROP TABLE IF EXISTS `signature_collection`;
+DROP TABLE IF EXISTS `collection`;
 CREATE TABLE `signature_collection` (
   `collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
-  `sig_collection_hashkey` VARCHAR(32) NOT NULL,
+  `visibility` BOOL DEFAULT 0,  
+  `collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`),
-  UNIQUE (`collection_name`, `organism_id`, `user_name`),
-  FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
+  UNIQUE (`collection_name`, `user_name`),
+  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`),
+  CHECK (`visibility` IN (0,1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+--
+-- Table structure for table `collection_access`
+--
+DROP TABLE IF EXISTS `collection_access`;
+CREATE TABLE `signature_collection_access` (
+  `collection_id` INT UNSIGNED NOT NULL,
+  `user_name` VARCHAR(255) NOT NULL,
+  `access_type` SET("owner", "editor", "viewer") NOT NULL,
+  `access_collection_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`collection_id`, `user_name`),
+  UNIQUE (`collection_id`, `user_name`),
+  FOREIGN KEY (`collection_id`) REFERENCES `collection` (`collection_id`),
   FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
@@ -103,14 +122,11 @@ DROP TABLE IF EXISTS `signature_collection_access`;
 CREATE TABLE `signature_collection_access` (
   `collection_id` INT UNSIGNED NOT NULL,
   `signature_id` INT UNSIGNED NOT NULL,
-  `user_name` VARCHAR(255) NOT NULL,
-  `access_type` SET("admin", "owner", "editor", "viewer") NOT NULL,
-  `access_collection_hashkey` VARCHAR(32) NOT NULL,
-  PRIMARY KEY (`collection_id`, `signature_id`, `user_name`),
-  UNIQUE (`collection_id`, `signature_id`, `user_name`, `access_type`),
-  FOREIGN KEY (`collection_id`) REFERENCES `signature_collection` (`collection_id`),
-  FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`),
-  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
+  `signature_collection_hashkey` VARCHAR(32) NOT NULL,
+  PRIMARY KEY (`collection_id`, `signature_id`),
+  UNIQUE (`collection_id`, `signature_id`),
+  FOREIGN KEY (`collection_id`) REFERENCES `collection` (`collection_id`),
+  FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- Table structure for table `transcriptomics_features`

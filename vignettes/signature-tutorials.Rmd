@@ -254,7 +254,7 @@ signature_list <- SigRepo::getSignature(conn_handler = conn_handler)
 ```{r}
 LLFS_oms <- SigRepo::getSignature(
   conn_handler = conn_handler, 
-  signature_name = "LLFS_Aging_Gene_2023"
+  signature_id = "LLFS_Aging_Gene_2023"
 )
 ```
 
@@ -334,7 +334,7 @@ if(nrow(signature_tbl) > 0){
   SigRepo::updateSignature(
     conn_handler = conn_handler, 
     signature_id = signature_tbl$signature_id, 
-    omic_signature = updated_omic_signature
+    omic_signature = omic_signature_MDA_CYP
   )
 }
 ```
@@ -377,7 +377,7 @@ signature_tbl <- SigRepo::searchSignature(
 if(nrow(signature_tbl) > 0){
   SigRepo::deleteSignature(
     conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id
+    signature_id = 16#signature_tbl$signature_id
   )
 }
 ```

@@ -47,10 +47,11 @@ addSignature <- function(
   # Create signature metadata table ####
   metadata_tbl <- SigRepo::createSignatureMetadata(
     conn_handler = conn_handler, 
-    omic_signature = omic_signature
+    omic_signature = omic_signature,
+    verbose = verbose
   )
   
-  # Reset the options message
+  # Reset diagnostic messages
   SigRepo::print_messages(verbose = verbose)
   
   # Add additional variables in signature metadata table ####
@@ -109,6 +110,14 @@ addSignature <- function(
       check_db_table = FALSE
     )
     
+    # Insert table into database ####
+    SigRepo::insert_table_sql(
+      conn = conn, 
+      db_table_name = db_table_name, 
+      table = metadata_tbl,
+      check_db_table = FALSE
+    ) 
+    
     # If signature has difexp, save a copy with its signature hash key ####
     # This action must be performed before a signature is imported into the database.
     # This helps to make sure data is stored properly if there are interruptions in-between.
@@ -135,6 +144,8 @@ addSignature <- function(
         )
       # Check status code
       if(res$status_code != 200){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))
         # Show message
@@ -147,14 +158,6 @@ addSignature <- function(
         base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
       }
     }
-    
-    # Insert table into database ####
-    SigRepo::insert_table_sql(
-      conn = conn, 
-      db_table_name = db_table_name, 
-      table = metadata_tbl,
-      check_db_table = FALSE
-    ) 
     
     # Look up signature id for the next step ####
     signature_tbl <- SigRepo::lookup_table_sql(

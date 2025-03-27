@@ -3,7 +3,7 @@ services:
     container_name: sigrepo-mysql
     image: sigrepo-mysql:latest
     build:
-      context: https://github.com/montilab/SigRepo.git
+      context: https://github.com/montilab/SigRepo.git#master
       dockerfile: Dockerfile-mysql
       args:
         - mysql_image=mysql:8.0-bookworm
@@ -22,7 +22,7 @@ services:
     container_name: sigrepo
     image: sigrepo:latest
     build:
-      context: https://github.com/montilab/SigRepo.git
+      context: https://github.com/montilab/SigRepo.git#master
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.4.0
