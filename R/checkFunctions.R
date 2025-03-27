@@ -218,11 +218,11 @@ checkTableInput <- function(
   }
   
   # Clean up the table by converting all empty values as NULL 
-  table <- table %>% 
+  table <- base::data.frame(table, stringsAsFactors = FALSE) %>% 
     dplyr::mutate_if(is.character, ~base::trimws(base::gsub("'", "", ., perl = TRUE))) %>% 
-    base::replace(is.null(.), "'NULL'") %>% 
-    base::replace(is.na(.), "'NULL'") %>% 
     base::replace(. == "", "'NULL'") %>% 
+    base::replace(is.na(.), "'NULL'") %>% 
+    base::replace(is.null(.), "'NULL'") %>% 
     dplyr::distinct_all()
   
   # Return a unique and cleanup table
@@ -360,7 +360,7 @@ checkOmicSignature <- function(
       difexp <- NULL
     }
     
-    # Create has_difexp variable to store whether omic_signature has difexp included ####
+    # Create has_difexp variable to store whether omic_signature has difexp included 
     has_difexp <- ifelse(!is.null(difexp), 1, 0) 
     
     # Return difexp status

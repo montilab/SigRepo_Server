@@ -2,11 +2,6 @@ services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
     image: montilab/sigrepo-mysql:latest
-    build:
-      context: .
-      dockerfile: Dockerfile-mysql
-      args:
-        - mysql_image=mysql:8.0-bookworm
     env_file:
       - mysql.env
     networks:
@@ -18,25 +13,11 @@ services:
       - /mysql/database:/var/lib/mysql:rw
       - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
 
-  sigrepo:
-    container_name: sigrepo
-    image: montilab/sigrepo:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - R_VERSION=4.4.0
-    expose:
-      - 3838
-    restart: always
-    command: tail -f /dev/null
-
   sigrepo-api:
     container_name: sigrepo-api
     image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql
-      - sigrepo
     networks:
       - db-net
     ports:
@@ -53,7 +34,6 @@ services:
     image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql
-      - sigrepo
     networks:
       - db-net
     ports:

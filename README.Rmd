@@ -47,7 +47,7 @@ For demonstrations, we will walk through the steps of how to use `SigRepo` packa
 
 - Using `devtools` package
 
-```r
+```
 # Load devtools package
 library(devtools)
 
@@ -58,7 +58,7 @@ devtools::install_github(repo = 'montilab/SigRepo')
 devtools::install_github(repo = 'montilab/OmicSignature')
 ```
 
-# Load packages
+# Load packages 
 
 ```
 # Load tidyverse package
@@ -172,27 +172,10 @@ omic_signature <- OmicSignature::OmicSignature$new(
 SigRepo::addSignature(
   conn_handler = conn_handler,        # A handler contains user credentials to establish connection to a remote database
   omic_signature = omic_signature,    # An R6 object obtained from OmicSignature::OmicSignature()
+  visibility = FALSE,                 # Whether to make signature public for everyone to use or allow access to authorized users only
   return_signature_id = FALSE,        # Whether to return the uploaded signature id
   verbose = TRUE                      # Whether to print diagnostic messages
 )
-
-# Now search for Myc_reduce_mice_liver_24m in the database
-# in which we would like to revise the value of platform to GPLXXXXX
-signature_tbl <- SigRepo::searchSignature(
-  conn_handler = conn_handler, 
-  signature_name = metadata$signature_name
-)
-
-# Updating the signature with the revised omic_signature object
-if(nrow(signature_tbl) > 0){
-  SigRepo::updateSignature(
-    conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id, 
-    omic_signature = omic_signature_MDA_CYP,
-    visibility = TRUE
-  )
-}
-
 ```
 
 ## **Example 2**: Upload `omic_signature_AGS_OmS` signature
@@ -209,8 +192,7 @@ SigRepo::addSignature(
 ```{r Example 3}
 SigRepo::addSignature(
   conn_handler = conn_handler, 
-  omic_signature = omic_signature_MDA_CYP,
-  verbose = FALSE
+  omic_signature = omic_signature_MDA_CYP
 )
 ```
 
@@ -347,8 +329,7 @@ if(nrow(signature_tbl) > 0){
   SigRepo::updateSignature(
     conn_handler = conn_handler, 
     signature_id = signature_tbl$signature_id, 
-    omic_signature = omic_signature_MDA_CYP,
-    visibility = TRUE
+    omic_signature = omic_signature_MDA_CYP
   )
 }
 ```
@@ -391,10 +372,11 @@ signature_tbl <- SigRepo::searchSignature(
 if(nrow(signature_tbl) > 0){
   SigRepo::deleteSignature(
     conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id
+    signature_id = 14#signature_tbl$signature_id
   )
 }
 ```
+
 # Additional Guides
 
 - [How to install SigRepo via Docker](https://montilab.github.io/SigRepo/articles/install-sigrepo-locally.html)

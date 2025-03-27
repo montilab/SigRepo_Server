@@ -60,7 +60,7 @@ insert_table_sql <- function(
       INSERT INTO %s %s
       VALUES %s
       ", db_table_name, coln_var, coln_val
-    )
+    ) %>% base::gsub("'NULL'", "NULL", .)
     
     # Insert table into database
     base::tryCatch({

@@ -101,7 +101,7 @@ createSignatureMetadata <- function(
     SigRepo::addPhenotype(
       conn_handler = conn_handler,
       phenotype_tbl = base::data.frame(phenotype = lookup_phenotype),
-      verbose = verbose
+      verbose = FALSE
     )
     # Get the updated phenotype id
     phenotype_id <- SigRepo::lookup_table_sql(
@@ -270,7 +270,7 @@ createSignatureMetadata <- function(
       SigRepo::addKeyword(
         conn_handler = conn_handler, 
         keyword_tbl = keyword_tbl,
-        verbose = verbose
+        verbose = FALSE
       )
     }
   }else{

@@ -2,7 +2,7 @@
 #' @description Get phenotypes in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param phenotypes a list of phenotypes to search by. Default is NULL which
+#' @param phenotype a list of phenotypes to search by. Default is NULL which
 #' includes all phenotypes in the database
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
