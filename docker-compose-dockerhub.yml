@@ -1,0 +1,49 @@
+services:
+  sigrepo-mysql:
+    container_name: sigrepo-mysql
+    image: montilab/sigrepo-mysql:latest
+    env_file:
+      - mysql.env
+    networks:
+      - db-net
+    ports:
+      - 3306:3306
+    restart: always
+    volumes:
+      - /mysql/database:/var/lib/mysql:rw
+      - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
+
+  sigrepo-api:
+    container_name: sigrepo-api
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+    networks:
+      - db-net
+    ports:
+      - 8020:3838
+    restart: always
+    volumes:
+      - /SigRepo:/SigRepo
+      - /SigRepo/.Renviron:/root/.Renviron
+      - /mysql/difexp:/difexp:rw
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
+
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+    networks:
+      - db-net
+    ports:
+      - 8050:3838
+    restart: always
+    volumes:
+      - /SigRepo:/SigRepo
+      - /SigRepo/.Renviron:/root/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
+      
+networks:
+  db-net:
+    external: true

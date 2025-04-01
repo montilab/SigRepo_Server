@@ -1,0 +1,171 @@
+---
+title: "Install Sigrepo Externally"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Install Sigrepo Externally}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Software requirements
+
+- Git version >= 2.21
+- Docker version >= 20.10
+
+Don't have Git installed, see [Git Guides](https://github.com/git-guides/install-git)
+
+Don't have Docker installed, download a [Docker Engine](https://docs.docker.com/engine/install/) that is compatible with your machine
+
+**NOTE:** may need to restart your computer for Docker to kicks-in
+
+- Check if Docker is installed 
+
+```bash
+docker --version
+```
+
+- Check if Docker Compose is installed
+
+```bash
+docker compose version
+```
+
+## Set-up
+
+1. Clone this repository and navigate to **SigRepo** folder
+
+```bash
+git clone https://github.com/montilab/SigRepo
+cd SigRepo
+```
+
+2. Create a **mysql.env** file to initiate database `ROOT` and `SUPER USER` in MySQL database
+
+```text
+MYSQL_DATABASE='sigrepo'
+MYSQL_USER='admin'
+MYSQL_PASSWORD='admin'
+MYSQL_ROOT_PASSWORD='123456'
+MYSQL_ROOT_HOST='%'
+```
+
+__PARAMETERS:__
+
+- `MYSQL_DATABASE`: Name of the database <br>
+- `MYSQL_USER`: A name of super user of database (e.g., having `sudo` privileges) <br>
+- `MYSQL_PASSWORD`: Password for the super user <br>
+- `MYSQL_ROOT_PASSWORD`: Password for root user <br>
+- `MYSQL_ROOT_HOST`: Allow database to be access by everyone or just locally. '%' gives access to everyone. <br>
+
+__IMPORTANT NOTES:__
+
+- We will use a base MySQL image to initiate the database. Please see the official image [here](https://hub.docker.com/_/mysql) for more details about a list of the environment variable that it allows.
+
+- Environment variables above are just dummy values. Please changes to more encrypted values.
+
+3. Create a MySQL directory to store database tables and schema
+
+```bash
+mkdir /montilab-p/mysql
+```
+
+4. Create a network **db-net** to host MySQL locally
+
+```bash
+docker network create -d bridge db-net
+```
+
+5. Edit **docker-compose.yml** to configure how to build MySQL image and run its container.
+
+- Map the MySQL directory you created in (3) to the container `/var/lib/mysql` directory. <br>
+- Map the MySQL schema initiation script (`init.sql`) stored in `SigRepo/inst/mysql/schema` directory to the container `/docker-entrypoint-initdb.d/init.sql` directory in order to initiate the database tables and schema. <br>
+
+```text
+services:
+  sigrepo-mysql:
+    container_name: sigrepo-mysql
+    image: sigrepo-mysql:latest
+    build:
+      context: .
+      dockerfile: Dockerfile-mysql
+      args:
+        - mysql_image=mysql:8.0-bookworm
+    env_file:
+      - mysql.env
+    volumes:
+      - /montilab-p/mysql:/var/lib/mysql:rw
+      - /montilab-p/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw
+    networks:
+      - db-net
+    ports:
+      - 3306:3306
+    restart: always
+
+networks:
+  db-net:
+    external: true
+```
+
+6. Build MySQL image and run its container
+
+```
+docker compose up -d
+```
+
+- **`-d`**: run container in detached mode <br>
+
+7. Check if the container is built successfully
+
+```
+docker ps
+
+
+CONTAINER ID   IMAGE                  COMMAND                    CREATED        STATUS        PORTS                    NAMES
+b37b6b19c4e8   sigrepo-mysql:latest   "docker-entrypoint.s..."   5 hours ago    Up 5 hours    0.0.0.0:3306->3838/tcp   sigrepo-mysql
+```
+
+8. Get the host name of the server
+
+```
+hostname
+```
+
+or
+
+```
+uname -n
+```
+
+For example: montilab.bu.edu
+
+9. Create an **.Renviron** file with all credentials to access the database and store it in your **$HOME** or **Project** directory.
+
+```
+DBNAME = "sigrepo"
+HOST = "montilab.bu.edu"
+PORT = 3306
+USER = "root"
+PASSWORD = "123456"
+```
+
+__IMPORTANT NOTES:__ 
+
+- Environment variables above are just dummy values. Please changes to more encrypted values.
+
+10. Connect to MySQL server from your local RStudio Server using `.Renviron` created in (9)
+
+```
+# For DB connection
+library(RMySQL)
+library(DBI)
+
+## Establish database connection
+conn <- DBI::dbConnect(
+  drv = RMySQL::MySQL(),
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
+)
+```

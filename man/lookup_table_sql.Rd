@@ -15,6 +15,8 @@ lookup_table_sql(
 )
 }
 \arguments{
+\item{conn}{An established connection to database using SigRepo::newConnhandler()}
+
 \item{db_table_name}{A table in the database}
 
 \item{return_var}{a list of column variables to be returned from the given table. 
@@ -29,6 +31,8 @@ Default NULL.}
 \item{filter_var_by}{if length(filter_coln_var) > 1, then 'filter_var_by' must be
 provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 Default NULL.}
+
+\item{check_db_table}{Check whether table exists in the database. Default = TRUE.}
 }
 \description{
 Look up a list of variables based on a particular variable 

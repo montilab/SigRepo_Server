@@ -5,30 +5,30 @@
 \title{newConnHandler}
 \usage{
 newConnHandler(
-  driver = RMySQL::MySQL(),
   dbname = "sigrepo",
   host = "montilab.bu.edu",
   port = 3306,
+  api_port = 8020,
   user = "guest",
   password = "guest"
 )
 }
 \arguments{
-\item{driver}{driver of the database. Default is RMySQL::MySQL()}
+\item{dbname}{Name of MySQL database to point to.}
 
-\item{dbname}{table schema of which you want the handle to point.}
+\item{host}{Name of the server where MySQL database is hosted on.}
 
-\item{host}{host server in which you want to connect}
+\item{port}{Port on the server to connect to MySQL database.}
 
-\item{port}{host port in which you wish to use}
+\item{api_port}{Port on the server to access database API.}
 
-\item{user}{the user who is establishing the connection}
+\item{user}{Name of user to establish the connection.}
 
-\item{password}{password associated with the user}
+\item{password}{Password associated with the user.}
 }
 \value{
-a MySQL connection Handle.
+A list of user credentials to establish connection to the remote database.
 }
 \description{
-Establish a new connection handle to the host
+Create a handler to connect to a remote database.
 }

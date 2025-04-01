@@ -63,9 +63,6 @@
 		
 })(jQuery);
 
-function get_content_page(page){
-  var page = String(page);
-  Shiny.onInputChange("selected_page", page);
-}
+
 
 

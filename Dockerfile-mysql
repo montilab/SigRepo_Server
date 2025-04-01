@@ -5,9 +5,4 @@ ARG mysql_image=${mysql_image:-mysql:8.0-bookworm}
 
 FROM ${mysql_image} AS base
 
-# local apt mirror support
-# start every stage with updated apt sources
-ARG APT_MIRROR_NAME=
-RUN if [ -n "$APT_MIRROR_NAME" ]; then sed -i.bak -E '/security/! s^https?://.+?/(debian|ubuntu)^http://'"$APT_MIRROR_NAME"'/\1^' /etc/apt/sources.list && grep '^deb' /etc/apt/sources.list; fi
-
 EXPOSE 3306 33060

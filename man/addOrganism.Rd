@@ -4,12 +4,15 @@
 \alias{addOrganism}
 \title{addOrganism}
 \usage{
-addOrganism(conn, organism_tbl)
+addOrganism(conn_handler, organism_tbl, verbose = TRUE)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
-\item{organism_tbl}{An data frame containing appropriate column names: organism}
+\item{organism_tbl}{A data frame object contains appropriate column names: organism}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add organism to database

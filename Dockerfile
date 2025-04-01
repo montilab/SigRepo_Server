@@ -7,6 +7,11 @@ ARG R_VERSION=${R_VERSION:-4.4.0}
 # Get shiny+tidyverse+devtools packages from rocker image
 FROM rocker/shiny-verse:${R_VERSION} AS base
 
+# local apt mirror support
+# start every stage with updated apt sources
+ARG APT_MIRROR_NAME=
+RUN if [ -n "$APT_MIRROR_NAME" ]; then sed -i.bak -E '/security/! s^https?://.+?/(debian|ubuntu)^http://'"$APT_MIRROR_NAME"'/\1^' /etc/apt/sources.list && grep '^deb' /etc/apt/sources.list; fi
+
 # Define a system argument
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -24,9 +29,16 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   git \
   dos2unix \
   vim \
+  curl \
   && apt clean autoclean \
   && apt autoremove --yes \
 	&& rm -rf /var/lib/{apt,dpkg,cache,log}/
+	
+# Create a difexp directory 
+ENV DIFEXP_DIR=/difexp
+
+# Set up a volume to mount difexp data
+VOLUME ${DIFEXP_DIR}	
 
 # Create package directory 
 ENV PACKAGE_DIR=/SigRepo 
@@ -43,10 +55,16 @@ COPY DESCRIPTION ${PACKAGE_DIR}/DESCRIPTION
 # Copy script to install r packages to Docker image
 COPY install_r_packages.R ${PACKAGE_DIR}/install_r_packages.R
 
-# Load CaDrA package and install CaDrA.shiny dependencies
+# Install package dependencies 
 RUN Rscript "${PACKAGE_DIR}/install_r_packages.R"
 
-# Make Shiny App/Plumber API available at port 3838
+# Install dependencies for OmicSignature 
+RUN R -e "BiocManager::install('limma')"
+
+# Install OmicSignature 
+RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies=TRUE)"
+
+# Make Shiny App or Plumber API available at port 3838
 EXPOSE 3838
 
 # Copy bash script that starts shiny-server to Docker image
@@ -58,7 +76,13 @@ RUN dos2unix ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
 # Allow permissions to execute the bash script
 RUN chmod a+x ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
 
-# Execute the bash script to launch shiny app or plumber api
-CMD ["/bin/bash", "-c", "${PACKAGE_DIR}/inst/shiny/shiny-server.sh"]
+# Copy bash script that starts shiny-server to Docker image
+COPY inst/api/shiny-server.sh ${PACKAGE_DIR}/inst/api/shiny-server.sh
+
+# Convert bash script from Windows style line endings to Unix-like control characters
+RUN dos2unix ${PACKAGE_DIR}/inst/api/shiny-server.sh
+
+# Allow permissions to execute the bash script
+RUN chmod a+x ${PACKAGE_DIR}/inst/api/shiny-server.sh
 
 

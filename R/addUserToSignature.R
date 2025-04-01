@@ -1,16 +1,37 @@
 #' @title addUserToSignature
-#' @description Add user to signature access table in database
-#' @param conn An established database connection using newConnhandler() 
-#' @param signature_id signature id 
-#' @param user_name user id
-#' @param access_type access type: 'owner' or 'viewer'
+#' @description Add a list of users with specific access to a signature 
+#' in the database
+#' @param conn_handler A handler uses to establish connection to  
+#' a remote database obtained from SigRepo::newConnhandler() 
+#' @param signature_id An ID of signature in the database
+#' @param user_name A list of users to be added to a signature
+#' @param access_type A list of permissions to be given to users in order for 
+#' them to view or manage the signature in the database. 
+#' 
+#' There are three types of permissions:
+#' 
+#' \code{owner} has Read and Write access to their own uploaded signatures.
+#' \code{editor} has Read and Write access to signatures that other users were 
+#' given them access to.
+#' \code{viewer} has ONLY Read access to signatures that other users were 
+#' given them access to.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 addUserToSignature <- function(
-    conn,
+    conn_handler,
     signature_id,
     user_name,
-    access_type = c("owner", "viewer")
+    access_type = c("owner", "editor", "viewer"),
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
+  
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
   
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
@@ -19,44 +40,74 @@ addUserToSignature <- function(
     required_role = "editor"
   )
   
-  # Check access_type
-  access_type <- match.arg(access_type)  
+  # Get user_role ####
+  orig_user_role <- conn_info$user_role[1] 
+  
+  # Get user_name ####
+  orig_user_name <- conn_info$user[1]
+  
+  # Check access_type for each user
+  access_type <- base::match.arg(access_type, several.ok = FALSE)  
+  
+  # Get unique user_name
+  user_name <- base::unique(user_name) 
+  
+  # Get unique signature id
+  signature_id <- base::unique(signature_id) 
   
   # Check signature_id
-  stopifnot("'signature_id' cannot be empty." = 
-              (length(signature_id) == 1 && !signature_id %in% c(NA, "")))
+  if(!length(signature_id) == 1 || all(signature_id %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("\n'signature_id' must have a length of 1 and cannot be empty.\n")
+  }
   
   # Check user_name
-  stopifnot("'user_name' cannot be empty." = 
-              (length(user_name) == 1 && !user_name %in% c(NA, "")))
+  if(length(user_name) == 0 || all(user_name %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("\n'user_name' cannot be empty.\n")
+  }
   
-  # Get table name in database
-  db_table_name <- "signature_access" 
+  # Make sure length of user_name equal to length of its access_type
+  if(length(user_name) != length(access_type)){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("\nLength of 'user_name' must equal the length of its 'access_type'.\n")
+  }
   
-  table <- data.frame(
-    signature_id = signature_id,
-    user_name = user_name,
-    access_type = access_type,
-    stringsAsFactors = FALSE
+  # Check if user exist in the users table of the database
+  user_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = "users",
+    return_var = "*",
+    filter_coln_var = "user_name", 
+    filter_coln_val = list("user_name" = user_name),
+    check_db_table = FALSE
   )
   
-  # Create a hash key to look up values in database ####
-  table <- SigRepo::createHashKey(
-    table = table,
-    hash_var = "access_sig_hashkey",
-    hash_columns = c("signature_id", "user_name", "access_type"),
-    hash_method = "md5"
-  )
-
-  # Check table against database table ####
-  table <- SigRepo::checkTableInput(
-    conn = conn, 
-    db_table_name = db_table_name,
-    table = table, 
-    exclude_coln_names = "access_signature_id",
+  # If any user does not exit in the database, throw an error message
+  if(nrow(user_tbl) != length(unique(user_name))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop(base::sprintf("\nUser = %s do(es) not exist in the 'users' table of the SigRepo database.\n", paste0("'", username[which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
+  }
+  
+  # Check if signature exists ####
+  signature_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = "signatures",
+    return_var = "*",
+    filter_coln_var = "signature_id",
+    filter_coln_val = list("signature_id" = signature_id),
     check_db_table = TRUE
   )
   
+<<<<<<< HEAD
   # Remove duplicates from table before inserting into database ####
   table <- SigRepo::removeDuplicates(
     conn = conn,
@@ -79,6 +130,103 @@ addUserToSignature <- function(
   DBI::dbDisconnect(conn_info$conn)
   
 }
+=======
+  # If signature exists, return the signature table else throw an error message
+  if(nrow(signature_tbl) == 0){
+    
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' in the 'signatures' table of the SigRepo database.\n", signature_id))
+    
+  }else{
+    
+    # If user is not admin, check if it has access to the signature
+    if(orig_user_role != "admin"){
+      
+      # Check if user is the one who uploaded the signature
+      signature_user_tbl <- SigRepo::lookup_table_sql(
+        conn = conn,
+        db_table_name = "signatures",
+        return_var = "*",
+        filter_coln_var = c("signature_id", "user_name"), 
+        filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name),
+        filter_var_by = "AND",
+        check_db_table = FALSE
+      )
+      
+      # If not, check if user was added as an owner or editor
+      if(nrow(signature_user_tbl) == 0){
+        
+        signature_access_tbl <- SigRepo::lookup_table_sql(
+          conn = conn,
+          db_table_name = "signature_access",
+          return_var = "*",
+          filter_coln_var = c("signature_id", "user_name", "access_type"),
+          filter_coln_val = list("signature_id" = signature_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
+          filter_var_by = c("AND", "AND"),
+          check_db_table = TRUE
+        )
+        
+        # If user does not have permission, throw an error message
+        if(nrow(signature_access_tbl) == 0){
+          # Disconnect from database ####
+          base::suppressWarnings(DBI::dbDisconnect(conn)) 
+          # Show message
+          base::stop(base::sprintf("\nUser = '%s' does not have the permission to add User = % to signature_id = '%s' in the SigRepo database.\n", orig_user_name, base::paste0("'", user_name, "'", collapse = ", "), signature_id))
+        }
+      }
+    }
+    
+    # Create user signature access table
+    table <- base::data.frame(
+      signature_id = signature_id,
+      user_name = user_name,
+      access_type = access_type,
+      stringsAsFactors = FALSE
+    )
+    
+    # Create a hash key to look up values in database ####
+    table <- SigRepo::createHashKey(
+      table = table,
+      hash_var = "access_sig_hashkey",
+      hash_columns = c("signature_id", "user_name"),
+      hash_method = "md5"
+    )
+    
+    # Check table against database table ####
+    table <- SigRepo::checkTableInput(
+      conn = conn,
+      db_table_name = "signature_access",
+      table = table, 
+      check_db_table = TRUE
+    )
+    
+    # Remove duplicates from table before inserting into database ####
+    table <- SigRepo::removeDuplicates(
+      conn = conn,
+      db_table_name = "signature_access",
+      table = table,
+      coln_var = "access_sig_hashkey",
+      check_db_table = FALSE
+    )
+    
+    # Insert table into database ####
+    SigRepo::insert_table_sql(
+      conn = conn,
+      db_table_name = "signature_access", 
+      table = table,
+      check_db_table = FALSE
+    )
+>>>>>>> reina_dev
 
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    
+    # Return 
+    return(base::invisible())
+    
+  }  
+}  
 
 

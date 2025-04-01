@@ -1,0 +1,164 @@
+#' @title searchCollection
+#' @description Get a list of collection available in the database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' @param collection_name Name of collection to be looked up by.
+#' @param collection_id ID of collection to be looked up by.
+#' @param signature_name Name of the signatures to be looked up by.
+#' @param signature_id ID of the signatures to be looked up by.
+#' @param user_name Name of users that the collection belongs to.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples 
+#' 
+#' # Create a db connection
+#' conn_handler <- SigRepo::newConnHandler(
+#'  dbname = "sigrepo", 
+#'  host = "montilab.bu.edu", 
+#'  port = 3306, 
+#'  user = "guest", 
+#'  password = "guest"
+#' )
+#' 
+#' # Get a list of collection available in the database
+#' collection_tbl <- sigRepo::searchCollection(
+#'   conn_handler = conn_handler
+#' )
+#' 
+#' @export
+searchCollection <- function(
+    conn_handler,
+    collection_name = NULL,
+    collection_id = NULL,
+    signature_name = NULL,
+    signature_id = NULL,
+    user_name = NULL,
+    verbose = TRUE
+){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
+  
+  # Establish user connection ###
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  
+  # Check user connection and permissions ####
+  conn_info <- SigRepo::checkPermissions(
+    conn = conn, 
+    action_type = "SELECT",
+    required_role = "viewer"
+  )
+  
+  # Look up collection
+  collection_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "collection", 
+    return_var = "*", 
+    check_db_table = TRUE
+  ) 
+  
+  # Get a list of filtered variables
+  filter_var_list <- list(
+    "collection_id" = base::unique(collection_id),
+    "collection_name" = base::unique(collection_name),
+    "user_name" = base::unique(user_name)
+  )
+  
+  # Filter table with given search variables
+  for(r in base::seq_along(filter_var_list)){
+    #r=1;
+    filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
+    if(filter_status == TRUE){
+      filter_var <- base::names(filter_var_list)[r]
+      filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
+      collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
+    }
+  }
+  
+  # Check if signature exists
+  if(nrow(collection_tbl) == 0){
+    
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
+    
+    # Show message
+    SigRepo::verbose(base::sprintf("There are no collection returned from the search parameters.\n"))
+    
+    # Return NULL
+    return(base::data.frame(NULL))
+    
+  }else{
+    
+    # Look up signatures in the signature collection table
+    signature_collection_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "signature_collection_access", 
+      return_var = "*", 
+      filter_coln_var = "collection_id", 
+      filter_coln_val = list("collection_id" = unique(collection_tbl$collection_id)),
+      check_db_table = TRUE
+    ) 
+    
+    # Add signatures to collection table
+    collection_tbl <- collection_tbl %>% dplyr::left_join(signature_collection_tbl, by = "collection_id")  
+    
+    # Look up name of the signatures in the signature table
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "signatures", 
+      return_var = c("signature_id", "signature_name"),
+      filter_coln_var = "signature_id", 
+      filter_coln_val = list("signature_id" = unique(collection_tbl$signature_id)),
+      check_db_table = TRUE
+    ) 
+    
+    # Add name of the signatures to collection table
+    collection_tbl <- collection_tbl %>% dplyr::left_join(signature_tbl, by = "signature_id")
+    
+    # Get a list of filtered variables
+    filter_var_list <- list(
+      "signature_id" = base::unique(signature_id),
+      "signature_name" = base::unique(signature_name)
+    )
+    
+    # Filter table with given search variables
+    for(r in base::seq_along(filter_var_list)){
+      #r=1;
+      filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
+      if(filter_status == TRUE){
+        filter_var <- base::names(filter_var_list)[r]
+        filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
+        collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
+      }
+    }
+    
+    # Check if collection is empty, throw an error message
+    if(nrow(collection_tbl) == 0){
+      
+      # Disconnect from database ####
+      base::suppressWarnings(DBI::dbDisconnect(conn))     
+      
+      # Show message
+      SigRepo::verbose(base::sprintf("There are no collection returned from the search parameters.\n"))
+      
+      # Return NULL
+      return(base::data.frame(NULL))
+      
+    }
+    
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    
+    # Return table
+    return(collection_tbl)
+    
+  }
+}
+
+
+
+
+
+
+

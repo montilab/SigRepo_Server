@@ -1,0 +1,65 @@
+
+#content-wrapper {
+  width: 100%;
+}
+
+#content-wrapper::-webkit-scrollbar {
+  width: 5px;
+}
+
+#content-wrapper::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+} 
+
+#banner-wrapper {
+  position: relative;
+  margin-bottom: 3px;
+  /*border: 1px solid green;*/
+}
+
+#feature-wrapper {
+  position: relative;
+  margin-bottom: 3px;
+}
+
+#contact-wrapper {
+  position: relative
+	margin-bottom: 3px;
+}
+
+#footer-wrapper {
+  position: relative;
+  margin-top: 3em;
+  margin-bottom: 1em;
+  /*border: 2px solid red;*/
+}
+
+.login-banner {
+  width : 100%;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 15px 30px 10px 10px;
+}
+
+.user-info {
+  padding-right: 8px;
+  font-size: 18px;
+}
+
+#edit_profile {
+  font-size: 20px;
+  padding-right: 3px;
+}
+
+#welcome_msg {
+  padding-right: 20px;
+  font-family: Arial;
+  font-size: 18px;
+  color: #08306b;
+}

@@ -7,16 +7,60 @@ library(tidyverse)
 
 # For loading and installing packages
 library(devtools)
+load_all()
 
 ## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = "sigrepo", 
+  host = "127.0.0.1", 
+  port = 3306, 
+  user = "root", 
+  password = "123456"
 )
+
+
+
+
+
+# Get data path
+data_path <- system.file("data", package="SigRepo")
+
+
+SigRepo::searchSignature(
+  conn_handler,
+  user_name = "all",
+  signature_name = "_Aging_Gene_2023",
+  organism = NULL,
+  phenotype = NULL,
+  sample_type = NULL
+)
+
+
+
+# Searching signature 
+
+SigRepo::searchSignature(conn_init, signature_name = '_Aging_Gene_2023')
+
+# 7. Add signatures ####
+LLFS_Transcriptomic_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))
+SigRepo::addSignature(conn = conn, omic_signature = LLFS_Transcriptomic_AGS_OmS)
+
+# Check the signatures table ####
+statement <- "select * FROM signatures"
+signature_db_tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
+# 8. Update signatures ####
+SigRepo::updateSignature(conn = conn, signature_id = signature_db_tbl$signature_id, omic_signature = LLFS_Transcriptomic_AGS_OmS)
+
+# 9. delete signatures ####
+SigRepo::deleteSignature(conn = conn, signature_id = signature_db_tbl$signature_id)
+
+
+# Check the signatures table ####
+statement <- "show databases;"
+tbl <- suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
+
 
 DBI::dbGetQuery(conn = conn, statement = "DROP USER 'andrewdr'@'montilab.bu.edu';")
 DBI::dbGetQuery(conn = conn, statement = "DROP USER 'lkroeh'@'montilab.bu.edu';")
