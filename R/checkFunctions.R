@@ -1,4 +1,42 @@
 
+#' @title print_messages
+#' @description Function to whether print diagnostic messages or not
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @noRd
+#' 
+#' @export
+print_messages <- function(verbose){
+  
+  if(verbose == TRUE){
+    base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
+  }else if(verbose == FALSE){
+    base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
+  }
+  
+}
+
+#' @title verbose
+#' @description Function to whether print diagnostic messages or not
+#' 
+#' @noRd
+#' 
+#' @export
+verbose <- function(...){
+  
+  # Fetch verbose option
+  opt <- base::getOption("verbose", FALSE)
+
+  # If opt is FALSE
+  if(!opt) return(base::invisible(NULL))
+  
+  # Return messages
+  msgs <- base::list(...)
+  base::message(msgs, "\n")
+
+}
+
 #' @title checkPermissions
 #' @description Check api key whether it is valid to access the database
 #' @param conn An established connection to database using SigRepo::newConnhandler() 
@@ -27,7 +65,7 @@ checkPermissions <- function(
   user_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "users", 
-    return_var = c("user_name", "user_role"), 
+    return_var = c("user_name", "user_role", "api_key"), 
     filter_coln_var = "user_name", 
     filter_coln_val = list("user_name" = conn_info$user), 
     check_db_table = TRUE
@@ -38,28 +76,36 @@ checkPermissions <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
+    base::stop(base::sprintf("User = '%s' does not exist in the database. Please contact admin to add user to the database.\n", conn_info$user)) 
   }
   
-  # Get a list of actions that user can perform in the database
-  user_privileges <- base::tryCatch({
+  # Get the grant tables
+  grant_tbl <- base::tryCatch({
     base::suppressWarnings(
-      DBI::dbGetQuery(conn = conn, statement = sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
-    ) %>% 
-      dplyr::slice(1) %>% 
-      purrr::flatten_chr() %>% 
-      base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
-      stringr::str_split(., ",") %>% 
-      purrr::flatten_chr() %>% 
-      base::trimws()
+      DBI::dbGetQuery(conn = conn, statement = base::sprintf("SHOW GRANTS FOR '%s'@'%%';", conn_info$user))
+    ) 
   }, error = function(e){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
-  })
+  })    
+  
+  # Create a placeholder to store all privileges
+  user_privileges <- NULL
+  
+  # Loop through each grant and extract list of actions that user can perform in the database
+  for(s in 1:nrow(grant_tbl)){ 
+    #s=1;
+    privs <- grant_tbl %>% 
+      dplyr::slice(s) %>% 
+      purrr::flatten_chr() %>% 
+      base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
+      stringr::str_split(., ",") %>% 
+      purrr::flatten_chr() %>% 
+      base::trimws()
+    user_privileges <- c(user_privileges, privs)
+  }
   
   # Check if user has the permission to perform the selected actions in the database
   if(any(!action_type %in% user_privileges)){
@@ -88,7 +134,7 @@ checkPermissions <- function(
   
   # Return user connection and user role
   return(
-    c(conn_info, user_role = user_tbl$user_role)
+    c(conn_info, user_role = user_tbl$user_role, api_key = user_tbl$api_key)
   )
   
 }
@@ -172,11 +218,11 @@ checkTableInput <- function(
   }
   
   # Clean up the table by converting all empty values as NULL 
-  table <- table %>% 
+  table <- base::data.frame(table, stringsAsFactors = FALSE) %>% 
     dplyr::mutate_if(is.character, ~base::trimws(base::gsub("'", "", ., perl = TRUE))) %>% 
-    base::replace(is.null(.), "'NULL'") %>% 
-    base::replace(is.na(.), "'NULL'") %>% 
     base::replace(. == "", "'NULL'") %>% 
+    base::replace(is.na(.), "'NULL'") %>% 
+    base::replace(is.null(.), "'NULL'") %>% 
     dplyr::distinct_all()
   
   # Return a unique and cleanup table
@@ -248,7 +294,7 @@ checkDuplicatedEmails <- function(
   ## Check if table has values, only return non-overlapping samples
   if(n_obs$count > 0){
     
-    return_var <- coln_var
+    return_var <- "*"
     filter_coln_var <- coln_var
     filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
     
@@ -262,14 +308,23 @@ checkDuplicatedEmails <- function(
     )
     
     if(nrow(existing_tbl) > 0){
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn))  
-      # Return error message
-      base::stop(
-        sprintf("\tThe following email address(es):\n"),
-        sprintf("\t%s\n", paste0(unique(existing_tbl[,return_var]), collapse = ",\n")),
-        sprintf("\talready existed in the '%s' table of the database.\n", db_table_name),
-        sprintf("\tUser email address must be unique.\n")
+      purrr::walk(
+        1:nrow(table),
+        function(s){
+          #s=1;
+          check_email <- existing_tbl %>% dplyr::filter(user_email %in% table$user_email[s])
+          if(nrow(check_email) > 0 && !base::trimws(base::tolower(table$user_name[s])) %in% base::trimws(base::tolower(check_email$user_name))){
+            # Disconnect from database ####
+            base::suppressWarnings(DBI::dbDisconnect(conn))  
+            # Return error message
+            base::stop(
+              base::sprintf("\tThe following email address:\n"),
+              base::sprintf("\t%s\n", base::paste0(unique(existing_tbl[,return_var]), collapse = ",\n")),
+              base::sprintf("\talready existed in the '%s' table of the database.\n", db_table_name),
+              base::sprintf("\tEmail address must be unique for each user. Please provide a different email for user = '%s'.\n", table$user_name[s])
+            )
+          }
+        }
       )
     }
     
@@ -305,7 +360,7 @@ checkOmicSignature <- function(
       difexp <- NULL
     }
     
-    # Create has_difexp variable to store whether omic_signature has difexp included ####
+    # Create has_difexp variable to store whether omic_signature has difexp included 
     has_difexp <- ifelse(!is.null(difexp), 1, 0) 
     
     # Return difexp status
@@ -365,7 +420,7 @@ checkOmicSignature <- function(
       difexp <- NULL
     }else{
       # Check if difexp is a data frame 
-      if(!is(difexp, "data.frame") || length(difexp) == 0) 
+      if(!is(difexp, "data.frame") || nrow(difexp) == 0) 
         base::stop("'difexp' in OmicSignature must be a data frame object and cannot be empty.")
     }
   }else{
@@ -408,6 +463,11 @@ checkOmicSignature <- function(
   
   # Create has_difexp variable to store whether omic_signature has difexp included ####
   has_difexp <- ifelse(!is.null(difexp), 1, 0) 
+  
+  # Check probe_id in signature are in difexp table if difexp is provided
+  if(has_difexp == 1 && any(!signature$probe_id %in% difexp$probe_id)){
+    base::stop("Some probe_id in the signature are not included in the probe_id in the difexp.")
+  }
   
   # Return difexp status
   return(has_difexp)
@@ -805,7 +865,7 @@ removeDuplicates <- function(
           by = "id"
         )
       if(nrow(table) == 0){
-        base::message(base::sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
+        base::warnings(base::sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
       }
     }
     

@@ -4,13 +4,23 @@
 \alias{getCollection}
 \title{getCollection}
 \usage{
-getCollection(conn_handler, collection_name = NULL)
+getCollection(
+  conn_handler,
+  collection_name = NULL,
+  collection_id = NULL,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_name}{The name of collection to be returned}
+\item{collection_name}{Name of collection to be returned}
+
+\item{collection_id}{ID of collection to be returned}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get a list of collection uploaded by a specified user in the database.

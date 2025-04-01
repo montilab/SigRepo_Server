@@ -8,18 +8,26 @@ updateCollectionMetadata(
   conn_handler,
   collection_id,
   collection_name = NULL,
-  description = NULL
+  description = NULL,
+  visibility = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to
 a remote database obtained from SigRepo::newConnhandler()}
 
-\item{collection_id}{ID of collection in the database to be updated}
+\item{collection_id}{ID of collection in the database to be updated.}
 
-\item{collection_name}{Name of the collection to be changed to}
+\item{collection_name}{Name of the collection to be changed.}
 
-\item{description}{Description of the collection to be changed to}
+\item{description}{Description of the collection to be changed.}
+
+\item{visibility}{A logical value indicates whether or not to allow others
+to view and access one's uploaded collection. Default is \code{FALSE}.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Update metadata of a collection in the database

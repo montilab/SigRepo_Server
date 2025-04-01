@@ -4,12 +4,28 @@
 \alias{addSignature}
 \title{addSignature}
 \usage{
-addSignature(conn_handler, omic_signature)
+addSignature(
+  conn_handler,
+  omic_signature,
+  visibility = FALSE,
+  return_signature_id = FALSE,
+  verbose = TRUE
+)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
 \item{omic_signature}{An R6 class object from OmicSignature package}
+
+\item{visibility}{A logical value indicates whether or not to allow others
+to view and access one's uploaded signature. Default is \code{FALSE}.}
+
+\item{return_signature_id}{A logical value indicates whether or not to return
+the ID of the uploaded signature. Default is \code{FALSE}.}
+
+\item{verbose}{A logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add signature to database

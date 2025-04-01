@@ -7,8 +7,9 @@
 searchCollection(
   conn_handler,
   collection_name = NULL,
-  signature_name = NULL,
-  user_name = NULL
+  collection_id = NULL,
+  user_name = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -17,7 +18,12 @@ obtained from SigRepo::newConnhandler() (required)}
 
 \item{collection_name}{Name of collection to be looked up by.}
 
+\item{collection_id}{ID of collection to be looked up by.}
+
 \item{user_name}{Name of users that the collection belongs to.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get a list of collection available in the database

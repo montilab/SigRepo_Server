@@ -4,13 +4,16 @@
 \alias{addUser}
 \title{addUser}
 \usage{
-addUser(conn_handler, user_tbl)
+addUser(conn_handler, user_tbl, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
 
 \item{user_tbl}{A data frame containing appropriate column names:
 user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add user information to database

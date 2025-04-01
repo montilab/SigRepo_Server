@@ -31,7 +31,7 @@ validateUser <- function(
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return table
   return(user_tbl)

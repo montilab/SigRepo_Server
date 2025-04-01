@@ -4,12 +4,15 @@
 \alias{deleteUser}
 \title{deleteUser}
 \usage{
-deleteUser(conn_handler, user_name)
+deleteUser(conn_handler, user_name, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
 
 \item{user_name}{Name of a user to be deleted (required).}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Delete user information in the database

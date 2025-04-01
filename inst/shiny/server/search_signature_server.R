@@ -423,7 +423,7 @@ shiny::observeEvent({
   ) 
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Get number of up regulated features
   up_regulated_tbl <- signature %>% dplyr::filter(direction %in% "+")
@@ -465,7 +465,7 @@ shiny::observeEvent({
   ) 
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Get number of down regulated features
   down_regulated_tbl <- signature %>% dplyr::filter(direction %in% "-")

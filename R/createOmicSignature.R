@@ -25,15 +25,15 @@ createOmicSignature <- function(
   )
   
   # Check if table is a data frame object and not empty
-  if(!is(db_signature_tbl, "data.frame") || length(db_signature_tbl) == 0){
+  if(!is(db_signature_tbl, "data.frame") || nrow(db_signature_tbl) != 1){
     # Disconnect from database ####
     DBI::dbDisconnect(conn)    
     # Show message
-    base::stop(sprintf("'db_signature_tbl' must be a data frame and cannot be empty.\n"))
+    base::stop(base::sprintf("\n'db_signature_tbl' must be a data frame and cannot be empty.\n"))
   }
   
   # Get assay_type
-  assay_type <- db_signature_tbl$assay_type  
+  assay_type <- db_signature_tbl$assay_type[1]  
   
   # Get reference table
   if(assay_type == "transcriptomics"){
@@ -76,11 +76,20 @@ createOmicSignature <- function(
   }
   
   # If signature has difexp, get a copy by its signature hash key ####
-  if(db_signature_tbl$has_difexp == TRUE){
-    # data path to difexp in local storage ####
-    data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
-    # Read in difexp from local storage ####
-    difexp <- base::readRDS(file.path(data_path, paste0(db_signature_tbl$signature_hashkey, ".RDS")))
+  if(db_signature_tbl$has_difexp[1] == TRUE){
+    # Get API URL
+    api_url <- base::sprintf("http://%s:%s/get_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], db_signature_tbl$signature_hashkey[1])
+    # Get difexp in database
+    res <- httr::GET(url = api_url)
+    # Check status code
+    if(res$status_code != 200){
+      # Disconnect from database ####
+      base::suppressWarnings(DBI::dbDisconnect(conn))
+      # Show message
+      base::stop("\nSomething went wrong with API. Cannot get difexp table from the SigRepo database. Please contact admin for support.\n")
+    }else{
+      difexp <- jsonlite::fromJSON(jsonlite::fromJSON(base::rawToChar(res$content)))
+    }
   }else{
     difexp <- NULL
   }
@@ -91,7 +100,7 @@ createOmicSignature <- function(
     db_table_name = "signature_feature_set", 
     return_var = "*", 
     filter_coln_var = "signature_id", 
-    filter_coln_val = list("signature_id" = db_signature_tbl$signature_id),
+    filter_coln_val = list("signature_id" = db_signature_tbl$signature_id[1]),
     check_db_table = TRUE
   )
   
@@ -115,21 +124,28 @@ createOmicSignature <- function(
     )
   
   # Rename table with appropriate column names 
-  coln_names <- colnames(signature) %>% 
+  coln_names <- base::colnames(signature) %>% 
     base::replace(., base::match(c("feature_id"), .), c("feature_name"))
 
   # Extract the table with appropriate column names ####
   signature <- signature %>% dplyr::select(all_of(coln_names))
   
   # Create the OmicSignature object
-  OmS <- OmicSignature::OmicSignature$new(
-    metadata = metadata,
-    signature = signature,
-    difexp = difexp
-  )
+  OmS <- base::tryCatch({
+    OmicSignature::OmicSignature$new(
+      metadata = metadata,
+      signature = signature,
+      difexp = difexp
+    )
+  }, error = function(e){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
+    # Return error message
+    base::stop(e, "\n")
+  })
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return Signature
   return(OmS)

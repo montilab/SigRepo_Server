@@ -5,13 +5,19 @@
 #' @param collection_id ID of collection in the database
 #' @param signature_id A list of signature IDs to be added to a collection 
 #' in the database
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @export
 addSignatureToCollection <- function(
     conn_handler,
     collection_id,
-    signature_id
+    signature_id,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -29,20 +35,26 @@ addSignatureToCollection <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
+  # Get unique collection id
+  collection_id <- base::unique(collection_id) 
+
+  # Get unique signature id
+  signature_id <- base::unique(signature_id) 
+  
   # Check collection_id
   if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'collection_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'collection_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check signature_id
   if(length(signature_id) == 0 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'signature_id' cannot be empty.")
+    base::stop("\n'signature_id' cannot be empty.\n")
   }
   
   # Check if signature exists in the signatures table of the database
@@ -50,17 +62,18 @@ addSignatureToCollection <- function(
     conn = conn,
     db_table_name = "signatures",
     return_var = "*",
-    filter_coln_var = "signature_id", 
+    filter_coln_var = c("signature_id"),
     filter_coln_val = list("signature_id" = signature_id),
+    filter_var_by = "AND",
     check_db_table = FALSE
   )
   
   # If any signatures does not exit in the database, throw an error message
-  if(nrow(signature_tbl) != length(unique(signature_id))){
+  if(nrow(signature_tbl) != length(signature_id)){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(sprintf("signature_id = %s does not exist in the signatures table of the SigRepo Database.", paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", ")))
+    base::stop(base::sprintf("\nUser = '%s' does not have the permission to add signature_id = %s to collection_id = '%s' in the SigRepo database.\n", user_name, base::paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", "), collection_id))
   }
   
   # If user is not admin, check if user has access to the signature as owner or editor
@@ -93,9 +106,9 @@ addSignatureToCollection <- function(
       # If user does not have permission, throw an error message
       if(nrow(signature_access_tbl) == 0 || (nrow(signature_access_tbl) != length(unique(signature_id)))){
         # Disconnect from database ####
-        base::suppressMessages(DBI::dbDisconnect(conn)) 
+        base::suppressWarnings(DBI::dbDisconnect(conn)) 
         # Show message
-        base::stop(sprintf("User = '%s' does not have the permission to add signature_id = % to collection_id = '%s' in the database.", user_name, paste0("'", signature_id[which(!signature_id %in% signature_access_tbl$signature_id)], "'", collapse = ", "), collection_id))
+        base::stop(base::sprintf("\nUser = '%s' does not have the permission to add signature_id = %s to collection_id = '%s' in the SigRepo database.\n", user_name, base::paste0("'", signature_id[which(!signature_id %in% signature_access_tbl$signature_id)], "'", collapse = ", "), collection_id))
       }
     }
   }
@@ -114,9 +127,10 @@ addSignatureToCollection <- function(
   if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    
     # Show message
-    base::stop(sprintf("There is no collection_id = '%s' in the 'collection' table of the SigRepo Database.", collection_id))
+    base::stop(base::sprintf("\nThere is no collection_id = '%s' in the 'collection' table of the SigRepo database.\n", collection_id))
     
   }else{
     
@@ -150,9 +164,9 @@ addSignatureToCollection <- function(
         # If user does not have permission, throw an error message
         if(nrow(signature_access_tbl) == 0){
           # Disconnect from database ####
-          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          base::suppressWarnings(DBI::dbDisconnect(conn)) 
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to add signature_id = % to collection_id = '%s' in the database.", user_name, paste0("'", signature_id, "'", collapse = ", "), collection_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have permission to add signature_id = %s to collection_id = '%s' in the SigRepo database.\n", user_name, base::paste0("'", signature_id, "'", collapse = ", "), collection_id))
         }
       }
     }
@@ -198,7 +212,7 @@ addSignatureToCollection <- function(
     )
 
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
 
   }  
 }  

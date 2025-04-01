@@ -42,6 +42,20 @@
     Home
   </a>
 </li>
+<li class="nav-item dropdown">
+  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-docker-installation">Docker Installation</a>
+  <div class="dropdown-menu" aria-labelledby="dropdown-docker-installation">
+    <a class="dropdown-item" href="../articles/install-sigrepo_locally.html">Install SigRepo Locally via Docker</a>
+    <a class="dropdown-item" href="../articles/install-sigrepo-externally.html">Install SigRepo on the Server via Docker</a>
+  </div>
+</li>
+<li class="nav-item dropdown">
+  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-documentation">Documentation</a>
+  <div class="dropdown-menu" aria-labelledby="dropdown-documentation">
+    <a class="dropdown-item" href="../articles/signature-tutorials.html">Uploading Signature</a>
+    <a class="dropdown-item" href="../articles/collection-tutorials.html">Uploading Signature Collection</a>
+  </div>
+</li>
 <li class="nav-item">
   <a class="nav-link" href="../reference/index.html">Reference</a>
 </li>
@@ -138,7 +152,7 @@ the database(addSignatureKeywords).</li>
 <p>OmicSignatureCollection Objects are simply a group of Omic Signature
 objects. You can upload such objects like this:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/addSignatureCollection.html">addSignatureCollection</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="fu">addSignatureCollection</span><span class="op">(</span></span>
 <span>    <span class="va">OmicSignatureCollectionObj</span>, </span>
 <span>    <span class="va">connHandle</span>,</span>
 <span>  uploadPath<span class="op">=</span><span class="fu">sys.getenv</span><span class="op">(</span><span class="st">"signatureDirectory"</span><span class="op">)</span>, </span>
@@ -166,7 +180,7 @@ uploading the pairs.</p>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/RC-88" class="external-link">Reina Chau</a>, Mengze Li, <a href="https://github.com/tetomonti" class="external-link">Stefano Monti</a>.</p>
+  <p>Developed by <a href="https://github.com/RC-88" class="external-link">Reina Chau</a>, <a href="https://github.com/Cvicnaire" class="external-link">Cameron Vicnaire</a>, Mengze Li, <a href="https://github.com/tetomonti" class="external-link">Stefano Monti</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

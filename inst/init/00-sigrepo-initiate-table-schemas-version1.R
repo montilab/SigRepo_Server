@@ -3,9 +3,6 @@
 library(RMySQL)
 library(DBI)
 
-# For data cleaning, extraction and manipulation
-library(tidyverse)
-
 ## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
@@ -83,6 +80,7 @@ CREATE TABLE `%s` (
   `num_down_regulated` INT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
+  `visibility` BOOL DEFAULT 0,  
   `signature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`),
   UNIQUE (`signature_name`, `user_name`),
@@ -91,7 +89,8 @@ CREATE TABLE `%s` (
   FOREIGN KEY (`platform_id`) REFERENCES platforms (`platform_id`),
   FOREIGN KEY (`sample_type_id`) REFERENCES sample_types (`sample_type_id`),
   FOREIGN KEY (`user_name`) REFERENCES users (`user_name`),
-  CHECK (`has_difexp` IN (0,1))
+  CHECK (`has_difexp` IN (0,1)),
+  CHECK (`visibility` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
@@ -187,10 +186,12 @@ CREATE TABLE `%s` (
   `description` TEXT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
+  `visibility` BOOL DEFAULT 0,  
   `collection_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`collection_id`),
   UNIQUE (`collection_name`, `user_name`),
-  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`)
+  FOREIGN KEY (`user_name`) REFERENCES `users` (`user_name`),
+  CHECK (`visibility` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
@@ -569,7 +570,7 @@ all_table_results <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, stateme
 all_table_results
 
 # Disconnect from database ####
-base::suppressMessages(DBI::dbDisconnect(conn))    
+base::suppressWarnings(DBI::dbDisconnect(conn))    
 
 
 

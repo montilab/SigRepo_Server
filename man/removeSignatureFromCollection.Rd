@@ -4,7 +4,12 @@
 \alias{removeSignatureFromCollection}
 \title{removeSignatureFromCollection}
 \usage{
-removeSignatureFromCollection(conn_handler, collection_id, signature_id)
+removeSignatureFromCollection(
+  conn_handler,
+  collection_id,
+  signature_id,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to
@@ -14,6 +19,9 @@ a remote database obtained from SigRepo::newConnhandler()}
 
 \item{signature_id}{A list of signature IDs to be removed from a collection 
 in the database}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Delete a list of signatures from a collection in the database
