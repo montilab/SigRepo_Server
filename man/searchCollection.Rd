@@ -8,6 +8,8 @@ searchCollection(
   conn_handler,
   collection_name = NULL,
   collection_id = NULL,
+  signature_name = NULL,
+  signature_id = NULL,
   user_name = NULL,
   verbose = TRUE
 )
@@ -19,6 +21,10 @@ obtained from SigRepo::newConnhandler() (required)}
 \item{collection_name}{Name of collection to be looked up by.}
 
 \item{collection_id}{ID of collection to be looked up by.}
+
+\item{signature_name}{Name of the signatures to be looked up by.}
+
+\item{signature_id}{ID of the signatures to be looked up by.}
 
 \item{user_name}{Name of users that the collection belongs to.}
 

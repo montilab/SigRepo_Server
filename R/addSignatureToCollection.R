@@ -73,7 +73,7 @@ addSignatureToCollection <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("\nUser = '%s' does not have the permission to add signature_id = %s to collection_id = '%s' in the SigRepo database.\n", user_name, base::paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", "), collection_id))
+    base::stop(base::sprintf("\nsignature_id = %s do(es) not exist in the SigRepo database.\n", base::paste0("'", signature_id[which(!signature_id %in% signature_tbl$signature_id)], "'", collapse = ", ")))
   }
   
   # If user is not admin, check if user has access to the signature as owner or editor
@@ -213,6 +213,9 @@ addSignatureToCollection <- function(
 
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    
+    # Return 
+    return(base::invisible())
 
   }  
 }  

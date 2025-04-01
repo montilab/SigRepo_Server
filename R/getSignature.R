@@ -25,7 +25,7 @@ getSignature <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT", 
-    required_role = "editor"
+    required_role = "viewer"
   )
   
   # Get user_role ####

@@ -9,11 +9,7 @@
 #' @export
 print_messages <- function(verbose){
   
-  if(verbose == TRUE){
-    base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
-  }else if(verbose == FALSE){
-    base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
-  }
+  base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
   
 }
 
@@ -26,7 +22,7 @@ print_messages <- function(verbose){
 verbose <- function(...){
   
   # Fetch verbose option
-  opt <- base::getOption("verbose", FALSE)
+  opt <- base::getOption("verbose")
 
   # If opt is FALSE
   if(!opt) return(base::invisible(NULL))

@@ -7,6 +7,8 @@
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param return_signature_id A logical value indicates whether or not to return
 #' the ID of the uploaded signature. Default is \code{FALSE}.
+#' @param return_missing_features A logical value indicates whether or not to return
+#' a list of features that does not exist in the database. Default is \code{FALSE}.
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #'
@@ -16,6 +18,7 @@ addSignature <- function(
     omic_signature,
     visibility = FALSE,
     return_signature_id = FALSE,
+    return_missing_features = FALSE,
     verbose = TRUE
 ){
   
@@ -48,7 +51,7 @@ addSignature <- function(
   metadata_tbl <- SigRepo::createSignatureMetadata(
     conn_handler = conn_handler, 
     omic_signature = omic_signature,
-    verbose = verbose
+    verbose = FALSE
   )
   
   # Reset diagnostic messages
@@ -99,7 +102,7 @@ addSignature <- function(
   }else{
     
     # 1. Uploading signature metadata into database
-    SigRepo::verbose("Uploading signature metadata into the database...\n")
+    SigRepo::verbose("Uploading signature metadata to the database...\n")
     
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
@@ -149,10 +152,7 @@ addSignature <- function(
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))
         # Show message
-        base::stop(
-          base::sprintf("\tAPI Link: %s\n", api_url),
-          base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n")
-        )
+        base::stop(base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n"))
       }else{
         # Remove files from file system 
         base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
@@ -180,7 +180,7 @@ addSignature <- function(
         signature_id = signature_tbl$signature_id[1],
         user_name = user_name,
         access_type = "owner",
-        verbose = verbose
+        verbose = FALSE
       )
     }, error = function(e){
       # Delete signature
@@ -190,6 +190,9 @@ addSignature <- function(
       # Return error message
       base::stop(e, "\n")
     }) 
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # 3. Importing signature set into database after signature
     # was imported successfully in step (1)
@@ -208,7 +211,7 @@ addSignature <- function(
           signature_id = signature_tbl$signature_id[1],
           organism_id = signature_tbl$organism_id[1],
           signature_set = omic_signature$signature,
-          verbose = verbose
+          verbose = FALSE
         )
       }, error = function(e){
         # Delete signature
@@ -224,7 +227,11 @@ addSignature <- function(
         # Delete signature
         SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
         # Return warning table
-        return(warn_tbl)
+        if(return_missing_features == TRUE){
+          return(warn_tbl)
+        }else{
+          return(base::invisible())
+        }
       }
       
     }else if(assay_type == "proteomics"){
@@ -238,6 +245,9 @@ addSignature <- function(
     }else if(assay_type == "dna_binding_sites"){
       
     }
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))    
