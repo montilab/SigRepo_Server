@@ -1,64 +1,7 @@
 
-login <<- function(username="", password="") {
-  
-  credentials <- list(user_auth = FALSE, username="", password="")
-  
-  users <- "Username"; pwds <- "Password";
-  
-  ## Establish database connection
-  conn <- newConnHandler(
-    driver = RMySQL::MySQL(),
-    dbname = Sys.getenv("DBNAME"), 
-    host = Sys.getenv("HOST"), 
-    port = as.integer(Sys.getenv("PORT")), 
-    user = Sys.getenv("USER"), 
-    password = Sys.getenv("PASSWORD")
-  )
-  
-  password <- sodium
-  
-  ##Read in the data
-  data <- lookupUser(conn, username, password, api_key = TRUE)
-  
-  # ensure all text columns are character class
-  data <- dplyr::mutate_if(data, is.factor, as.character)
-  
-  # check for match of input username to username column in data
-  row_username <- which(dplyr::pull(data, !!users) == trimws(username))
-  
-  if (length(row_username) > 0) {
-    row_password <- dplyr::filter(data, dplyr::row_number() == row_username[1])
-    row_password <- dplyr::pull(row_password, !!pwds)
-    # create a sodium hash for password
-    password_match <- sodium::password_verify(row_password, password)
-  } else {
-    password_match <- FALSE
-  }
-  
-  # if user name row and password name row are same, credentials are valid
-  if (password_match) {
-    shinyjs::hide(id = "error")
-    shinyjs::hide(id = "uiSignIn")
-    shinyjs::show(id = "uiModeratorPage")
-    credentials$user_auth <- TRUE
-    credentials$username <- username
-    credentials$password <- password
-  } else { # if not valid temporarily show error message to user
-    shinyjs::show(id = "error")
-    shinyjs::show(id = "uiSignIn")
-    shinyjs::hide(id = "uiModeratorPage")
-    credentials$user_auth <- FALSE
-    credentials$username <- ""
-    credentials$password <- ""
-  }
-  
-  return(credentials)
-  
-}
-
 sendpassword <<- function(from_sender="montilab@bu.edu", to_recipient="montilab@bu.edu", recipient_first="Montilab", recipient_last="Montilab", recipient_account="Montilab", tmp_pwd){
   
-  recipient=paste(recipient_first, recipient_last)
+  recipient <- paste0(recipient_first, recipient_last)
   
   msg <- mime_part(
     paste0(
@@ -73,12 +16,12 @@ sendpassword <<- function(from_sender="montilab@bu.edu", to_recipient="montilab@
       '</head>',
       '<body>',
       '<p>Hi <strong>', recipient_first, ',</strong></p>',
-      '<p>The password for your Xposome account has changed.</p>',
+      '<p>The password for your SigRepo account has changed.</p>',
       '<p></p>',
       '<p>Username: <strong>', recipient_account, '</strong></p>',
       '<p>Temporary password: <strong>', tmp_pwd, '</strong></p>',
       '<br>',
-      '<p>Log back in? Follow this link, <strong>https://montilab.bu.edu/Xposome/?page=sign_in</strong></p>',
+      '<p>Log back in? Follow this link, <strong>https://montilab.bu.edu/SigRepo/?page=sign_in</strong></p>',
       '<br>',
       '<p>Best,</p>',
       '<p>Montilab Team</p>',
@@ -97,24 +40,14 @@ sendpassword <<- function(from_sender="montilab@bu.edu", to_recipient="montilab@
   sendmail(from, to, subject, body, control=list(smtpServer="smtp.bu.edu", smtpPort="25"))
   
 }
-
-# reactive values to store login credentials
-credentials <- reactiveVal(list(user_auth = FALSE, username="", password=""))
-
-##Observe when sign in button is clicked####
-observeEvent(input$sign_in_btn, {
-  
-  login(username=input$username, password=input$password) %>% credentials()
-  
-})
   	  
 ## Create a modal dialog for forgot password #####
 forgotPasswordDialog <- function() {
   div(
     id = "Forgot_Password", 
     
-    modalDialog(
-      size = "m", title = NULL, footer = NULL, style="border: 1px solid  #08519c;; background: #08519c;",
+    shiny::modalDialog(
+      size = "l", title = NULL, footer = NULL, style="border: 1px solid  #08519c;; background: #08519c;",
       
       fluidRow(
         column(
@@ -124,82 +57,193 @@ forgotPasswordDialog <- function() {
           br(), 
           p(strong("To access your account, please fill in the following information:")),
           br(),
-          textInput(inputId="FG_Firstname", label=strong(span(style="color:red;", "*"), "First name"), value="", width="100%"),
-          textInput(inputId="FG_Lastname", label=strong(span(style="color:red;", "*"), "Last name"), value="", width="100%"),
-          textInput(inputId="FG_Username", label=strong(span(style="color:red;", "*"), "Username"), value="", width="100%"),
-          uiOutput("FG_Message"), 
+          shiny::radioButtons(inputId = "psw_lookup_options", label = NULL, choices = c("Username", "Email"), inline = TRUE),
+          shiny::textInput(inputId = "psw_lookup_value", label = NULL, value = "", width = "100%"),
+          shiny::uiOutput("forgot_psw_message"), 
           br(),
-          actionButton(class="mybuttons", inputId="save_forget_password", label=strong("Submit")),
-          actionButton(class="mybuttons", inputId="dismiss_forget_password", label=strong("Cancel")),
+          shiny::actionButton(class="mybuttons", inputId="send_tmp_password", label=strong("Submit")),
+          shiny::actionButton(class="mybuttons", inputId="dismiss_password", label=strong("Cancel")),
           br(), br()
         )
       )
     )
   )
 }
-	    
+
+## Create a modal dialog for forgot password #####
+signInDialog <- function() {
+  div(
+    id = "Forgot_Password", 
+    
+    shiny::modalDialog(
+      size = "l", title = NULL, footer = NULL, style="border: 1px solid  #08519c;; background: #08519c;",
+      
+      fluidRow(
+        column(
+          width=12, style="background: white; padding-top: 10px;",
+          
+          h3("Forgot your password?", class="text-center"),
+          br(), 
+          p(strong("To access your account, please fill in the following information:")),
+          br(),
+          shiny::radioButtons(inputId = "psw_lookup_options", label = NULL, choices = c("Username", "Email"), inline = TRUE),
+          shiny::textInput(inputId = "psw_lookup_value", label = NULL, value = "", width = "100%"),
+          shiny::uiOutput("forgot_psw_message"), 
+          br(),
+          shiny::actionButton(class="mybuttons", inputId="send_tmp_password", label=strong("Submit")),
+          shiny::actionButton(class="mybuttons", inputId="dismiss_password", label=strong("Cancel")),
+          br(), br()
+        )
+      )
+    )
+  )
+}
+
+# Create reative values to store messages
+forgotpasswordwarningmsg <- reactiveVal()
+
 ##OBSERVE THE FORGOT BUTTON#####
 observeEvent(input$forget_password, {
   
   #Show the modal dialog
-  showModal(forgotPasswordDialog())
+  shiny::showModal(forgotPasswordDialog())
   
 })
-
 
 ##OBSERVE THE BACK BUTTON#####
-observeEvent(input$dismiss_forget_password, {
+observeEvent(input$dismiss_password, {
   
-  removeModal()
+  shiny::removeModal()
   
 })
 
-
 ##OBSERVE THE SUBMIT BUTTON#####
-observeEvent(input$FG_Button, {
+shiny::observeEvent({
+  input$send_tmp_password
+}, {
   
-  Firstname=trimws(input$FG_Firstname);
-  Lastname=trimws(input$FG_Lastname);
-  Username=trimws(input$FG_Username);
+  lookup_options <- shiny::isolate({ input$psw_lookup_options })
+  lookup_value <- shiny::isolate({ input$psw_lookup_value })
   
-  login_dat <- read_csv(paste0("www/data/User_Login_List.csv"))
+  print(lookup_options); print(lookup_value);
   
-  if(Firstname=="" | Lastname=="" | Username==""){
+  if(lookup_options == "" | lookup_value == "" ){
     
-    forgotpasswordwarningmsg("Please fill in the required (*) fields.")
+    forgotpasswordwarningmsg("Please fill in the required field.")
     
   }else{
     
-    row <- which(login_dat$Username == Username)
+    filter_coln_var <- ifelse(lookup_options == "Username", "user_name", "user_email")
+    filter_coln_val <- lookup_value
+    names(filter_coln_val) <- filter_coln_var
     
-    if(length(row) > 0){
+    ## Establish database connection
+    conn <- SigRepo::newConnHandler(
+      driver = RMySQL::MySQL(),
+      dbname = Sys.getenv("DBNAME"), 
+      host = Sys.getenv("HOST"), 
+      port = as.integer(Sys.getenv("PORT")), 
+      user = Sys.getenv("USER"), 
+      password = Sys.getenv("PASSWORD")
+    )
+    
+    # Look up user 
+    user_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "users", 
+      return_var = "*",
+      filter_coln_var = filter_coln_var, 
+      filter_coln_val = filter_coln_val,
+      check_db_table = TRUE
+    )
+    
+    print(user_tbl)
+    
+    if(nrow(user_tbl) > 0){
       
-      tmp_pwd <- password(n = 10, numbers = TRUE, case = TRUE, special = c("?", "!", "&", "%", "$"))
-      login_dat$Password[row[1]] <- sodium::password_store(as.character(tmp_pwd))
+      tmp_pwd <- stringi::stri_rand_strings(n=1, length=10, pattern="[A-Za-z0-9]")
+      user_tbl$user_password_hashkey[1] <- sodium::password_store(as.character(tmp_pwd))
       
-      sendpassword(
-        from_sender="rchau88@bu.edu",
-        to_recipient=login_dat$Email[row[1]], 
-        recipient_first=Firstname, 
-        recipient_last=Lastname, 
-        recipient_account=Username, 
-        tmp_pwd=tmp_pwd
-      )
+      # sendpassword(
+      #   from_sender="rchau88@bu.edu",
+      #   to_recipient = login_dat$Email[row[1]], 
+      #   recipient_first = Firstname, 
+      #   recipient_last = Lastname, 
+      #   recipient_account = Username, 
+      #   tmp_pwd = tmp_pwd
+      # )
       
-      write.csv(login_dat, paste0("www/data/User_Login_List.csv"), row.names = FALSE)
-      forgotpasswordwarningmsg("Thank you for your submission! A temporary password has been sent to your email.")
+      # Need an update function to update a user's password
+      
+      # Update the message
+      forgotpasswordwarningmsg(sprintf("A temporary password has been sent to your email at %s.", user_tbl$user_email[1]))
       
     }else{
       
-      forgotpasswordwarningmsg("This username does not exist in our database. Please enter another username.")
+      forgotpasswordwarningmsg(sprintf("%s = '%s' does not exist in our database.", filter_coln_var, filter_coln_val))
       
     }
     
   }
+  
+})
+
+# output message
+output$forgot_psw_message <- renderUI({
+  
+  req(forgotpasswordwarningmsg)
+  
+  p(class = "error-message", forgotpasswordwarningmsg())
+  
 })
 
 
+# edit user profile
+## Create a modal dialog for forgot password #####
+userProfileDialog <- function(user_tbl){
+  div(
+    id = "user_profile", 
+    
+    shiny::modalDialog(
+      size = "l", title = "USER PROFILE", footer = NULL, style="border: 1px solid  #08519c;; background: #08519c;",
+      
+      fluidRow(
+        column(
+          width=12, style="background: white; padding: 10px;",
+          shiny::p("Username: ", user_tbl$user_name),
+          shiny::p("Email: ", user_tbl$user_email),
+          shiny::p("Affliliation: ", user_tbl$user_affiliation),
+          shiny::p("Role: ", user_tbl$user_role),
+          shiny::p("API Key: ", user_tbl$api_key),
+          br(),
+          shiny::uiOutput("change_psw_message"), 
+          shiny::actionButton(inputId="change_email", label=strong("Change Email")),
+          shiny::actionButton(inputId="change_password", label=strong("Change Password")),
+          shiny::actionButton(inputId="dismiss_change_profile", label=strong("Cancel"))
+        )
+      )
+    )
+  )
+}
 
+## OBSERVE THE SUBMIT BUTTON #####
+shiny::observeEvent({
+  input$edit_profile
+}, {
 
-
-
+  req(user_login_info())
+  
+  #Show the modal dialog
+  shiny::showModal(userProfileDialog(user_tbl = user_login_info()))
+  
+}) 
+  
+  
+## OBSERVE THE BACK BUTTON #####
+observeEvent(input$dismiss_change_profile, {
+  
+  shiny::removeModal()
+  
+})  
+  
+  

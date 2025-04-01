@@ -2035,7 +2035,7 @@ input, select, textarea {
   }
 
 	#header-wrapper {
-	  position: fixed;
+	  position: relative;
 	  top: 0;
 	  left: 0;
 	  width: 100%;
@@ -2049,11 +2049,9 @@ input, select, textarea {
   }
   
   #content-wrapper {
-	  position: fixed;
-	  top: 67px;
-	  bottom: 0;
 	  width: 100%;
-	  overflow-y: scroll;
+	  position: relative;
+	  overflow: scroll;
     /*border: 1px solid green;*/
   }
   

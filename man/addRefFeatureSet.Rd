@@ -5,20 +5,24 @@
 \title{addRefFeatureSet}
 \usage{
 addRefFeatureSet(
-  conn,
+  conn_handler,
   assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
     "genetic_variations", "dna_binding_sites"),
-  feature_set
+  feature_set,
+  verbose = TRUE
 )
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{assay_type}{Type of assays: transcriptomics, proteomics, metabolomics, 
-methylomics, genetic_variations, DNA_binding_sites}
+methylomics, genetic_variations, dna_binding_sites}
 
 \item{feature_set}{A data frame containing appropriate column names}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add reference feature set to database
+Add reference feature set into database
 }

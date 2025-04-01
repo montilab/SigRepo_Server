@@ -10,16 +10,18 @@ template:
 authors:
   Reina Chau:
     href: https://github.com/RC-88
+  Cameron Vicnaire:
+    href: https://github.com/Cvicnaire
   Vanessa Li:
     href: https://github.com/katgit
   Stefano Monti:
     href: https://github.com/tetomonti
-    
+
 news:
   one_page: false
 
 home:
-  title: "SigRepoR"
+  title: "SigRepo"
   type: inverse
   
 reference:
@@ -28,20 +30,32 @@ reference:
   contents:
   - '`newConnHandler`'
 
-- title: Get data from database
+- title: Search data in the database
   desc: ~
   contents:
-  - '`getAPIKey`'
-  - '`getFeatures`'
-  - '`getOrganisms`'
-  - '`getPhenotypes`'
-  - '`getSignatures`'
-  - '`getPlatforms`'
-  - '`getSampleTypes`'
+  - '`searchSignature`'
+  - '`searchCollection`'
+  - '`searchFeature`'
+  - '`searchOrganism`'
+  - '`searchPhenotype`'
+  - '`searchPlatform`'
+  - '`searchSampleType`'
   
+- title: Get data in the database
+  desc: ~
+  contents:
+  - '`getSignature`'
+  - '`getCollection`'
+  - '`getAPIKey`'
+
 - title: Add data to database
   desc: ~
   contents:
+  - '`addSignature`'
+  - '`addUserToSignature`'
+  - '`addCollection`'
+  - '`addSignatureToCollection`'
+  - '`addUserToCollection`'
   - '`addRefFeatureSet`'
   - '`addKeyword`'
   - '`addOrganism`'
@@ -50,23 +64,27 @@ reference:
   - '`addSampleType`'
   - '`addUser`'
 
-- title: Add signature to database
+- title: Update data to database
   desc: ~
   contents:
-  - '`addSignature`'
-  - '`addSignatureHandler`'
-  - '`addSignatureAccess`'
-  - '`addSignatureFeatureSet`'
-  - '`addUserToSignature`'
+  - '`updateSignature`'
+  - '`updateCollectionMetadata`'
+  - '`updateUser`'
+
+- title: Delete data to database
+  desc: ~
+  contents:
+  - '`deleteSignature`'
+  - '`deleteCollection`'
+  - '`deleteUser`'
 
 - title: Other functions
   desc: 
   contents:
-  - '`addSignatureCollection`'
-  - '`addTranscriptomicsFeatureSet`'
-  - '`insert_table_sql`'
+  - '`validateUser`'
+  - '`delete_table_sql`'
   - '`lookup_table_sql`'
-  - '`update_table_sql`'
+  - '`removeSignatureFromCollection`'
   
 navbar:
   title: "SigRepo"
@@ -74,8 +92,20 @@ navbar:
     - text: "Home"
       icon: fa-home
       href: index.html
+    - text: "Docker Installation"
+      menu: 
+      - text: "Install SigRepo Locally via Docker"
+        href: articles/install-sigrepo_locally.html
+      - text: "Install SigRepo on the Server via Docker"
+        href: articles/install-sigrepo-externally.html
+    - text: "Documentation"
+      menu: 
+      - text: "Uploading Signature"
+        href: articles/signature-tutorials.html
+      - text: "Uploading Signature Collection"
+        href: articles/collection-tutorials.html        
     - text: "Reference"
-      href: reference/index.html      
+      href: reference/index.html       
   right: 
     - text: "Change Log"
       href: news/index.html

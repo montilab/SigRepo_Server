@@ -1,52 +1,84 @@
 #' @title newConnHandler
-#' @description Establish a new connection handle to the host
-#' @param driver driver of the database. Default is RMySQL::MySQL()
-#' @param dbname table schema of which you want the handle to point.
-#' @param host host server in which you want to connect
-#' @param port host port in which you wish to use
-#' @param user the user who is establishing the connection
-#' @param password password associated with the user
-#' @return a MySQL connection Handle.
+#' @description Create a handler to connect to a remote database.
+#' @param dbname Name of MySQL database to point to.
+#' @param host Name of the server where MySQL database is hosted on.
+#' @param port Port on the server to connect to MySQL database.
+#' @param api_port Port on the server to access database API.
+#' @param user Name of user to establish the connection.
+#' @param password Password associated with the user.
+#' @return A list of user credentials to establish connection to the remote database.
 #' @export
-#' @importFrom DBI dbConnect
-#' @importFrom RMySQL MySQL
 newConnHandler <- function(
-    driver = RMySQL::MySQL(),
     dbname = 'sigrepo', 
     host = "montilab.bu.edu", 
     port = 3306, 
+    api_port = 8020,
     user = "guest", 
     password = "guest"
 ){
-  
-  # Check driver
-  if(!is(driver, "MySQLDriver"))
-    stop("'driver' must be a mySQL class object from RMySQL package")
-  
-  # Check dbname
-  stopifnot("'dbname' cannot be empty." = 
+
+  # Check dbname ####
+  base::stopifnot("'dbname' must have a length of 1 and cannot be empty." = 
               (length(dbname) == 1 && !dbname %in% c(NA, "")))
   
-  # Check host
-  stopifnot("'host' cannot be empty." = 
+  # Check host ####
+  base::stopifnot("'host' must have a length of 1 and cannot be empty." = 
               (length(host) == 1 && !host %in% c(NA, "")))
   
-  # Check port
-  stopifnot("'port' cannot be empty and must be a numeric value." = 
-              (length(port) == 1 && !as.numeric(port) %in% c(NA, "")))
+  # Check port ####
+  base::stopifnot("'port' must have a length of 1 and cannot be empty and must be a numeric value." = 
+              (length(port) == 1 && !port %in% c(NA, "")))
   
-  # Check user
-  stopifnot("'user' cannot be empty." = 
+  # Check api_port ####
+  base::stopifnot("'api_port' must have a length of 1 and cannot be empty and must be a numeric value." = 
+                    (length(api_port) == 1 && !api_port %in% c(NA, ""))) 
+  
+  # Check user ####
+  base::stopifnot("'user' must have a length of 1 and cannot be empty." = 
               (length(user) == 1 && !user %in% c(NA, "")))
   
-  # Check password
-  stopifnot("'password' cannot be empty." = 
+  # Check password ####
+  base::stopifnot("'password' must have a length of 1 and cannot be empty." = 
               (length(password) == 1 && !password %in% c(NA, "")))
   
+  # Return connection handler ###
+  return(
+    base::list(
+      dbname = dbname,
+      host = host,
+      port = port,
+      api_port = api_port,
+      user = user,
+      password = password
+    )
+  )
+  
+}
+
+#' @title conn_init
+#' @description Initiate a remote database connection
+#' @param conn_handler A handler uses to establish connection to a remote database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' 
+#' @noRd
+#' 
+#' @return a MySQL connection class object
+#' 
+#' @export
+#' @import DBI RMySQL 
+conn_init <- function(conn_handler){
+  
+  # Extract user credentials
+  dbname <- conn_handler$dbname
+  host <- conn_handler$host
+  port <- conn_handler$port
+  user <- conn_handler$user
+  password <- conn_handler$password
+  
   # Check connection
-  conn <- tryCatch({
+  conn <- base::tryCatch({
     DBI::dbConnect(
-      drv = driver,
+      drv = RMySQL::MySQL(),
       dbname = dbname,
       host = host,
       port = port,
@@ -54,9 +86,9 @@ newConnHandler <- function(
       password = password
     )
   }, error = function(e){
-    stop(e, "\n")
+    base::stop(e, "\n")
   }, warning = function(w){
-    message(w, "\n")
+    base::message(w, "\n")
   })
   
   # If user is root, validate if root exists in the users table of the database
@@ -76,10 +108,11 @@ newConnHandler <- function(
     # Then add root to users table with the default settings below
     if(nrow(user_tbl) == 0){
       
-      table <- data.frame(
+      # Default settings for root ####
+      table <- base::data.frame(
         user_name = user,
         user_password = password,
-        user_email = paste0(user, "@", host), 
+        user_email = "root@bu.edu", 
         user_first = "root", 
         user_last = "root", 
         user_affiliation = "Boston University",
@@ -87,7 +120,16 @@ newConnHandler <- function(
         stringsAsFactors = FALSE
       )
       
-      # Create a hash key for user password
+      # Check for duplicated emails ####
+      SigRepo::checkDuplicatedEmails(
+        conn = conn,
+        db_table_name = "users",
+        table = table,
+        coln_var = "user_email",
+        check_db_table = FALSE
+      )
+      
+      # Create a hash key for user password ####
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_password_hashkey",
@@ -95,23 +137,23 @@ newConnHandler <- function(
         hash_method = "sodium"
       )
       
-      # Create an api key for each user
+      # Create api keys ####
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "api_key",
-        hash_columns = c("user_name", "user_password", "user_email"),
+        hash_columns = c("user_name", "user_email", "user_role"),
         hash_method = "md5"
       )
       
-      # Create a hash key to check for duplicates
+      # Create a hash key to check for duplicates ####
       table <- SigRepo::createHashKey(
         table = table,
         hash_var = "user_hashkey",
-        hash_columns = "user_email",
+        hash_columns = "user_name",
         hash_method = "md5"
       )
       
-      # Remove duplicates from table before inserting into database ####
+      # Remove duplicates ####
       table <- SigRepo::removeDuplicates(
         conn = conn,
         db_table_name = "users",
@@ -131,6 +173,10 @@ newConnHandler <- function(
     }
   }
   
+  # Return connection
   return(conn)
   
 }
+
+
+

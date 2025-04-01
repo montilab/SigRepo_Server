@@ -4,13 +4,16 @@
 \alias{addSampleType}
 \title{addSampleType}
 \usage{
-addSampleType(conn, sample_type_tbl)
+addSampleType(conn_handler, sample_type_tbl, verbose = TRUE)
 }
 \arguments{
-\item{conn}{An established connection to database using newConnhandler()}
+\item{conn_handler}{An established connection to database using newConnhandler()}
 
 \item{sample_type_tbl}{An data frame containing appropriate column names:
 sample_type, brenda_accession}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add sample_type to database

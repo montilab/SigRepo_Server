@@ -1,0 +1,125 @@
+
+.search-signature-container {
+  padding: 10px 10px 10px 10px;
+  min-height: 600px;
+}
+
+.search-signature-wrapper {
+  height: inherit;
+  border: 2px solid gray; 
+  border-radius: 5px;
+  padding: 10px 10px 10px 10px;
+}
+
+.search-signature-title {
+  font-size: 30px;
+  font-weight: bold;
+  text-align: left;
+  padding: 10px 10px 10px 10px;
+}
+
+.search-signature-sidebar {
+   border: 1px solid gray; 
+   padding: 20px 20px 20px 20px;
+}
+
+.search-signature-content {
+  border: 1px solid gray; 
+  padding: 20px 20px 20px 20px; 
+}
+
+input:checked {
+  outline: 2px solid black;
+  background-color: black;
+}
+
+input[type="radio"] {
+  display: inline-block;
+  margin: 0
+  padding: 0;
+  font: inherit;
+  color: currentColor;
+  width: 1em;
+  height: 1em;
+  border: 0.15em solid currentColor;
+  border-radius: 50%;
+}
+
+input[type="radio"]::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  border-radius: 50%;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em gray;
+  background-color: CanvasText;
+}
+
+input[type="radio"]:checked::before {
+  transform: scale(1);
+}
+
+input[type="radio"]:focus {
+  outline: max(2px, 0.15em) solid currentColor;
+  outline-offset: max(2px, 0.15em);
+}
+
+input[type="checkbox"] {
+  /* Add if not using autoprefixer */
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #fff;
+  margin: 0;
+  font: inherit;
+  color: currentColor;
+  width: 1.15em;
+  height: 1.15em;
+  border: 0.15em solid currentColor;
+  border-radius: 0.15em;
+  transform: translateY(-0.075em);
+  display: grid;
+  place-content: center;
+}
+
+.checkbox-control {
+  font-family: system-ui, sans-serif;
+  font-weight: bold;
+  line-height: 1.1;
+  display: grid;
+  place-content: center;
+  grid-template-columns: 1em auto;
+  gap: 0.5em;
+}
+
+.checkbox-control + .checkbox-control {
+  margin-top: 1em;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 0.65em;
+  height: 0.65em;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1em 1em var(--form-control-color);
+  background-color: CanvasText;
+  transform-origin: bottom left;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+
+input[type="checkbox"]:focus {
+  outline: max(2px, 0.15em) solid currentColor;
+  outline-offset: max(2px, 0.15em);
+}
+
+
+#signature_table {
+  overflow-x: scroll;
+}
+
+

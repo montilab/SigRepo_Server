@@ -5,21 +5,36 @@
 \title{addUserToSignature}
 \usage{
 addUserToSignature(
-  conn,
+  conn_handler,
   signature_id,
-  user_id,
-  access_type = c("owner", "viewer")
+  user_name,
+  access_type = c("owner", "editor", "viewer"),
+  verbose = TRUE
 )
 }
 \arguments{
-\item{conn}{An established database connection using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to
+a remote database obtained from SigRepo::newConnhandler()}
 
-\item{signature_id}{signature id}
+\item{signature_id}{An ID of signature in the database}
 
-\item{user_id}{user id}
+\item{user_name}{A list of users to be added to a signature}
 
-\item{access_type}{access type: 'owner' or 'viewer'}
+\item{access_type}{A list of permissions to be given to users in order for 
+them to view or manage the signature in the database. 
+
+There are three types of permissions:
+
+\code{owner} has Read and Write access to their own uploaded signatures.
+\code{editor} has Read and Write access to signatures that other users were 
+given them access to.
+\code{viewer} has ONLY Read access to signatures that other users were 
+given them access to.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add user to signature access table in database
+Add a list of users with specific access to a signature 
+in the database
 }
