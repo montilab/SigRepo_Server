@@ -94,7 +94,7 @@ mkdir -p /$HOME/mysql/difexp
 docker network create -d bridge db-net
 ```
 
-### 7. Edit `docker-compose.yml` to configure how to build the MySQL image and run its container.
+### 7. Edit `docker-compose-dockerhub.yml` to configure how to build the MySQL image and run its container.
 
 __IMPORTANT NOTES:__
 
@@ -134,7 +134,23 @@ services:
       - $HOME/SigRepo/.Renviron:/root/.Renviron
       - $HOME/mysql/difexp:/difexp:rw
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
-      
+    
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo-api
+    networks:
+      - db-net
+    ports:
+      - 8050:3838
+    restart: always
+    volumes:
+      - $HOME/SigRepo:/SigRepo
+      - $HOME/SigRepo/.Renviron:/root/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
+            
 networks:
   db-net:
     external: true
@@ -143,7 +159,7 @@ networks:
 ### 8. Build the MySQL image and run its container
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose-dockerhub.yml up -d
 ```
 
 **`-d`**: run container in detached mode <br>
@@ -154,8 +170,10 @@ docker compose up -d
 docker ps
 
 
-CONTAINER ID   IMAGE                  COMMAND                    CREATED        STATUS        PORTS                    NAMES
-b37b6b19c4e8   sigrepo-mysql:latest   "docker-entrypoint.s..."   5 hours ago    Up 5 hours    0.0.0.0:3306->3838/tcp   sigrepo-mysql
+CONTAINER ID   IMAGE                           COMMAND                  CREATED       STATUS       PORTS                                                  NAMES
+95ac83ff67b6   montilab/sigrepo-mysql:latest   "docker-entrypoint.s…"   2 weeks ago   Up 2 weeks   0.0.0.0:3306->3306/tcp, :::3306->3306/tcp, 33060/tcp   sigrepo-mysql
+70c2dae8511d   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 weeks ago   Up 2 weeks   0.0.0.0:8020->3838/tcp, [::]:8020->3838/tcp            sigrepo-api
+0472a25885b6   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 weeks ago   Up 2 weeks   0.0.0.0:8050->3838/tcp, [::]:8050->3838/tcp            sigrepo-shiny
 ```
 
 ### 10. Get ip address of `sigrepo-mysql` container in order to link MySQL Server to SigRepo's API internally
@@ -201,7 +219,7 @@ PASSWORD = "sigrepo"
 ### 12. When an environment file is altered or added, it is `IMPORTANT` to restart the containers in order for them to pick up the newly added/edited values.
 
 ```bash
-docker compose restart
+docker compose -f docker-compose-dockerhub.yml restart
 ```
 
 ### 13. Finally, open `SigRepo.Rproj` with your `RStudio Server`. Here, we will use the `SigRepo` package to upload an omic signature to the newly created database.
