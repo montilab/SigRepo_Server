@@ -4,6 +4,8 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param collection_name Name of collection to be looked up by.
 #' @param collection_id ID of collection to be looked up by.
+#' @param signature_name Name of the signatures to be looked up by.
+#' @param signature_id ID of the signatures to be looked up by.
 #' @param user_name Name of users that the collection belongs to.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
@@ -29,6 +31,8 @@ searchCollection <- function(
     conn_handler,
     collection_name = NULL,
     collection_id = NULL,
+    signature_name = NULL,
+    signature_id = NULL,
     user_name = NULL,
     verbose = TRUE
 ){
@@ -97,8 +101,7 @@ searchCollection <- function(
     ) 
     
     # Add signatures to collection table
-    collection_tbl <- collection_tbl %>% 
-      dplyr::left_join(signature_collection_tbl, by = "collection_id")  
+    collection_tbl <- collection_tbl %>% dplyr::left_join(signature_collection_tbl, by = "collection_id")  
     
     # Look up name of the signatures in the signature table
     signature_tbl <- SigRepo::lookup_table_sql(
@@ -111,15 +114,12 @@ searchCollection <- function(
     ) 
     
     # Add name of the signatures to collection table
-    collection_tbl <- collection_tbl %>% 
-      dplyr::left_join(signature_tbl, by = "signature_id")
+    collection_tbl <- collection_tbl %>% dplyr::left_join(signature_tbl, by = "signature_id")
     
     # Get a list of filtered variables
     filter_var_list <- list(
-      "collection_name" = base::unique(collection_name),
-      "collection_id" = base::unique(collection_id),
-      "signature_name" = base::unique(signature_name),
-      "signature_id" = base::unique(signature_id)
+      "signature_id" = base::unique(signature_id),
+      "signature_name" = base::unique(signature_name)
     )
     
     # Filter table with given search variables
@@ -127,9 +127,9 @@ searchCollection <- function(
       #r=1;
       filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
       if(filter_status == TRUE){
-        filter_var <- names(filter_var_list)[r]
+        filter_var <- base::names(filter_var_list)[r]
         filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
-        collection_tbl <- collection_tbl %>% dplyr::filter(trimws(tolower(!!!syms(filter_var))) %in% trimws(tolower(filter_val)))
+        collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
       }
     }
     
