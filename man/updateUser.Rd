@@ -12,7 +12,8 @@ updateUser(
   first_name = NULL,
   last_name = NULL,
   affiliation = NULL,
-  role = NULL
+  role = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -29,6 +30,9 @@ updateUser(
 \item{affiliation}{First name of a user to be updated. Default is NULL.}
 
 \item{role}{Role of a user to be updated. Choices are admin/editor/viewer.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Update a user information in the database

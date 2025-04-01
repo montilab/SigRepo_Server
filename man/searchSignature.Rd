@@ -6,18 +6,22 @@
 \usage{
 searchSignature(
   conn_handler,
+  signature_id = NULL,
   signature_name = NULL,
   user_name = NULL,
   organism = NULL,
   phenotype = NULL,
-  sample_type = NULL
+  sample_type = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{signature_name}{The name of the signatures to be looked up by.}
+\item{signature_id}{ID of the signatures to be looked up by.}
+
+\item{signature_name}{Name of the signatures to be looked up by.}
 
 \item{user_name}{The name of the user to be looked up by.}
 
@@ -26,6 +30,9 @@ obtained from SigRepo::newConnhandler() (required)}
 \item{phenotype}{The phenotype to be looked up by.}
 
 \item{sample_type}{The sample type to be looked up by.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get a list of signatures available in the database

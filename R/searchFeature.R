@@ -5,13 +5,20 @@
 #' @param assay_type Type of assays: transcriptomics, proteomics, metabolomics, 
 #' methylomics, genetic_variations, dna_binding_sites (required)
 #' @param feature_name A list of feature names to look up.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 searchFeature <- function(
     conn_handler,
     assay_type = c("transcriptomics", "proteomics", "metabolomics", "methylomics",
                    "genetic_variations", "dna_binding_sites"),
-    feature_name = NULL
+    feature_name = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -31,8 +38,6 @@ searchFeature <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
   })  
   
   # Get reference table
@@ -77,39 +82,25 @@ searchFeature <- function(
   if(nrow(feature_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There are no signatures returned from the search parameters.\n"))
+    base::stop(base::sprintf("\nThere are no features returned from the search parameters.\n"))
     
   }else{
     
-    # look up organism
-    lookup_organism_id <- unique(feature_tbl$organism_id)
-    
-    # Look up organism id
-    organism_id_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "organisms", 
-      return_var = c("organism_id", "organism"), 
-      filter_coln_var = "organism_id", 
-      filter_coln_val = list("organism_id" = lookup_organism_id),
-      check_db_table = TRUE
-    )  
-    
-    # Add variables to table
-    feature_tbl <- feature_tbl %>% 
-      dplyr::left_join(organism_id_tbl, by = "organism_id") 
-    
-    # Rename table with appropriate column names 
-    coln_names <- colnames(feature_tbl) %>% 
-      base::replace(., base::match(c("organism_id"), .), c("organism"))
-    
-    # Extract the table with appropriate column names ####
-    feature_tbl <- feature_tbl %>% dplyr::select(all_of(coln_names))
+    # Get reference table
+    if(assay_type == "transcriptomics"){
+      feature_tbl <- SigRepo::retrieveTranscriptomicsFeatureSet(conn = conn, feature_tbl = feature_tbl)
+    }else if(assay_type == "proteomics"){
+    }else if(assay_type == "metabolomics"){
+    }else if(assay_type == "methylomics"){
+    }else if(assay_type == "genetic_variations"){
+    }else if(assay_type == "dna_binding_sites"){
+    }
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))  
+    base::suppressWarnings(DBI::dbDisconnect(conn))  
     
     # Return table
     return(feature_tbl)

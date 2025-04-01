@@ -2,7 +2,9 @@
 #' @description Delete a signature from the signature table of the database
 #' @param conn_handler An established connection to the database using newConnhandler() 
 #' @param collection_id The name of the signature being deleted from the database 
-#' 
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#'  
 #' @examples 
 #' 
 #' # Create a db connection
@@ -29,8 +31,12 @@
 #' @export
 deleteCollection <- function(
     conn_handler, 
-    collection_id
+    collection_id,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -48,15 +54,18 @@ deleteCollection <- function(
   # Get user_name ####
   user_name <- conn_info$user[1]
   
+  # Get unique collection id
+  collection_id <- base::unique(collection_id) 
+  
   # Get table name in database ####
   db_table_name <- "collection"
   
   # Check collection_id
   if(!length(collection_id) == 1 || collection_id %in% c(NA, "")){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop("'collection_id' must have a length of 1 and cannot be empty.")
+    base::stop("\n'collection_id' must have a length of 1 and cannot be empty.\n")
   }
   
   # Check if signature exists ####
@@ -73,10 +82,10 @@ deleteCollection <- function(
   if(nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(sprintf("There is no collection_id = '%s' existed in the 'collection' table of the SigRepo Database.", collection_id))
+    base::stop(base::sprintf("\nThere is no collection_id = '%s' existed in the 'collection' table of the SigRepo database.\n", collection_id))
     
   }else{
     
@@ -122,17 +131,17 @@ deleteCollection <- function(
         }else{
           
           # Disconnect from database ####
-          base::suppressMessages(DBI::dbDisconnect(conn)) 
+          base::suppressWarnings(DBI::dbDisconnect(conn)) 
           
           # Show message
-          base::stop(sprintf("User = '%s' does not have permission to delete collection_id = '%s' from the database.", user_name, collection_id))
+          base::stop(base::sprintf("\nUser = '%s' does not have permission to delete collection_id = '%s' from the SigRepo database.\n", user_name, collection_id))
           
         }
       }
     }
     
     # Return message
-    base::message(sprintf("Remove collection_id = '%s' from 'collection' table of the database.", collection_id))
+    SigRepo::verbose(base::sprintf("Remove collection_id = '%s' from 'collection' table of the database.", collection_id))
     
     # Delete signature from collection metadata table in the database ####
     SigRepo::delete_table_sql(
@@ -144,7 +153,7 @@ deleteCollection <- function(
     )
 
     # Return message
-    base::message(sprintf("Remove collection_id = '%s' from 'collection_access' table of the database.", collection_id))
+    SigRepo::verbose(base::sprintf("Remove collection_id = '%s' from 'collection_access' table of the database.", collection_id))
 
     # Delete user from collection_access table in the database ####
     SigRepo::delete_table_sql(
@@ -156,7 +165,7 @@ deleteCollection <- function(
     )
     
     # Return message
-    base::message(sprintf("Remove signatures belongs to collection_id = '%s' from 'signature_collection_access' table of the database.", collection_id))
+    SigRepo::verbose(base::sprintf("Remove signatures belongs to collection_id = '%s' from 'signature_collection_access' table of the database.", collection_id))
     
     # Delete signature from signature_collection_access table in the database ####
     SigRepo::delete_table_sql(
@@ -167,12 +176,12 @@ deleteCollection <- function(
       check_db_table = TRUE
     )
     
-    # Return message
-    base::message(sprintf("collection_id = '%s' has been removed.", collection_id))
-    
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn))    
     
+    # Return message
+    SigRepo::verbose(base::sprintf("collection_id = '%s' has been removed.", collection_id))
+
   } 
 }
 

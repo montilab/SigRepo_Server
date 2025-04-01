@@ -25,6 +25,20 @@
     Home
   </a>
 </li>
+<li class="nav-item dropdown">
+  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-docker-installation">Docker Installation</a>
+  <div class="dropdown-menu" aria-labelledby="dropdown-docker-installation">
+    <a class="dropdown-item" href="../articles/install-sigrepo_locally.html">Install SigRepo Locally via Docker</a>
+    <a class="dropdown-item" href="../articles/install-sigrepo-externally.html">Install SigRepo on the Server via Docker</a>
+  </div>
+</li>
+<li class="nav-item dropdown">
+  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-documentation">Documentation</a>
+  <div class="dropdown-menu" aria-labelledby="dropdown-documentation">
+    <a class="dropdown-item" href="../articles/signature-tutorials.html">Uploading Signature</a>
+    <a class="dropdown-item" href="../articles/collection-tutorials.html">Uploading Signature Collection</a>
+  </div>
+</li>
 <li class="active nav-item">
   <a class="nav-link" href="../reference/index.html">Reference</a>
 </li>
@@ -62,7 +76,8 @@
 <span>  <span class="va">conn_handler</span>,</span>
 <span>  assay_type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"transcriptomics"</span>, <span class="st">"proteomics"</span>, <span class="st">"metabolomics"</span>, <span class="st">"methylomics"</span>,</span>
 <span>    <span class="st">"genetic_variations"</span>, <span class="st">"dna_binding_sites"</span><span class="op">)</span>,</span>
-<span>  <span class="va">feature_set</span></span>
+<span>  <span class="va">feature_set</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -80,6 +95,11 @@ methylomics, genetic_variations, dna_binding_sites</p></dd>
 <dt>feature_set</dt>
 <dd><p>A data frame containing appropriate column names</p></dd>
 
+
+<dt>verbose</dt>
+<dd><p>a logical value indicates whether or not to print the
+diagnostic messages. Default is <code>TRUE</code>.</p></dd>
+
 </dl></div>
 
   </main><aside class="col-md-3"><nav id="toc"><h2>On this page</h2>
@@ -87,7 +107,7 @@ methylomics, genetic_variations, dna_binding_sites</p></dd>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/RC-88" class="external-link">Reina Chau</a>, Mengze Li, <a href="https://github.com/tetomonti" class="external-link">Stefano Monti</a>.</p>
+  <p>Developed by <a href="https://github.com/RC-88" class="external-link">Reina Chau</a>, <a href="https://github.com/Cvicnaire" class="external-link">Cameron Vicnaire</a>, Mengze Li, <a href="https://github.com/tetomonti" class="external-link">Stefano Monti</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

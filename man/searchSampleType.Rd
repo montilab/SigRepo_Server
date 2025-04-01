@@ -4,7 +4,7 @@
 \alias{searchSampleType}
 \title{searchSampleType}
 \usage{
-searchSampleType(conn_handler, sample_type = NULL)
+searchSampleType(conn_handler, sample_type = NULL, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to the database 
@@ -12,6 +12,9 @@ obtained from SigRepo::newConnhandler() (required)}
 
 \item{sample_type}{a list of sample types to search by. Default is NULL which
 includes all sample types in the database.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get sample types in the database

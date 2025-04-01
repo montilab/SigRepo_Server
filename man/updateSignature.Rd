@@ -4,7 +4,13 @@
 \alias{updateSignature}
 \title{updateSignature}
 \usage{
-updateSignature(conn_handler, signature_id, omic_signature)
+updateSignature(
+  conn_handler,
+  signature_id,
+  omic_signature,
+  visibility = NULL,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{conn_handler}{An established connection handler using SigRepo::newConnhandler()}
@@ -12,6 +18,12 @@ updateSignature(conn_handler, signature_id, omic_signature)
 \item{signature_id}{a unique signature id in the database that needs to be updated}
 
 \item{omic_signature}{An R6 class object from the OmicSignature package}
+
+\item{visibility}{A logical value indicates whether or not to allow others
+to view and access one's uploaded signature. Default is \code{FALSE}.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Update a signature in the database

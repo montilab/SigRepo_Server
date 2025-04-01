@@ -2,12 +2,18 @@
 #' @description Add keywords to database
 #' @param conn_handler An established connection to database using newConnhandler() 
 #' @param keyword_tbl A data frame containing appropriate column names: keyword
-#'
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
 addKeyword <- function(
     conn_handler,
-    keyword_tbl
+    keyword_tbl,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -27,17 +33,17 @@ addKeyword <- function(
   # Check required column fields
   if(any(!required_column_fields %in% colnames(table))){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(sprintf("Table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####
@@ -67,7 +73,10 @@ addKeyword <- function(
   ) 
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
+  
+  # Return message
+  SigRepo::verbose("Finished uploading.\n")
   
 }
 

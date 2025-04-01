@@ -4,14 +4,17 @@
 \alias{searchPhenotype}
 \title{searchPhenotype}
 \usage{
-searchPhenotype(conn_handler, phenotype = NULL)
+searchPhenotype(conn_handler, phenotype = NULL, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{phenotypes}{a list of phenotypes to search by. Default is NULL which
+\item{phenotype}{a list of phenotypes to search by. Default is NULL which
 includes all phenotypes in the database}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get phenotypes in the database

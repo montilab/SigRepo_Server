@@ -4,7 +4,7 @@
 \alias{searchPlatform}
 \title{searchPlatform}
 \usage{
-searchPlatform(conn_handler, platform_id = NULL)
+searchPlatform(conn_handler, platform_id = NULL, verbose = TRUE)
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to the database 
@@ -12,6 +12,9 @@ obtained from SigRepo::newConnhandler() (required)}
 
 \item{platform_id}{a list of platform accession ids to search by. Default is NULL which
 includes all platforms in the database.}
+
+\item{verbose}{a logical value indicates whether or not to print the
+diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get signatures to database

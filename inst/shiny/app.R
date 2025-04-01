@@ -15,7 +15,8 @@ library(tidyverse)
 # Package for loading and installing packages
 library(devtools)
 load_all(".")
-load_all("/home/OmicSignature")
+
+library(OmicSignature)
 
 # Package for creating hash keys
 library(sodium)
@@ -233,23 +234,23 @@ server <- function(input, output, session) {
   #   }
   # 
   # })
-  
+
   # Observe when sign in button is clicked #####
   shiny::observeEvent({
     input$sign_in_btn
   }, {
-    
+
     # Get user name and password
     user_name <- shiny::isolate({ input$username })
     user_password <- shiny::isolate({ input$password })
-    
+
     # Create a user connection handler
     conn_handler <- base::tryCatch({
       SigRepo::newConnHandler(
-        dbname = Sys.getenv("DBNAME"), 
-        host = Sys.getenv("HOST"), 
-        port = as.integer(Sys.getenv("PORT")), 
-        user = user_name, 
+        dbname = Sys.getenv("DBNAME"),
+        host = Sys.getenv("HOST"),
+        port = as.integer(Sys.getenv("PORT")),
+        user = user_name,
         password = user_password
       )
     }, error = function(e){
@@ -259,10 +260,10 @@ server <- function(input, output, session) {
     }, warning = function(w){
       print(w, "\n")
     })
-    
+
     # If conn_handler is not valid, escape the function
     if(is.null(conn_handler)) return(NULL)
-    
+
     # Validate user
     user_tbl <- base::tryCatch({
       SigRepo::validateUser(conn_handler = conn_handler)
@@ -273,10 +274,10 @@ server <- function(input, output, session) {
     }, warning = function(w){
       print(w, "\n")
     })
-    
+
     # Check if conn is a MySQLConnection class object
     if(nrow(user_tbl) == 0){
-      
+
       user_conn_handler(NULL)
       user_login_info(NULL)
       user_signature_tbl(NULL)
@@ -284,77 +285,77 @@ server <- function(input, output, session) {
       shinyjs::show(id = "login-wrapper")
       shinyjs::show(id = "login-error-message")
       shinyjs::hide(id = "content-wrapper")
-      
+
     }else{
-      
+
       # Update URL search string ####
       shiny::updateQueryString(session, queryString = sprintf("#user_id=%s&token=%s", user_name, digest::digest(user_password, algo = "md5", serialize = TRUE)), mode = "push")
-      
+
       # Get user connection info ####
       user_conn_handler(conn_handler)
-      
+
       # Get user login info ####
       user_login_info(user_tbl)
-      
-      # Get user signature table #####
-      promises::future_promise({
-        SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name)
-      }, package = "tidyverse") %...>% user_signature_tbl()
-      
-      # Get user collection table #### 
-      #promises::future_promise({
-      SigRepo::searchCollection(conn_handler = conn_handler) %>% user_collection_tbl()
-      #}, package = "tidyverse") %...>% user_collection_tbl()
-      
+
+      # # Get user signature table #####
+      # promises::future_promise({
+      #   SigRepo::searchSignature(conn_handler = conn_handler, user_name = user_name)
+      # }, package = "tidyverse") %...>% user_signature_tbl()
+      # 
+      # # Get user collection table ####
+      # #promises::future_promise({
+      # SigRepo::searchCollection(conn_handler = conn_handler) %>% user_collection_tbl()
+      # #}, package = "tidyverse") %...>% user_collection_tbl()
+
       # Hide message and display app ####
       shinyjs::hide(id = "login-error-message")
       shinyjs::hide(id = "login-wrapper")
       shinyjs::show(id = "content-wrapper")
-      
+
     }
-    
+
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
-  
+
   # Welcome message ####
   output$welcome_msg <- shiny::renderUI({
-    
+
     req(user_login_info())
-    
+
     # Get user connection info
     shiny::HTML(sprintf("Welcome %s!", user_login_info()$user_name))
-    
+
   })
-  
+
   # Observe when sign out buttion is clicked
   shiny::observeEvent({
     input$log_out_btn
   }, {
-    
+
     user_conn_handler(NULL)
     user_login_info(NULL)
     shinyjs::hide(id = "content-wrapper")
     shinyjs::show(id = "login-wrapper")
     shiny::updateQueryString(session, queryString = "#login", mode = "push")
-    
+
   })
-  
+
   # Create reactive values
   tab_selected <- shiny::reactiveVal("home")
-  
+
   # Observe the selected page by users
   shiny::observeEvent({
     input$selected_tab
   }, {
-    
+
     shiny::isolate({ input$selected_tab }) %>% tab_selected()
-    
+
   })
-  
+
   # Output the content page
   output$tab_content <- shiny::renderUI({
-    
+
     req(tab_selected())
-    
+
     if(tab_selected() == "home"){
       htmltools::includeHTML("www/home_content.html")
     }else if(tab_selected() == "search_signature"){
@@ -369,16 +370,16 @@ server <- function(input, output, session) {
     }else if(tab_selected() == "analysis"){
     }else if(tab_selected() == "resources"){
     }
-    
+
   })
-  
-  # Import all source files 
+
+  # Import all source files
   source("server/search_signature_server.R", local = TRUE)
   source("server/search_collection_server.R", local = TRUE)
   source("server/upload_signature_server.R", local = TRUE)
   source("server/upload_collection_server.R", local = TRUE)
   source("server/sign_in_server.R", local = TRUE)
-  
+
 }
 
 ## Start the app ####

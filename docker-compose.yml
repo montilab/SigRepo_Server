@@ -1,4 +1,3 @@
-
 services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
@@ -18,34 +17,43 @@ services:
     volumes:
       - /mysql/database:/var/lib/mysql:rw
       - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
-      
-  sigrepo-rstudio:
-    container_name: sigrepo-rstudio
-    image: sigrepo-rstudio:latest
-    build:
-      context: .
-      dockerfile: Dockerfile-rstudio-server
-      args:
-        - R_VERSION=4.4.0
-    environment:
-        - PASSWORD=sigrepo
-    networks:
-      - db-net
-    ports:
-      - 7878:8787
-    restart: always
-    working_dir: /home
-    volumes:
-      - /SigRepo:/home/SigRepo:rw
-      
-  sigrepo-shiny:
-    container_name: sigrepo-shiny
-    image: sigrepo-shiny:latest
+
+  sigrepo:
+    container_name: sigrepo
+    image: sigrepo:latest
     build:
       context: .
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.4.0
+    expose:
+      - 3838
+    restart: always
+    command: tail -f /dev/null
+
+  sigrepo-api:
+    container_name: sigrepo-api
+    image: sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo
+    networks:
+      - db-net
+    ports:
+      - 8020:3838
+    restart: always
+    volumes:
+      - /SigRepo:/SigRepo
+      - /SigRepo/.Renviron:/root/.Renviron
+      - /mysql/difexp:/difexp:rw
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
+
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    image: sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo
     networks:
       - db-net
     ports:
@@ -53,9 +61,8 @@ services:
     restart: always
     volumes:
       - /SigRepo:/SigRepo
-      - /SigRepo/inst/shiny/shiny-server.sh:/SigRepo/inst/shiny/shiny-server.sh
-      - /Sigrepo/.Renviron:/root/.Renviron
-
+      - /SigRepo/.Renviron:/root/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
 
 networks:
   db-net:

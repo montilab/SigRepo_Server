@@ -25,6 +25,20 @@
     Home
   </a>
 </li>
+<li class="nav-item dropdown">
+  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-docker-installation">Docker Installation</a>
+  <div class="dropdown-menu" aria-labelledby="dropdown-docker-installation">
+    <a class="dropdown-item" href="../articles/install-sigrepo_locally.html">Install SigRepo Locally via Docker</a>
+    <a class="dropdown-item" href="../articles/install-sigrepo-externally.html">Install SigRepo on the Server via Docker</a>
+  </div>
+</li>
+<li class="nav-item dropdown">
+  <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false" aria-haspopup="true" id="dropdown-documentation">Documentation</a>
+  <div class="dropdown-menu" aria-labelledby="dropdown-documentation">
+    <a class="dropdown-item" href="../articles/signature-tutorials.html">Uploading Signature</a>
+    <a class="dropdown-item" href="../articles/collection-tutorials.html">Uploading Signature Collection</a>
+  </div>
+</li>
 <li class="active nav-item">
   <a class="nav-link" href="../reference/index.html">Reference</a>
 </li>
@@ -67,7 +81,7 @@
         </dt>
         <dd>newConnHandler</dd>
       </dl></div><div class="section level2">
-      <h2 id="get-data-from-database">Get data from database<a class="anchor" aria-label="anchor" href="#get-data-from-database"></a></h2>
+      <h2 id="search-data-in-the-database">Search data in the database<a class="anchor" aria-label="anchor" href="#search-data-in-the-database"></a></h2>
       
       
 
@@ -79,9 +93,19 @@
 
       <dl><dt>
           
-          <code><a href="getAPIKey.html">getAPIKey()</a></code> 
+          <code><a href="searchSignature.html">searchSignature()</a></code> 
         </dt>
-        <dd>getAPIKey</dd>
+        <dd>searchSignature</dd>
+      </dl><dl><dt>
+          
+          <code><a href="searchCollection.html">searchCollection()</a></code> 
+        </dt>
+        <dd>searchCollection</dd>
+      </dl><dl><dt>
+          
+          <code><a href="searchFeature.html">searchFeature()</a></code> 
+        </dt>
+        <dd>searchFeature</dd>
       </dl><dl><dt>
           
           <code><a href="searchOrganism.html">searchOrganism()</a></code> 
@@ -94,11 +118,6 @@
         <dd>searchPhenotype</dd>
       </dl><dl><dt>
           
-          <code><a href="getSignature.html">getSignature()</a></code> 
-        </dt>
-        <dd>getSignature</dd>
-      </dl><dl><dt>
-          
           <code><a href="searchPlatform.html">searchPlatform()</a></code> 
         </dt>
         <dd>searchPlatform</dd>
@@ -107,6 +126,32 @@
           <code><a href="searchSampleType.html">searchSampleType()</a></code> 
         </dt>
         <dd>searchSampleType</dd>
+      </dl></div><div class="section level2">
+      <h2 id="get-data-in-the-database">Get data in the database<a class="anchor" aria-label="anchor" href="#get-data-in-the-database"></a></h2>
+      
+      
+
+      
+    </div><div id="" class="section level2">
+      
+      
+      
+
+      <dl><dt>
+          
+          <code><a href="getSignature.html">getSignature()</a></code> 
+        </dt>
+        <dd>getSignature</dd>
+      </dl><dl><dt>
+          
+          <code><a href="getCollection.html">getCollection()</a></code> 
+        </dt>
+        <dd>getCollection</dd>
+      </dl><dl><dt>
+          
+          <code><a href="getAPIKey.html">getAPIKey()</a></code> 
+        </dt>
+        <dd>getAPIKey</dd>
       </dl></div><div class="section level2">
       <h2 id="add-data-to-database">Add data to database<a class="anchor" aria-label="anchor" href="#add-data-to-database"></a></h2>
       
@@ -119,6 +164,31 @@
       
 
       <dl><dt>
+          
+          <code><a href="addSignature.html">addSignature()</a></code> 
+        </dt>
+        <dd>addSignature</dd>
+      </dl><dl><dt>
+          
+          <code><a href="addUserToSignature.html">addUserToSignature()</a></code> 
+        </dt>
+        <dd>addUserToSignature</dd>
+      </dl><dl><dt>
+          
+          <code><a href="addCollection.html">addCollection()</a></code> 
+        </dt>
+        <dd>addCollection</dd>
+      </dl><dl><dt>
+          
+          <code><a href="addSignatureToCollection.html">addSignatureToCollection()</a></code> 
+        </dt>
+        <dd>addSignatureToCollection</dd>
+      </dl><dl><dt>
+          
+          <code><a href="addUserToCollection.html">addUserToCollection()</a></code> 
+        </dt>
+        <dd>addUserToCollection</dd>
+      </dl><dl><dt>
           
           <code><a href="addRefFeatureSet.html">addRefFeatureSet()</a></code> 
         </dt>
@@ -154,7 +224,7 @@
         </dt>
         <dd>addUser</dd>
       </dl></div><div class="section level2">
-      <h2 id="add-signature-to-database">Add signature to database<a class="anchor" aria-label="anchor" href="#add-signature-to-database"></a></h2>
+      <h2 id="update-data-to-database">Update data to database<a class="anchor" aria-label="anchor" href="#update-data-to-database"></a></h2>
       
       
 
@@ -166,14 +236,45 @@
 
       <dl><dt>
           
-          <code><a href="addSignature.html">addSignature()</a></code> 
+          <code><a href="updateSignature.html">updateSignature()</a></code> 
         </dt>
-        <dd>addSignature</dd>
+        <dd>updateSignature</dd>
       </dl><dl><dt>
           
-          <code><a href="addUserToSignature.html">addUserToSignature()</a></code> 
+          <code><a href="updateCollectionMetadata.html">updateCollectionMetadata()</a></code> 
         </dt>
-        <dd>addUserToSignature</dd>
+        <dd>updateCollectionMetadata</dd>
+      </dl><dl><dt>
+          
+          <code><a href="updateUser.html">updateUser()</a></code> 
+        </dt>
+        <dd>updateUser</dd>
+      </dl></div><div class="section level2">
+      <h2 id="delete-data-to-database">Delete data to database<a class="anchor" aria-label="anchor" href="#delete-data-to-database"></a></h2>
+      
+      
+
+      
+    </div><div id="" class="section level2">
+      
+      
+      
+
+      <dl><dt>
+          
+          <code><a href="deleteSignature.html">deleteSignature()</a></code> 
+        </dt>
+        <dd>deleteSignature</dd>
+      </dl><dl><dt>
+          
+          <code><a href="deleteCollection.html">deleteCollection()</a></code> 
+        </dt>
+        <dd>deleteCollection</dd>
+      </dl><dl><dt>
+          
+          <code><a href="deleteUser.html">deleteUser()</a></code> 
+        </dt>
+        <dd>deleteUser</dd>
       </dl></div><div class="section level2">
       <h2 id="other-functions">Other functions<a class="anchor" aria-label="anchor" href="#other-functions"></a></h2>
       
@@ -187,34 +288,9 @@
 
       <dl><dt>
           
-          <code><a href="addSignatureCollection.html">addSignatureCollection()</a></code> 
+          <code><a href="validateUser.html">validateUser()</a></code> 
         </dt>
-        <dd>addSignatureCollection</dd>
-      </dl><dl><dt>
-          
-          <code><a href="insert_table_sql.html">insert_table_sql()</a></code> 
-        </dt>
-        <dd>insert_table_sql</dd>
-      </dl><dl><dt>
-          
-          <code><a href="lookup_table_sql.html">lookup_table_sql()</a></code> 
-        </dt>
-        <dd>lookup_table_sql</dd>
-      </dl><dl><dt>
-          
-          <code><a href="update_table_sql.html">update_table_sql()</a></code> 
-        </dt>
-        <dd>update_table_sql</dd>
-      </dl><dl><dt>
-          
-          <code><a href="deleteSignature.html">deleteSignature()</a></code> 
-        </dt>
-        <dd>deleteSignature</dd>
-      </dl><dl><dt>
-          
-          <code><a href="deleteUser.html">deleteUser()</a></code> 
-        </dt>
-        <dd>deleteUser</dd>
+        <dd>validateUser</dd>
       </dl><dl><dt>
           
           <code><a href="delete_table_sql.html">delete_table_sql()</a></code> 
@@ -222,36 +298,21 @@
         <dd>delete_table_sql</dd>
       </dl><dl><dt>
           
-          <code><a href="searchFeature.html">searchFeature()</a></code> 
+          <code><a href="lookup_table_sql.html">lookup_table_sql()</a></code> 
         </dt>
-        <dd>searchFeature</dd>
+        <dd>lookup_table_sql</dd>
       </dl><dl><dt>
           
-          <code><a href="searchSignature.html">searchSignature()</a></code> 
+          <code><a href="removeSignatureFromCollection.html">removeSignatureFromCollection()</a></code> 
         </dt>
-        <dd>searchSignature</dd>
-      </dl><dl><dt>
-          
-          <code><a href="updateSignature.html">updateSignature()</a></code> 
-        </dt>
-        <dd>updateSignature</dd>
-      </dl><dl><dt>
-          
-          <code><a href="updateUser.html">updateUser()</a></code> 
-        </dt>
-        <dd>updateUser</dd>
-      </dl><dl><dt>
-          
-          <code><a href="validateUser.html">validateUser()</a></code> 
-        </dt>
-        <dd>validateUser</dd>
+        <dd>removeSignatureFromCollection</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc"><h2>On this page</h2>
     </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
-  <p>Developed by <a href="https://github.com/RC-88" class="external-link">Reina Chau</a>, Mengze Li, <a href="https://github.com/tetomonti" class="external-link">Stefano Monti</a>.</p>
+  <p>Developed by <a href="https://github.com/RC-88" class="external-link">Reina Chau</a>, <a href="https://github.com/Cvicnaire" class="external-link">Cameron Vicnaire</a>, Mengze Li, <a href="https://github.com/tetomonti" class="external-link">Stefano Monti</a>.</p>
 </div>
 
 <div class="pkgdown-footer-right">

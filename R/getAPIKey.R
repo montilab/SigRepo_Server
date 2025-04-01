@@ -22,12 +22,12 @@ getAPIKey <- function(
     db_table_name = "users", 
     return_var = c("user_name", "api_key"), 
     filter_coln_var = "user_name", 
-    filter_coln_val = list("user_name" = user), 
+    filter_coln_val = list("user_name" = conn_info$user), 
     check_db_table = TRUE
   )
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn)) 
+  base::suppressWarnings(DBI::dbDisconnect(conn)) 
   
   # Return table
   return(api_key_tbl)

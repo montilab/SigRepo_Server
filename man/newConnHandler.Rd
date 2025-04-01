@@ -8,24 +8,27 @@ newConnHandler(
   dbname = "sigrepo",
   host = "montilab.bu.edu",
   port = 3306,
+  api_port = 8020,
   user = "guest",
   password = "guest"
 )
 }
 \arguments{
-\item{dbname}{table schema of which you want the handle to point.}
+\item{dbname}{Name of MySQL database to point to.}
 
-\item{host}{host server in which you want to connect}
+\item{host}{Name of the server where MySQL database is hosted on.}
 
-\item{port}{host port in which you wish to use}
+\item{port}{Port on the server to connect to MySQL database.}
 
-\item{user}{the user who is establishing the connection}
+\item{api_port}{Port on the server to access database API.}
 
-\item{password}{password associated with the user}
+\item{user}{Name of user to establish the connection.}
+
+\item{password}{Password associated with the user.}
 }
 \value{
-a list with user credentials to establish connection to a remote database
+A list of user credentials to establish connection to the remote database.
 }
 \description{
-create a handler to connect to a remote database
+Create a handler to connect to a remote database.
 }

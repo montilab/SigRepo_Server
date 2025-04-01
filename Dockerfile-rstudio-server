@@ -25,6 +25,7 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   libxt6 \
   tk \
   git \
+  curl \
   dos2unix \
   vim \
   && apt clean autoclean \
@@ -45,6 +46,12 @@ COPY install_r_packages.R ${PACKAGE_DIR}/install_r_packages.R
 
 # Load package and install dependencies
 RUN Rscript "${PACKAGE_DIR}/install_r_packages.R"  
+
+# Install dependencies for OmicSignature 
+RUN R -e "BiocManager::install('limma')"
+
+# Install OmicSignature 
+RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies=TRUE)"
   
 # Create package directory 
 ENV TMP_DIR=/tmp 

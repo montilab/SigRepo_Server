@@ -1,15 +1,25 @@
-#' @title addSignatureCollection
+#' @title addCollection
 #' @description Add signature collection to database
 #' @param conn_handler An established connection to database using newConnhandler() 
 #' @param omic_collection A collection of OmicSignature objects from OmicSignature package
+#' @param visibility A logical value indicates whether or not to allow others 
+#' to view and access one's uploaded collection. Default is \code{FALSE}.
+#' @param return_collection_id a logical value indicates whether or not to return
+#' the ID of the uploaded collection. Default is \code{FALSE}.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#' 
 #' @export
-addSignatureCollection <- function(
+addCollection <- function(
     conn_handler,
-    omic_collection
+    omic_collection,
+    visibility = FALSE,
+    return_collection_id = FALSE,
+    verbose = TRUE
 ){
   
-  # Allow messages to be printed up to 2000 length long
-  base::options(warning.length = 2000L)
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -30,6 +40,9 @@ addSignatureCollection <- function(
   # Get table name in database ####
   db_table_name <- "collection"
   
+  # Get visibility ####
+  visibility <- ifelse(visibility == TRUE, 1, 0)
+  
   # Create collection metadata table ####
   metadata_tbl <- SigRepo::createCollectionMetadata(
     conn_handler = conn_handler, 
@@ -37,7 +50,11 @@ addSignatureCollection <- function(
   ) 
   
   # Add additional variables in collection metadata table ####
-  metadata_tbl <- metadata_tbl %>% dplyr::mutate(user_name = user_name)
+  metadata_tbl <- metadata_tbl %>% 
+    dplyr::mutate(
+      user_name = user_name,
+      visibility = visibility
+    )
   
   # Create a hash key to look up whether collection is already existed in the database ####
   metadata_tbl <- SigRepo::createHashKey(
@@ -61,21 +78,23 @@ addSignatureCollection <- function(
   if(nrow(collection_tbl) > 0){
     
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))
+    base::suppressWarnings(DBI::dbDisconnect(conn))
     
     # Show message
-    base::message(sprintf("\tYou already uploaded a collection with collection_name = '%s' into the SigRepo Database.\n", metadata_tbl$collection_name),
-                  sprintf("\tUse searchCollection() to see more details about the collection.\n"),
-                  sprintf("\tTo re-upload, try to use a different name.\n"),
-                  sprintf("\tID of the uploaded collection: %s\n", collection_tbl$collection_id))
+    SigRepo::verbose(
+      base::sprintf("\tYou already uploaded a collection with the name = '%s' to the SigRepo database.\n", metadata_tbl$collection_name),
+      base::sprintf("\tID of the uploaded collection: %s\n", collection_tbl$collection_id)
+    )
     
     # Return collection id
-    return(collection_tbl$collection_id)
+    if(return_collection_id == TRUE){
+      return(collection_tbl$collection_id[1])
+    }
     
   }else{
     
     # 1. Uploading each signature in the collection into the database
-    base::message("Uploading each signature in the collection into the database...\n")
+    SigRepo::verbose("Uploading each signature in the collection to the database...\n")
     
     # Extract omic_sig_list from omic_collection ####
     omic_sig_list <- omic_collection$OmicSigList
@@ -88,23 +107,21 @@ addSignatureCollection <- function(
       signature_id <- base::tryCatch({
         SigRepo::addSignature(
           omic_signature = omic_sig_list[[c]],
-          conn_handler = conn_handler
+          conn_handler = conn_handler,
+          visibility = visibility,
+          return_signature_id = TRUE
         )
       }, error = function(e){
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return error message
         base::stop(e, "\n")
-      }, warning = function(w){
-        base::message(w, "\n")
       }) 
-      
       signature_id_list <- c(signature_id_list, signature_id)
-      
     }
     
     # 2. Uploading collection metadata into database
-    base::message("Uploading collection metadata into the database...\n")
+    SigRepo::verbose("Uploading collection metadata to the database...\n")
     
     # Check table against database table ####
     metadata_tbl <- SigRepo::checkTableInput(
@@ -135,7 +152,7 @@ addSignatureCollection <- function(
     
     # 3. Adding user to collection access table after collection
     # was imported successfully in step (1)
-    base::message("Adding user to collection access table in the database...\n")
+    SigRepo::verbose("Adding user to the collection access table in the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
@@ -143,47 +160,51 @@ addSignatureCollection <- function(
         conn_handler = conn_handler,
         collection_id = collection_tbl$collection_id,
         user_name = user_name,
-        access_type = "owner"
+        access_type = "owner",
+        verbose = verbose
       )
     }, error = function(e){
       # Delete signature
-      base::suppressMessages(SigRepo::deleteCollection(conn_handler = conn_handler, collection_id = collection_tbl$collection_id))
+      SigRepo::deleteCollection(conn_handler = conn_handler, collection_id = collection_tbl$collection_id, verbose = FALSE)
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
       base::stop(e, "\n")
-    }, warning = function(w){
-      base::message(w, "\n")
     }) 
     
     # 4. Adding signature to collection access table after collection
     # was imported successfully in step (1)
-    base::message("Adding signature to collection access table in the database...\n")
+    SigRepo::verbose("Adding signature to the collection access table of the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
       SigRepo::addSignatureToCollection(
         conn_handler = conn_handler,
         collection_id = collection_tbl$collection_id,
-        signature_id = signature_id_list
+        signature_id = signature_id_list,
+        verbose = verbose
       )
     }, error = function(e){
       # Delete signature
-      base::suppressMessages(SigRepo::deleteCollection(conn_handler = conn_handler, collection_id = collection_tbl$collection_id))
+      SigRepo::deleteCollection(conn_handler = conn_handler, collection_id = collection_tbl$collection_id[1], verbose = FALSE)
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
       base::stop(e, "\n")
-    }, warning = function(w){
-      base::message(w, "\n")
     }) 
     
-    # Return message
-    base::message("Finished uploading.\n")
-    
     # Disconnect from database ####
-    base::suppressMessages(DBI::dbDisconnect(conn))   
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
+    # Return message
+    SigRepo::verbose("Finished uploading.\n")
+    SigRepo::verbose(base::sprintf("ID of the uploaded collection: %s\n", collection_tbl$collection_id[1]))
+    
+    # Return collection id
+    if(return_collection_id == TRUE){
+      return(collection_tbl$collection_id[1])
+    }
+
   }
 }
 

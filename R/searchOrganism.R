@@ -4,11 +4,18 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param organism a list of organisms to search by. Default is NULL which
 #' includes all organisms in the database.
+#' @param verbose a logical value indicates whether or not to print the
+#' diagnostic messages. Default is \code{TRUE}.
+#'
 #' @export
 searchOrganism <- function(
     conn_handler,
-    organism = NULL
+    organism = NULL,
+    verbose = TRUE
 ){
+  
+  # Whether to print the diagnostic messages
+  SigRepo::print_messages(verbose = verbose)
 
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
@@ -26,7 +33,7 @@ searchOrganism <- function(
     organism_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "organisms", 
-      return_var = "organism", 
+      return_var = "*", 
       check_db_table = TRUE
     )  
     
@@ -36,7 +43,7 @@ searchOrganism <- function(
       conn = conn, 
       db_table_name = "organisms", 
       return_var = "organism", 
-      filter_coln_var = "organism", 
+      filter_coln_var = "*", 
       filter_coln_val = list("organism" = organism),
       check_db_table = TRUE
     ) 
@@ -44,7 +51,7 @@ searchOrganism <- function(
   }
   
   # Disconnect from database ####
-  base::suppressMessages(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))
   
   # Return table
   return(organism_tbl)
