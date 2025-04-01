@@ -1,15 +1,4 @@
 #' @title updateSignature
-<<<<<<< HEAD
-#' @description Add a signature to the signature table of the database
-#' @param conn An established connection to the database using newConnhandler() 
-#' @param omic_signature An R6 class object from the OmicSignature package
-#' @param signature_name The name of the signature to update
-#' @export
-updateSignature <- function(
-    conn,
-    omic_signature,
-    signature_name
-=======
 #' @description Update a signature in the database
 #' @param conn_handler An established connection handler using SigRepo::newConnhandler()
 #' @param signature_id a unique signature id in the database that needs to be updated
@@ -50,7 +39,6 @@ updateSignature <- function(
     omic_signature,
     visibility = NULL,
     verbose = TRUE
->>>>>>> reina_dev
 ){
   
   # Whether to print the diagnostic messages
@@ -66,11 +54,6 @@ updateSignature <- function(
     required_role = "editor"
   )
   
-<<<<<<< HEAD
-  if (!conn_info ) {
-    stop("You do not have sufficient permissions to update signatures.")
-  }
-=======
   # Get user_role ####
   user_role <- conn_info$user_role[1] 
   
@@ -79,41 +62,10 @@ updateSignature <- function(
   
   # Get unique signature id
   signature_id <- base::unique(signature_id) 
->>>>>>> reina_dev
-  
+
   # Get table name in database ####
   db_table_name <- "signatures"
   
-<<<<<<< HEAD
-  # Step 1: Delete the existing signature
-  delete_result <- tryCatch({
-    SigRepoR::deleteSignature(conn = conn, signature_name = signature_name)
-  }, error = function(e) {
-    stop(paste("Failed to delete signature:", e$message))
-  })
-  
-  if (!delete_result) {
-    stop("Error: Unable to delete the existing signature.")
-  }
-  
-  # Step 2: Add the new omic signature
-  add_result <- tryCatch({
-    SigRepoR::addSignature(conn = conn, omic_signature = omic_signature)
-  }, error = function(e) {
-    stop(paste("Failed to add the new signature:", e$message))
-  })
-  
-  if (!add_result) {
-    stop("Error: Unable to add the new omic signature.")
-  }
-  
-  message("Signature successfully updated.")\
-
-  # close connection
-
-  DBI::dbDisconnect(conn_info$conn)
-}
-=======
   # Check signature_id
   if(!length(signature_id) == 1 || all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
@@ -405,4 +357,3 @@ updateSignature <- function(
   
   
   
->>>>>>> reina_dev

@@ -173,14 +173,6 @@ addSignature <- function(
     # was imported successfully in step (1)
     SigRepo::verbose("Adding user to the signature access table of the database...\n")
     
-<<<<<<< HEAD
-  }
-
-  # close the connection
-  DBI::dbDisconnect(conn_info$conn)
-
-  
-=======
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
       SigRepo::addUserToSignature(
@@ -270,7 +262,6 @@ addSignature <- function(
     }
     
   } 
->>>>>>> reina_dev
 }  
 
 

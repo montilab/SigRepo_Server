@@ -107,30 +107,6 @@ addUserToSignature <- function(
     check_db_table = TRUE
   )
   
-<<<<<<< HEAD
-  # Remove duplicates from table before inserting into database ####
-  table <- SigRepo::removeDuplicates(
-    conn = conn,
-    db_table_name = db_table_name,
-    table = table,
-    coln_var = "access_sig_hashkey",
-    check_db_table = FALSE
-  )
-
-  # Insert table into database ####
-  SigRepo::insert_table_sql(
-    conn = conn, 
-    db_table_name = db_table_name, 
-    table = table,
-    check_db_table = FALSE
-  )  
-
-  # close connection
-
-  DBI::dbDisconnect(conn_info$conn)
-  
-}
-=======
   # If signature exists, return the signature table else throw an error message
   if(nrow(signature_tbl) == 0){
     
@@ -218,7 +194,6 @@ addUserToSignature <- function(
       table = table,
       check_db_table = FALSE
     )
->>>>>>> reina_dev
 
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 

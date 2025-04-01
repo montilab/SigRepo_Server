@@ -157,11 +157,6 @@ addUser <- function(
       }
     }
   )
-<<<<<<< HEAD
-# close connection
-
-DBI::dbDisconnect(conn_info$conn)
-=======
   
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -169,7 +164,6 @@ DBI::dbDisconnect(conn_info$conn)
   # Return message
   SigRepo::verbose("Finished uploading.\n")
   
->>>>>>> reina_dev
 }
 
 

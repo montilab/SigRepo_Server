@@ -102,40 +102,6 @@ deleteSignature <- function(
         }
       }
     }
-<<<<<<< HEAD
-  }
-  
-  # Delete the signature from the database
-  DBI::dbExecute(conn = conn, 
-                 statement = sprintf("DELETE FROM %s
-                                     WHERE signature_name = '%s'", 
-                                     db_table_name, signature_name))
-  
-  
-  db_table_name_two <- "signature_feature_set"
-  
-  # Delete Signature Feature Set, 
-  
-  DBI::dbExecute(conn = conn,
-                 statement = sprintf("DELETE FROM %s 
-                                     WHERE sig_feature_hashkey = %s",
-                                     db_table_name_two, 
-                                     signature_hashkey$signature_hashkey))
-  
-  # Update user access 
-  
-  db_table_name_three <- "sinature_access"
-  
-  DBI::dbExecute(conn = conn,
-                 statement = springf("DELETE FROM %s WHERE signature_id = %s", db_table_name_three, signature_id ))
-  
-  
-  
- 
-  DBI::dbDisconnect(conn)
-  
-  message(sprintf("Signature '%s' and associated data have been deleted from the SigRepo Database.", signature_name))
-=======
     
     # Check if signature has difexp, remove it
     if(signature_tbl$has_difexp[1] == 1){
@@ -207,7 +173,6 @@ deleteSignature <- function(
     SigRepo::verbose(base::sprintf("signature_id = '%s' has been removed.", signature_id))
 
   } 
->>>>>>> reina_dev
 }
 
 

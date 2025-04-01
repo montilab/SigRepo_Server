@@ -1,14 +1,15 @@
-#' @title addKeyword
-#' @description Add keywords to database
+#' @title addSampleType
+#' @description Add sample_type to database
 #' @param conn_handler An established connection to database using newConnhandler() 
-#' @param keyword_tbl A data frame containing appropriate column names: keyword
+#' @param sample_type_tbl An data frame containing appropriate column names:
+#' sample_type, brenda_accession
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @export
-addKeyword <- function(
+addSampleType <- function(
     conn_handler,
-    keyword_tbl,
+    sample_type_tbl,
     verbose = TRUE
 ){
   
@@ -22,28 +23,28 @@ addKeyword <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "editor"
+    required_role = "admin"
   )
   
   # Create a list of variables to check database ####
-  required_column_fields <- "keyword"
-  db_table_name <- "keywords"
-  table <- keyword_tbl
+  required_column_fields <- "sample_type"
+  db_table_name <- "sample_types"
+  table <- sample_type_tbl
   
   # Check required column fields
   if(any(!required_column_fields %in% colnames(table))){
     # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("the table is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn))     
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####
@@ -51,7 +52,7 @@ addKeyword <- function(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
-    exclude_coln_names = "keyword_id",
+    exclude_coln_names = "sample_type_id",
     check_db_table = TRUE
   )
   
@@ -60,7 +61,7 @@ addKeyword <- function(
     conn = conn, 
     db_table_name = db_table_name,
     table = table,
-    coln_var = "keyword",
+    coln_var = "sample_type",
     check_db_table = FALSE
   )
   
@@ -73,7 +74,7 @@ addKeyword <- function(
   ) 
   
   # Disconnect from database ####
-  base::suppressWarnings(DBI::dbDisconnect(conn))
+  base::suppressWarnings(DBI::dbDisconnect(conn))  
   
   # Return message
   SigRepo::verbose("Finished uploading.\n")
