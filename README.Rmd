@@ -108,10 +108,10 @@ Once you have a valid account, to connect to our SigRepo database, one can use t
 ```{r}
 # Create a connection handler
 conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"),
-  host = Sys.getenv("HOST"),
-  port = as.integer(Sys.getenv("PORT")),
-  user = Sys.getenv("USER"),
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
 ```

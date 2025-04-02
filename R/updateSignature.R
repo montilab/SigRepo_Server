@@ -315,7 +315,7 @@ updateSignature <- function(
         # Save difexp to local storage ####
         data_path <- base::tempfile()
         if(!base::dir.exists(data_path)){
-          base::dir.create(path = base::file.path(base::system.file("inst", package = "SigRepo"), "data/difexp"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
+          base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
         }
         base::saveRDS(difexp, file = base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
         # Get API URL
