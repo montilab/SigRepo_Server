@@ -122,10 +122,6 @@ addTranscriptomicsFeatureSet <- function(
     table = table,
     check_db_table = FALSE
   )  
-
-   #close connection
-
-   DBI:dbDisconnect(conn_info$conn)
   
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))  
