@@ -64,6 +64,9 @@ RUN R -e "BiocManager::install('limma')"
 # Install OmicSignature 
 RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies=TRUE)"
 
+# Initiate database table
+RUN Rscript "${PACKAGE_DIR}/inst/init/01-import-dictionaries-into-database.R"
+
 # Make Shiny App or Plumber API available at port 3838
 EXPOSE 3838
 

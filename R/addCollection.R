@@ -230,5 +230,3 @@ addCollection <- function(
   }
 }
 
-
-

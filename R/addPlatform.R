@@ -45,7 +45,7 @@ addPlatform <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####
@@ -74,6 +74,12 @@ addPlatform <- function(
     check_db_table = FALSE
   ) 
 
+  # Disconnect from database ####
+  base::suppressWarnings(DBI::dbDisconnect(conn))
+  
+  # Return message
+  SigRepo::verbose("Finished uploading.\n")
+  
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))
   

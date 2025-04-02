@@ -62,7 +62,7 @@ updateSignature <- function(
   
   # Get unique signature id
   signature_id <- base::unique(signature_id) 
-  
+
   # Get table name in database ####
   db_table_name <- "signatures"
   
@@ -313,9 +313,9 @@ updateSignature <- function(
         # Extract difexp from omic_signature ####
         difexp <- omic_signature$difexp
         # Save difexp to local storage ####
-        data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+        data_path <- base::tempfile()
         if(!base::dir.exists(data_path)){
-          base::dir.create(path = base::file.path(base::system.file("inst", package = "SigRepo"), "data/difexp"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
+          base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
         }
         base::saveRDS(difexp, file = base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
         # Get API URL
@@ -353,7 +353,4 @@ updateSignature <- function(
     }
   }
 } 
-  
-  
-  
-  
+
