@@ -1,8 +1,8 @@
 ---
-title: "Install Sigrepo Database Locally"
+title: "Initiate SigRepo Database on Your Local Machine"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Install Sigrepo Locally}
+  %\VignetteIndexEntry{Initiate SigRepo Database on Your Local Machine}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -32,7 +32,7 @@ docker compose version
 
 ## Set-up
 
-1. Clone this repository to your **$HOME** directory and navigate to **SigRepo** folder
+### 1. Clone this repository to your `$HOME` directory and navigate to `SigRepo` folder
 
 ```bash
 cd $HOME
@@ -40,13 +40,13 @@ git clone https://github.com/montilab/SigRepo
 cd SigRepo
 ```
 
-2. Create a **mysql.env** file to initiate admin users to MySQL database
+### 2. Create a `mysql.env` file to initiate admin users in the database
 
 ```bash
 nano mysql.env
 ```
 
-- Copy the configurations below to the **mysql.env** file
+- Copy the configurations below to **mysql.env** file
 
 ```text
 MYSQL_DATABASE='sigrepo'
@@ -55,38 +55,45 @@ MYSQL_PASSWORD='sigrepo'
 MYSQL_ROOT_PASSWORD='sigrepo'
 ```
 
+__PARAMETERS:__
+
+- `MYSQL_DATABASE`: Name of the database <br>
+- `MYSQL_USER`: Name of a super user in the database (e.g., having `sudo` privileges) <br>
+- `MYSQL_PASSWORD`: Password for the super user <br>
+- `MYSQL_ROOT_PASSWORD`: Password for root user <br>
+
 __IMPORTANT NOTES:__
 
-- We are using a base MySQL image in DockerHub to initiate the database. Please see the official image [here](https://hub.docker.com/_/mysql) for additional environments that it allows.
+- We are using a MySQL image in **DockerHub** as base image to initiate the database. See the official image [here](https://hub.docker.com/_/mysql) for additional environments that one can use.
 
-- Environment variables above are just dummy values. Please change them to more encrypted values while deploying for production.
+- The environment variables above are just dummy values. Please change them to more encrypted values when deploying to production.
 
-3. Create a MySQL `database` directory in your **$HOME** directory to store database tables and its schema
+### 3. Create a MySQL `database` directory in your `$HOME` directory to store database tables and its schema
 
 ```bash
 mkdir -p /$HOME/mysql/database
 ```
 
-4. Create a `difexp` directory in your **$HOME** directory to store differential expression from the uploaded signatures using the SigRepo package.
+### 4. Create a `difexp` directory in your `$HOME` directory to store differential expression from the uploaded signatures using the `SigRepo` package and its API.
 
 ```bash
 mkdir -p /$HOME/mysql/difexp
 ```
 
-5. Create a network called **"db-net"** to connect to MySQL Server to SigRepo's API internally.
+### 5. Create a network called `"db-net"` to connect MySQL Server to SigRepo's API internally.
 
 ```bash
 docker network create -d bridge db-net
 ```
 
-6. Edit **docker-compose.yml** to configure how to build the MySQL image and run its container.
+### 6. Edit `docker-compose-dockerhub.yml` to configure how to build the MySQL image and run its container.
 
 __IMPORTANT NOTES:__
 
-- **MAKE SURE** to map the `database` directory you created in (3) to the container `/var/lib/mysql` directory. <br>
-- **MAKE SURE** to map the `difexp` directory you created in (4) to the container `/difexp` directory. <br>
+- **MAKE SURE** to map the `database` directory you created in (**3**) to the container `/var/lib/mysql` directory. <br>
+- **MAKE SURE** to map the `difexp` directory you created in (**4**) to the container `/difexp` directory. <br>
 - **MAKE SURE** to map the initiation script (`init.sql`) which stored in `SigRepo/inst/mysql/schema` directory to the container `/docker-entrypoint-initdb.d/init.sql` directory. This script will initiate the MySQL database and its schema. <br>
-- **MAKE SURE** to map the `SigRepo` directory to the container `/SigRepo` directory in order to use a suite of functions in `SigRepo` package to interact with the database. <br>
+- **MAKE SURE** to map the `SigRepo` directory to the container `/SigRepo` directory in order to use a suite of functions in the `SigRepo` package to interact with the database. <br>
 
 ```text
 services:
@@ -116,15 +123,15 @@ services:
     restart: always
     volumes:
       - $HOME/SigRepo:/SigRepo
-      - $HOME/SigRepo/.Renviron:/root/.Renviron
       - $HOME/mysql/difexp:/difexp:rw
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
-
+    
   sigrepo-shiny:
     container_name: sigrepo-shiny
     image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql
+      - sigrepo-api
     networks:
       - db-net
     ports:
@@ -132,41 +139,44 @@ services:
     restart: always
     volumes:
       - $HOME/SigRepo:/SigRepo
-      - $HOME/SigRepo/.Renviron:/root/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
-      
+            
 networks:
   db-net:
     external: true
 ```
 
-7. Build MySQL image and run its container
+### 7. Build the MySQL image and run its container
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose-dockerhub.yml up -d
 ```
 
 **`-d`**: run container in detached mode <br>
 
-8. Check if the container is built successfully
+### 8. Check if the container is built successfully
 
 ```bash
 docker ps
 
-
-CONTAINER ID   IMAGE                  COMMAND                    CREATED        STATUS        PORTS                    NAMES
-b37b6b19c4e8   sigrepo-mysql:latest   "docker-entrypoint.s..."   5 hours ago    Up 5 hours    0.0.0.0:3306->3838/tcp   sigrepo-mysql
+CONTAINER ID   IMAGE                           COMMAND                  CREATED       STATUS       PORTS                                                  NAMES
+95ac83ff67b6   montilab/sigrepo-mysql:latest   "docker-entrypoint.s…"   2 weeks ago   Up 2 weeks   0.0.0.0:3306->3306/tcp, :::3306->3306/tcp, 33060/tcp   sigrepo-mysql
+70c2dae8511d   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 weeks ago   Up 2 weeks   0.0.0.0:8020->3838/tcp, [::]:8020->3838/tcp            sigrepo-api
+0472a25885b6   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 weeks ago   Up 2 weeks   0.0.0.0:8050->3838/tcp, [::]:8050->3838/tcp            sigrepo-shiny
 ```
 
-9. Get ip address of `sigrepo-mysql` in order to connect to MySQL database to SigRepo's API internally
+### 9. Get ip address of `sigrepo-mysql` container in order to link MySQL Server to SigRepo's API internally
 
 ```
 docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql 
+
+172.18.0.2
 ```
 
-10. Create an **.Renviron** file with all credentials to access the database.
+### 10. Create an **.Renviron** file with all credentials to access the database.
 
 ```bash
+touch .Renviron
 nano .Renviron
 ```
 
@@ -175,24 +185,24 @@ nano .Renviron
 ```
 DBNAME = "sigrepo"
 HOST = "127.0.0.1"
-HOST_DB_NET = "172.18.0.3"
+HOST_DB_NET = "172.18.0.2"
 PORT = 3306
 API_PORT = 8020
-USER = "montilab"
+USER = "root"
 PASSWORD = "sigrepo"
 ```
 
 __NOTES:__ `127.0.0.1` is the localhost IP address. 
 
-10. Whenever an environment file is altered, in order for the containers to pick up the newly added/edited environments, you need to restart it.
+### 11. When an environment file is altered or added, it is `IMPORTANT` to restart the containers in order for them to pick up the newly added/edited values.
 
 ```bash
-docker compose restart
+docker compose -f docker-compose-dockerhub.yml restart
 ```
 
-11. Finally, open `SigRepo.Rproj` file with your **RStudio Server** and use `SigRepo` package to upload a signature to your newly created database.
+### 12. Finally, open `SigRepo.Rproj` with your `RStudio Server`. Here, we will use the `SigRepo` package to upload an omic signature to the newly created database.
 
-- **Example 1**: Create an omic signature using **OmicSignature** package and upload to the database 
+- Load packages with `devtools`
 
 ```
 # Load devtools package
@@ -206,7 +216,11 @@ library(tidyverse)
 
 # Load OmicSignature package
 library("OmicSignature")
+```
 
+- Create a handler to establish connection to the database using environment variables created in (10)
+
+```
 # Create a connection handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
@@ -215,7 +229,11 @@ conn_handler <- SigRepo::newConnHandler(
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
+```
 
+- Create an omic signature using **OmicSignature** package 
+
+```
 # Create signature metadata
 metadata <- base::list(
   # required attributes:
@@ -265,14 +283,18 @@ omic_signature <- OmicSignature::OmicSignature$new(
   signature = signature,
   difexp = difexp
 )
+```
 
+- Use **SigRepo::addSignature()** function to add the signature to the database 
+
+```
 # Add signature to database
 SigRepo::addSignature(
-  conn_handler = conn_handler,        # A handler contains user credentials to establish connection to a remote database
-  omic_signature = omic_signature,    # An R6 object obtained from OmicSignature::OmicSignature()
-  visibility = FALSE,                 # Whether to make signature public or private. Default is FALSE.
-  return_signature_id = FALSE,        # Whether to return the uploaded signature id. Default is FALSE.
-  verbose = TRUE                      # Whether to print diagnostic messages. Default is TRUE.
+  conn_handler = conn_handler,        
+  omic_signature = omic_signature,    
+  visibility = FALSE,                
+  return_signature_id = FALSE,        
+  verbose = TRUE                      
 )
 ```
 

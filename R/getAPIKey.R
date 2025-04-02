@@ -8,14 +8,14 @@ getAPIKey <- function(
   
   # Establish user connection ###
   conn <- SigRepo::conn_init(conn_handler = conn_handler)
-
+  
   # Check user connection and permissions ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "SELECT",
     required_role = "editor"
   )
-
+  
   # Look up api key
   api_key_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
