@@ -313,7 +313,7 @@ updateSignature <- function(
         # Extract difexp from omic_signature ####
         difexp <- omic_signature$difexp
         # Save difexp to local storage ####
-        data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+        data_path <- base::tempfile()
         if(!base::dir.exists(data_path)){
           base::dir.create(path = base::file.path(base::system.file("inst", package = "SigRepo"), "data/difexp"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
         }

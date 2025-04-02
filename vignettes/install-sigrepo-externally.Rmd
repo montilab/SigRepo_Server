@@ -179,7 +179,7 @@ CONTAINER ID   IMAGE                           COMMAND                  CREATED 
 ```
 docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql 
 
-172.18.0.3
+172.18.0.2
 ```
 
 ### 10. Get the host name of the server
@@ -199,6 +199,7 @@ For example: 142.93.67.157
 ### 11. Create an **.Renviron** file with all credentials to access the database.
 
 ```bash
+touch .Renviron
 nano .Renviron
 ```
 
@@ -207,10 +208,10 @@ nano .Renviron
 ```
 DBNAME = "sigrepo"
 HOST = "142.93.67.157"
-HOST_DB_NET = "172.18.0.3"
+HOST_DB_NET = "172.18.0.2"
 PORT = 3306
 API_PORT = 8020
-USER = "montilab"
+USER = "root"
 PASSWORD = "sigrepo"
 ```
 
