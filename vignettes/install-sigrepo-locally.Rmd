@@ -123,7 +123,6 @@ services:
     restart: always
     volumes:
       - $HOME/SigRepo:/SigRepo
-      - $HOME/SigRepo/.Renviron:/root/.Renviron
       - $HOME/mysql/difexp:/difexp:rw
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
     
@@ -140,7 +139,6 @@ services:
     restart: always
     volumes:
       - $HOME/SigRepo:/SigRepo
-      - $HOME/SigRepo/.Renviron:/root/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
             
 networks:
