@@ -28,6 +28,10 @@ OmS_SUM_CYP <- brca_diffanal$SUM.CYP
 
 OmS_SUM_AhR <- brca_diffanal$SUM.AhR
 
+# proteomics example
+
+prot_OmS_MDA_CYP <- brca_diffanal$MDA.CYP
+
 
 # filtering out the depricated ids
 
@@ -44,7 +48,12 @@ OmS_SUM_CYP <- dplyr::filter(OmS_SUM_CYP, ensembl_gene_id %in% filter_list$featu
 
 OmS_SUM_AhR <- dplyr::filter(OmS_SUM_AhR, ensembl_gene_id %in% filter_list$feature_name)
 
-# Creating metadata for all 4, The xxxx is either AhR or CYP1B1. "MDA-MB-231 cell" or "SUM-149PT cell",
+# proteomics example
+
+prot_OmS_MDA_CYP <-  dplyr::filter(prot_OmS_MDA_CYP, ensembl_gene_id %in% filter_list$feature_name)
+
+
+# transcriptomics example metadata 
 
 metadata_MDA_CYP <- OmicSignature::createMetadata(
   signature_name = "CYP181 knockdown in breast cancer cell line", 
@@ -101,7 +110,25 @@ metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "AhR knockdow
                                                   description = "Profiles of the transcriptional response of AhR knockdown in breast cancer cell ines", 
                                                   adj_p_cutoff = "0.01")
 
-# Creating difexp's
+
+# proteomics example metadata
+
+prot_metadata_MDA_CYP <- OmicSignature::createMetadata(
+  signature_name = "CYP181 knockdown in breast cancer cell line", 
+  organism = "Homo sapiens",
+  assay_type = "proteomics", 
+  phenotype = "CYP181 knockdown",
+  sample_type = "MDA-MB-231 cell",
+  direction_type = "bi-directional", 
+  platform = "GPL17930", 
+  covariates = "none", 
+  year = 2016, 
+  keywords = c("breast cancer", "CYP181 knockdown"), 
+  description = "Profiles of the transcriptional response of CYP181 knockdown in breast cancer cell ines", 
+  adj_p_cutoff = "0.01")
+
+
+# Transriptomics example difexp
 
 difexp_SUM_Ahr <- OmS_SUM_AhR %>%
   dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
@@ -125,6 +152,11 @@ difexp_MDA_CYP <- OmS_MDA_CYP %>%
   ) %>%
   select(feature_name, adj_p, score )
 
+# proteomics example difex
+
+prot_difexp_MDA_CYP <- prot_OmS_MDA_CYP %>%
+  dplyr::rename(score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val) %>%
+  select(feature_name, adj_p, score)
 
 # creating fake probe_ids for now, still not working for me
 
@@ -132,6 +164,10 @@ difexp_SUM_Ahr$probe_id <- paste0("SUM_AhR_", 1:nrow(difexp_SUM_Ahr))
 difexp_SUM_CYP$probe_id <- paste0("SUM_CYP_", 1:nrow(difexp_SUM_CYP))
 difexp_MDA_AhR$probe_id <- paste0("MDA_AhR_", 1:nrow(difexp_MDA_AhR))
 difexp_MDA_CYP$probe_id <- paste0("MDA_CYP_", 1:nrow(difexp_MDA_CYP))
+
+# proteomics example fake probe ids
+
+prot_difexp_MDA_CYP$probe_id <- paste0("prot_MDA_CYP", 1:nrow(prot_difexp_MDA_CYP))
 
 # Creating Signatures, 
 
@@ -150,6 +186,10 @@ sig_MDA_AhR <- difexp_MDA_AhR %>%
 sig_MDA_CYP <- difexp_MDA_CYP %>%
   select(feature_name, score, probe_id)
 
+# proteomics example signature
+
+prot_sig_MDA_CYP <- prot_difexp_MDA_CYP %>%
+  select(feature_name, score, probe_id)
 
 # adding in the direction column
 
@@ -160,6 +200,10 @@ sig_SUM_CYP$direction <- ifelse(sig_SUM_CYP$score > 0, "+", "-")
 sig_MDA_AhR$direction <- ifelse(sig_MDA_AhR$score > 0, "+", "-")
 
 sig_MDA_CYP$direction <- ifelse(sig_MDA_CYP$score > 0, "+", "-")
+
+# adding direction column
+
+prot_sig_MDA_CYP$direction <- ifelse(prot_sig_MDA_CYP$score > 0, "+","-")
 
 
 
@@ -189,7 +233,16 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
   difexp = difexp_MDA_CYP
 )
 
+# Creating Proteomics signature object
+
+prot_omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
+  signature = prot_sig_MDA_CYP,
+  metadata = prot_metadata_MDA_CYP,
+  difexp = prot_difexp_MDA_CYP
+)
+
 # Creating an OmicSignature Collection
+
 
 colMeta <- list(
   'collection_name' = 'example',
@@ -211,5 +264,6 @@ saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_sig
 
 saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
 
-qsaveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
+saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
 
+saveRDS(prot_omic_signature_MDA_CYP, file = file.path(data_path, "signatures/prot_omic_signature_MDA_CYP.RDS"))

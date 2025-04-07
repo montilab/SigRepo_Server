@@ -230,25 +230,59 @@ addSignature <- function(
     }else if(assay_type == "proteomics"){
       
       # If there is a error during the process, remove the signature and output the message
-      base::tryCatch({
+      warn_tbl <- base::tryCatch({
         SigRepo::addProteomicsSignatureSet(
           conn_handler = conn_handler,
-          signature_id = signature_tbl$signature_id,
-          organism_id = signature_tbl$organism_id,
-          signature_set = omic_signature$signature
+          signature_id = signature_tbl$signature_id[1],
+          organism_id = signature_tbl$organism_id[1],
+          signature_set = omic_signature$signature,
+          verbose = verbose
         )
       }, error = function(e){
         # Delete signature
-        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id)
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return error message
         base::stop(e, "\n")
-      }, warning = function(w){
-        base::message(w, "\n")
       }) 
       
+      # Check if warning table is returned
+      if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Return warning table
+        return(warn_tbl)
+      }
+      
+  
+      
     }else if(assay_type == "metabolomics"){
+      # If there is a error during the process, remove the signature and output the message
+      warn_tbl <- base::tryCatch({
+        SigRepo::addMetabolomicsSignatureSet(
+          conn_handler = conn_handler,
+          signature_id = signature_tbl$signature_id[1],
+          organism_id = signature_tbl$organism_id[1],
+          signature_set = omic_signature$signature,
+          verbose = verbose
+        )
+      }, error = function(e){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))  
+        # Return error message
+        base::stop(e, "\n")
+      }) 
+      
+      # Check if warning table is returned
+      if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Return warning table
+        return(warn_tbl)
+      }
       
     }else if(assay_type == "methylomics"){
       
