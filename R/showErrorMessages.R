@@ -81,7 +81,53 @@ showTranscriptomicsErrorMessage <- function(
     base::sprintf("\nTo add these features to our database, please contact our admin for support.\n")
   )
   
+
 }
+
+#' @title showProteomicsErrorMessage
+#' @description Error message for trying to add unknown Protoeomics Features to the database
+#' @param db_table_name The table name in database
+#' @param unknown_values The unknown values
+#' 
+#' @noRd
+#' 
+#' @export 
+showProteomicsErrorMessage <- function(
+    db_table_name,
+    unknown_values
+){
+  
+  base::warning(
+    base::sprintf("\nThe following features do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\nYou can use 'searchFeature()' to see a list of available features in the database."),
+    base::sprintf("\nTo add these features to our database, please contact our admin for support.\n")
+  )
+  
+  
+}
+
+#' @title showMetabalomicsErrorMessage
+#' @description Error message for trying to add unknown Metabalomics Features to the database
+#' @param db_table_name The table name in database
+#' @param unknown_values The unknown values
+#' 
+#' @noRd
+#' 
+#' @export 
+showMetabalomicsErrorMessage <- function(
+    db_table_name,
+    unknown_values
+){
+  
+  base::warning(
+    base::sprintf("\nThe following features do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\nYou can use 'searchFeature()' to see a list of available features in the database."),
+    base::sprintf("\nTo add these features to our database, please contact our admin for support.\n")
+  )
+  
+  
+}
+
 
 
 
