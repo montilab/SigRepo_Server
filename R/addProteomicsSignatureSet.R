@@ -169,7 +169,7 @@ addProteomicsSignatureSet <- function(
       unknown_values <- table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
       
       # Show error message 
-      SigRepo::showTranscriptomicsErrorMessage(
+      SigRepo::showProteomicsErrorMessage(
         db_table_name = ref_table,
         unknown_values = unknown_values
       )
