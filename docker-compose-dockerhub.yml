@@ -2,6 +2,7 @@ services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
     image: montilab/sigrepo-mysql:latest
+    platform: linux/arm64
     env_file:
       - mysql.env
     networks:
