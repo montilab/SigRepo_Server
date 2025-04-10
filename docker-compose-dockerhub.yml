@@ -2,7 +2,6 @@ services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
     image: montilab/sigrepo-mysql:latest
-    platform: linux/arm64
     env_file:
       - mysql.env
     networks:
@@ -17,7 +16,6 @@ services:
   sigrepo-api:
     container_name: sigrepo-api
     image: montilab/sigrepo:latest
-    platform: linux/arm64
     depends_on:
       - sigrepo-mysql
     networks:
@@ -33,7 +31,6 @@ services:
   sigrepo-shiny:
     container_name: sigrepo-shiny
     image: montilab/sigrepo:latest
-    platform: linux/arm64
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
