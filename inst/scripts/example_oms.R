@@ -17,8 +17,17 @@ data_path <- system.file("data", package="SigRepo")
 # reading in the data 
 brca_diffanal<- base::readRDS(file.path(data_path, "signatures/ahr_cyp1b1_brca_diffanal.RDS"))
 
+# reading in example proteomics signature
 
+prot_sig <- read_csv(file.path(data_path, "signatures/NECS_protein_annot.csv")) %>%
+  rename(feature_name = uniprot)
 
+# adding the required columns to the signature
+
+prot_sig <- prot_sig %>%
+  mutate(probe_id = 1) %>%
+  mutate(score = 1) %>%
+  mutate(direction = "+") 
 
 OmS_MDA_CYP <- brca_diffanal$MDA.CYP
 
@@ -28,9 +37,6 @@ OmS_SUM_CYP <- brca_diffanal$SUM.CYP
 
 OmS_SUM_AhR <- brca_diffanal$SUM.AhR
 
-# proteomics example
-
-prot_OmS_MDA_CYP <- brca_diffanal$MDA.CYP
 
 
 # filtering out the depricated ids
@@ -49,8 +55,6 @@ OmS_SUM_CYP <- dplyr::filter(OmS_SUM_CYP, ensembl_gene_id %in% filter_list$featu
 OmS_SUM_AhR <- dplyr::filter(OmS_SUM_AhR, ensembl_gene_id %in% filter_list$feature_name)
 
 # proteomics example
-
-prot_OmS_MDA_CYP <-  dplyr::filter(prot_OmS_MDA_CYP, ensembl_gene_id %in% filter_list$feature_name)
 
 
 # transcriptomics example metadata 
@@ -119,13 +123,14 @@ prot_metadata_MDA_CYP <- OmicSignature::createMetadata(
   assay_type = "proteomics", 
   phenotype = "CYP181 knockdown",
   sample_type = "MDA-MB-231 cell",
-  direction_type = "bi-directional", 
+  direction_type = "uni-directional", 
   platform = "GPL17930", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "CYP181 knockdown"), 
-  description = "Profiles of the transcriptional response of CYP181 knockdown in breast cancer cell ines", 
-  adj_p_cutoff = "0.01")
+  description = "Proteomics Example", 
+  adj_p_cutoff = "0.01"
+  )
 
 
 # Transriptomics example difexp
@@ -165,9 +170,6 @@ difexp_SUM_CYP$probe_id <- paste0("SUM_CYP_", 1:nrow(difexp_SUM_CYP))
 difexp_MDA_AhR$probe_id <- paste0("MDA_AhR_", 1:nrow(difexp_MDA_AhR))
 difexp_MDA_CYP$probe_id <- paste0("MDA_CYP_", 1:nrow(difexp_MDA_CYP))
 
-# proteomics example fake probe ids
-
-prot_difexp_MDA_CYP$probe_id <- paste0("prot_MDA_CYP", 1:nrow(prot_difexp_MDA_CYP))
 
 # Creating Signatures, 
 
@@ -201,10 +203,6 @@ sig_MDA_AhR$direction <- ifelse(sig_MDA_AhR$score > 0, "+", "-")
 
 sig_MDA_CYP$direction <- ifelse(sig_MDA_CYP$score > 0, "+", "-")
 
-# adding direction column
-
-prot_sig_MDA_CYP$direction <- ifelse(prot_sig_MDA_CYP$score > 0, "+","-")
-
 
 
 # Creating the Omic Signature Objects
@@ -235,10 +233,9 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
 
 # Creating Proteomics signature object
 
-prot_omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
-  signature = prot_sig_MDA_CYP,
-  metadata = prot_metadata_MDA_CYP,
-  difexp = prot_difexp_MDA_CYP
+prot_omic_signature_ex <- OmicSignature::OmicSignature$new(
+  signature = prot_sig,
+  metadata = prot_metadata_MDA_CYP
 )
 
 # Creating an OmicSignature Collection
@@ -266,4 +263,6 @@ saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_sig
 
 saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
 
-saveRDS(prot_omic_signature_MDA_CYP, file = file.path(data_path, "signatures/prot_omic_signature_MDA_CYP.RDS"))
+saveRDS(prot_omic_signature_ex, file = file.path(data_path, "signatures/prot_omic_signature_ex.RDS"))
+
+
