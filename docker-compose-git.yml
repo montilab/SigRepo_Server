@@ -1,9 +1,38 @@
+
+x-sigrepo-git-repo:
+  &sigrepo-git-repo
+  https://github.com/montilab/SigRepo.git#master
+
+x-sql-volume:
+  &sql-volume
+  type: bind
+  source: $HOME/mysql/database
+  target: /var/lib/mysql
+  
+x-sql-schema-init:
+  &sql-schema-init 
+  type: bind
+  source: $HOME/SigRepo/inst/mysql/schema/init.sql
+  target: /docker-entrypoint-initdb.d/init.sql
+  
+x-difexp-volume:
+  &difexp-volume
+  type: bind
+  source: $HOME/mysql/difexp
+  target: /difexp
+  
+x-sigrepo-volume:
+  &sigrepo-volume
+  type: bind
+  source: $HOME/SigRepo
+  target: /SigRepo
+
 services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
     image: sigrepo-mysql:latest
     build:
-      context: https://github.com/montilab/SigRepo.git#master
+      context: *sigrepo-git-repo
       dockerfile: Dockerfile-mysql
       args:
         - mysql_image=mysql:8.0-bookworm
@@ -15,14 +44,14 @@ services:
       - 3306:3306
     restart: always
     volumes:
-      - $HOME/mysql/database:/var/lib/mysql:rw
-      - $HOME/SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
+      - *sql-volume
+      - *sql-schema-init  
 
   sigrepo:
     container_name: sigrepo
     image: sigrepo:latest
     build:
-      context: https://github.com/montilab/SigRepo.git#master
+      context: *sigrepo-git-repo
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.4.0
@@ -43,8 +72,8 @@ services:
       - 8020:3838
     restart: always
     volumes:
-      - $HOME/SigRepo:/SigRepo
-      - $HOME/mysql/difexp:/difexp:rw
+      - *sigrepo-volume
+      - *difexp-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
 
   sigrepo-shiny:
@@ -60,7 +89,7 @@ services:
       - 8050:3838
     restart: always
     volumes:
-      - $HOME/SigRepo:/SigRepo
+      - *sigrepo-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
 
 networks:
