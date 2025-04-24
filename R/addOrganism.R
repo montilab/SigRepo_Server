@@ -71,12 +71,6 @@ addOrganism <- function(
     table = table,
     check_db_table = FALSE
   )
-
-  # Disconnect from database ####
-  base::suppressWarnings(DBI::dbDisconnect(conn))
-  
-  # Return message
-  SigRepo::verbose("Finished uploading.\n")
   
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))

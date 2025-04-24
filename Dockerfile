@@ -2,7 +2,7 @@
 ARG R_VERSION
 ARG R_VERSION=${R_VERSION:-4.4.0}
 
-############# Build Stage: CaDrA ##################
+############# Build Stage ##################
 
 # Get shiny+tidyverse+devtools packages from rocker image
 FROM rocker/shiny-verse:${R_VERSION} AS base
@@ -64,7 +64,7 @@ RUN R -e "BiocManager::install('limma')"
 # Install OmicSignature 
 RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies=TRUE)"
 
-# Initiate database table
+# Initiate database with reference data and tables
 RUN Rscript "${PACKAGE_DIR}/inst/init/01-import-dictionaries-into-database.R"
 
 # Make Shiny App or Plumber API available at port 3838

@@ -16,9 +16,25 @@ conn <- DBI::dbConnect(
   host = "127.0.0.1", 
   port = 3306, 
   user = "root", 
-  password = "123456"
+  password = "sigrepo"
 )
 
+
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "show tables;"))
+
+users_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from users;"))
+
+transcriptomic_features_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from transcriptomics_features;"))
+
+sample_types_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from sample_types;"))
+
+platforms_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from platforms;"))
+
+phenotypes_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from phenotypes;"))
+
+organisms_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from organisms;"))
+
+keywords_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "select * from keywords;"))
 
 
 
