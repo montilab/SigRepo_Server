@@ -62,6 +62,9 @@ insert_table_sql <- function(
       ", db_table_name, coln_var, coln_val
     ) %>% base::gsub("'NULL'", "NULL", .)
     
+    # Export the sql statement to a sql file
+    #base::writeLines(statement, base::file.path("~/SigRepo/inst/data/sql_schemas", base::paste0(db_table_name, ".sql")))
+    
     # Insert table into database
     base::tryCatch({
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = statement))
