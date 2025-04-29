@@ -4,7 +4,7 @@
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param omic_signature An R6 class object from OmicSignature package
 #' @param assign_signature_id Assign an unique ID to the uploaded signature. 
-#' Default is \code{NULL}.
+#' @param assign_user_name Assign an unique user name to the uploaded signature. 
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param verbose A logical value indicates whether or not to print the
@@ -17,6 +17,7 @@ addSignatureWithID <- function(
     conn_handler,
     omic_signature,
     assign_signature_id,
+    assign_user_name,
     visibility = FALSE,
     verbose = FALSE
 ){
@@ -33,12 +34,6 @@ addSignatureWithID <- function(
     action_type = "INSERT",
     required_role = "editor"
   )
-  
-  # Get user_role ####
-  user_role <- conn_info$user_role[1] 
-  
-  # Get user_name ####
-  user_name <- conn_info$user[1]  
 
   # Get table name in database ####
   db_table_name <- "signatures"
@@ -46,7 +41,7 @@ addSignatureWithID <- function(
   # Get visibility ####
   visibility <- ifelse(visibility == TRUE, 1, 0)
   
-  # Check signature_id
+  # Check assign_signature_id
   if(!length(assign_signature_id) == 1 || all(assign_signature_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -54,6 +49,16 @@ addSignatureWithID <- function(
     base::stop("'assign_signature_id' must have a length of 1 and cannot be empty.\n")
   }else{
     signature_id <- assign_signature_id
+  }
+  
+  # Check assign_user_name
+  if(!length(assign_user_name) == 1 || all(assign_user_name %in% c(NA, ""))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    # Show message
+    base::stop("'assign_user_name' must have a length of 1 and cannot be empty.\n")
+  }else{
+    user_name <- assign_user_name
   }
   
   # Check and create signature metadata table ####
@@ -101,9 +106,9 @@ addSignatureWithID <- function(
     # Extract difexp from omic_signature ####
     difexp <- omic_signature$difexp
     # Save difexp to local storage ####
-    data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+    data_path <- base::tempfile()
     if(!base::dir.exists(data_path)){
-      base::dir.create(path = base::file.path(base::system.file("inst", package = "SigRepo"), "data/difexp"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
+      base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
     }
     base::saveRDS(difexp, file = base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
     # Get API URL
@@ -137,8 +142,20 @@ addSignatureWithID <- function(
     verbose = verbose
   )
   
+  # Add user to signature access table after signature
+  SigRepo::addUserToSignature(
+    conn_handler = conn_handler,
+    signature_id = metadata_tbl$signature_id[1],
+    user_name = user_name,
+    access_type = "owner",
+    verbose = verbose
+  )
+
   # Disconnect from database ####
-  base::suppressWarnings(DBI::dbDisconnect(conn))    
+  base::suppressWarnings(DBI::dbDisconnect(conn))   
+  
+  # Return 
+  return(base::invisible())
   
 }  
 

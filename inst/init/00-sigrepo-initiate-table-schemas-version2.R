@@ -16,6 +16,7 @@ conn <- DBI::dbConnect(
 # Get path to database schema
 mysql_schema_path <- base::system.file("inst/mysql/schema/init.sql", package = "SigRepo")
 
+#
 DBI::dbGetQuery(conn = conn, statement = readr::read_file(mysql_schema_path)) # success
 
 

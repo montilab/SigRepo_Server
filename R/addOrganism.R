@@ -70,7 +70,7 @@ addOrganism <- function(
     db_table_name = db_table_name, 
     table = table,
     check_db_table = FALSE
-  ) 
+  )
   
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))

@@ -7,6 +7,8 @@
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param return_signature_id A logical value indicates whether or not to return
 #' the ID of the uploaded signature. Default is \code{FALSE}.
+#' @param return_missing_features A logical value indicates whether or not to return
+#' a list of features that does not exist in the database. Default is \code{FALSE}.
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #'
@@ -16,6 +18,7 @@ addSignature <- function(
     omic_signature,
     visibility = FALSE,
     return_signature_id = FALSE,
+    return_missing_features = FALSE,
     verbose = TRUE
 ){
   
@@ -48,7 +51,7 @@ addSignature <- function(
   metadata_tbl <- SigRepo::createSignatureMetadata(
     conn_handler = conn_handler, 
     omic_signature = omic_signature,
-    verbose = verbose
+    verbose = FALSE
   )
   
   # Reset diagnostic messages
@@ -99,7 +102,7 @@ addSignature <- function(
   }else{
     
     # 1. Uploading signature metadata into database
-    SigRepo::verbose("Uploading signature metadata into the database...\n")
+    SigRepo::verbose("Uploading signature metadata to the database...\n")
     
     # Check table against database table ####
     table <- SigRepo::checkTableInput(
@@ -118,6 +121,16 @@ addSignature <- function(
       check_db_table = FALSE
     ) 
     
+    # Look up signature id for the next step ####
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = db_table_name, 
+      return_var = "*", 
+      filter_coln_var = "signature_hashkey",
+      filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey[1]),
+      check_db_table = FALSE
+    ) 
+    
     # If signature has difexp, save a copy with its signature hash key ####
     # This action must be performed before a signature is imported into the database.
     # This helps to make sure data is stored properly if there are interruptions in-between.
@@ -127,9 +140,10 @@ addSignature <- function(
       # Extract difexp from omic_signature ####
       difexp <- omic_signature$difexp
       # Save difexp to local storage ####
-      data_path <- base::system.file("inst/data/difexp", package = "SigRepo")
+      data_path <- base::tempfile()
+      # Create the directory
       if(!base::dir.exists(data_path)){
-        base::dir.create(path = base::file.path(base::system.file("inst", package = "SigRepo"), "data/difexp"), showWarnings = FALSE, recursive = TRUE, mode = "0777")
+        base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
       }
       base::saveRDS(difexp, file = base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
       # Get API URL
@@ -149,25 +163,12 @@ addSignature <- function(
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))
         # Show message
-        base::stop(
-          base::sprintf("\tAPI Link: %s\n", api_url),
-          base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n")
-        )
+        base::stop(base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n"))
       }else{
         # Remove files from file system 
         base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
       }
     }
-    
-    # Look up signature id for the next step ####
-    signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = db_table_name, 
-      return_var = "*", 
-      filter_coln_var = "signature_hashkey",
-      filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey[1]),
-      check_db_table = FALSE
-    ) 
     
     # 2. Adding user to signature access table after signature
     # was imported successfully in step (1)
@@ -180,7 +181,7 @@ addSignature <- function(
         signature_id = signature_tbl$signature_id[1],
         user_name = user_name,
         access_type = "owner",
-        verbose = verbose
+        verbose = FALSE
       )
     }, error = function(e){
       # Delete signature
@@ -190,6 +191,9 @@ addSignature <- function(
       # Return error message
       base::stop(e, "\n")
     }) 
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # 3. Importing signature set into database after signature
     # was imported successfully in step (1)
@@ -208,7 +212,7 @@ addSignature <- function(
           signature_id = signature_tbl$signature_id[1],
           organism_id = signature_tbl$organism_id[1],
           signature_set = omic_signature$signature,
-          verbose = verbose
+          verbose = FALSE
         )
       }, error = function(e){
         # Delete signature
@@ -224,7 +228,11 @@ addSignature <- function(
         # Delete signature
         SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
         # Return warning table
-        return(warn_tbl)
+        if(return_missing_features == TRUE){
+          return(warn_tbl)
+        }else{
+          return(base::invisible())
+        }
       }
       
     }else if(assay_type == "proteomics"){
@@ -371,6 +379,9 @@ addSignature <- function(
       }
       
     }
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))    

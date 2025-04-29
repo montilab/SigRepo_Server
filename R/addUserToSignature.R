@@ -198,6 +198,9 @@ addUserToSignature <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
+    # Return 
+    return(base::invisible())
+    
   }  
 }  
 
