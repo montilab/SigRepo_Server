@@ -1,3 +1,27 @@
+x-sql-volume:
+  &sql-volume
+  type: bind
+  source: $HOME/mysql/database
+  target: /var/lib/mysql
+  
+x-sql-schema-init:
+  &sql-schema-init
+  type: bind
+  source: $HOME/SigRepo/inst/mysql/schema/init.sql
+  target: /docker-entrypoint-initdb.d/init.sql
+  
+x-difexp-volume:
+  &difexp-volume
+  type: bind
+  source: $HOME/mysql/difexp
+  target: /difexp
+  
+x-sigrepo-volume:
+  &sigrepo-volume
+  type: bind
+  source: $HOME/SigRepo
+  target: /SigRepo
+
 services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
@@ -15,8 +39,8 @@ services:
       - 3306:3306
     restart: always
     volumes:
-      - /mysql/database:/var/lib/mysql:rw
-      - /SigRepo/inst/mysql/schema/init.sql:/docker-entrypoint-initdb.d/init.sql:rw   
+      - *sql-volume
+      - *sql-schema-init  
 
   sigrepo:
     container_name: sigrepo
@@ -33,7 +57,7 @@ services:
 
   sigrepo-api:
     container_name: sigrepo-api
-    image: sigrepo:latest
+    image: sigrepo:latest  
     depends_on:
       - sigrepo-mysql
       - sigrepo
@@ -43,9 +67,8 @@ services:
       - 8020:3838
     restart: always
     volumes:
-      - /SigRepo:/SigRepo
-      - /SigRepo/.Renviron:/root/.Renviron
-      - /mysql/difexp:/difexp:rw
+      - *sigrepo-volume
+      - *difexp-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
 
   sigrepo-shiny:
@@ -53,6 +76,7 @@ services:
     image: sigrepo:latest
     depends_on:
       - sigrepo-mysql
+      - sigrepo-api
       - sigrepo
     networks:
       - db-net
@@ -60,8 +84,7 @@ services:
       - 8050:3838
     restart: always
     volumes:
-      - /SigRepo:/SigRepo
-      - /SigRepo/.Renviron:/root/.Renviron
+      - *sigrepo-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
 
 networks:

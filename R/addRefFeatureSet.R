@@ -36,7 +36,7 @@ addRefFeatureSet <- function(
   }else if(assay_type == "dna_binding_sites"){
     SigRepo::addDNABindingSitesFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }
-  
+
 }
 
 

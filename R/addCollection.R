@@ -109,7 +109,8 @@ addCollection <- function(
           omic_signature = omic_sig_list[[c]],
           conn_handler = conn_handler,
           visibility = visibility,
-          return_signature_id = TRUE
+          return_signature_id = TRUE,
+          verbose = FALSE
         )
       }, error = function(e){
         # Disconnect from database ####
@@ -117,8 +118,23 @@ addCollection <- function(
         # Return error message
         base::stop(e, "\n")
       }) 
+      # Check if warning table is returned
+      if(length(signature_id) == 0){
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))  
+        # Return error message
+        base::warning(base::sprintf("Cannot upload signature_name = '%s' to the database.\n", omic_sig_list[[c]]$metadata$signature_name[1]))
+        # Exit loop
+        break
+      }
       signature_id_list <- c(signature_id_list, signature_id)
     }
+    
+    # Check signature_id_list
+    if(length(signature_id_list) != length(omic_sig_list)){ return(base::invisible()) }
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # 2. Uploading collection metadata into database
     SigRepo::verbose("Uploading collection metadata to the database...\n")
@@ -152,7 +168,7 @@ addCollection <- function(
     
     # 3. Adding user to collection access table after collection
     # was imported successfully in step (1)
-    SigRepo::verbose("Adding user to the collection access table in the database...\n")
+    SigRepo::verbose("Adding user to collection access table in the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
@@ -161,7 +177,7 @@ addCollection <- function(
         collection_id = collection_tbl$collection_id,
         user_name = user_name,
         access_type = "owner",
-        verbose = verbose
+        verbose = FALSE
       )
     }, error = function(e){
       # Delete signature
@@ -171,6 +187,9 @@ addCollection <- function(
       # Return error message
       base::stop(e, "\n")
     }) 
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # 4. Adding signature to collection access table after collection
     # was imported successfully in step (1)
@@ -182,7 +201,7 @@ addCollection <- function(
         conn_handler = conn_handler,
         collection_id = collection_tbl$collection_id,
         signature_id = signature_id_list,
-        verbose = verbose
+        verbose = FALSE
       )
     }, error = function(e){
       # Delete signature
@@ -192,6 +211,9 @@ addCollection <- function(
       # Return error message
       base::stop(e, "\n")
     }) 
+    
+    # Reset options
+    SigRepo::print_messages(verbose = verbose)
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -207,6 +229,4 @@ addCollection <- function(
 
   }
 }
-
-
 

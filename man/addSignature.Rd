@@ -9,6 +9,7 @@ addSignature(
   omic_signature,
   visibility = FALSE,
   return_signature_id = FALSE,
+  return_missing_features = FALSE,
   verbose = TRUE
 )
 }
@@ -23,6 +24,9 @@ to view and access one's uploaded signature. Default is \code{FALSE}.}
 
 \item{return_signature_id}{A logical value indicates whether or not to return
 the ID of the uploaded signature. Default is \code{FALSE}.}
+
+\item{return_missing_features}{A logical value indicates whether or not to return
+a list of features that does not exist in the database. Default is \code{FALSE}.}
 
 \item{verbose}{A logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}

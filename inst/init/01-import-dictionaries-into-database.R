@@ -67,10 +67,6 @@ transcriptomics_features_db_tbl <- SigRepo::searchFeature(conn_handler = conn_ha
 mouse_gene_symbol_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv"), show_col_types = FALSE) 
 SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = mouse_gene_symbol_tbl)
 
-# Read in the Proteomics Human Reference
-human_proteomics_tbl <- readr::read_csv(file.path(data_path, "feature_tables/Proteomics_HomoSapiens.csv"), show_col_types = FALSE)
-SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "proteomics", feature_set = human_proteomics_tbl)
-
 # Check the imported values
 transcriptomics_features_db_tbl <- SigRepo::searchFeature(conn_handler = conn_handler, assay_type = "transcriptomics")
 
