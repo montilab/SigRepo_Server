@@ -108,11 +108,11 @@ Once you have a valid account, to connect to our SigRepo database, one can use t
 ```{r}
 # Create a connection handler
 conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = "sigrepo", 
+  host = "142.93.67.157", 
+  port = 3306, 
+  user = "montilab", 
+  password = "sigrepo"
 )
 ```
 
@@ -216,7 +216,7 @@ SigRepo::addSignature(
 ## **Example 3**: Upload `omic_signature_MDA_CYP` signature
 
 ```{r Example 3}
-SigRepo::addSignature(
+missing_features <- SigRepo::addSignature(
   conn_handler = conn_handler, 
   omic_signature = omic_signature_MDA_CYP,
   return_missing_features = TRUE                # Whether to return a list of missing features during upload. Default is FALSE.
@@ -262,7 +262,6 @@ The `getSignature()` function allows users to retrieve a list of omic signature 
 
 __IMPORTANT NOTE:__ 
 
-- Users **MUST HAVE** an `editor` or `admin` account to use this function. 
 - Users can **ONLY RETRIEVE** a list of signatures that are publicly available in the database including their own uploaded signatures. 
 - If a signature is `PRIVATE` and belongs to other user in the database, users will need to be given an `editor` permission from its owner in order to access, retrieve, and edit their signatures.
 

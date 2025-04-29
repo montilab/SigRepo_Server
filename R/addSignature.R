@@ -121,6 +121,16 @@ addSignature <- function(
       check_db_table = FALSE
     ) 
     
+    # Look up signature id for the next step ####
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = db_table_name, 
+      return_var = "*", 
+      filter_coln_var = "signature_hashkey",
+      filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey[1]),
+      check_db_table = FALSE
+    ) 
+    
     # If signature has difexp, save a copy with its signature hash key ####
     # This action must be performed before a signature is imported into the database.
     # This helps to make sure data is stored properly if there are interruptions in-between.
@@ -131,6 +141,7 @@ addSignature <- function(
       difexp <- omic_signature$difexp
       # Save difexp to local storage ####
       data_path <- base::tempfile()
+      # Create the directory
       if(!base::dir.exists(data_path)){
         base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
       }
@@ -158,16 +169,6 @@ addSignature <- function(
         base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
       }
     }
-    
-    # Look up signature id for the next step ####
-    signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = db_table_name, 
-      return_var = "*", 
-      filter_coln_var = "signature_hashkey",
-      filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey[1]),
-      check_db_table = FALSE
-    ) 
     
     # 2. Adding user to signature access table after signature
     # was imported successfully in step (1)

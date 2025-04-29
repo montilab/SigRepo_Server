@@ -353,7 +353,4 @@ updateSignature <- function(
     }
   }
 } 
-  
-  
-  
-  
+

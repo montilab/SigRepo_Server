@@ -192,7 +192,6 @@ The `getCollection()` function allows users to retrieve a set of collections tha
 
 __IMPORTANT NOTE:__ 
 
-- Users **MUST HAVE** an `editor` or `admin` account to use this function. 
 - Users can **ONLY RETRIEVE** a list of collections that are publicly available in the database including their own uploaded collections. 
 - If a collection is `PRIVATE` and belongs to other user in the database, users will need to be given an `editor` permission from its owner to access, retrieve, and edit their collections.
 

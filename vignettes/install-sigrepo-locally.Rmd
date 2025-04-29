@@ -159,7 +159,6 @@ docker compose -f docker-compose-dockerhub.yml up -d
 ```bash
 docker ps
 
-
 CONTAINER ID   IMAGE                           COMMAND                  CREATED       STATUS       PORTS                                                  NAMES
 95ac83ff67b6   montilab/sigrepo-mysql:latest   "docker-entrypoint.s…"   2 weeks ago   Up 2 weeks   0.0.0.0:3306->3306/tcp, :::3306->3306/tcp, 33060/tcp   sigrepo-mysql
 70c2dae8511d   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 weeks ago   Up 2 weeks   0.0.0.0:8020->3838/tcp, [::]:8020->3838/tcp            sigrepo-api
