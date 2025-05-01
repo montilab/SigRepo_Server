@@ -23,10 +23,14 @@ if [[ "$BASE_INSTALL_DIR" == *" "* ]]; then
   echo "WARNING: Installation path contains spaces. Docker volume mounting may fail."
 fi
 
-# Prompt for MySQL root password
-read -s -p "Enter MYSQL user name:" MYSQL_USER
+# Prompt for MySQL username
+echo "Enter MySQL username:" 
+read MYSQL_USER
+
+# Prompt for MySQL root password (hidden input)
 read -s -p "Enter MySQL root password: " MYSQL_PASSWORD
 echo ""
+
 
 # Ask if user wants to clear existing MySQL data
 if [ -d "$MYSQL_DIR/database" ]; then
