@@ -47,7 +47,6 @@ fi
 echo "Creating volume directories..."
 mkdir -p "$MYSQL_DIR/database"
 mkdir -p "$MYSQL_DIR/difexp"
-mkdir -p "$API_DIR"
 
 # Create mysql.env file
 echo "Creating mysql.env..."
@@ -72,19 +71,17 @@ export SIGREPO_DIR
 echo "Starting Docker containers..."
 docker compose -f "$SIGREPO_DIR/docker-compose-dockerhub.yml" up -d --build
 
-# Get MySQL container IP
-MYSQL_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql)
-MYSQL_PORT=3307
+
 
 # Create .Renviron file for R
 echo "Creating .Renviron..."
 cat > "$SIGREPO_DIR/.Renviron" <<EOL
 DBNAME=sigrepo
 HOST=127.0.0.1
-HOST_DB_NET=$MYSQL_IP
-PORT=$MYSQL_PORT
+HOST_DB_NET=172.18.0.2
+PORT=3306
 API_PORT=8020
-USER=$MYSQL_USER
+USER=root
 PASSWORD=$MYSQL_PASSWORD
 EOL
 
