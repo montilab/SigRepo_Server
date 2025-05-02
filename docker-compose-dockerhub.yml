@@ -1,21 +1,24 @@
-version: "3.8"
 
-x-sql-volume: &sql-volume
+x-sql-volume:
+  &sql-volume
   type: bind
   source: ${BASE_INSTALL_DIR}/mysql/database
   target: /var/lib/mysql
-
-x-sql-schema-init: &sql-schema-init
+  
+x-sql-schema-init:
+  &sql-schema-init
   type: bind
   source: ${SIGREPO_DIR}/inst/mysql/schema/init.sql
   target: /docker-entrypoint-initdb.d/init.sql
-
-x-difexp-volume: &difexp-volume
+  
+x-difexp-volume:
+  &difexp-volume
   type: bind
   source: ${BASE_INSTALL_DIR}/mysql/difexp
   target: /difexp
-
-x-sigrepo-volume: &sigrepo-volume
+  
+x-sigrepo-volume:
+  &sigrepo-volume
   type: bind
   source: ${SIGREPO_DIR}
   target: /SigRepo
@@ -29,7 +32,7 @@ services:
     networks:
       - db-net
     ports:
-      - 3307:3306
+      - 3306:3306
     restart: always
     volumes:
       - *sql-volume
@@ -64,7 +67,7 @@ services:
     volumes:
       - *sigrepo-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
-
+      
 networks:
   db-net:
     external: true
