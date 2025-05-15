@@ -41,7 +41,7 @@ if [ -d "$MYSQL_DIR/database" ]; then
   read -p "Existing MySQL data found. Do you want to delete it to re-run init.sql? [y/N]: " CONFIRM
   if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
     echo "Deleting existing MySQL data..."
-    rm -rf "$MYSQL_DIR/database"
+    sudo rm -rf "$MYSQL_DIR/database"
   else
     echo "Keeping existing MySQL data. init.sql will NOT be re-executed."
   fi
