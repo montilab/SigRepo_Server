@@ -78,7 +78,7 @@ docker compose -f "$SIGREPO_DIR/docker-compose-dockerhub.yml" up -d --build
 # find available port ####
 
 DEFAULT_PORT=3306
-PORT=$DEFAULT=PORT
+PORT=$DEFAULT_PORT
 
 # function to check if a port is free ####
 
