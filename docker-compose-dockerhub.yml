@@ -5,6 +5,12 @@ x-sql-volume:
   source: ${BASE_INSTALL_DIR}/mysql/database
   target: /var/lib/mysql
   
+x-test-sql-volume
+  &test-sql-volume
+  type: bind
+  source: ${BASE_INSTALL_DIR}/mysql/test_database
+  target: /var/lib/mysql-test
+  
 x-sql-schema-init:
   &sql-schema-init
   type: bind
@@ -37,6 +43,19 @@ services:
     volumes:
       - *sql-volume
       - *sql-schema-init
+  
+  sigrepo-test-mysql:
+    container_name: sigrepo-test-mysql
+    image: montilab/sigrepo-mysql:latest
+    env_file:
+      - mysql.env
+    networks: 
+      - db-net
+      ports: 3306:5432
+      restart: always
+      volumes:
+        - *test-sql-volume
+        - *sql-schema-init
 
   sigrepo-api:
     container_name: sigrepo-api

@@ -1,0 +1,54 @@
+---
+title: "Unit_Testing"
+output: html_document
+date: "2025-05-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Unit Testing 
+
+```
+ A Testing Method where individual components of an application/package are tested to ensure they are working as expected.
+
+```
+
+## R-Studio Unit Testing using testthat
+
+``` The testthat package is the gold standard for  unit testing in R. It provides a framework for writing and running unit test within your package.
+```
+
+### Main Advantages of unit testing.
+
+```
+- Fewer bugs:  if you are explicit about how your code should behave, you are less likely to introduce bugs.
+- Better code structure: Well designed code tends to be eaier to test, unit testing will force you to write better code.
+```
+
+
+## Setup
+
+```{r cars}
+# Installing testthat
+#install.packages('testthat')
+
+```
+
+## Testthat Setup for a package
+
+```
+There are a couple of guidelines to follow when setting up testthat in your package for the first time. 
+```
+
+```{r pressure, echo=FALSE}
+library(testthat)
+
+#usethis::use_testthat(3)
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
