@@ -34,15 +34,13 @@ readr::write_csv(prot_ids, base::file.path(signature_path, "feature_tables/Prote
 
 
 # Creating connection handler
-
 conn_handler <- SigRepo::newConnHandler(
-  dbname   = Sys.getenv("DBNAME"),
-  host     = Sys.getenv("HOST"),
-  port     = 3307,
-  user     = "root",
-  password = "sigrepo"
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
 )
-
 
 
 # adding signature
@@ -66,4 +64,13 @@ SigRepo::addSignature(conn_handler,
 
 
 signatures <- SigRepo::getSignature(conn_handler)
+
+
+
+
+
+could we do something like
+
+transcriptomics must start with ENSG for the feature nameOfClass
+p
 
