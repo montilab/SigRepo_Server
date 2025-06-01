@@ -23,30 +23,68 @@ if [[ "$BASE_INSTALL_DIR" == *" "* ]]; then
   echo "WARNING: Installation path contains spaces. Docker volume mounting may fail."
 fi
 
-
-# Prompt for MySQL username ####
-echo "Please Create a username, This will be the super user for the installation:" 
+# Prompt for MySQL username
+echo "Please create a username (this will be the super user for the installation):"
 read MYSQL_USER
 
-# Prompt for MySQL user password (hidden input) ####
-read -s -p "Please Create a MySQL user password: " MYSQL_PASSWORD
+# Prompt for MySQL user password (hidden input)
+read -s -p "Please create a MySQL user password: " MYSQL_PASSWORD
 echo ""
 
+# Prompt for MySQL root password (hidden input)
+read -s -p "Please create a MySQL root password: " MYSQL_ROOT_PASSWORD
+echo ""
 
+# Function to find an available port
+find_available_port() {
+  local port=$1
+  while :; do
+    if ! lsof -i:$port >/dev/null 2>&1; then
+      echo $port
+      return
+    fi
+    port=$((port + 1))
+  done
+}
 
-read -s -p "Please Create a MYSQL root password:" MYSQL_ROOT_PASSWORD
+# Use default port 3306 initially
+DEFAULT_PORT=3306
+MYSQL_PORT=$DEFAULT_PORT
 
-# Ask if user wants to clear existing MySQL data ####
+# Check if default port is available
+if lsof -i:$MYSQL_PORT >/dev/null 2>&1; then
+  echo "Default port $MYSQL_PORT is in use."
+  
+  # Find next available port after default
+  SUGGESTED_PORT=$(find_available_port $((MYSQL_PORT + 1)))
 
-if [ -d "$MYSQL_DIR/database" ]; then
-  read -p "Existing MySQL data found. Do you want to delete it to re-run init.sql? [y/N]: " CONFIRM
-  if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
-    echo "Deleting existing MySQL data..."
-    rm -rf "$MYSQL_DIR/database"
-  else
-    echo "Keeping existing MySQL data. init.sql will NOT be re-executed."
-  fi
+  while true; do
+    echo "Suggested available port is $SUGGESTED_PORT. Do you want to use this port? (y/n)"
+    read -r confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+      MYSQL_PORT=$SUGGESTED_PORT
+      break
+    else
+      echo "Please enter an alternative port:"
+      read MYSQL_PORT
+
+      # Validate input is numeric
+      if ! [[ "$MYSQL_PORT" =~ ^[0-9]+$ ]]; then
+        echo "Invalid port. Please enter a numeric value."
+        continue
+      fi
+
+      # Check if entered port is free
+      if lsof -i:$MYSQL_PORT >/dev/null 2>&1; then
+        echo "Port $MYSQL_PORT is in use. Please try again."
+      else
+        break
+      fi
+    fi
+  done
 fi
+
+echo "Using MySQL port: $MYSQL_PORT"
 
 # Create necessary volume directories
 echo "Creating volume directories..."
@@ -58,10 +96,8 @@ echo "Creating mysql.env..."
 cat > "$SIGREPO_DIR/mysql.env" <<EOL
 MYSQL_DATABASE='sigrepo'
 MYSQL_USER=$MYSQL_USER
-MYQL_PASSWORD=$MYSQL_PASSWORD
-MYSQL_ROOT_PASSWORD='sigrepo'
-
-
+MYSQL_PASSWORD=$MYSQL_PASSWORD
+MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
 EOL
 
 # Create Docker network if it doesn't exist
@@ -76,17 +112,15 @@ export SIGREPO_DIR
 echo "Starting Docker containers..."
 docker compose -f "$SIGREPO_DIR/docker-compose-dockerhub.yml" up -d --build
 
-
-
-# Create .Renviron file for R
+# Create .Renviron file for R, and populate with user prompts
 echo "Creating .Renviron..."
 cat > "$SIGREPO_DIR/.Renviron" <<EOL
 DBNAME=sigrepo
 HOST=127.0.0.1
 HOST_DB_NET=172.18.0.2
-PORT=3306
+PORT=$MYSQL_PORT
 API_PORT=8020
-USER=root
+USER=$MYSQL_USER
 PASSWORD=$MYSQL_PASSWORD
 EOL
 
@@ -95,4 +129,3 @@ echo ""
 echo "SigRepo setup is complete!"
 echo "Volumes are in: $BASE_INSTALL_DIR"
 echo "MySQL is running on port $MYSQL_PORT"
-echo "init.sql was executed if the database was freshly created."

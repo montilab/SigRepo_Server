@@ -16,7 +16,7 @@ library(tidyverse)
 library(devtools)
 load_all(".")
 
-library(OmicSignature)
+#library(OmicSignature)
 
 # Package for creating hash keys
 library(sodium)
