@@ -1,74 +1,162 @@
-# Testing the addSignature function from the SigRepo package
+# Unit test for addSignature Function
 
-
-#Loading required packages
-library(mockery)
-library(rlang)
 library(SigRepo)
 library(testthat)
+library(DBI)
 
 
 
-test_that("addSignature uploads signatures for all omics types", {
-  # Define all assay types and corresponding function stubs
-  assay_types <- list(
-    transcriptomics     = "SigRepo::addTranscriptomicsSignatureSet",
-    proteomics          = "SigRepo::addProteomicsSignatureSet",
-    metabolomics        = "SigRepo::addMetabolomicsSignatureSet",
-    methylomics         = "SigRepo::addMethylomicsSignatureSet",
-    genetic_variations  = "SigRepo::addGeneticVariationsSignatureSet",
-    dna_binding_sites   = "SigRepo::addDNABindingSitesSignatureSet"
+test_that("addSignature correctly adds a transcriptomic signature into the database", {
+  
+  
+  # creating connectin handler
+  
+  test_conn <- SigRepo::setup_test_db.R
+  
+  
+  
+  # loading in testing omic signature
+  
+  test_path <- base::system.file("tests/test_data", package = "SigRepo")
+  
+  test_transcriptomics_sig <- base::readRDS(base::file.path(test_path, "test_data_transcriptomics.RDS"))
+  
+  # calling the function to add the test signature into the database
+  
+  transcriptomics_signature_id <- SigRepo::addsignature(
+    conn_handler = test_conn,
+    omic_signature = test_transcriptomics_sig,
+    return_signature_id = TRUE,
+    verbose = FALSE
   )
   
-  for (assay_type in names(assay_types)) {
-    # --- MOCK conn_handler ---
-    conn_handler <- list(host = "localhost", api_port = "8000") # need to be connected to sigrepo, not local host.
-    
-    # --- MOCK omic_signature ---
-    OmicSignatureMock <- R6::R6Class(
-      "OmicSignatureMock",
-      public = list(
-        signature = data.frame(feature_id = c("A", "B"), value = c(1.5, -0.3)),
-        difexp = data.frame(feature_id = c("A", "B"), logFC = c(2.1, -1.2)),
-        initialize = function() {}
-      )
-    )
-    omic_signature <- OmicSignatureMock$new()
-    
-    # --- MOCK DATABASE + API BEHAVIOR ---
-    mock_conn <- mock(TRUE)
-    mock_db_disconnect <- mock(TRUE)
-    mock_insert <- mock(TRUE)
-    mock_lookup <- mock(
-      data.frame(signature_id = "abc123", assay_type = assay_type, organism_id = 9606)
-    )
-    
-    # Stub internal functions
-    stub(addSignature, "SigRepo::conn_init", mock_conn)
-    stub(addSignature, "SigRepo::checkPermissions", function(...) list(user_role = "editor", user = "testuser", api_key = "abc"))
-    stub(addSignature, "SigRepo::createSignatureMetadata", function(...) data.frame(
-      signature_name = "sig1",
-      has_difexp = FALSE,
-      signature_hashkey = "hash123"
-    ))
-    stub(addSignature, "SigRepo::lookup_table_sql", mock_lookup)
-    stub(addSignature, "SigRepo::insert_table_sql", mock_insert)
-    stub(addSignature, "SigRepo::checkTableInput", function(...) TRUE)
-    stub(addSignature, "DBI::dbDisconnect", mock_db_disconnect)
-    stub(addSignature, "SigRepo::addUserToSignature", function(...) TRUE)
-    
-    # Stub the correct add<Assay>SignatureSet function for this type
-    stub(addSignature, assay_types[[assay_type]], function(...) TRUE)
-    
-    # --- RUN TEST ---
-    result <- addSignature(
-      conn_handler = conn_handler,
-      omic_signature = omic_signature,
-      return_signature_id = TRUE,
-      verbose = FALSE
-    )
-    
-    # --- ASSERTION ---
-    expect_equal(result, "abc123", info = paste("Failed for assay_type:", assay_type))
-  }
+  # check that the function returned a signature id
+  expect_type(transcriptomics_signature_id, "character")
+  expect_true(nchar(transcriptomics_signature_id) > 0)
+  
+  
+  # verify directly in the database that the signature has been uploaded
+  
+  result <- DBO::dbGetQuery(
+    test_conn,
+    "SELECT * FROM signature WHERE signature_id = '%s'",
+    transcriptomics_signature_id
+  )
+  
+
+  
 })
+
+
+test_that("addSignature correctly adds a proteomics signature into the database". {
+  
+
+  test_proetomics_sig <- base::readRDS(base::file.path(test_path, "test_data_proteomics.RDS"))
+  
+  # calling the function to add the test signature into the database
+  proteomics_signature_id <- SigRepo::addSignature(
+    conn_handler = test_conn,
+    omic_signature = test_proteomics_sig,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(signture_id, "character")
+  expect_true(nchar(signature_id) > 0)
+  
+  # verify directly in the database that the signature has been uploaded
+  
+  result <- DBI::dbGetQuery(
+    test_conn,
+    "SELECT * FROM signature WHERE signature_id = '%s'",
+    signature_id
+  )
+  
+
+})
+
+
+test_that("addSignature correctly adds a metabolomics signature into the database", {
+  
+  test_metabolomics_sig <- base::readRDS(base::file.path(test_path, "test_data_metabolomics.RDS")) # need to find test data for this
+  
+  metabolomics_signature_id <- SigRepo::addSignature(
+    conn_handler = test_conn,
+    omic_signature = test_metabolomics_sig,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  ecpect_type(signature_id, "character")
+  expect_true(nchar(signature_id) > 0)
+  
+  # verify directly in the database that the signature has been uploaded in the database
+  
+  result <- DBI::dbGetQuery(
+    test_conn,
+    "SELECT * FROM signature WHERE signature_id = '%s'",
+    metabolomics_signature_id
+  )
+})
+
+
+test_that("addSignature correctly adds a methylomics signature into the database"), {
+  methylomics_signature_id <- SigRepo::addSignature(
+    conn_handler = test_conn,
+    omic_signature = test_methylomics_sig,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(signature_id, "character")
+  expect_true(nchar(signature_id)
+  
+  # verify directly in the database that the signature has been uploaded in the database
+  
+  result <- DBI::dbGetQuery(
+    test_conn,
+    "SELECT * FROM signature WHERE signature_id = '%s'",
+    methylomics_signature_id
+  )
+  
+  
+}
+
+test_that("addSignature correctly adds a genetic_variations signature into the database", {
+  genetic_varations_test_sig <- SigRepo:addSignature(
+    conn_handler = test_conn,
+    omic_signature = test_genetic_variations_sig,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(signature_id, "character")
+  expect true(nchar(signature_id))
+  
+  # verify directly in the database that the signature has been uploaded in the database
+  result <- DBI::dbGetQuery(
+    test_conn,
+    "SELECT * FROM signature WHERE signature_id = '%s'",
+    genetic_variations_signature_id
+  )
+})
+
+test_that("addSignature correctly adds a dna_binding_sites signature into the database", {
+  dna_binding_sites_signature_id <- SigRepo::addSignature(
+    conn_handler = test_conn,
+    omic_signature = test_dna_binding_sites_sig,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(signature_id, "character")
+  expect_true(nchar(signature_id) > 0)
+  
+  # verify directly in the database that the signature has been uploaded in the database
+  
+  result <- DBI::dbGetQuery(
+    test_conn,
+    "SELECT * FROM signature WHERE signature_id = '%s'",
+    dna_binding_sites_signature_id
+  )
+})
+

@@ -1,91 +1,111 @@
-library(testthat)
-library(mockery)
+# unit testing for retrieving a signature in the database
+
+
 library(SigRepo)
+library(testthat)
+library(DBI)
 
-test_that("getSignature returns filtered OmicSignature objects with correct names", {
-  # Mocks
-  mock_conn <- mock("conn")
-  mock_disconnect <- mock(TRUE)
-  mock_permissions <- mock(list(user_role = "viewer", user = "testuser"))
+
+test_that("getSignature retrieves uploaded transcriptomics signature by id", {
   
-  # Simulated signature table
-  mock_signature_table <- data.frame(
-    signature_id = c("sig001", "sig002"),
-    signature_name = c("MySig1", "MySig2"),
-    visibility = c(TRUE, FALSE),
-    organism_id = c(1, 1),
-    phenotype_id = c(10, 10),
-    sample_type_id = c(100, 100),
-    stringsAsFactors = FALSE
+  # using the already created test_data
+  result_by_id <- getSignature(
+    conn_handler = test_conn,
+    signature_id = transcriptmics_signature_id,
+    return_signature_id = TRUE,
+    verbose = FALSE
   )
   
-  # Simulated joined tables
-  mock_organisms <- data.frame(organism_id = 1, organism = "Homo sapiens")
-  mock_phenotypes <- data.frame(phenotype_id = 10, phenotype = "disease")
-  mock_sample_types <- data.frame(sample_type_id = 100, sample_type = "tissue")
+  expect_type(result_by_id, "list")
+  # 
   
-  # Mock return for signature_access (only one signature is visible to this viewer)
-  mock_signature_access <- data.frame(signature_id = "sig002", user_name = "testuser", access_type = "viewer")
   
-  # Create a dummy omic signature to return
-  dummy_omic <- list(new("OmicSignature"))  # Could be a simple R6 mock too
   
-  # Stub SigRepo internals
-  stub(getSignature, "SigRepo::conn_init", mock_conn)
-  stub(getSignature, "SigRepo::checkPermissions", mock_permissions)
-  stub(getSignature, "SigRepo::lookup_table_sql", function(conn, db_table_name, ...) {
-    switch(db_table_name,
-           signatures = mock_signature_table,
-           signature_access = mock_signature_access,
-           organisms = mock_organisms,
-           phenotypes = mock_phenotypes,
-           sample_types = mock_sample_types,
-           stop("unexpected table")
-    )
-  })
-  stub(getSignature, "SigRepo::createOmicSignature", function(conn_handler, db_signature_tbl) {
-    # Return mock OmicSignature object named by signature_name
-    structure(list(signature_name = db_signature_tbl$signature_name), class = "OmicSignature")
-  })
-  stub(getSignature, "DBI::dbDisconnect", mock_disconnect)
-  stub(getSignature, "SigRepo::print_messages", function(...) NULL)
-  stub(getSignature, "SigRepo::verbose", function(...) NULL)
-  
-  # Test call
-  conn_handler <- list(host = "localhost", api_port = "8000")
-  result <- getSignature(conn_handler)
-  
-  # Assertions
-  expect_type(result, "list")
-  expect_length(result, 2)
-  expect_true(all(sapply(result, function(x) inherits(x, "OmicSignature"))))
-  expect_named(result, c("MySig1", "MySig2"))
 })
 
-test_that("getSignature returns NULL when no matches", {
-  mock_conn <- mock("conn")
-  mock_disconnect <- mock(TRUE)
-  mock_permissions <- mock(list(user_role = "viewer", user = "testuser"))
+test_that("getSignature retrieves uploaded proteomics signature by id", {
   
-  # Empty signature table
-  empty_signature_table <- data.frame(
-    signature_id = character(0),
-    signature_name = character(0),
-    visibility = logical(0),
-    organism_id = integer(0),
-    phenotype_id = integer(0),
-    sample_type_id = integer(0)
+  # using the already created test_data
+  result_by_id <- getSignature(
+    conn_handler = test_conn,
+    signature_id = proteomics_signature_id,
+    return_signature_id = TRUE,
+    verbose = FALSE
   )
   
-  stub(getSignature, "SigRepo::conn_init", mock_conn)
-  stub(getSignature, "SigRepo::checkPermissions", mock_permissions)
-  stub(getSignature, "SigRepo::lookup_table_sql", function(...) empty_signature_table)
-  stub(getSignature, "DBI::dbDisconnect", mock_disconnect)
-  stub(getSignature, "SigRepo::print_messages", function(...) NULL)
-  stub(getSignature, "SigRepo::verbose", function(...) NULL)
+  expect_type(result_by_id, "list")
+  # 
   
-  conn_handler <- list(host = "localhost", api_port = "8000")
-  result <- getSignature(conn_handler)
   
-  expect_null(result)
+  
 })
+
+test_that("getSignature retrieves uploaded metabolomics signature by id and name", {
+  
+  # using the already created test_data
+  result_by_id <- getSignature(
+    conn_handler = test_conn,
+    signature_id = metabolomics_signature_id,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(result_by_id, "list")
+  # 
+  
+  
+  
+})
+
+test_that("getSignature retrieves uploaded methylomics signature by id and name", {
+  
+  # using the already created test_data
+  result_by_id <- getSignature(
+    conn_handler = test_conn,
+    signature_id = transcriptmics_signature_id,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(result_by_id, "list")
+  # 
+  
+  
+  
+})
+
+test_that("getSignature retrieves uploaded genetic_variations signature by id and name", {
+  
+  # using the already created test_data
+  result_by_id <- getSignature(
+    conn_handler = test_conn,
+    signature_id = genetic_variations_signature_id,
+    verbose = FALSE
+  )
+  
+  
+ 
+  
+  
+})
+
+
+test_that("getSignature retrieves uploaded dna_binding_sites signature by id and name", {
+  
+  # using the already created test_data
+  result_by_id <- getSignature(
+    conn_handler = test_conn,
+    signature_id = dna_binding_sites_signature_id,
+    return_signature_id = TRUE,
+    verbose = FALSE
+  )
+  
+  expect_type(result_by_id, "list")
+  # 
+  
+  
+  
+})
+
+
+

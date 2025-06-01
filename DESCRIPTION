@@ -39,7 +39,8 @@ Imports:
   tidyverse,
   tools,
   utils,
-  magrittr
+  magrittr,
+  OmicSignature
 Suggests:
     BiocManager,
     BiocStyle,
