@@ -1,6 +1,7 @@
 #' @title deleteUser
-#' @description Delete user information in the database
-#' @param conn_handler An established database connection using SigRepo::newConnhandler() 
+#' @description Delete a user from the database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
 #' @param user_name Name of a user to be deleted (required).
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
@@ -54,19 +55,24 @@ deleteUser <- function(
     base::stop(base::sprintf("\nThere is no user = '%s' existed in the 'users' table of the SigRepo database.\n", user_name))
   }
   
-  # DROP USER FROM DATABASE
-  purrr::walk(
-    base::seq_len(nrow(table)),
-    function(u){
-      #u=1;
-      # CHECK IF USER EXIST IN DATABASE
-      check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
-      # CREATE USER IF NOT EXIST
-      if(nrow(check_user_tbl) == 0){
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", table$user_name[u])))
-      }
-    }
+  # Update user to be inactive in the users table ####
+  SigRepo::updateUser(
+    conn_handler = conn_handler,
+    user_name = user_name,
+    active = FALSE,
+    verbose = FALSE
   )
+  
+  # Reset message options
+  SigRepo::print_messages(verbose = verbose)
+  
+  # CHECK IF USER EXIST IN DATABASE
+  check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", user_name)))
+  
+  # IF USER EXISTS, DROP USER FROM DATABASE
+  if(nrow(check_user_tbl) > 0){
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", user_name)))
+  }
 
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn)) 

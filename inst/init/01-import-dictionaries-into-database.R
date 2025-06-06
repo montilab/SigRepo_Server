@@ -21,6 +21,9 @@ conn_handler <- SigRepo::newConnHandler(
   password = Sys.getenv("PASSWORD")
 )
 
+# Establish user connection ###
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
+
 # Get data path
 data_path <- base::system.file("inst/data", package = "SigRepo")
 
@@ -76,8 +79,106 @@ transcriptomics_features_db_tbl <- SigRepo::searchFeature(conn_handler = conn_ha
 user_tbl <- readr::read_csv(file.path(data_path, "users/user_tbl.csv"), show_col_types = FALSE)
 SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
 
+# Default settings for root ####
+table <- base::data.frame(
+  user_name = "test",
+  user_password = "test",
+  user_email = "test@bu.edu", 
+  user_first = "test", 
+  user_last = "test", 
+  user_affiliation = "Boston University",
+  user_role = "viewer",
+  active = 1,
+  stringsAsFactors = FALSE
+)
+
+SigRepo::addUser(conn_handler = conn_handler, user_tbl = table)
+
 # Check the imported values
 user_db_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+
+DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user"))
+
+## Establish database connection
+conn <- DBI::dbConnect(
+  drv = RMySQL::MySQL(),
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = 'test', 
+  password = 'test'
+)
+
+# Update user to be inactive in the users table ####
+SigRepo::updateUser(
+  conn_handler = conn_handler,
+  user_name = "test",
+  password = NULL,
+  email = NULL,
+  first_name = NULL,
+  last_name = NULL,
+  affiliation = NULL,
+  role = NULL,
+  active = 1
+)
+
+user_db_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+
+SigRepo::deleteUser(
+  conn_handler = conn_handler,
+  user_name = "test"
+)
+
+# Check the imported values
+user_db_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = "test", 
+  password = "test"
+)
+
+# Establish user connection ###
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
+
+
+
+
+
+
+DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", 'test'))
+
+DBI::dbGetQuery(conn = conn, statement = base::sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", 'test', "test"))
+base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", "test")))
+DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;")
+
+DBI::dbGetQuery(conn = conn, statement = base::sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", 'test', "test"))
+DBI::dbGetQuery(conn = conn, statement = "GRANT ALL PRIVILEGES ON sigrepo.* TO 'test'@'%';")
+DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;")
+
+
+# Update user to be inactive in the users table ####
+SigRepo::updateUser(
+  conn_handler = conn_handler,
+  user_name = "root",
+  password = NULL,
+  email = NULL,
+  first_name = NULL,
+  last_name = NULL,
+  affiliation = NULL,
+  role = "admin",
+  active = NULL
+)
+
+SigRepo::searchUser(conn_handler = conn_handler)
+
+DBI::dbGetQuery(conn = conn, statement = "SHOW GRANTS FOR 'root'@'%';")
+
+DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user"))
+DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", "test"))
 
 # 7. Add signatures ####
 omic_signature_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/omic_signature_AGS_OmS.RDS"))
