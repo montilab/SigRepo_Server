@@ -61,7 +61,7 @@ checkPermissions <- function(
   user_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "users", 
-    return_var = c("user_name", "user_role", "api_key"), 
+    return_var = c("user_name", "user_role", "api_key", "active"), 
     filter_coln_var = "user_name", 
     filter_coln_val = list("user_name" = conn_info$user), 
     check_db_table = TRUE
@@ -121,7 +121,7 @@ checkPermissions <- function(
   }
   
   # Check if user has the specific role to perform the selected action in the database
-  if(!required_role %in% all_roles){
+  if(!required_role %in% all_roles & user_tbl$active %in% 1){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message

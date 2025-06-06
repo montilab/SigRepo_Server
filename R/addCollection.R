@@ -7,7 +7,7 @@
 #' @param return_collection_id a logical value indicates whether or not to return
 #' the ID of the uploaded collection. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
-#' diagnostic messages. Default is \code{TRUE}.
+#' diagnostic messages. Default is \code{TRUE}. #test
 #' 
 #' @export
 addCollection <- function(

@@ -1,69 +1,57 @@
-# trsting script for the minimal demo of the sigrepo package
+# testing script to ensure the minimal demo works correctly
 
 
-library(readr)
-library(devtools)
+# Load tidyverse package
 library(tidyverse)
-devtools::load_all()
+# devtools
+library(devtools)
 
-# grabbing path of example signatures
+# Load SigRepo package
+load_all()
 
-signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+# Load OmicSignature package
+library(OmicSignature)
 
-# grabbing all omics type signatures
-transcriptomic_sig <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
-
-prot_signature_example <- base::readRDS(base::file.path(signature_path, "prot_omic_signature_ex.RDS"))
-
-# metabolics_sig <- base::readRDS(base::file.path(signature_path, "metabolomic_signature_ex.RDS"))
-
-# dna_sig <- base::readRDS(base::file.path(signature_path, "dna_signature_ex.RDS"))
-
-# methylomics_sig <- base::readRDS(base::file.path(signature_path, "methylomic_signature_ex.RDS"))
-
-# genetic_sig <- base::readRDS(base::file.path(signature_path, "genetic_signature_ex.RDS"))
-
-prot_ids <- read_csv(base::file.path(signature_path, "feature_tables/Proteomics_HomoSapiens.csv"))
-
-
-prot_ids <- prot_ids %>%
-  rename(gene_symbol = symbol)
-
-# saving to csv 
-readr::write_csv(prot_ids, base::file.path(signature_path, "feature_tables/Proteomics_HomoSapiens.csv"))
-
-
-# Creating connection handler
-
+# Create a connection handler using environment variables
 conn_handler <- SigRepo::newConnHandler(
   dbname   = Sys.getenv("DBNAME"),
   host     = Sys.getenv("HOST"),
-  port     = 3307,
-  user     = "root",
-  password = "sigrepo"
+  port     = as.integer(Sys.getenv("PORT")),
+  user     = Sys.getenv("USER"),
+  password = Sys.getenv("PASSWORD")
+)
+
+conn_handler2 <- SigRepo::conn_init(conn_handler)
+
+# Getting the signature path
+signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+
+# Reading in the signature objects
+omic_signature_AGS_OmS <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
+omic_signature_MDA_CYP <- base::readRDS(base::file.path(signature_path, "omic_signature_MDA_CYP.RDS"))
+
+
+SigRepo::addSignature(
+  conn_handler = conn_handler,
+  omic_signature = omic_signature_AGS_OmS
 )
 
 
+SigRepo::addSignature(
+  conn_handler = conn_handler,
+  omic_signature = omic_signature_MDA_CYP,
+  return_missing_features = TRUE            	# Whether to return a list of missing features during upload. Default is FALSE.
+)
 
-# adding signature
+SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = 151)
 
-signature_upload <-   SigRepo::addSignature(conn_handler, 
-                      prot_signature_example,
-                      verbose = TRUE, 
-                      return_signature_id =  TRUE)
+signature_tbl <- SigRepo::searchSignature(
+  conn_handler = conn_handler,
+  signature_name = "LLFS_Aging_Gene_2023"
+)
 
-SigRepo::addSignature(conn_handler,
-                      metabolics_sig,
-                      verbose = TRUE,
-                      return_signature_id = TRUE)
-
-SigRepo::addSignature(conn_handler,
-                      dna_sig,
-                      verbose = TRUE,
-                      return_signature_id = TRUE)
-
-8
-
-
-signatures <- SigRepo::getSignature(conn_handler)
+SigRepo::deleteSignature(
+  conn_handler = conn_handler,
+  signature_id = signature_tbl$signature_id
+)
 

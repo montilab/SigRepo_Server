@@ -1,0 +1,6 @@
+DBNAME = "sigrepo"
+HOST = "142.93.67.157"
+HOST_DB_NET = "172.18.0.3"
+PORT = 3306
+USER = "root"
+PASSWORD = "sigrepo"

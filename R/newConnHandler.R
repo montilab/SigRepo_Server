@@ -10,7 +10,7 @@
 #' @export
 newConnHandler <- function(
     dbname = 'sigrepo', 
-    host = "montilab.bu.edu", 
+    host = "sigrepo.org", 
     port = 3306, 
     api_port = 8020,
     user = "guest", 
@@ -117,6 +117,7 @@ conn_init <- function(conn_handler){
         user_last = "root", 
         user_affiliation = "Boston University",
         user_role = "admin",
+        active = 1,
         stringsAsFactors = FALSE
       )
       
