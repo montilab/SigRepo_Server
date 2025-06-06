@@ -122,23 +122,136 @@ SigRepo::updateUser(
   active = 1
 )
 
-user_db_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
 
-SigRepo::deleteUser(
-  conn_handler = conn_handler,
-  user_name = "test"
-)
 
-# Check the imported values
-user_db_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# For DB connection
+library(RMySQL)
+library(DBI)
+
+# For data cleaning, extraction and manipulation
+library(tidyverse)
+
+# For loading and installing packages
+library(devtools)
+
+# Load SigRepo package
+devtools::load_all()
 
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
-  user = "test", 
-  password = "test"
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
+)
+
+SigRepo::searchUser(conn_handler = conn_handler)
+
+
+
+
+
+
+
+
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = "rchau88", 
+  password = "rchau88"
+)
+
+SigRepo::searchUser(conn_handler = conn_handler)
+SigRepo::searchSignature(conn_handler = conn_handler)
+SigRepo::searchSampleType(conn_handler = conn_handler)
+
+
+
+
+
+
+
+
+
+
+
+
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
+)
+
+# Establish user connection ###
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
+
+SigRepo::deleteUser(
+  conn_handler = conn_handler,
+  user_name = "rchau88"
+)
+
+SigRepo::delete_table_sql(
+  conn = conn,
+  db_table_name = "users",
+  delete_coln_var = "user_name",
+  delete_coln_val = "rchau88"
+)
+
+SigRepo::searchUser(conn_handler = conn_handler)
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Create a database handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = "guest", 
+  password = "guest"
 )
 
 # Establish user connection ###
@@ -146,7 +259,12 @@ conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 
 
-
+SigRepo::delete_table_sql(
+  conn = conn,
+  db_table_name = "users",
+  delete_coln_var = "user_name",
+  delete_coln_val = "12555"
+)
 
 
 DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", 'test'))
