@@ -121,7 +121,7 @@ checkPermissions <- function(
   }
   
   # Check if user has the specific role to perform the selected action in the database
-  if(!required_role %in% all_roles & user_tbl$active %in% 1){
+  if(!required_role %in% all_roles || user_tbl$active %in% 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message

@@ -86,7 +86,7 @@ conn_init <- function(conn_handler){
       password = password
     )
   }, error = function(e){
-    base::stop("User does not have permission to access the database.", "\n")
+    base::stop(e, "\n")
   })
   
   # If user is root, validate if root exists in the users table of the database
