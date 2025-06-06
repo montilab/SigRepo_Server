@@ -1,7 +1,7 @@
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: $HOME/SigRepo
+  source: /SigRepo
   target: /home/SigRepo
 
 services:
@@ -21,3 +21,7 @@ services:
     working_dir: /home
     volumes:
       - *sigrepo-volume
+
+networks:
+  db-net:
+    external: true 

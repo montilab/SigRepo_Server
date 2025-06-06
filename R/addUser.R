@@ -3,6 +3,7 @@
 #' @param conn_handler An established database connection using SigRepo::newConnhandler() 
 #' @param user_tbl A data frame containing appropriate column names:
 #' user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role
+#' @param active Whether to make users active or inactive
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
@@ -10,6 +11,7 @@
 addUser <- function(
     conn_handler,
     user_tbl,
+    active = FALSE,
     verbose = TRUE
 ){
   
@@ -54,6 +56,13 @@ addUser <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
     base::stop(base::sprintf("\nThe 'user_role' column must contain one of the following roles: %s.\n", base::paste0(user_role_options, collapse = "/")))
+  }
+  
+  # Check user active status
+  if(!"active" %in% colnames(table)){
+    table <- table %>% dplyr::mutate(active = 0)
+  }else{
+    table <- table %>% dplyr::mutate(active = base::sapply(base::seq_along(active), function(s){ ifelse(active[s] %in% 1, 1, 0) }))
   }
   
   # Check user emails ####

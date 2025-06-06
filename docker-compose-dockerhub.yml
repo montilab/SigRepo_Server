@@ -2,25 +2,25 @@
 x-sql-volume:
   &sql-volume
   type: bind
-  source: ${BASE_INSTALL_DIR}/mysql/database
+  source: /mysql/database
   target: /var/lib/mysql
   
 x-sql-schema-init:
   &sql-schema-init
   type: bind
-  source: ${SIGREPO_DIR}/inst/mysql/schema/init.sql
+  source: /SigRepo/inst/mysql/schema/init.sql
   target: /docker-entrypoint-initdb.d/init.sql
   
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: ${BASE_INSTALL_DIR}/mysql/difexp
+  source: /mysql/difexp
   target: /difexp
   
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: ${SIGREPO_DIR}
+  source: /SigRepo
   target: /SigRepo
 
 services:

@@ -33,7 +33,7 @@ searchUser <- function(
     user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "users", 
-      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_role", "user_email"), 
+      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_email", "user_role", "active"), 
       check_db_table = TRUE
     )  
     
@@ -42,7 +42,7 @@ searchUser <- function(
     user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "users", 
-      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_role", "user_email"), 
+      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_email", "user_role", "active"), 
       filter_coln_var = "user_name", 
       filter_coln_val = list("user_name" = user_name),
       check_db_table = TRUE

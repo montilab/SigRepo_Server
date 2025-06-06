@@ -19,7 +19,7 @@ devtools::load_all()
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST_DB_NET"), 
-  port = as.integer(Sys.getenv("PORT")),, 
+  port = as.integer(Sys.getenv("PORT")),
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
