@@ -11,6 +11,7 @@ devtools::load_all()
 signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
 
 # grabbing all omics type signatures
+
 transcriptomic_sig <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
 
 prot_signature_example <- base::readRDS(base::file.path(signature_path, "prot_omic_signature_ex.RDS"))
@@ -43,6 +44,10 @@ conn_handler <- SigRepo::newConnHandler(
 )
 
 
+# deleting a signature
+
+SigRepo::deleteSignature(test_conn, 169, verbose = TRUE)
+
 # adding signature
 
 signature_upload <-   SigRepo::addSignature(conn_handler, 
@@ -63,14 +68,18 @@ SigRepo::addSignature(conn_handler,
 8
 
 
-signatures <- SigRepo::getSignature(conn_handler)
+signatures <- SigRepo::searchSignature(conn_handler)
+
+# getting signatures
+
+signatures_grab <- SigRepo::getSignature(conn_handler, 'Myc_reduce_mice_liver_24m_v1')
+
+
+# add a test user to the database
+
+# user dataframe
 
 
 
-
-
-could we do something like
-
-transcriptomics must start with ENSG for the feature nameOfClass
-p
+SigRepo::addUser(conn_handler, )
 

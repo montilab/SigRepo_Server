@@ -322,7 +322,7 @@ server <- function(input, output, session) {
     req(user_login_info())
 
     # Get user connection info
-    shiny::HTML(sprintf("Welcome %s!", user_login_info()$user_name))
+    shiny::HTML(sprintf("User: %s", user_login_info()$user_name))
 
   })
 
@@ -359,7 +359,7 @@ server <- function(input, output, session) {
     if(tab_selected() == "home"){
       htmltools::includeHTML("www/home_content.html")
     }else if(tab_selected() == "search_signature"){
-      base::source("ui/search_signature_ui.R")$value
+      base::source("ui/search.R")$value
     }else if(tab_selected() == "search_collection"){
       base::source("ui/search_collection_ui.R")$value
     }else if(tab_selected() == "upload_signature"){

@@ -1,6 +1,6 @@
 #' @title test_db_conn_handler
-#' @description create a connection handler to the test database
-#' @param conn_handler An established connection to database using newConnhandler() 
+#' @description create a connection handler to the test database use dbConnect.
+
 #'
 #' 
 #' @export
@@ -9,12 +9,12 @@ library(DBI)
 library(RMySQL)
 
 
-test_db <- dbConnect(
-  RMySQL::MySQL(),
-  dbname = "sigrepo_test",
-  host = "localhost",
+test_conn <- SigRepo::newConnHandler(
+  dbname = "sigrepo",
+  host = "142.93.67.157",
   port = 3306,
-  user = "camv",  # need to create testing connection with super user privs
-  password = "camv"
+  user = "montilab",  
+  password = "sigrepo"
 )
+
 
