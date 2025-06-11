@@ -1,5 +1,5 @@
 #' @title addMetabalomicsSignatureSet
-#' @description Add a Metabalomics signature feature set to database
+#' @description Add a Metabalomics signature signature set to database
 #' @param conn_handler An established connection to database using newConnhandler() 
 #' @param signature_id A signature name
 #' @param organism_id An organism
@@ -62,8 +62,8 @@ addMetabalomicsSignatureSet <- function(
     base::stop("\n'signature_set' must be a data frame and cannot be empty.\n")
   }
   
-  # Check required signature fields ####
-  signature_fields <- c('feature_name', 'probe_id', 'score', 'direction')
+  # Check required signature fields #### making feature name optional, but probe ID is mandatory!!!
+  signature_fields <- c( 'probe_id', 'score', 'direction')
   
   if(any(!signature_fields %in% colnames(signature_set))){
     # Disconnect from database ####
