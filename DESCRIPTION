@@ -23,31 +23,27 @@ Imports:
   DBI,
   DT,
   digest,
-  future,
   htmltools,
   httr,
   jsonlite,
   methods,
-  odbc,
-  plumber,
   promises,
   RMySQL,
   shiny,
   shinyjs,
-  sodium,
   stats,
   tidyverse,
   tools,
   utils,
   magrittr
 Suggests:
-    BiocManager,
-    BiocStyle,
-    devtools,
-    knitr,
-    pkgdown,
-    rmarkdown,
-    testthat (>= 3.0.0)
+  BiocManager,
+  BiocStyle,
+  devtools,
+  knitr,
+  pkgdown,
+  rmarkdown,
+  testthat (>= 3.0.0)
 Config/testthat/edition: 3
 biocViews: Software, FeatureExtraction
 VignetteBuilder: knitr

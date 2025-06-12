@@ -1,0 +1,19 @@
+
+services:
+  sigrepo-register:
+    container_name: sigrepo-register
+    image: montilab/sigrepo:latest
+    env_file:
+      - .Renviron
+    ports:
+      - 4168:3838
+    restart: always
+    working_dir: /SigRepo
+    volumes:
+      - /montilab-p/SigRepo:/SigRepo
+      - /montilab-p/SigRepo/.Renviron:/SigRepo/inst/register-app/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/register-app/shiny-server.sh"]
+
+networks:
+  db-net:
+    external: true 
