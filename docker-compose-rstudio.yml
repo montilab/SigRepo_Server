@@ -1,7 +1,7 @@
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: /SigRepo
+  source: /montilab-p/SigRepo
   target: /home/SigRepo
 
 services:
@@ -21,6 +21,7 @@ services:
     working_dir: /home
     volumes:
       - *sigrepo-volume
+      - /montilab-p/docker:/home/docker
 
 networks:
   db-net:
