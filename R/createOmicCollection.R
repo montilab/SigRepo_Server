@@ -7,9 +7,9 @@
 #' 
 #' @noRd
 #' 
-#' @export
-#' 
+#' @importFrom methods is
 #' @import OmicSignature
+#' @export
 createOmicCollection <- function(
     conn_handler,
     db_collection_tbl

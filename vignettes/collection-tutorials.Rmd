@@ -94,6 +94,10 @@ conn_handler <- SigRepo::newConnHandler(
   user = "montilab", 
   password = "sigrepo"
 )
+
+# closing the connection
+on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
 ```
 
 # Load signatures

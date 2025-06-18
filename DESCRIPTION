@@ -40,7 +40,12 @@ Imports:
   tools,
   utils,
   magrittr,
-  OmicSignature
+  OmicSignature,
+  dplyr,
+  stringr,
+  rlang,
+  data.table, 
+  purrr
 Suggests:
     BiocManager,
     BiocStyle,

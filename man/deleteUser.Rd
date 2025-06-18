@@ -17,3 +17,14 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Delete user information in the database
 }
+\examples{
+
+
+# Establish a Connection Handler using newConnHnalder if not done so already.
+
+# SigRepo::deleteUser(
+# conn_handler = conn,
+# user_name = "user1",
+# verbose = FALSE)
+
+}

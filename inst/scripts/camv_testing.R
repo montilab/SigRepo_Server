@@ -6,80 +6,93 @@ library(devtools)
 library(tidyverse)
 devtools::load_all()
 
+conn_dbi <- conn_init(conn)
+
+DBI::dbListTables(conn_dbi)
+
+
+ids <- DBI::dbGetQuery(conn_dbi, statement = "SELECT * FROM signatures")
+
+
+
+#connection testing
+
+conn <- SigRepo::newConnHandler(
+  dbname = "sigrepo",
+  host = Sys.getenv("HOST"),  
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"),
+  password = Sys.getenv("PASSWORD") 
+
+)
+
+SigRepo::deleteSignature(conn_handler = conn, signature_id = 62, verbose = TRUE)
+
 # grabbing path of example signatures
 
-signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+signature_path <- base::system.file("tests/test_data", package = "SigRepo")
 
 # grabbing all omics type signatures
 
-transcriptomic_sig <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
+test_transcriptomic_sig <- base::readRDS(base::file.path(signature_path, "test_data_transcriptomics.RDS"))
 
-prot_signature_example <- base::readRDS(base::file.path(signature_path, "prot_omic_signature_ex.RDS"))
+sig_id <- SigRepo::addSignature(conn, test_transcriptomic_sig, return_signature_id = TRUE, verbose = TRUE)
 
-# metabolics_sig <- base::readRDS(base::file.path(signature_path, "metabolomic_signature_ex.RDS"))
+# creating the revised signature for the updateSignature 
 
-# dna_sig <- base::readRDS(base::file.path(signature_path, "dna_signature_ex.RDS"))
-
-# methylomics_sig <- base::readRDS(base::file.path(signature_path, "methylomic_signature_ex.RDS"))
-
-# genetic_sig <- base::readRDS(base::file.path(signature_path, "genetic_signature_ex.RDS"))
-
-prot_ids <- read_csv(base::file.path(signature_path, "feature_tables/Proteomics_HomoSapiens.csv"))
-
-
-prot_ids <- prot_ids %>%
-  rename(gene_symbol = symbol)
-
-# saving to csv 
-readr::write_csv(prot_ids, base::file.path(signature_path, "feature_tables/Proteomics_HomoSapiens.csv"))
-
-
-# Creating connection handler
-conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+# 1. Revise the metadata object with new platform = GPLXXXXX
+metadata_revised <- base::list(
+  # required attributes:
+  signature_name = "Myc_reduce_mice_liver_24m",
+  organism = "Mus Musculus",
+  direction_type = "bi-directional",
+  assay_type = "transcriptomics",
+  phenotype = "Myc_reduce",
+  
+  # optional and recommended:
+  covariates = "none",
+  description = "mice MYC reduced expression",
+  platform = "GPLXXXXX", # use GEO platform ID
+  sample_type = "liver", # use BRENDA ontology
+  
+  # optional cut-off attributes.
+  # specifying them can facilitate the extraction of signatures.
+  logfc_cutoff = NULL,
+  p_value_cutoff = NULL,
+  adj_p_cutoff = 0.05,
+  score_cutoff = 5,
+  
+  # other optional built-in attributes:
+  keywords = c("Myc", "KO", "longevity"),
+  cutoff_description = NULL,
+  author = NULL,
+  PMID = 25619689,
+  year = 2015,
+  
+  # example of customized attributes:
+  others = list("animal_strain" = "C57BL/6")
 )
 
+# 2. Create difexp object
+difexp <- readRDS(file.path(system.file("extdata", package = "OmicSignature"), "difmatrix_Myc_mice_liver_24m.rds")) %>% dplyr::rename(feature_name = ensembl)
+colnames(difexp) <- OmicSignature::replaceDifexpCol(colnames(difexp))
 
-# deleting a signature
+# 3. Create signature object
+signature <- difexp %>%
+  dplyr::filter(abs(score) > metadata_revised$score_cutoff & adj_p < metadata_revised$adj_p_cutoff) %>%
+  dplyr::select(probe_id, feature_name, score) %>%
+  dplyr::mutate(direction = ifelse(score > 0, "+", "-"))
 
-SigRepo::deleteSignature(test_conn, 169, verbose = TRUE)
+# 4. Create the updated OmicSignature object
+test_transcriptomic_sig_revised <- OmicSignature::OmicSignature$new(
+  signature = signature,
+  metadata = metadata_revised,
+  difexp = difexp
+)
 
-# adding signature
+# exporting the revised omic signature into an RDS object
 
-signature_upload <-   SigRepo::addSignature(conn_handler, 
-                      prot_signature_example,
-                      verbose = TRUE, 
-                      return_signature_id =  TRUE)
+base::saveRDS(test_transcriptomic_sig_revised, file = file.path(signature_path, "test_data_transcriptomics_revised.RDS"))
 
-SigRepo::addSignature(conn_handler,
-                      metabolics_sig,
-                      verbose = TRUE,
-                      return_signature_id = TRUE)
-
-SigRepo::addSignature(conn_handler,
-                      dna_sig,
-                      verbose = TRUE,
-                      return_signature_id = TRUE)
-
-8
-
-
-signatures <- SigRepo::searchSignature(conn_handler)
-
-# getting signatures
-
-signatures_grab <- SigRepo::getSignature(conn_handler, 'Myc_reduce_mice_liver_24m_v1')
-
-
-# add a test user to the database
-
-# user dataframe
-
-
-
-SigRepo::addUser(conn_handler, )
-
+conns <- DBI::dbListConnections(RMySQL::MySQL())
+lapply(conns, DBI::dbDisconnect)

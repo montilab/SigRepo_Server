@@ -4,11 +4,28 @@
 #' @param user_name Name of a user to be updated (required).
 #' @param password Password of a user to be updated. Default is NULL.
 #' @param email Email of a user to be updated. Default is NULL.
-#' @param affiliation First name of a user to be updated. Default is NULL.
+#' @param affiliation Affiliation of the user. Default is NULL.
+#' @param first_name First name of a user to be updated. Default is NULL
 #' @param last_name Last name of a user to be updated. Default is NULL.
 #' @param role Role of a user to be updated. Choices are admin/editor/viewer.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#' 
+#'  # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # SigRepo::updateUser(
+#' # conn_handler = conn,
+#' # user_name = "test_user", # required
+#' # password = "new_password", 
+#' # email = "test_email",
+#' # affiliation = "test_affiliation",
+#' # last_name = "test_last_name",
+#' # role = "editor",
+#' # verbose = FALSE
+#' # )
+#' 
 #' 
 #' @export
 updateUser <- function(

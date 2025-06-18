@@ -26,3 +26,14 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add a list of signatures to a collection in the database
 }
+\examples{
+
+ # Create a connection handler if not done so alrweady.
+
+# SigRepo::addSignatureToCollection(
+# conn_handler = conn,
+# collection_id = "COLL0001",
+# signature_id = c('170','150','140'),
+# verbose = FALSE)
+
+}

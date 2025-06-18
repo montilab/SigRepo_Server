@@ -7,6 +7,16 @@
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # SigRepo::searchUser(
+#' # conn_handler = conn,
+#' # user_name = c("user1", "user2"), # list of users.
+#' # verbose = FALSE)
+#' 
+#' 
 #' @export
 searchUser <- function(
     conn_handler,
