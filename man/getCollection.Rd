@@ -25,3 +25,16 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Get a list of collection uploaded by a specified user in the database.
 }
+\examples{
+
+# Establish a Connection Handler using newConnHandler if not done so already.
+
+# search for available collections
+
+# collection_tbl <- SigRepo::getCollection(
+# conn_handler = conn,
+# collection_name = "test_collection",
+# colection_id = 170,
+# verbose = FALSE)
+
+}

@@ -18,6 +18,16 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#'
+#' # SigRepo::addUserToSignature(
+#' # conn_handler = conn,
+#' # signature_id = 74, 
+#' # user_name = c("user1", "user2"),
+#' # access_type = c("owner", "editor"),
+#' # verbose = FALSE
+#' # )
+#' 
 #' @export
 addUserToSignature <- function(
     conn_handler,

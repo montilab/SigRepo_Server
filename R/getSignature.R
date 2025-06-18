@@ -7,6 +7,16 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # SigRepo::getSignature(
+#' # conn_handler = conn,
+#' # signature_name = "test_signature",
+#' # signature_id = 170,
+#' # verbose = FALSE)
+#' 
+#' 
 #' @export
 getSignature <- function(
     conn_handler,

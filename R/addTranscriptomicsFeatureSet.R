@@ -8,9 +8,11 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @noRd
+#' @importFrom dplyr syms
 #' 
+#' @noRd
 #' @export
+
 addTranscriptomicsFeatureSet <- function(
     conn_handler,
     feature_set,

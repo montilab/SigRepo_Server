@@ -34,3 +34,11 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add signature to database
 }
+\examples{
+
+
+# Adding a signature into the database
+
+# SigReo::addSignature(conn, test_transcriptomics_signature)
+
+}

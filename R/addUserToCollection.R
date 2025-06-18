@@ -17,6 +17,16 @@
 #' given them access to.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#' 
+#' # SigRepo::addUserToCollection(
+#' # conn_handler = conn,
+#' # collection_id = 75,
+#' # user_name = c("user1", "user2"),
+#' # access_type = c("owner", "editor")
+#' # )
+#' 
 #'  
 #' @export
 addUserToCollection <- function(

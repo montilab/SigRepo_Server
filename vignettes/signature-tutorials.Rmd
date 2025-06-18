@@ -95,6 +95,8 @@ conn_handler <- SigRepo::newConnHandler(
   user = Sys.getenv("USER"), 
   password = Sys.getenv("PASSWORD")
 )
+# closing the connection
+on.exit(DBI::dbDisconnect(conn), add = TRUE)
 ```
 
 # Load Signatures

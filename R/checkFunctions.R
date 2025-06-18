@@ -41,6 +41,8 @@ verbose <- function(...){
 #' 
 #' @noRd
 #' 
+#' 
+#' 
 #' @export
 checkPermissions <- function(
     conn,
@@ -142,7 +144,6 @@ checkPermissions <- function(
 #' @param check Check whether table exists in the database. Default = TRUE.
 #' 
 #' @noRd
-#' 
 #' @export
 checkDBTable <- function(
     conn,
@@ -175,6 +176,8 @@ checkDBTable <- function(
 #' @param check_db_table Check whether table exists in the database. Default = TRUE.
 #' 
 #' @noRd
+#' 
+#' @importFrom methods is
 #' 
 #' @export
 checkTableInput <- function(
@@ -285,7 +288,7 @@ checkDuplicatedEmails <- function(
   }
   
   # Get number of observations 
-  n_obs <- SigRepo:::getNumOfObs(conn = conn, db_table_name = db_table_name)
+  n_obs <- SigRepo::getNumOfObs(conn = conn, db_table_name = db_table_name)
   
   ## Check if table has values, only return non-overlapping samples
   if(n_obs$count > 0){
@@ -476,6 +479,8 @@ checkOmicSignature <- function(
 #' @param omic_collection An OmicSignatureCollection object from OmicSignature package
 #' 
 #' @noRd
+#' 
+#' @importFrom methods is
 #' 
 #' @export
 checkOmicCollection <- function(

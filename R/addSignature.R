@@ -11,6 +11,15 @@
 #' a list of features that does not exist in the database. Default is \code{FALSE}.
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @importFrom methods is
+#' 
+#' @examples
+#' 
+#' 
+#' # Adding a signature into the database
+#' 
+#' # SigReo::addSignature(conn, test_transcriptomics_signature)
 #'
 #' @export
 addSignature <- function(

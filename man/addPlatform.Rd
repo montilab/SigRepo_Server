@@ -19,3 +19,19 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add platform to database
 }
+\examples{
+
+# creating a dataframe
+
+# platform_tbl <- data.frame(
+# platform_id = "GPLXXXX",
+# platform_name = "GPLXXXX",
+# seq_technology = "RNA-seq",
+# organisms = "Mus musculus")
+
+# SigRepo::addPlatform(
+# conn_handler = conn,
+# platform_tbl = platform_tbl,
+# verbose = FALSE)
+
+}

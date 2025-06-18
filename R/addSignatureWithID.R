@@ -11,8 +11,8 @@
 #' diagnostic messages. Default is \code{FALSE}.
 #'
 #' @noRd
-#' 
 #' @export
+
 addSignatureWithID <- function(
     conn_handler,
     omic_signature,
