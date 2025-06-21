@@ -111,7 +111,7 @@ Here, we provided two signature objects that came with the package for demonstra
 
 ```{r}
 # Getting the signature path
-signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+signature_path <- base::system.file("inst/extdata/signatures", package = "SigRepo")
 
 # Read in the signature object
 omic_signature_1 <- base::readRDS(base::file.path(signature_path, "omic_signature_1.RDS"))

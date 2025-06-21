@@ -13,7 +13,8 @@
 #' @importFrom data.table :=
 #' @importFrom rlang syms
 #' 
-#' @noRd
+#' @keywords internal
+#' 
 #' @export
 addProteomicsFeatureSet <- function(
     conn_handler,
