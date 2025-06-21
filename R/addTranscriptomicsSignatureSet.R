@@ -10,8 +10,8 @@
 #' 
 #' @importFrom methods is
 #' 
-#'  
-#' @noRd
+#' @keywords internal
+#' 
 #' @export
 
 addTranscriptomicsSignatureSet <- function(

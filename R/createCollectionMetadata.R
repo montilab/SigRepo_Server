@@ -3,9 +3,9 @@
 #' @param conn_handler An established connection to database using SigRepo::conn_init() 
 #' @param omic_collection An R6 class object from OmicSignature package
 #' 
-#' @noRd
-#' 
+#' @keywords internal
 #' @export
+
 createCollectionMetadata <- function(
     conn_handler,
     omic_collection

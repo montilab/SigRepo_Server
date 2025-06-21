@@ -74,7 +74,7 @@ newConnHandler <- function(
 #' @param conn_handler A handler uses to establish connection to a remote database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @return a MySQL connection class object
 #' 

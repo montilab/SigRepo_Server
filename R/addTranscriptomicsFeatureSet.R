@@ -10,7 +10,7 @@
 #' 
 #' @importFrom dplyr syms
 #' 
-#' @noRd
+#' @keywords internal
 #' @export
 
 addTranscriptomicsFeatureSet <- function(

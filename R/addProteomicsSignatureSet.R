@@ -11,9 +11,10 @@
 #' @importFrom methods is
 #' 
 #'  
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
+#' 
 addProteomicsSignatureSet <- function(
     conn_handler,
     signature_id,

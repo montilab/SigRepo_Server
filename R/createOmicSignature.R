@@ -5,10 +5,10 @@
 #' @param db_signature_tbl The name of a signature that belongs to a specific user 
 #' (\code{user_name}) who previously uploaded the signature into the database (required. 
 #' 
-#' @noRd
-#' 
-#' @export
 #' @import OmicSignature
+#' 
+#' @keywords internal
+#' @export
 createOmicSignature <- function(
     conn_handler,
     db_signature_tbl
