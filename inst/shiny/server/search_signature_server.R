@@ -171,14 +171,14 @@ shiny::observeEvent({
   }
   
   # Check if any search inputs are empty ####
-  for(p in base::seq_along(search_options)){
-    #p=1;
-    val <- as.character(input[[search_options[p]]])
-    if(length(val) == 0){
-      search_sig_error_msg(sprintf("%s cannot be empty.", search_options[p]))
-      return(NULL)
-    }
-  }
+  # for(p in base::seq_along(search_options)){
+  #   #p=1;
+  #   val <- as.character(input[[search_options[p]]])
+  #   if(length(val) == 0){
+  #     search_sig_error_msg(sprintf("%s cannot be empty.", search_options[p]))
+  #     return(NULL)
+  #   }
+  # }
   
   # Get search option values ####
   search_option_values <- base::seq_along(search_options) %>% 
@@ -205,7 +205,7 @@ shiny::observeEvent({
   
   # Return table
   if(nrow(signature_tbl) == 0){
-    search_signature_tbl(base::data.frame(WARNINGS = "THERE ARE NO DATA RETURNED FROM THE SEARCH PARAMETERS"))
+    search_signature_tbl(base::data.frame(WARNINGS = "THERE IS NO DATA RETURNED FROM THE SEARCH PARAMETERS"))
   }else{
     signature_tbl %>% 
       dplyr::mutate(
