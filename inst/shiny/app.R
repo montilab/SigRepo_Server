@@ -15,6 +15,7 @@ library(tidyverse)
 # Package for loading and installing packages
 library(devtools)
 load_all(".")
+library(SigRepo)
 
 #library(OmicSignature)
 
@@ -359,9 +360,9 @@ server <- function(input, output, session) {
     if(tab_selected() == "home"){
       htmltools::includeHTML("www/home_content.html")
     }else if(tab_selected() == "search_signature"){
-      base::source("ui/search.R")$value
+      base::source("ui/signature_page_ui.R")$value
     }else if(tab_selected() == "search_collection"){
-      base::source("ui/search_collection_ui.R")$value
+      base::source("ui/collection_page_ui.R")$value
     }else if(tab_selected() == "upload_signature"){
       base::source("ui/upload_signature_ui.R")$value
     }else if(tab_selected() == "upload_collection"){
@@ -374,11 +375,10 @@ server <- function(input, output, session) {
   })
 
   # Import all source files
-  source("server/search_signature_server.R", local = TRUE)
   source("server/search_collection_server.R", local = TRUE)
-  source("server/upload_signature_server.R", local = TRUE)
-  source("server/upload_collection_server.R", local = TRUE)
   source("server/sign_in_server.R", local = TRUE)
+  source("server/signature_page_server.R", local = TRUE)
+
 
 }
 
