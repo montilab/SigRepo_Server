@@ -26,11 +26,14 @@ conn <- SigRepo::newConnHandler(
 
 )
 
+system.file(package = "SigRepo")
+
+
+
 SigRepo::deleteSignature(conn_handler = conn, signature_id = 62, verbose = TRUE)
 
 # grabbing path of example signatures
 
-signature_path <- base::system.file("tests/test_data", package = "SigRepo")
 
 # grabbing all omics type signatures
 
