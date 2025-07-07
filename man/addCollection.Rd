@@ -24,7 +24,7 @@ to view and access one's uploaded collection. Default is \code{FALSE}.}
 the ID of the uploaded collection. Default is \code{FALSE}.}
 
 \item{verbose}{a logical value indicates whether or not to print the
-diagnostic messages. Default is \code{TRUE}.}
+diagnostic messages. Default is \code{TRUE}. #test}
 }
 \description{
 Add signature collection to database

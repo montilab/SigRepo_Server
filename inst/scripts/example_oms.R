@@ -11,7 +11,7 @@ load_all()
 
 # Grabbing the data path
 
-data_path <- system.file("data", package="SigRepo"). 
+data_path <- system.file("extdata", package="SigRepo")
 
 
 # reading in the data 
