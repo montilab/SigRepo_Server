@@ -5,6 +5,21 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples 
+#' # Establish a Connection Handler using newConnHandler if not done so already .
+#' 
+#' 
+#' # Get a list of signatures available in the database
+#' # signature_tbl <- SigRepo::searchSignature(
+#'  #  conn_handler = conn,
+#'  #  user_name = "guest"
+#' # )
+#' 
+#' # Delete signature from database (NOT RUN)
+#' # SigRepo::deleteSignature(
+#' #   conn_handler = conn,
+#' #   collection_id = signature_tbl$signature_id[1]
+#' # )
 #' @export
 deleteSignature <- function(
     conn_handler, 
@@ -59,7 +74,7 @@ deleteSignature <- function(
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show message
-    base::stop(base::sprintf("\nThere is no signature_id = '%s' existed in the 'signatures' table of the SigRepo database.\n", signature_id))
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' in the Signature Repository, please try again.\n", signature_id))
     
   }else{
     

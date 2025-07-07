@@ -32,15 +32,3 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Update metadata of a collection in the database
 }
-\examples{
-
-# Create a db connection
-conn_handler <- SigRepo::newConnHandler(
- dbname = "sigrepo", 
- host = "montilab.bu.edu", 
- port = 3306, 
- user = "guest", 
- password = "guest"
-)
-
-}

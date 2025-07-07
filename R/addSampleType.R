@@ -6,6 +6,19 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' # creating a sample type dataframe
+#' # sample_tbl <- data.frame(
+#' # sample_type = "liver",
+#' # brenda_accession = "BTO:0000759")
+#'
+#' # SigRepo::addSampleType(
+#' # conn_handler = conn,
+#' # sample_type_tbl = sample_tbl,
+#' # verbose = FALSE)
+#' 
+#' 
 #' @export
 addSampleType <- function(
     conn_handler,

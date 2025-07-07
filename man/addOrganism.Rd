@@ -17,3 +17,16 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add organism to database
 }
+\examples{
+
+
+# Creating an dataframe with the approrpiate columns
+# organism_tbl <- data.frame(
+# organism = "test_organism")
+
+# SigRepo:: addOrganism(
+# conn_hanler = conn,
+# organism_tbl = organism_tbl,
+# verbose = FALSE)
+
+}

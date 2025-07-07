@@ -4,14 +4,14 @@
 
 library(devtools)
 library(dplyr)
-devtools::install_github(repo = "montilab/OmicSignature")
+devtools::install_github(repo = "montilab/OmicSignature") # installing the omic signature package 
 
 load_all()
 
 
 # Grabbing the data path
 
-data_path <- system.file("data", package="SigRepo")
+data_path <- system.file("data", package="SigRepo"). 
 
 
 # reading in the data 
@@ -54,7 +54,6 @@ OmS_SUM_CYP <- dplyr::filter(OmS_SUM_CYP, ensembl_gene_id %in% filter_list$featu
 
 OmS_SUM_AhR <- dplyr::filter(OmS_SUM_AhR, ensembl_gene_id %in% filter_list$feature_name)
 
-# proteomics example
 
 
 # transcriptomics example metadata 
@@ -115,22 +114,6 @@ metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "AhR knockdow
                                                   adj_p_cutoff = "0.01")
 
 
-# proteomics example metadata
-
-prot_metadata_MDA_CYP <- OmicSignature::createMetadata(
-  signature_name = "CYP181 knockdown in breast cancer cell line", 
-  organism = "Homo sapiens",
-  assay_type = "proteomics", 
-  phenotype = "CYP181 knockdown",
-  sample_type = "MDA-MB-231 cell",
-  direction_type = "uni-directional", 
-  platform = "GPL17930", 
-  covariates = "none", 
-  year = 2016, 
-  keywords = c("breast cancer", "CYP181 knockdown"), 
-  description = "Proteomics Example", 
-  adj_p_cutoff = "0.01"
-  )
 
 
 # Transriptomics example difexp
@@ -157,11 +140,7 @@ difexp_MDA_CYP <- OmS_MDA_CYP %>%
   ) %>%
   select(feature_name, adj_p, score )
 
-# proteomics example difex
 
-prot_difexp_MDA_CYP <- prot_OmS_MDA_CYP %>%
-  dplyr::rename(score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val) %>%
-  select(feature_name, adj_p, score)
 
 # creating fake probe_ids for now, still not working for me
 
@@ -188,10 +167,7 @@ sig_MDA_AhR <- difexp_MDA_AhR %>%
 sig_MDA_CYP <- difexp_MDA_CYP %>%
   select(feature_name, score, probe_id)
 
-# proteomics example signature
 
-prot_sig_MDA_CYP <- prot_difexp_MDA_CYP %>%
-  select(feature_name, score, probe_id)
 
 # adding in the direction column
 
@@ -231,12 +207,6 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
   difexp = difexp_MDA_CYP
 )
 
-# Creating Proteomics signature object
-
-prot_omic_signature_ex <- OmicSignature::OmicSignature$new(
-  signature = prot_sig,
-  metadata = prot_metadata_MDA_CYP
-)
 
 # Creating an OmicSignature Collection
 
@@ -253,16 +223,16 @@ OmSC <- OmicSignature::OmicSignatureCollection$new(
 
 # saving the RDS objcts to the siganture folder
 
-saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
+# saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
 
-saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
+# saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
 
-saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
+# saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
 
-saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
+# saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
 
-saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
+# saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
 
-saveRDS(prot_omic_signature_ex, file = file.path(data_path, "signatures/prot_omic_signature_ex.RDS"))
+# saveRDS(prot_omic_signature_ex, file = file.path(data_path, "signatures/prot_omic_signature_ex.RDS"))
 
 

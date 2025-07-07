@@ -7,24 +7,18 @@
 #'  
 #' @examples 
 #' 
-#' # Create a db connection
-#' conn_handler <- SigRepo::newConnHandler(
-#'  dbname = "sigrepo", 
-#'  host = "montilab.bu.edu", 
-#'  port = 3306, 
-#'  user = "guest", 
-#'  password = "guest"
-#' )
+#' # establish a connection handler using newConnHanlder if not done so already.
 #' 
 #' # Get a list of signatures available in the database
-#' collection_tbl <- sigRepo::searchCollection(
-#'   conn_handler = conn_handler,
-#'   user_name = "guest"
-#' )
+#' 
+#' # collection_tbl <- SigRepo::searchCollection(
+#'   # conn_handler = conn,
+#'   # user_name = "guest"
+#' # )
 #' 
 #' # Delete signature from database (NOT RUN)
 #' # SigRepo::deleteCollection(
-#' #   conn_handler = conn_handler,
+#' #   conn_handler = conn,
 #' #   collection_id = collection_tbl$collection_id[1]
 #' # )
 #' 

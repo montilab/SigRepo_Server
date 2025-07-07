@@ -25,9 +25,11 @@ updateUser(
 
 \item{email}{Email of a user to be updated. Default is NULL.}
 
+\item{first_name}{First name of a user to be updated. Default is NULL}
+
 \item{last_name}{Last name of a user to be updated. Default is NULL.}
 
-\item{affiliation}{First name of a user to be updated. Default is NULL.}
+\item{affiliation}{Affiliation of the user. Default is NULL.}
 
 \item{role}{Role of a user to be updated. Choices are admin/editor/viewer.}
 
@@ -36,4 +38,21 @@ diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Update a user information in the database
+}
+\examples{
+
+ # Establish a Connection Handler using newConnHandler if not done so already.
+
+# SigRepo::updateUser(
+# conn_handler = conn,
+# user_name = "test_user", # required
+# password = "new_password", 
+# email = "test_email",
+# affiliation = "test_affiliation",
+# last_name = "test_last_name",
+# role = "editor",
+# verbose = FALSE
+# )
+
+
 }

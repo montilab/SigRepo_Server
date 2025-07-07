@@ -10,16 +10,6 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @examples 
-#' 
-#' # Create a db connection
-#' conn_handler <- SigRepo::newConnHandler(
-#'  dbname = "sigrepo", 
-#'  host = "montilab.bu.edu", 
-#'  port = 3306, 
-#'  user = "guest", 
-#'  password = "guest"
-#' )
 #' 
 #' @export
 updateCollectionMetadata <- function(

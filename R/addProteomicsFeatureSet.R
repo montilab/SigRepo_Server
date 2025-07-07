@@ -8,7 +8,12 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @noRd
+#' @importFrom dplyr all_of
+#' @importFrom methods is
+#' @importFrom data.table :=
+#' @importFrom rlang syms
+#' 
+#' @keywords internal
 #' 
 #' @export
 addProteomicsFeatureSet <- function(

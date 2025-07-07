@@ -7,6 +7,18 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # search for available collections
+#' 
+#' # collection_tbl <- SigRepo::getCollection(
+#' # conn_handler = conn,
+#' # collection_name = "test_collection",
+#' # colection_id = 170,
+#' # verbose = FALSE)
+#' 
 #' @export
 getCollection <- function(
     conn_handler,

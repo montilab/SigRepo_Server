@@ -17,3 +17,16 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add keywords to database
 }
+\examples{
+
+# creating a dataframe
+
+# keyword_tbl <- data.frame(
+# keyword = "keyword1")
+
+# SigRepo::addKeyword(
+# conn_handler = conn,
+# keyword_tbl = keyword_tbl,
+# verbose = FALSE)
+
+}
