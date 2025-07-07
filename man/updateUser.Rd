@@ -13,11 +13,13 @@ updateUser(
   last_name = NULL,
   affiliation = NULL,
   role = NULL,
+  active = NULL,
   verbose = TRUE
 )
 }
 \arguments{
-\item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
 \item{user_name}{Name of a user to be updated (required).}
 
@@ -33,11 +35,14 @@ updateUser(
 
 \item{role}{Role of a user to be updated. Choices are admin/editor/viewer.}
 
+\item{active}{Whether to make a user TRUE (active) or FALSE (inactive). 
+Default is NULL.}
+
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Update a user information in the database
+Update a user in the database
 }
 \examples{
 

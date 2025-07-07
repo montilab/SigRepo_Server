@@ -7,7 +7,8 @@
 deleteUser(conn_handler, user_name, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
 \item{user_name}{Name of a user to be deleted (required).}
 
@@ -15,7 +16,7 @@ deleteUser(conn_handler, user_name, verbose = TRUE)
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Delete user information in the database
+Delete a user from the database
 }
 \examples{
 
