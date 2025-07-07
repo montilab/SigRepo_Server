@@ -6,7 +6,7 @@
 #' @param table A table in the database
 #' @param check_db_table whether to check database table. Default = TRUE.
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 insert_table_sql <- function(
@@ -85,6 +85,7 @@ insert_table_sql <- function(
 #' @param delete_coln_var A column variable in the table for removing rows
 #' @param delete_coln_val A list of values associated with delete_coln_var to be removed.
 #' @param check_db_table whether to check database table. Default = TRUE.
+#' @keywords internal
 #' @export
 delete_table_sql <- function(
     conn, 
@@ -166,6 +167,7 @@ delete_table_sql <- function(
 #' provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 #' Default NULL.
 #' @param check_db_table Check whether table exists in the database. Default = TRUE.
+#'docuem @keywords internal
 #' @export
 lookup_table_sql <- function(
     conn, 

@@ -4,7 +4,7 @@ upload_sig_error_msg <- shiny::reactiveVal()
 
 # Observe upload_signature ####
 shiny::observeEvent({
-  input$upload_signature
+  input$upload_file_signature
 }, {
   
   req(user_conn_handler())
@@ -13,7 +13,7 @@ shiny::observeEvent({
   upload_sig_error_msg(NULL)
   
   # Get file input
-  inputfile <- shiny::isolate({ input$oms_file })
+  inputfile <- shiny::isolate({ input$upload_file_signature })
 
   # Check input file is valid
   if(is.null(inputfile)){
@@ -42,7 +42,7 @@ shiny::observeEvent({
   # Upload signature
   upload_message <- base::tryCatch({
     SigRepo::addSignature(
-      conn_handler = conn_handler,
+      conn_handler = conn,
       omic_signature = omic_signature
     )
   }, error = function(e){
@@ -60,8 +60,8 @@ shiny::observeEvent({
   upload_sig_error_msg(upload_message)
 
   # Update user signature tbl
-  promises::future_promise({
-    SigRepo::searchSignature(conn_handler = conn_handler, user_name = conn_handler$user)
+  promis8es::future_promise({
+    SigRepo::searchSignature(conn_handler = conn, user_name = conn$user)
   }, package = "tidyverse") %...>% user_signature_tbl()
  
 }, ignoreNULL = TRUE, ignoreInit = TRUE)

@@ -5,6 +5,18 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' # creating a dataframe
+#' 
+#' # keyword_tbl <- data.frame(
+#' # keyword = "keyword1")
+#' 
+#' # SigRepo::addKeyword(
+#' # conn_handler = conn,
+#' # keyword_tbl = keyword_tbl,
+#' # verbose = FALSE)
+#' 
 #' @export
 addKeyword <- function(
     conn_handler,

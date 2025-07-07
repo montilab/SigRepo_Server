@@ -10,21 +10,21 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @examples 
+#' @examples
 #' 
-#' # Create a db connection
-#' conn_handler <- SigRepo::newConnHandler(
-#'  dbname = "sigrepo", 
-#'  host = "montilab.bu.edu", 
-#'  port = 3306, 
-#'  user = "guest", 
-#'  password = "guest"
-#' )
+#' # Establish a Connection Handler using newConnHandler if not done so already.
 #' 
-#' # Get a list of collection available in the database
-#' collection_tbl <- sigRepo::searchCollection(
-#'   conn_handler = conn_handler
-#' )
+#'  # SigRepo::searchCollection(
+#' # conn_handler = conn,
+#' # collection_name = "test_collection",
+#' # collection_id = 101,
+#' # signature_name = "test_signature",
+#' # signature_id = 170,
+#' # user_name = "test_user",
+#' # verbose = FALSE
+#' # )
+#' 
+#' 
 #' 
 #' @export
 searchCollection <- function(

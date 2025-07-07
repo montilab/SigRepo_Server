@@ -6,8 +6,7 @@
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{FALSE}. 
 #' 
-#' @noRd
-#' 
+#' @keywords internal
 #' @export
 createSignatureMetadata <- function(
     conn_handler,

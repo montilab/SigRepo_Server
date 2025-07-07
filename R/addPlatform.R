@@ -7,6 +7,21 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' # creating a dataframe
+#' 
+#' # platform_tbl <- data.frame(
+#' # platform_id = "GPLXXXX",
+#' # platform_name = "GPLXXXX",
+#' # seq_technology = "RNA-seq",
+#' # organisms = "Mus musculus")
+#' 
+#' # SigRepo::addPlatform(
+#' # conn_handler = conn,
+#' # platform_tbl = platform_tbl,
+#' # verbose = FALSE)
+#' 
 #' @export
 addPlatform <- function(
     conn_handler,
