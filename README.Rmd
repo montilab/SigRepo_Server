@@ -103,7 +103,8 @@ There are three types of user accounts:<br>
 - `editor` has <b>READ</b> and <b>WRITE</b> access to ONLY their own uploaded signatures in the database.<br>
 - `viewer` has <b>ONLY READ</b> access to see a list of signatures that are publicly available in the database but <b>DO NOT HAVE WRITE</b> access to the database.<br>
 
-Once you have a valid account, to connect to our SigRepo database, one can use the `newConnHandler()` function to create a handler which contains user credentials to establish connection to our database.
+Once you have a valid account, to connect to our SigRepo database, one can use the `newConnHandler()` function to create a handler which contains user credentials to establish connection to our database. 
+
 
 ```{r}
 # Create a connection handler
@@ -125,11 +126,11 @@ Here, we provide two signature objects that comes with the package for demonstra
 
 ```{r}
 # Getting the signature path
-signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+signature_path <- base::system.file("inst/extdata/signatures", package = "SigRepo")
 
 # Read in the signature object
-omic_signature_AGS_OmS <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
-omic_signature_MDA_CYP <- base::readRDS(base::file.path(signature_path, "omic_signature_MDA_CYP.RDS"))
+omic_signature_1 <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_1.RDS"))
+omic_signature_2 <- base::readRDS(base::file.path(signature_path, "omic_signature_MDA_2.RDS"))
 ```
 
 # Upload a signature
@@ -147,7 +148,7 @@ __IMPORTANT NOTE:__
 # Create signature metadata
 metadata <- base::list(
   # required attributes:
-  signature_name = "Myc_reduce_mice_liver_24m",
+  signature_name = "Myc_reduce_mice_liver_24_readme",
   organism = "Mus Musculus",
   direction_type = "bi-directional",
   assay_type = "transcriptomics",
