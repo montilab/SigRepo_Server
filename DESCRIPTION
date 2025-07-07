@@ -21,31 +21,21 @@ Encoding: UTF-8
 RoxygenNote: 7.3.2
 Imports:
   DBI,
-  DT,
   digest,
-  future,
-  htmltools,
   httr,
   jsonlite,
-  methods,
-  odbc,
-  plumber,
-  promises,
   RMySQL,
-  shiny,
-  shinyjs,
   sodium,
-  stats,
-  tidyverse,
-  tools,
-  utils,
-  magrittr,
-  OmicSignature,
   dplyr,
-  stringr,
+  magrittr,
   rlang,
-  data.table, 
-  purrr
+  data.table,
+  methods,
+  OmicSignature,
+  purrr,
+  stringr
+Remotes:
+  montilab/OmicSignature
 Suggests:
     BiocManager,
     BiocStyle,
