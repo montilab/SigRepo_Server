@@ -361,6 +361,7 @@ server <- function(input, output, session) {
     }else if(tab_selected() == "signatures"){
       base::source("ui/signature_page_ui.R")$value
     }else if(tab_selected() == "collections"){
+      base::source("ui/collection_page_ui.R")$value
     }else if(tab_selected() == "compare"){
     }else if(tab_selected() == "analysis"){
     }else if(tab_selected() == "resources"){
@@ -372,6 +373,7 @@ server <- function(input, output, session) {
   source("server/sign_in_server.R", local = TRUE)
   source("server/signature_page_server.R", local = TRUE)
   source("server/home_page_server.R", local = TRUE)
+  source("server/collection_page_server.R", local = TRUE)
 
 
 }
