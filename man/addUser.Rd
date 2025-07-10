@@ -39,6 +39,7 @@ Add a list of users to database
 # SigRepo::addUser(
 # conn_handler = conn,
 # user_tbl = user_tbl,
+# active = TRUE
 # verbose = FALSE
 # )
 

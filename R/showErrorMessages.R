@@ -104,3 +104,5 @@ showProteomicsErrorMessage <- function(
   
 }
 
+#' @title showAssayTypeErrorMessage
+#' make this a stop, not a warning.
