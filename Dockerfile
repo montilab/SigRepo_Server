@@ -79,8 +79,14 @@ RUN dos2unix ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
 # Allow permissions to execute the bash script
 RUN chmod a+x ${PACKAGE_DIR}/inst/shiny/shiny-server.sh
 
+# COPY inst/mysql/initialize_ref_table.sh ${PACKAGE_DIR}/inst/mysql/initialize_ref_table.sh
+
+# RUN dos2unix ${PACKAGE_DIR}/inst/mysql/initialize_ref_table.sh
+
+#3 RUN chmod a+x ${PACKAGE_DIR}/inst/mysql/initialize_ref_table.sh
+
 # Copy bash script that starts shiny-server to Docker image
-COPY inst/api/shiny-server.sh ${PACKAGE_DIR}/inst/api/shiny-server.sh
+#COPY inst/api/shiny-server.sh ${PACKAGE_DIR}/inst/api/shiny-server.sh
 
 # Convert bash script from Windows style line endings to Unix-like control characters
 RUN dos2unix ${PACKAGE_DIR}/inst/api/shiny-server.sh
