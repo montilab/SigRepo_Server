@@ -57,7 +57,7 @@ function(req){
 }
 
 # Create a list of serializers to return the object ####
-serializer <- list(
+serializers <- list(
   "html" = plumber::serializer_html(),
   "json" = plumber::serializer_json(),
   "csv" = plumber::serializer_csv(),
