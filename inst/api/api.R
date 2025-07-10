@@ -1,6 +1,8 @@
 
 # For API 
 library(plumber)
+library(httr)
+library(jsonlite)
 
 # For DB connection
 library(RMySQL)
@@ -104,7 +106,7 @@ store_difexp <- function(res, api_key, signature_hashkey, difexp){
     
     error_message <- "signature_hashkey cannot be empty."
     res$serializer <- serializers[["json"]]
-    res$status <- 200
+    res$status <- 404
     warn_tbl <- base::data.frame(MESSAGES = error_message)
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
@@ -191,7 +193,7 @@ get_difexp <- function(res, api_key, signature_hashkey){
     
     error_message <- "signature_hashkey cannot be empty."
     res$serializer <- serializers[["json"]]
-    res$status <- 200
+    res$status <- 404
     warn_tbl <- base::data.frame(MESSAGES = error_message)
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
@@ -262,7 +264,7 @@ delete_difexp <- function(res, api_key, signature_hashkey){
   if(base::missing(api_key)){
     
     missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
-    error_message <- sprintf('Missing required parameter(s): %s', paste0(variables[which(missing_variables==TRUE)], collapse=", "))
+    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[which(missing_variables==TRUE)], collapse=", "))
     
     ## Initialize the serializers
     res$serializer <- serializers[["json"]]
@@ -281,7 +283,7 @@ delete_difexp <- function(res, api_key, signature_hashkey){
     
     error_message <- "signature_hashkey cannot be empty."
     res$serializer <- serializers[["json"]]
-    res$status <- 200
+    res$status <- 404
     warn_tbl <- base::data.frame(MESSAGES = error_message)
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
@@ -339,112 +341,93 @@ delete_difexp <- function(res, api_key, signature_hashkey){
   
 }
 
-#* Get a list of signatures available in the database
-#* @param author_id
+#* Activate registered users in the database
 #* @param api_key
-#' @get /signatures
-signatures <- function(res, author_id="all", api_key){
+#* @param user_name
+#' @get /activate_user
+activate_user <- function(res, api_key, user_name){
   
-  variables <- c("author_id", "api_key")
+  variables <- c("api_key", "user_name")
   
   # Check parameters
-  if(base::missing(author_id) || base::missing(api_key)){
+  if(base::missing(user_name) || base::missing(api_key)){
     
-    missing_variables <- c(base::missing(author_id),  base::missing(api_key))
-    error_message <- sprintf('Missing required parameter(s): %s', paste0(variables[which(missing_variables==TRUE)], collapse = ", "))
+    missing_variables <- c(base::missing(user_name),  base::missing(api_key))
+    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[which(missing_variables==TRUE)], collapse = ", "))
     
-    # Initialize the serializers
-    res$serializer <- serializer[["html"]]
-    res$status <- 500
-    res$body <- page_not_found(status="500", message=error_message)
-    
-    return(res)
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
   }
   
-  # Check api key
-  check_api_key(res=res, api_key = api_key)
+  # Check parameters and trim white spaces
+  api_key <- base::trimws(api_key[1]) 
+  user_name <- base::trimws(user_name[1])
   
-  ## Establish database connection
-  conn <- SigRepo::newConnHandler()
-  
-  # Get signatures table from database
-  statement <- SigRepo::lookup_var_sql(
-    table = "signatures",
-    return_var = c("signature_name", "user_id", "uploaded_date"),
-    filter_coln_var = ifelse(author_id == "all", NULL, "user_id"),
-    filter_coln_val = ifelse(author_id == "all", NULL, author_id)
-  )  
-  
-  table <- tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    # Initialize the serializers
-    res$serializer <- serializer[["html"]]
-    res$status <- 500
-    res$body <- page_not_found(status="500", message=paste0(e))
-    return(res)
-  })
-  
-  if(nrow(table) == 0){
-    return(jsonlite::toJSON(data.frame(WARNING="There is no data returned from the search paramters"), pretty=TRUE)) 
+  # Check user_name ####
+  if(user_name %in% c(NA, "")){
+    
+    error_message <- "user_name cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
   }else{
-    return(jsonlite::toJSON(table, pretty=TRUE))
+    
+    # Check user table
+    check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
+    
+    # If user exists, throw an error
+    if(nrow(check_user_tbl) == 0){
+      error_message <- base::sprintf("User = '%s' does not exist in our database. Please choose a different name.", user_name)
+      res$serializer <- serializers[["json"]]
+      res$status <- 404
+      warn_tbl <- base::data.frame(MESSAGES = error_message)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    }
+    
+  }
+  
+  # Check api_key ####
+  if(api_key %in% ""){
+    
+    error_message <- "api_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else if(!api_key %in% Sys.getenv("API_KEY")){
+    
+    error_message <- "Invalid API Key."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Activate user
+  SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, active = TRUE)
+  
+  # Send email to users to notify their account are activated
+  api_url <- base::sprintf("https://montilab.bu.edu/send_notifications/?user_name=%s", user_name)
+  
+  # Send email to users through montilab server API
+  res <- httr::GET(url = api_url)
+  
+  # Check status code
+  if(res$status_code != 200){
+    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("\tSomething went wrong with the API. Cannot activate user = '%s'. Please contact admin for support.\n", user_name))
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  }else{
+    tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' has been activated. An email has been sent to user to account its account.\n", user_name))
+    return(jsonlite::toJSON(tbl, pretty=TRUE))
   }
   
 }
-
-#* Get a list of organisms available in the database
-#* @param organism
-#* @param api_key
-#' @get /organisms
-organisms <- function(res, organism="all", api_key){
-  
-  variables <- c("organisms", "api_key")
-  
-  # Check parameters
-  if(base::missing(organisms) || base::missing(api_key)){
-    
-    missing_variables <- c(base::missing(organisms),  base::missing(api_key))
-    error_message <- sprintf('Missing required parameter(s): %s', paste0(variables[which(missing_variables==TRUE)], collapse = ", "))
-    
-    # Initialize the serializers
-    res$serializer <- serializer[["html"]]
-    res$status <- 500
-    res$body <- page_not_found(status="500", message=error_message)
-    
-    return(res)
-    
-  }
-  
-  ## Establish database connection
-  conn <- SigRepo::newConnHandler()  
-  
-  # Get organisms table from database
-  statement <- SigRepo::lookup_var_sql(
-    table = "organisms",
-    return_var = c("organism"),
-    filter_coln_var = ifelse(organisms == "all", NULL, "organism"),
-    filter_coln_val = ifelse(organisms == "all", NULL, organisms)
-  )  
-  
-  # Get 
-  table <- base::tryCatch({
-    DBI::dbGetQuery(conn = conn, statement = statement)
-  }, error = function(e){
-    # Initialize the serializers
-    res$serializer <- serializer[["html"]]
-    res$status <- 500
-    res$body <- page_not_found(status="500", message=paste0(e))
-    return(res)
-  })
-  
-  if(nrow(table) == 0){
-    return(jsonlite::toJSON(data.frame(WARNING="There is no data returned from the search paramters"), pretty=TRUE)) 
-  }else{
-    return(jsonlite::toJSON(table, pretty=TRUE))
-  }
-  
-}
-
 
