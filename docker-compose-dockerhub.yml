@@ -8,7 +8,7 @@ x-sql-volume:
 x-sql-schema-init:
   &sql-schema-init
   type: bind
-  source: ${SIGREPO_DIR}/inst/mysql/schema
+  source: /SigRepo/inst/mysql/schema
   target: /docker-entrypoint-initdb.d
   
 x-difexp-volume:
@@ -38,7 +38,6 @@ services:
       - *sql-volume
       - *sql-schema-init
   
-
   sigrepo-api:
     container_name: sigrepo-api
     image: montilab/sigrepo:latest
