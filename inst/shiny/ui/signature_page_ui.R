@@ -85,20 +85,11 @@
       DTOutput("signature_tbl"),
       uiOutput("sig_tbl_error_msg"),  # if applicable
       br(),
-      
-      # You can optionally use `conditionalPanel` for things *only* relevant to filtering
-      conditionalPanel(
-        condition = "input.main_tabs == 'Filter'",
-        shinyjs::hidden(
-          actionButton("download_oms", "Download OmicSignature", class = "submit-button", onclick = "sig_tbl_select_rows();")
-        ),
-        div(
-          downloadButton("download_oms_handler", "Download")
-        
-        ),
-        DTOutput("sig_up_regulated_tbl"),
-        DTOutput("sig_down_regulated_tbl")
+      div(
+        downloadButton("download_oms_handler", "Download OmicSignature", class = "submit-button", 
+                       onclick = "sig_tbl_select_rows();")
       )
+      
     )
     
   )

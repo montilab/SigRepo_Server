@@ -64,4 +64,29 @@ SigRepo::deleteSignature(conn_handler = conn, signature_id = 62, verbose = TRUE)
 # grabbing path of example signatures
 
 
+# adding new ensembl reference feature id
 
+# feature_name,organism,gene_symbol,is_current
+
+ref_set_ids <- data.frame(
+  feature_name = "ENSG00000223784",
+  organism = "homo sapiens",
+  gene_symbol = "LINP1",
+  is_current = 1
+)
+
+
+SigRepo::addRefFeatureSet(conn_handler = conn_handler,
+                          assay_type = "transcriptomics",
+                          feature_set = ref_set_ids )
+
+
+sig_object_pr <- SigRepo::getSignature(conn_handler = conn_handler,
+                      signature_id = "321",
+                      signature_name = "NECS_SomaScan_SurvivalOffspring")
+
+sig_object_tr <- SigRepo::getSignature(conn_handler = conn_handler,
+                                       signature_id = "319",
+                                       signature_name = "male SIRT6-transgenic mice vs. male WT")
+
+sig_ex <- sig_object_pr$NECS_SomaScan_SurvivalOffspring$signature
