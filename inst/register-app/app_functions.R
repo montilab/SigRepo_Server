@@ -113,8 +113,8 @@ notifyUser <- function(
 sendPassword <- function(
     from_sender = "sigrepo@bu.edu",
     user_name = "rchau88",
-    temp_password = "123456789",
-    user_email = "rchau88@bu.edu"
+    user_email = "rchau88@bu.edu",
+    temp_password = "123456789"
 ){
   
   msg <- sendmailR::mime_part(
