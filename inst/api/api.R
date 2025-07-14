@@ -415,7 +415,7 @@ activate_user <- function(res, api_key, user_name){
   SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, active = TRUE)
   
   # Send email to users to notify their account are activated
-  api_url <- base::sprintf("https://montilab.bu.edu/send_notifications/?user_name=%s", user_name)
+  api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/?user_name=%s", user_name)
   
   # Send email to users through montilab server API
   res <- httr::GET(url = api_url)
@@ -425,7 +425,7 @@ activate_user <- function(res, api_key, user_name){
     warn_tbl <- base::data.frame(MESSAGES = base::sprintf("\tSomething went wrong with the API. Cannot activate user = '%s'. Please contact admin for support.\n", user_name))
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
   }else{
-    tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' has been activated. An email has been sent to user to account its account.\n", user_name))
+    tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' has been activated. An email has been sent to notify its user.\n", user_name))
     return(jsonlite::toJSON(tbl, pretty=TRUE))
   }
   
