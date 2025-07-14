@@ -58,7 +58,7 @@ send_notifications_to_user <- function(
       '<br>',
       '<p>Username: <strong>', user_name, '</strong></p>',
       '<br>',
-      '<p>To log back in? Follow this link, <strong>https://sigrepo.org/</strong></p>',
+      '<p>To log back in? Please follow this link, <strong>https://sigrepo.org/</strong></p>',
       '<br>',
       '<p>Best,</p>',
       '<p>Montilab Team</p>',
