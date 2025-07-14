@@ -57,6 +57,17 @@ createSignatureMetadata <- function(
   # Get assay_type ####
   assay_type <- metadata$assay_type[1]
   
+  # check if assay type if valid
+  
+  # if(assay_type %in% c("metabolomics", "DNA_binding_sites", "methylomics", "genetic_variations"){
+  #   # If assay_type is not valid, throw an error message
+  #   base::suppressWarnings(DBI::dbDisconnect(conn)) 
+  #   SigRepo::showAssayTypeErrorMessage(
+  #     db_table_name = "assay_types",
+  #     unknown_values = assay_type
+  #   )
+  # }
+  
   # Look up organism id (required) ####
   lookup_organism <- metadata$organism[1]
   

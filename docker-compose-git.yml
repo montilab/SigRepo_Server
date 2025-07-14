@@ -1,30 +1,30 @@
 
 x-sigrepo-git-repo:
   &sigrepo-git-repo
-  https://github.com/montilab/SigRepo.git#master
+  https://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@github.com/montilab/SigRepo.git#master
 
 x-sql-volume:
   &sql-volume
   type: bind
-  source: $HOME/mysql/database
+  source: $BASE_INSTALL_DIR/mysql/database
   target: /var/lib/mysql
   
 x-sql-schema-init:
   &sql-schema-init 
   type: bind
-  source: $HOME/SigRepo/inst/mysql/schema/init.sql
+  source: $SIGREPO_DIR/SigRepo/inst/mysql/schema/init.sql
   target: /docker-entrypoint-initdb.d/init.sql
   
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: $HOME/mysql/difexp
+  source: $BASE_INSTALL_DIR/mysql/difexp
   target: /difexp
   
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: $HOME/SigRepo
+  source: $SIGREPO_DIR/SigRepo
   target: /SigRepo
 
 services:
