@@ -122,4 +122,7 @@ input[type="checkbox"]:focus {
   overflow-x: scroll;
 }
 
+table.dataTable td {
+  white-space: nowrap;
+}
 

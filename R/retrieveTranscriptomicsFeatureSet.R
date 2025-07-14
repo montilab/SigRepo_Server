@@ -3,7 +3,7 @@
 #' @param conn An established connection to the database obtained from SigRepo::conn_init()
 #' @param feature_tbl A data frame contains a list of feature to look up by
 #' 
-#' @noRd
+#' @keywords internal 
 #' 
 #' @export
 retrieveTranscriptomicsFeatureSet <- function(

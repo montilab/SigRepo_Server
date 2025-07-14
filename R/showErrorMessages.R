@@ -4,7 +4,7 @@
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 showOrganismErrorMessage <- function(
@@ -25,7 +25,7 @@ showOrganismErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 showPlatformErrorMessage <- function(
@@ -46,7 +46,7 @@ showPlatformErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 showSampleTypeErrorMessage <- function(
@@ -67,7 +67,7 @@ showSampleTypeErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export 
 showTranscriptomicsErrorMessage <- function(
@@ -88,7 +88,7 @@ showTranscriptomicsErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export 
 showProteomicsErrorMessage <- function(

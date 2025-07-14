@@ -2,7 +2,7 @@
 services:
   sigrepo-register:
     container_name: sigrepo-register
-    image: montilab/sigrepo:latest
+    image: montilab/sigrepo-sendmail:latest
     env_file:
       - .Renviron
     ports:

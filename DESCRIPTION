@@ -1,6 +1,6 @@
 Package: SigRepo
 Type: Package
-Title: Storing and processing omic signature
+Title: Storing and processing omic signatures
 Version: 1.0.0
 Authors@R: 
   c(person(given="Reina", family="Chau", role=c("aut","cre"), 
@@ -20,22 +20,22 @@ URL: https://github.com/montilab/SigRepo/
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 Imports:
+  data.table,
   DBI,
-  DT,
   digest,
-  htmltools,
+  dplyr,
   httr,
   jsonlite,
+  magrittr,
   methods,
-  promises,
+  OmicSignature,
+  purrr,
+  rlang,
   RMySQL,
-  shiny,
-  shinyjs,
-  stats,
-  tidyverse,
-  tools,
-  utils,
-  magrittr
+  sodium,
+  stringr
+Remotes:
+  montilab/OmicSignature
 Suggests:
   BiocManager,
   BiocStyle,

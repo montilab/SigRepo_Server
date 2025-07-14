@@ -124,10 +124,7 @@ input[type="checkbox"]:focus {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  background-image: url("images/pic05.jpg");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: cover; 
+  background-color: dodgerblue;
   border-radius: 5px;
 	border-bottom-left-radius: 0;
 	border-bottom-right-radius: 0;

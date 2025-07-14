@@ -5,6 +5,16 @@
 #' @param user_name Name of a user to be deleted (required).
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#'
+#' 
+#' # Establish a Connection Handler using newConnHnalder if not done so already.
+#' 
+#' # SigRepo::deleteUser(
+#' # conn_handler = conn,
+#' # user_name = "user1",
+#' # verbose = FALSE)
 #'
 #' @export
 deleteUser <- function(

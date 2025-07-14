@@ -1,0 +1,19 @@
+
+services:
+  sigrepo-sendmail:
+    container_name: sigrepo-sendmail
+    image: montilab/sigrepo-sendmail:latest
+    env_file:
+      - .Renviron
+    ports:
+      - 8080:3838
+    restart: always
+    working_dir: /SigRepo
+    volumes:
+      - /montilab-p/SigRepo:/SigRepo
+      - /montilab-p/SigRepo/.Renviron:/SigRepo/inst/sendmail-api/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/sendmail-api/shiny-server.sh"]
+
+networks:
+  db-net:
+    external: true 

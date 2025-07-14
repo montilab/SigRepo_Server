@@ -9,6 +9,15 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}. #test
 #' 
+#' @examples
+#' 
+#' # SigRepo::addCollection(
+#' # conn_handler = conn,
+#' # omic_collection = omic_collection_test,
+#' # visibility = FALSE,
+#' # return_collection_id = TRUE,
+#' # verbose = TRUE)
+#' 
 #' @export
 addCollection <- function(
     conn_handler,

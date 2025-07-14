@@ -5,6 +5,18 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' 
+#' # Creating an dataframe with the approrpiate columns
+#' # organism_tbl <- data.frame(
+#' # organism = "test_organism")
+#' 
+#' # SigRepo:: addOrganism(
+#' # conn_hanler = conn,
+#' # organism_tbl = organism_tbl,
+#' # verbose = FALSE)
+#' 
 #' @export
 addOrganism <- function(
     conn_handler,

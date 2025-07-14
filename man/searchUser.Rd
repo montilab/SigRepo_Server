@@ -19,3 +19,14 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Get phenotypes in the database
 }
+\examples{
+
+# Establish a Connection Handler using newConnHandler if not done so already.
+
+# SigRepo::searchUser(
+# conn_handler = conn,
+# user_name = c("user1", "user2"), # list of users.
+# verbose = FALSE)
+
+
+}

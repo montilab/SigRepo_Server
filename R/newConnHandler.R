@@ -7,6 +7,19 @@
 #' @param user Name of user to establish the connection.
 #' @param password Password associated with the user.
 #' @return A list of user credentials to establish connection to the remote database.
+#' @examples
+#' 
+#' # Create a connection handler using Sys.getenv with the environment variables 
+#' # stored in your .Renviron
+#' 
+#' # conn_handler <- SigRepo::newConnHandler(
+#' #   dbname = "sigrepo",
+#' #   host = Sys.getenv("HOST"),  
+#' #   port = as.integer(Sys.getenv("PORT")), 
+#' #   user = Sys.getenv("USER"),
+#' #   password = Sys.getenv("PASSWORD") 
+#' # )
+#' 
 #' @export
 newConnHandler <- function(
     dbname = 'sigrepo', 
@@ -60,7 +73,7 @@ newConnHandler <- function(
 #' @param conn_handler A handler uses to establish connection to a remote database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @return a MySQL connection class object
 #' 
