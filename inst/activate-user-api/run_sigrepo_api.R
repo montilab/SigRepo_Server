@@ -3,7 +3,7 @@
 library(plumber)
 
 # The package path
-api_path <- "/SigRepo/inst/sendmail-api/api.R"
+api_path <- "/SigRepo/inst/activate-user-api/api.R"
 
 # Start a Plumber API instance
 api <- plumber::plumb(file = api_path)
