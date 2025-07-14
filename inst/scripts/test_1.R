@@ -16,9 +16,12 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = "sigrepo", 
   host = "142.93.67.157", 
   port = 3306, 
-  user = "montilab", 
-  password = "sigrepo"
+  user = "rchau88", 
+  password = "123456789"
 )
+
+# Establish user connection ###
+conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Getting the signature path
 signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
