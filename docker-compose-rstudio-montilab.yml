@@ -1,8 +1,8 @@
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: /home/SigRepo
-  target: /home/rstudio/SigRepo
+  source: /montilab-p/SigRepo
+  target: /home/SigRepo
 
 services:
   sigrepo-rstudio:

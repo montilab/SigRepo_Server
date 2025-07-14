@@ -1,0 +1,18 @@
+
+services:
+  sigrepo-activate-user:
+    container_name: sigrepo-activate-user
+    image: montilab/sigrepo-sendmail:latest
+    env_file:
+      - .Renviron
+    ports:
+      - 8080:3838
+    restart: always
+    working_dir: /SigRepo
+    volumes:
+      - /montilab-p/SigRepo:/SigRepo
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/activate-user-api/shiny-server.sh"]
+
+networks:
+  db-net:
+    external: true 
