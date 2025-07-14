@@ -1,7 +1,7 @@
 
 services:
-  sigrepo-sendmail:
-    container_name: sigrepo-sendmail
+  sigrepo-activate-user:
+    container_name: sigrepo-activate-user
     image: montilab/sigrepo-sendmail:latest
     env_file:
       - .Renviron
@@ -11,8 +11,7 @@ services:
     working_dir: /SigRepo
     volumes:
       - /montilab-p/SigRepo:/SigRepo
-      - /montilab-p/SigRepo/.Renviron:/SigRepo/inst/sendmail-api/.Renviron
-    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/sendmail-api/shiny-server.sh"]
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/activate-user-api/shiny-server.sh"]
 
 networks:
   db-net:

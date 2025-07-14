@@ -13,4 +13,4 @@ then
 fi
 
 # Start shiny server
-exec Rscript ${PACKAGE_DIR}/inst/sendmail-api/run_sigrepo_api.R 2>&1
+exec Rscript ${PACKAGE_DIR}/inst/activate-user-api/run_sigrepo_api.R 2>&1
