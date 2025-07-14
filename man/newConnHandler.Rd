@@ -34,7 +34,8 @@ Create a handler to connect to a remote database.
 }
 \examples{
 
-# the easiest way to do this is use sys.getenv if you have the environment variables set correctly
+# Create a connection handler using Sys.getenv with the environment variables 
+# stored in your .Renviron
 
 # conn_handler <- SigRepo::newConnHandler(
 #   dbname = "sigrepo",
@@ -43,7 +44,5 @@ Create a handler to connect to a remote database.
 #   user = Sys.getenv("USER"),
 #   password = Sys.getenv("PASSWORD") 
 # )
-
-
 
 }
