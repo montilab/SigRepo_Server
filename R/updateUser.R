@@ -5,13 +5,30 @@
 #' @param user_name Name of a user to be updated (required).
 #' @param password Password of a user to be updated. Default is NULL.
 #' @param email Email of a user to be updated. Default is NULL.
-#' @param affiliation First name of a user to be updated. Default is NULL.
+#' @param affiliation Affiliation of the user. Default is NULL.
+#' @param first_name First name of a user to be updated. Default is NULL
 #' @param last_name Last name of a user to be updated. Default is NULL.
 #' @param role Role of a user to be updated. Choices are admin/editor/viewer.
 #' @param active Whether to make a user TRUE (active) or FALSE (inactive). 
 #' Default is NULL.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#' 
+#'  # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # SigRepo::updateUser(
+#' # conn_handler = conn,
+#' # user_name = "test_user", # required
+#' # password = "new_password", 
+#' # email = "test_email",
+#' # affiliation = "test_affiliation",
+#' # last_name = "test_last_name",
+#' # role = "editor",
+#' # verbose = FALSE
+#' # )
+#' 
 #' 
 #' @export
 updateUser <- function(
@@ -185,7 +202,8 @@ updateUser <- function(
     }else if(length(role[1]) == 1 && role[1] %in% "editor"){
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`keywords` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
-      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`platforms` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_access` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_feature_set` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))

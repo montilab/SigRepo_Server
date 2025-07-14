@@ -8,8 +8,8 @@ x-sql-volume:
 x-sql-schema-init:
   &sql-schema-init
   type: bind
-  source: /SigRepo/inst/mysql/schema/init.sql
-  target: /docker-entrypoint-initdb.d/init.sql
+  source: ${SIGREPO_DIR}/inst/mysql/schema
+  target: /docker-entrypoint-initdb.d
   
 x-difexp-volume:
   &difexp-volume
@@ -37,6 +37,7 @@ services:
     volumes:
       - *sql-volume
       - *sql-schema-init
+  
 
   sigrepo-api:
     container_name: sigrepo-api
@@ -67,7 +68,7 @@ services:
     volumes:
       - *sigrepo-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
-      
+
 networks:
   db-net:
     external: true

@@ -27,6 +27,7 @@ biocPackages <- url %>%
 # Read in package dependencies in DESCRIPTION
 DESCRIPTION <- yaml::read_yaml("DESCRIPTION")
 
+
 # Extract all imports packages
 required_pkgs <- trimws(strsplit(DESCRIPTION$Imports, ",", fixed=TRUE)[[1]])
 
@@ -48,4 +49,5 @@ install_cran_pkgs <- cran_pkgs[which(!cran_pkgs %in% utils::installed.packages()
 # And finally we install the required packages including their dependencies
 for(pkg in install_cran_pkgs) utils::install.packages(pkg, dependencies = TRUE, repos='http://cran.rstudio.com/')
 
+# need to add the R-shiny packages in here.
 

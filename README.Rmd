@@ -52,7 +52,7 @@ For demonstrations, we will walk through the steps of how to use `SigRepo` packa
 library(devtools)
 
 # Install SigRepo
-devtools::install_github(repo = 'montilab/SigRepo')
+devtools::install_github(repo = 'montilab/SigRepo', build = TRUE, force = TRUE)
 
 # Install OmicSignature
 devtools::install_github(repo = 'montilab/OmicSignature')
@@ -103,7 +103,8 @@ There are three types of user accounts:<br>
 - `editor` has <b>READ</b> and <b>WRITE</b> access to ONLY their own uploaded signatures in the database.<br>
 - `viewer` has <b>ONLY READ</b> access to see a list of signatures that are publicly available in the database but <b>DO NOT HAVE WRITE</b> access to the database.<br>
 
-Once you have a valid account, to connect to our SigRepo database, one can use the `newConnHandler()` function to create a handler which contains user credentials to establish connection to our database.
+Once you have a valid account, to connect to our SigRepo database, one can use the `newConnHandler()` function to create a handler which contains user credentials to establish connection to our database. 
+
 
 ```{r}
 # Create a connection handler
@@ -125,11 +126,11 @@ Here, we provide two signature objects that comes with the package for demonstra
 
 ```{r}
 # Getting the signature path
-signature_path <- base::system.file("inst/data/signatures", package = "SigRepo")
+signature_path <- base::system.file("extdata/signatures", package = "SigRepo")
 
 # Read in the signature object
-omic_signature_AGS_OmS <- base::readRDS(base::file.path(signature_path, "omic_signature_AGS_OmS.RDS"))
-omic_signature_MDA_CYP <- base::readRDS(base::file.path(signature_path, "omic_signature_MDA_CYP.RDS"))
+omic_signature_1 <- base::readRDS(base::file.path(signature_path, "omic_signature_1.RDS"))
+omic_signature_2 <- base::readRDS(base::file.path(signature_path, "omic_signature_2.RDS"))
 ```
 
 # Upload a signature
@@ -147,7 +148,7 @@ __IMPORTANT NOTE:__
 # Create signature metadata
 metadata <- base::list(
   # required attributes:
-  signature_name = "Myc_reduce_mice_liver_24m",
+  signature_name = "Myc_reduce_mice_liver_24_readme",
   organism = "Mus Musculus",
   direction_type = "bi-directional",
   assay_type = "transcriptomics",
@@ -209,7 +210,7 @@ SigRepo::addSignature(
 ```{r Example 2}
 SigRepo::addSignature(
   conn_handler = conn_handler, 
-  omic_signature = omic_signature_AGS_OmS
+  omic_signature = omic_signature_1
 )
 ```
 
@@ -218,7 +219,7 @@ SigRepo::addSignature(
 ```{r Example 3}
 missing_features <- SigRepo::addSignature(
   conn_handler = conn_handler, 
-  omic_signature = omic_signature_MDA_CYP,
+  omic_signature = omic_signature_2,
   return_missing_features = TRUE                # Whether to return a list of missing features during upload. Default is FALSE.
 )
 ```
@@ -268,7 +269,7 @@ __IMPORTANT NOTE:__
 ## Example 1: Retrieve all signatures that are publicly available or owned by the user in the database
 
 ```{r}
-signature_list <- SigRepo::getSignature(conn_handler = conn_handler)
+signature_list <- SigRepo::getSignature(conn_handler = conn_handler, signature_name = "Myc_reduce_mice_liver_24m_v3")
 ```
 
 ## Example 2: Retrieve a specific signature that is publicly available or owned by the user in the database, e.g., **signature_name = "LLFS_Aging_Gene_2023"**
@@ -303,7 +304,7 @@ signature_tbl <- SigRepo::searchSignature(
 if(nrow(signature_tbl) > 0){
   SigRepo::deleteSignature(
     conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id
+    signature_id = "150" # picking an id from the signature tbl output
   )
 }
 ```
@@ -384,7 +385,7 @@ signature_tbl <- SigRepo::searchSignature(
 if(nrow(signature_tbl) > 0){
   SigRepo::updateSignature(
     conn_handler = conn_handler, 
-    signature_id = signature_tbl$signature_id, 
+    signature_id = "257", # the id we want to update
     omic_signature = updated_omic_signature
   )
 }

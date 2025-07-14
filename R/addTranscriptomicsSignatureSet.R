@@ -7,10 +7,13 @@
 #' feature_name, probe_id, score, direction
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#'  
-#' @noRd
+#' 
+#' @importFrom methods is
+#' 
+#' @keywords internal
 #' 
 #' @export
+
 addTranscriptomicsSignatureSet <- function(
     conn_handler,
     signature_id,

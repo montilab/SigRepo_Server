@@ -8,6 +8,16 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#'  # Create a connection handler if not done so alrweady.
+#' 
+#' # SigRepo::addSignatureToCollection(
+#' # conn_handler = conn,
+#' # collection_id = "COLL0001",
+#' # signature_id = c('170','150','140'),
+#' # verbose = FALSE)
+#' 
 #' @export
 addSignatureToCollection <- function(
     conn_handler,

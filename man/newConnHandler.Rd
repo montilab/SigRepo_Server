@@ -6,7 +6,7 @@
 \usage{
 newConnHandler(
   dbname = "sigrepo",
-  host = "montilab.bu.edu",
+  host = "sigrepo.org",
   port = 3306,
   api_port = 8020,
   user = "guest",
@@ -31,4 +31,19 @@ A list of user credentials to establish connection to the remote database.
 }
 \description{
 Create a handler to connect to a remote database.
+}
+\examples{
+
+# the easiest way to do this is use sys.getenv if you have the environment variables set correctly
+
+# conn_handler <- SigRepo::newConnHandler(
+#   dbname = "sigrepo",
+#   host = Sys.getenv("HOST"),  
+#   port = as.integer(Sys.getenv("PORT")), 
+#   user = Sys.getenv("USER"),
+#   password = Sys.getenv("PASSWORD") 
+# )
+
+
+
 }

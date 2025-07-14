@@ -17,3 +17,17 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add phenotype to database
 }
+\examples{
+
+
+# creating a dataframe
+
+# phenotype_tbl <- data.frame(
+# phenotype = "phenotype1")
+
+# SigRepo::addPhenotype(
+# conn_handler = conn,
+# phenotype_tbl = phenotype_tbl,
+# verbose = FALSE)
+ 
+}

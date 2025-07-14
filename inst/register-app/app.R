@@ -13,7 +13,7 @@ library(tidyverse)
 
 # Package for loading and installing packages
 library(devtools)
-devtools::load_all(".")
+devtools::load_all()
 
 # Package to sendmail
 library(sendmailR)
@@ -26,6 +26,197 @@ conn_handler <- SigRepo::newConnHandler(
   user = Sys.getenv("USER"),
   password = Sys.getenv("PASSWORD")
 )
+
+# Function to generate random password
+randPassword <- function(n = 1) {
+  a <- base::do.call(base::paste0, base::replicate(5, base::sample(LETTERS, n, TRUE), FALSE))
+  base::paste0(a, base::sprintf("%04d", base::sample(9999, n, TRUE)), base::sample(LETTERS, n, TRUE))
+}
+
+# Function to send registered users to admin
+registerUser <- function(
+    from_sender = "montilab@bu.edu",
+    user_name = "rchau88",
+    user_password = "123456789",
+    user_email = "rchau88@bu.edu",
+    user_first = "Reina",
+    user_last = "Chau",
+    user_affiliation = "Boston University",
+    api_key = "dienfkdingnkgggiidndkkdidingnn"
+){
+  
+  msg <- sendmailR::mime_part(
+    base::paste0(
+      '<!DOCTYPE>',
+      '<html>',
+      '<head>',
+      '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
+      '<title>REGISTER USER</title>',
+      '<style type="text/css">',
+      '</style>',
+      '</head>',
+      '<body>',
+      '<p>Hi <strong>SigRepo Admin,</strong></p>',
+      '<br>',
+      '<p>A user has registered to gain access to the <strong>SigRepo</strong> database.</p>',
+      '<p>Username: <strong>', user_name, '</strong></p>',
+      '<p>Password: <strong>', user_password, '</strong></p>',
+      '<p>Email: <strong>', user_email, '</strong></p>',
+      '<p>First: <strong>', user_first, '</strong></p>',
+      '<p>Last: <strong>', user_last, '</strong></p>',
+      '<p>Affliation: <strong>', user_affiliation, '</strong></p>',
+      '<br>',
+      '<p>To give access to this user, please click on this API link below.</p>',
+      '<p><strong>https://sigrepo.org/api/activate_user/?api_key=', api_key, '&user_name=', user_name, '</strong></p>',
+      '<br>',
+      '<p>Best,</p>',
+      '<p>Montilab Team</p>',
+      '</body>',
+      '</html>'
+    )
+  )
+  
+  ## Override content type.
+  msg[["headers"]][["Content-Type"]] <- "text/html"
+  
+  from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
+  to <- base::paste0("<", user_email, ">")
+  subject <- "SigRepo Register User Do Not Reply"
+  msg <- base::list(msg)
+  sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
+  
+}
+
+# Function to send email to registered users
+notifyUser <- function(
+    from_sender = "rchau88@bu.edu",
+    user_name = "rchau88",
+    user_password = "123456789",
+    user_email = "rchau88@bu.edu",
+    user_first = "Reina",
+    user_last = "Chau",
+    user_affiliation = "Boston University"
+){
+  
+  msg <- sendmailR::mime_part(
+    base::paste0(
+      '<!DOCTYPE>',
+      '<html>',
+      '<head>',
+      '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
+      '<title>SIGREPO</title>',
+      '<style type="text/css">',
+      '</style>',
+      '</head>',
+      '<body>',
+      '<p>Hi <strong>', user_name, ',</strong></p>',
+      '<br>',
+      '<p>Thank you for signing up to use our <strong>SigRepo</strong> database! Our administrator will contact you as soon as they had reviewed and activated our account.</p>',
+      '<br>',
+      '<p>Here is the registration information you submitted:</p>',
+      '<p>Username: <strong>', user_name, '</strong></p>',
+      '<p>Password: <strong>', user_password, '</strong></p>',
+      '<p>Email: <strong>', user_email, '</strong></p>',
+      '<p>First: <strong>', user_first, '</strong></p>',
+      '<p>Last: <strong>', user_last, '</strong></p>',
+      '<p>Affliation: <strong>', user_affiliation, '</strong></p>',
+      '<br>',
+      '<p>Best,</p>',
+      '<p>Montilab Team</p>',
+      '</body>',
+      '</html>'
+    )
+  )
+  
+  ## Override content type.
+  msg[["headers"]][["Content-Type"]] <- "text/html"
+  
+  from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
+  to <- base::paste0("<", user_email, ">")
+  subject <- "SigRepo Account Creation Do Not Reply"
+  msg <- base::list(msg)
+  sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
+  
+}
+
+# Function to send temporary password to user
+sendPassword <- function(
+    from_sender = "rchau88@bu.edu",
+    user_name = "rchau88",
+    temp_password = "123456789",
+    user_email = "rchau88@bu.edu"
+){
+  
+  msg <- sendmailR::mime_part(
+    base::paste0(
+      '<!DOCTYPE>',
+      '<html>',
+      '<head>',
+      '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
+      '<title>SIGREPO</title>',
+      '<style type="text/css">',
+      '</style>',
+      '</head>',
+      '<body>',
+      '<p>Hi <strong>', user_name, '</strong></p>',
+      '<br>',
+      '<p>Please find below a temporary password for accessing the <strong>SigRepo</strong> database.</p>',
+      '<br>',
+      '<p>Username: <strong>', user_name, '</strong></p>',
+      '<p>Temporary password: <strong>', temp_password, '</strong></p>',
+      '<br>',
+      '<p>To log back in? Follow this link, <strong>https://sigrepo.org/</strong></p>',
+      '<br>',
+      '<p>Best,</p>',
+      '<p>Montilab Team</p>',
+      '</body>',
+      '</html>'
+    )
+  )
+  
+  ## Override content type.
+  msg[["headers"]][["Content-Type"]] <- "text/html"
+  
+  from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
+  to <- base::paste0("<", user_email, ">")
+  subject <- "SigRepo Temporary Password Do Not Reply"
+  msg <- base::list(msg)
+  sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
+  
+}
+
+## Create a modal dialog for forgot password #####
+forgotPasswordDialog <- function() {
+  shiny::modalDialog(
+    size = "l", title = NULL,
+    shiny::fluidRow(
+      shiny::column(
+        width = 12,
+        shiny::h3("Forgot your password?", class="text-center"),
+        shiny::br(),
+        shiny::p(strong("To access your account, please fill in the following information:")),
+        shiny::br(),
+        shiny::radioButtons(inputId = "psw_lookup_option", label = NULL, choices = c("Username", "Email"), inline = TRUE),
+        shiny::conditionalPanel(
+          condition = 'input.psw_lookup_option == "Username"',
+          shiny::textInput(inputId = "psw_username", label = "Enter your username:", value = "", width = "100%")
+        ),
+        shiny::conditionalPanel(
+          condition = 'input.psw_lookup_option == "Email"',
+          shiny::textInput(inputId = "psw_email", label = "Enter your email:", value = "", width = "100%")
+        ),
+        shiny::uiOutput("forgot_psw_message")
+      )
+    ),
+    footer = shiny::tagList(
+      shiny::actionButton(inputId = "send_tmp_password", label = shiny::strong("Submit")),
+      shiny::actionButton(inputId = "dismiss_password", label = shiny::strong("Cancel"))
+    )
+  )
+}
 
 ## Define ui logic ####
 ui <- shiny::bootstrapPage(
@@ -50,7 +241,7 @@ ui <- shiny::bootstrapPage(
     shiny::div(
       class = "login-container",
 
-      shiny::div(class = "login-title", shiny::h2("Sign Up")),
+      shiny::div(class = "login-title", shiny::h2("Register Form")),
 
       tags$form(
         class = "login-form",
@@ -134,189 +325,6 @@ ui <- shiny::bootstrapPage(
 ## Define server logic ####
 server <- function(input, output, session) { 
   
-  # Function to generate random password
-  randPassword <- function(n = 1) {
-    a <- base::do.call(base::paste0, base::replicate(5, base::sample(LETTERS, n, TRUE), FALSE))
-    base::paste0(a, base::sprintf("%04d", base::sample(9999, n, TRUE)), base::sample(LETTERS, n, TRUE))
-  }
-
-  # Function to send registered users to admin
-  registerUser <- function(
-    from_sender = "montilab@bu.edu",
-    user_name = "rchau88",
-    user_email = "rchau88@bu.edu",
-    api_key = "dienfkdingnkgggiidndkkdidingnn"
-  ){
-
-    msg <- sendmailR::mime_part(
-      base::paste0(
-        '<!DOCTYPE>',
-        '<html>',
-        '<head>',
-        '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
-        '<title>REGISTER USER</title>',
-        '<style type="text/css">',
-        '</style>',
-        '</head>',
-        '<body>',
-        '<p>Hi <strong>SigRepo Admin,</strong></p>',
-        '<br>',
-        '<p>A user has registered to request access to the <strong>SigRepo</strong> database.</p>',
-        '<p>Username: <strong>', user_name, '</strong></p>',
-        '<p>Email: <strong>', user_email, '</strong></p>',
-        '<br>',
-        '<p>To give access to this user, please follow the link below.</p>',
-        '<p><strong>https://sigrepo.org/api/activate_user/?api_key=', api_key, '&user_name=', user_name, '&user_email=', user_email, '</strong></p>',
-        '<br>',
-        '<p>Best,</p>',
-        '<p>Montilab Team</p>',
-        '</body>',
-        '</html>'
-      )
-    )
-
-    ## Override content type.
-    msg[["headers"]][["Content-Type"]] <- "text/html"
-
-    from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
-    to <- base::paste0("<", user_email, ">")
-    subject <- "Register User Do Not Reply"
-    msg <- base::list(msg)
-    sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
-
-  }
-
-  # Function to send registered users to admin
-  notifyUser <- function(
-    from_sender = "rchau88@bu.edu",
-    user_name = "rchau88",
-    user_password = "123456789",
-    user_email = "rchau88@bu.edu",
-    user_first = "Reina",
-    user_last = "Chau",
-    user_affiliation = "Boston University"
-  ){
-
-    msg <- sendmailR::mime_part(
-      base::paste0(
-        '<!DOCTYPE>',
-        '<html>',
-        '<head>',
-        '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
-        '<title>SIGREPO</title>',
-        '<style type="text/css">',
-        '</style>',
-        '</head>',
-        '<body>',
-        '<p>Hi <strong>', user_name, '</strong></p>',
-        '<br>',
-        '<p>Thank you for signing up to use our <strong>SigRepo</strong> database! Our administrator will contact you as soon as your account has been activated.</p>',
-        '<br>',
-        '<p>Here is the registration information you submitted.</p>',
-        '<p>Username: <strong>', user_name, '</strong></p>',
-        '<p>Password: <strong>', user_password, '</strong></p>',
-        '<p>Email: <strong>', user_email, '</strong></p>',
-        '<p>First: <strong>', user_first, '</strong></p>',
-        '<p>Last: <strong>', user_last, '</strong></p>',
-        '<p>Affliation: <strong>', user_affiliation, '</strong></p>',
-        '<br>',
-        '<p>Best,</p>',
-        '<p>Montilab Team</p>',
-        '</body>',
-        '</html>'
-      )
-    )
-
-    ## Override content type.
-    msg[["headers"]][["Content-Type"]] <- "text/html"
-
-    from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
-    to <- base::paste0("<", user_email, ">")
-    subject <- "SigRepo Account Do Not Reply"
-    msg <- base::list(msg)
-    sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
-
-  }
-
-  # Function to send temporary password to user
-  sendPassword <- function(
-    from_sender = "rchau88@bu.edu",
-    user_name = "rchau88",
-    temp_password = "123456789",
-    user_email = "rchau88@bu.edu"
-  ){
-
-    msg <- sendmailR::mime_part(
-      base::paste0(
-        '<!DOCTYPE>',
-        '<html>',
-        '<head>',
-        '<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>',
-        '<meta name="viewport" content="width=device-width, initial-scale=1.0"/>',
-        '<title>SIGREPO</title>',
-        '<style type="text/css">',
-        '</style>',
-        '</head>',
-        '<body>',
-        '<p>Hi <strong>', user_name, '</strong></p>',
-        '<br>',
-        '<p>Please find below a temporary password for accessing the <strong>SigRepo</strong> database.</p>',
-        '<br>',
-        '<p>Username: <strong>', user_name, '</strong></p>',
-        '<p>Temporary password: <strong>', temp_password, '</strong></p>',
-        '<br>',
-        '<p>Log back in? Follow this link, <strong>https://sigrepo.org/</strong></p>',
-        '<br>',
-        '<p>Best,</p>',
-        '<p>Montilab Team</p>',
-        '</body>',
-        '</html>'
-      )
-    )
-
-    ## Override content type.
-    msg[["headers"]][["Content-Type"]] <- "text/html"
-
-    from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
-    to <- base::paste0("<", user_email, ">")
-    subject <- "SigRepo Account Do Not Reply"
-    msg <- base::list(msg)
-    sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
-
-  }
-
-  ## Create a modal dialog for forgot password #####
-  forgotPasswordDialog <- function() {
-    shiny::modalDialog(
-      size = "l", title = NULL,
-      shiny::fluidRow(
-        shiny::column(
-          width = 12,
-          shiny::h3("Forgot your password?", class="text-center"),
-          shiny::br(),
-          shiny::p(strong("To access your account, please fill in the following information:")),
-          shiny::br(),
-          shiny::radioButtons(inputId = "psw_lookup_option", label = NULL, choices = c("Username", "Email"), inline = TRUE),
-          shiny::conditionalPanel(
-            condition = 'input.psw_lookup_option == "Username"',
-            shiny::textInput(inputId = "psw_username", label = "Enter your username:", value = "", width = "100%")
-          ),
-          shiny::conditionalPanel(
-            condition = 'input.psw_lookup_option == "Email"',
-            shiny::textInput(inputId = "psw_email", label = "Enter your email:", value = "", width = "100%")
-          ),
-          shiny::uiOutput("forgot_psw_message")
-        )
-      ),
-      footer = shiny::tagList(
-        shiny::actionButton(inputId = "send_tmp_password", label = shiny::strong("Submit")),
-        shiny::actionButton(inputId = "dismiss_password", label = shiny::strong("Cancel"))
-      )
-    )
-  }
-
   # Create reactive to store messages
   login_error_message <- shiny::reactiveVal()
   forgot_psw_message <- shiny::reactiveVal()
@@ -404,8 +412,27 @@ server <- function(input, output, session) {
     SigRepo::addUser(conn_handler = conn_handler, user_tbl = new_user_tbl)
 
     # Send email to admin
-    registerUser(user_name = user_name, user_email = user_email)
-
+    registerUser(
+      user_name = "rchau88",
+      user_password = "123456789",
+      user_email = "rchau88@bu.edu",
+      user_first = "Reina",
+      user_last = "Chau",
+      user_affiliation = "Boston University",
+      api_key = Sys.getenv("API_KEY")
+    )
+    
+    # Send email to registered user
+    notifyUser(
+      from_sender = "rchau88@bu.edu",
+      user_name = "rchau88",
+      user_password = "123456789",
+      user_email = "rchau88@bu.edu",
+      user_first = "Reina",
+      user_last = "Chau",
+      user_affiliation = "Boston University"
+    )
+    
     # Update message
     login_error_message(base::sprintf("Thank you for signing up! Our administrator will contact you on how to access our database.", user_email))
 
@@ -413,7 +440,6 @@ server <- function(input, output, session) {
     base::print(base::sprintf("Adding user = '%s' to database", user_name))
 
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
-
 
   # output login_error_message
   output$login_error_message <- shiny::renderUI({
@@ -424,7 +450,6 @@ server <- function(input, output, session) {
 
   })
 
-
   # Observe forget_password
   shiny::observeEvent({
     input$forget_password
@@ -433,7 +458,6 @@ server <- function(input, output, session) {
     shiny::showModal(forgotPasswordDialog())
 
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
-
 
   # Observe dismiss_password
   shiny::observeEvent({
@@ -445,7 +469,6 @@ server <- function(input, output, session) {
 
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
-
   # Observe send_tmp_password
   shiny::observeEvent({
     input$send_tmp_password
@@ -454,19 +477,13 @@ server <- function(input, output, session) {
     # Get user name and
     psw_lookup_option <- shiny::isolate({ input$psw_lookup_option })
     
-    print(psw_lookup_option)
-
     if(psw_lookup_option == "Username"){
 
       user_name <- shiny::isolate({ input$psw_username }) %>% base::trimws()
 
-      print(user_name)
-
       # Check user table
       user_tbl <- check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
       
-      print(check_user_tbl)
-
       # If user exists, throw an error
       if(nrow(check_user_tbl) == 0){
         forgot_psw_message(base::sprintf("User = '%s' does not exist in our database. Please choose a different name.", user_name))
@@ -489,8 +506,6 @@ server <- function(input, output, session) {
       # Check user table
       check_email_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
       
-      print(check_email_tbl)
-
       # If user exists, throw an error
       if(!user_email %in% check_email_tbl$user_email){
         forgot_psw_message(base::sprintf("Email = '%s' does not exist in our database. Please choose a different email.", user_email))
@@ -504,6 +519,9 @@ server <- function(input, output, session) {
 
     # Create a temporary password
     tmp_pwd <- randPassword()
+    
+    # Update user with new password
+    SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, password = tmp_pwd)
 
     # Send email to users
     sendPassword(
@@ -513,15 +531,14 @@ server <- function(input, output, session) {
     )
 
     # Update message
-    forgot_psw_message(base::sprintf("Thank you for your submission! A temporary password has been sent to your email at %s.", user_tbl$user_email[1]))
+    forgot_psw_message(base::sprintf("A temporary password has been sent to your email at %s.", user_tbl$user_email[1]))
 
     # Print message
     base::print(base::sprintf("Sending temporary password to user = '%s'", user_tbl$user_name[1]))
 
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
-
-  # output forgot_psw_message
+  # Output forgot_psw_message
   output$forgot_psw_message <- shiny::renderUI({
 
     req(forgot_psw_message())
@@ -533,7 +550,7 @@ server <- function(input, output, session) {
 }
 
 ## Start the app ####
-shiny::shinyApp(ui=ui, server=server)
+shiny::shinyApp(ui = ui, server = server)
 
 
 

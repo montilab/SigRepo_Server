@@ -25,3 +25,14 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Get a list of signatures uploaded by a specified user in the database.
 }
+\examples{
+# Establish a Connection Handler using newConnHandler if not done so already.
+
+# SigRepo::getSignature(
+# conn_handler = conn,
+# signature_name = "test_signature",
+# signature_id = 170,
+# verbose = FALSE)
+
+
+}

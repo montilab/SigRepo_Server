@@ -9,6 +9,28 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#'  # Create a user dataframe
+#' 
+#' # user_tbl <- base::data.frame(
+#' #   user_name = "new_user",
+#' #   user_password = "password123",
+#' #   user_email = "test_email123@example.com",
+#' #   user_first = "First",
+#' #   user_last = "Last",
+#' #   user_affiliation = "University",
+#' #   user_role = "editor"
+#' #)
+#' 
+#'  # Add a user in dataframe to database
+#'  
+#' # SigRepo::addUser(
+#' #   conn_handler = conn_handler,
+#' #   user_tbl = user_tbl,
+#' #   verbose = FALSE
+#' # )
+#' 
 #' @export
 addUser <- function(
     conn_handler,
@@ -171,6 +193,7 @@ addUser <- function(
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`keywords` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`platforms` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_access` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_feature_set` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))

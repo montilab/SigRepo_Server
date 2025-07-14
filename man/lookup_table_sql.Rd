@@ -32,7 +32,8 @@ Default NULL.}
 provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 Default NULL.}
 
-\item{check_db_table}{Check whether table exists in the database. Default = TRUE.}
+\item{check_db_table}{Check whether table exists in the database. Default = TRUE.
+docuem @keywords internal}
 }
 \description{
 Look up a list of variables based on a particular variable 

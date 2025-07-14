@@ -39,18 +39,10 @@ Get a list of signatures available in the database
 }
 \examples{
 
-# Create a db connection
-conn_handler <- SigRepo::newConnHandler(
- dbname = "sigrepo", 
- host = "montilab.bu.edu", 
- port = 3306, 
- user = "guest", 
- password = "guest"
-)
 
 # Get a list of signatures available in the database
-signature_tbl <- sigRepo::searchSignature(
-  conn_handler = conn_handler
-)
+# signature_tbl <- sigRepo::searchSignature(
+  # conn_handler = conn
+# )
 
 }
