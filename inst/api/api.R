@@ -4,10 +4,6 @@ library(plumber)
 library(httr)
 library(jsonlite)
 
-# For DB connection
-library(RMySQL)
-library(DBI)
-
 # For data cleaning, extraction and manipulation
 library(tidyverse)
 
@@ -50,9 +46,9 @@ cors <- function(res){
 #* Log some information about the incoming request
 #* @filter logger
 function(req){
-  cat(as.character(Sys.time()), "-",
-      req$REQUEST_METHOD, req$PATH_INFO, "-",
-      req$HTTP_USER_AGENT, "@", req$REMOTE_ADDR, "\n")
+  base::cat(base::as.character(Sys.time()), "-",
+            req$REQUEST_METHOD, req$PATH_INFO, "-",
+            req$HTTP_USER_AGENT, "@", req$REMOTE_ADDR, "\n")
   plumber::forward()
 }
 
@@ -342,12 +338,12 @@ delete_difexp <- function(res, api_key, signature_hashkey){
 }
 
 #* Activate registered users in the database
-#* @param api_key
 #* @param user_name
+#* @param api_key
 #' @get /activate_user
-activate_user <- function(res, api_key, user_name){
+activate_user <- function(res, user_name, api_key){
   
-  variables <- c("api_key", "user_name")
+  variables <- c("user_name", "api_key")
   
   # Check parameters
   if(base::missing(user_name) || base::missing(api_key)){
@@ -364,8 +360,8 @@ activate_user <- function(res, api_key, user_name){
   }
   
   # Check parameters and trim white spaces
-  api_key <- base::trimws(api_key[1]) 
   user_name <- base::trimws(user_name[1])
+  api_key <- base::trimws(api_key[1]) 
   
   # Check user_name ####
   if(user_name %in% c(NA, "")){
@@ -401,7 +397,7 @@ activate_user <- function(res, api_key, user_name){
     warn_tbl <- base::data.frame(MESSAGES = error_message)
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
-  }else if(!api_key %in% Sys.getenv("API_KEY")){
+  }else if(!api_key %in% base::Sys.getenv("API_KEY")){
     
     error_message <- "Invalid API Key."
     res$serializer <- serializers[["json"]]
@@ -415,19 +411,23 @@ activate_user <- function(res, api_key, user_name){
   SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, active = TRUE)
   
   # Send email to users to notify their account are activated
-  api_url <- base::sprintf("https://montilab.bu.edu/send_notifications/?user_name=%s", user_name)
+  api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/activate_user?user_name=%s&api_key=%s", user_name, api_key)
   
   # Send email to users through montilab server API
   res <- httr::GET(url = api_url)
   
   # Check status code
   if(res$status_code != 200){
-    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("\tSomething went wrong with the API. Cannot activate user = '%s'. Please contact admin for support.\n", user_name))
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    MESSAGES <- base::sprintf("Something went wrong with the API. Cannot activate user. Please contact admin for support.")
   }else{
-    tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' has been activated. An email has been sent to user to account its account.\n", user_name))
-    return(jsonlite::toJSON(tbl, pretty=TRUE))
+    MESSAGES <- base::sprintf("User = '%s' has been activated. A notified email has been sent to user.", user_name)
   }
+  
+  # Return message ####
+  res$serializer <- serializers[["json"]]
+  res$status <- 200
+  tbl <- base::data.frame(MESSAGES = MESSAGES)
+  return(jsonlite::toJSON(tbl, pretty=TRUE))
   
 }
 
