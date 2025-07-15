@@ -50,9 +50,9 @@ cors <- function(res){
 #* Log some information about the incoming request
 #* @filter logger
 function(req){
-  cat(as.character(Sys.time()), "-",
-      req$REQUEST_METHOD, req$PATH_INFO, "-",
-      req$HTTP_USER_AGENT, "@", req$REMOTE_ADDR, "\n")
+  base::cat(base::as.character(Sys.time()), "-",
+            req$REQUEST_METHOD, req$PATH_INFO, "-",
+            req$HTTP_USER_AGENT, "@", req$REMOTE_ADDR, "\n")
   plumber::forward()
 }
 
@@ -401,7 +401,7 @@ activate_user <- function(res, api_key, user_name){
     warn_tbl <- base::data.frame(MESSAGES = error_message)
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
-  }else if(!api_key %in% Sys.getenv("API_KEY")){
+  }else if(!api_key %in% base::Sys.getenv("API_KEY")){
     
     error_message <- "Invalid API Key."
     res$serializer <- serializers[["json"]]
@@ -415,7 +415,7 @@ activate_user <- function(res, api_key, user_name){
   SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, active = TRUE)
   
   # Send email to users to notify their account are activated
-  api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/?user_name=%s", user_name)
+  api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/?user_name=%s&api_key=%s", user_name, api_key)
   
   # Send email to users through montilab server API
   res <- httr::GET(url = api_url)

@@ -63,3 +63,12 @@
   font-size: 18px;
   color: #08306b;
 }
+
+.change-profile-email, .change-profile-password {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: bottom;
+  border-radius: 8px;
+  border: 1px solid gray;
+  margin-bottom: 8px;
+}
