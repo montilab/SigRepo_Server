@@ -658,12 +658,18 @@ server <- function(input, output, session) {
             br()
           ),
           shiny::column(
-            width = 12, id = "change-profile-email", class = "change-profile-email", style = "display: none;",
-            shiny::textInput(inputId = "new_profile_email", label = shiny::strong("Enter Your New Email"), value = "", width = "100%")
+            width = 12, id = "change-profile-email", style = "display: none;",
+            shiny::HTML("<span><b>Enter Your New Email</b></span>"),
+            shiny::HTML("<input type='text' id='new_profile_email'>")
           ),
           shiny::column(
-            width = 12, id = "change-profile-password", class = "change-profile-password", style = "display: none;",
-            shiny::passwordInput(inputId = "new_profile_password", label = shiny::strong("Enter Your New Password"), value = "", width = "100%")
+            width = 12, id = "change-profile-password", style = "display: none;",
+            shiny::HTML("<span><b>Enter Your New Password</b></span>"),
+            shiny::div(
+              class = "change-profile-password",
+              shiny::HTML("<input type='password' id='new_profile_password'>"),
+              shiny::HTML("<span class='toggle-password' onclick='toggle_change_password()'>👁️</span>")
+            )
           ),
           shiny::column(
             width = 12,
@@ -733,6 +739,9 @@ server <- function(input, output, session) {
     # Update user email in the database
     SigRepo::updateUser(conn_handler = conn_handler, user_name = user_tbl$user_name[1], email = user_email)
     
+    # Update message
+    change_profile_message(base::sprintf("Your email has been changed and updated."))
+    
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
   ## OBSERVE CHANGE PASSWORD BUTTON #####
@@ -767,6 +776,9 @@ server <- function(input, output, session) {
     
     # Update user password in the database
     SigRepo::updateUser(conn_handler = conn_handler, user_name = user_tbl$user_name[1], password = user_password)
+    
+    # Update message
+    change_profile_message(base::sprintf("Your password has been changed and updated."))
     
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
   
