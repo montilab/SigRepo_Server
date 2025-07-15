@@ -64,15 +64,18 @@
   color: #08306b;
 }
 
+#change-profile-email, #change-profile-password {
+  margin-bottom: 8px;
+}
+
 #new_profile_email, #new_profile_password {
   width: 100%;
   border-radius: 8px;
   padding-left: 8px;
 }
 
-.change-profile-password {
+.change-profile-email, .change-profile-password {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 8px;
 }
