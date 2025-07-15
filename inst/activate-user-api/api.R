@@ -172,11 +172,18 @@ notify_activated_user <- function(
   
 }
 
+# Function to generate random password
+randPassword <- function(n = 1){
+  a <- base::do.call(base::paste0, base::replicate(5, base::sample(LETTERS, n, TRUE), FALSE))
+  base::paste0(a, base::sprintf("%04d", base::sample(9999, n, TRUE)), base::sample(LETTERS, n, TRUE))
+}
+
 # Function to send temporary password to user
 send_tmp_password_to_user <- function(
     from_sender = "sigrepo@bu.edu",
     user_name = "rchau88",
-    user_email = "rchau88@bu.edu"
+    user_email = "rchau88@bu.edu",
+    tmp_password = "123456789"
 ){
   
   msg <- sendmailR::mime_part(
@@ -196,7 +203,7 @@ send_tmp_password_to_user <- function(
       '<p>Below is a temporary password for accessing your account on the <strong>SigRepo</strong> database.</p>',
       '<br>',
       '<p>Username: <strong>', user_name, '</strong></p>',
-      '<p>Temporary password: <strong>', temp_password, '</strong></p>',
+      '<p>Temporary password: <strong>', tmp_password, '</strong></p>',
       '<br>',
       '<p>To log back in? Follow this link, <strong>https://sigrepo.org/</strong></p>',
       '<br>',
@@ -348,7 +355,9 @@ register_user <- function(res, user_name, api_key){
     user_affiliation = user_affiliation[1]
   )
   
-  # Return message
+  # Return message ####
+  res$serializer <- serializers[["json"]]
+  res$status <- 200
   tbl <- base::data.frame(MESSAGES = base::sprintf("Emails have been sent to user = '%s' and SigRepo admins.", user_tbl$user_name[1]))
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
@@ -433,8 +442,10 @@ activate_user <- function(res, user_name, api_key){
     user_email = user_tbl$user_email[1]
   )
   
-  # Return message
-  tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' account has been activated. An notifcation email has been sent to user!\n", user_name))
+  # Return message ####
+  res$serializer <- serializers[["json"]]
+  res$status <- 200
+  tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' account has been activated. A notifcation email has been sent to user!\n", user_name))
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
 }
@@ -510,19 +521,21 @@ send_tmp_password <- function(res, user_name, api_key){
   }
   
   # Create a temporary password
-  tmp_pwd <- randPassword()
+  tmp_password <- randPassword()
   
   # Update user with new password
-  SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, password = tmp_pwd)
+  SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, password = tmp_password)
   
   # Send email to users
   send_tmp_password_to_user(
     user_name = user_tbl$user_name[1],
     user_email = user_tbl$user_email[1],
-    temp_password = tmp_pwd
+    tmp_password = tmp_password
   )
   
-  # Return message
+  # Return message ####
+  res$serializer <- serializers[["json"]]
+  res$status <- 200
   tbl <- base::data.frame(MESSAGES = base::sprintf("A temporary password has been sent to user = '%s'.", user_tbl$user_name[1]))
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
