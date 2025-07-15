@@ -1,5 +1,5 @@
-#' @title deleteUser
-#' @description Delete a user from the database
+#' @title inactivateUser
+#' @description Inactivate a user in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param user_name Name of a user to be deleted (required).
@@ -11,13 +11,14 @@
 #' 
 #' # Establish a Connection Handler using newConnHnalder if not done so already.
 #' 
-#' # SigRepo::deleteUser(
-#' # conn_handler = conn,
-#' # user_name = "user1",
-#' # verbose = FALSE)
+#' # SigRepo::inactivateUser(
+#' #   conn_handler = conn,
+#' #   user_name = "user1",
+#' #   verbose = FALSE
+#' #)
 #'
 #' @export
-deleteUser <- function(
+inactivateUser <- function(
     conn_handler,
     user_name,
     verbose = TRUE
@@ -65,12 +66,12 @@ deleteUser <- function(
     base::stop(base::sprintf("\nThere is no user = '%s' existed in the 'users' table of the SigRepo database.\n", user_name))
   }
   
-  # Delete user from users table ####
-  SigRepo::delete_table_sql(
-    conn = conn,
-    db_table_name =  db_table_name,
-    delete_coln_var = "user_name",
-    delete_coln_val = user_name
+  # Update user to be inactive in the users table ####
+  SigRepo::updateUser(
+    conn_handler = conn_handler,
+    user_name = user_name,
+    active = FALSE,
+    verbose = FALSE
   )
   
   # Reset message options
@@ -88,7 +89,7 @@ deleteUser <- function(
   base::suppressWarnings(DBI::dbDisconnect(conn)) 
   
   # Return message
-  SigRepo::verbose(base::sprintf("user_name = '%s' has been removed.", user_name))
+  SigRepo::verbose(base::sprintf("user_name = '%s' has been inactivated.", user_name))
   
 }
 
