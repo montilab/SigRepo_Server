@@ -355,13 +355,13 @@ server <- function(input, output, session) {
     
     shiny::showModal(  
       shiny::modalDialog(
-        size = "l", title = "Register Form",
+        size = "l", title = shiny::span("Register Form", shiny::icon(name = "user-plus", lib = "font-awesome")),
         shiny::fluidRow(
           shiny::column(
             width = 12,
-            shiny::textInput(inputId = "register_username", label = shiny::strong("Username"), value = "", placeholder = "Enter Username", width = "100%"),
-            shiny::textInput(inputId = 'register_password', label = shiny::strong("Password"), value = "", placeholder = "Enter Password", width = "100%"),
-            shiny::textInput(inputId = "register_email", label = shiny::strong("Email"), value = "", placeholder = "Enter Email", width = "100%"),
+            shiny::textInput(inputId = "register_username", label = shiny::strong(shiny::span(style = "color: red;", "*"), "Username"), value = "", placeholder = "Enter Username", width = "100%"),
+            shiny::textInput(inputId = 'register_password', label = shiny::strong(shiny::span(style = "color: red;", "*"), "Password"), value = "", placeholder = "Enter Password", width = "100%"),
+            shiny::textInput(inputId = "register_email", label = shiny::strong(shiny::span(style = "color: red;", "*"), "Email"), value = "", placeholder = "Enter Email", width = "100%"),
             shiny::textInput(inputId = "register_first_name", label = shiny::strong("First Name"), value = "", placeholder = "Enter First Name", width = "100%"),
             shiny::textInput(inputId = 'register_last_name', label = shiny::strong("Last Name"), value = "", placeholder = "Enter Last Name", width = "100%"),
             shiny::textInput(inputId = 'register_affiliation', label = shiny::strong("Affiliation"), value = "", placeholder = "Enter Affiliation", width = "100%"),
@@ -516,11 +516,11 @@ server <- function(input, output, session) {
             shiny::radioButtons(inputId = "psw_lookup_option", label = NULL, choices = c("Username", "Email"), inline = TRUE),
             shiny::conditionalPanel(
               condition = 'input.psw_lookup_option == "Username"',
-              shiny::textInput(inputId = "psw_username", label = shiny::strong("Enter your username:"), value = "", width = "100%")
+              shiny::textInput(inputId = "psw_username", label = shiny::strong("Enter Your Username"), value = "", width = "100%")
             ),
             shiny::conditionalPanel(
               condition = 'input.psw_lookup_option == "Email"',
-              shiny::textInput(inputId = "psw_email", label = shiny::strong("Enter your email:"), value = "", width = "100%")
+              shiny::textInput(inputId = "psw_email", label = shiny::strong("Enter Your Email"), value = "", width = "100%")
             ),
             shiny::uiOutput("forgot_psw_message")
           )
