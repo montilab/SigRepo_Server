@@ -445,7 +445,7 @@ activate_user <- function(res, user_name, api_key){
   # Return message ####
   res$serializer <- serializers[["json"]]
   res$status <- 200
-  tbl <- base::data.frame(MESSAGES = base::sprintf("\tUser = '%s' account has been activated. A notifcation email has been sent to user!\n", user_name))
+  tbl <- base::data.frame(MESSAGES = base::sprintf("User = '%s' account has been activated. A notifcation email has been sent to user at %s.", user_tbl$user_name[1], user_tbl$user_email[1]))
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
 }
