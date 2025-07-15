@@ -1,30 +1,32 @@
 
 # R packages for building shiny dashboard
-library(htmltools)
 library(shinyjs)
 library(shiny)
 library(DT)
-
-# For DB connection
-library(RMySQL)
-library(DBI)
 
 # Package for data cleaning, extraction and manipulation
 library(tidyverse)
 
 # Package for loading and installing packages
 library(devtools)
-load_all(".")
+load_all()
 
-#library(OmicSignature)
-
-# Package for creating hash keys
-library(sodium)
+# Loading omic signature package
+library(OmicSignature)
 
 # Package for parallel processes
 library(promises)
 library(future)
 future::plan(multisession)
+
+# Create a default database handler
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"),
+  host = Sys.getenv("HOST"),
+  port = as.integer(Sys.getenv("PORT")),
+  user = Sys.getenv("DB_USER"),
+  password = Sys.getenv("PASSWORD")
+)
 
 ## Define ui logic ####
 ui <- shiny::bootstrapPage(
@@ -62,20 +64,20 @@ ui <- shiny::bootstrapPage(
         
         shiny::div(
           class = "validate-input",
-          HTML("<span class='login-label'><b>Username</b></span>"),
+          shiny::HTML("<span class='login-label'><b>Username</b></span>"),
           shiny::div(
             class = "username-container",
-            HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username' required>")
+            shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username' required>")
           )
         ),
         
         shiny::div(
           class = "validate-input",
-          HTML("<span class='login-label'><b>Password</b></span>"),
+          shiny::HTML("<span class='login-label'><b>Password</b></span>"),
           shiny::div(
             class = "password-container",
-            HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password' required>"),
-            HTML("<span class='toggle-password' onclick='toggle_password()'>👁️</span>")
+            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password' required>"),
+            shiny::HTML("<span class='toggle-password' onclick='toggle_password()'>👁️</span>")
           )
         ),
         
@@ -87,12 +89,12 @@ ui <- shiny::bootstrapPage(
         shiny::div(
           class = "validate-button",
           shiny::actionButton(inputId = "sign_in_btn", class = "sign-in-button", label = "Login", onclick = "login_keypress(e)"),
-          shiny::div(class = "forgot_psw", HTML("<a href='#' id='forget_password' class='action-button'>Forgot password?</a>")),
+          shiny::div(class = "forgot_psw", shiny::HTML("<a href='#' id='forget_password' class='action-button'>Forgot password?</a>")),
         ),
         
         shiny::div(
           class = "register", 
-          shiny::p(HTML("Don't have an acount. <a href='#' id='register' class='action-button'>Register here.</a>"))
+          shiny::span("Don't have an acount.", shiny::HTML("<a href='#' id='register' class='action-button'>Register here!</a>"))
         )
       )
     )
@@ -121,7 +123,7 @@ ui <- shiny::bootstrapPage(
     ),
     
     # Include the navbar tabs
-    htmltools::htmlTemplate("www/nav.html"),
+    shiny::htmlTemplate("www/nav.html"),
     
     tags$script(src = "assets/js/jquery.dropotron.min.js", type = "text/javascript"),
     tags$script(src = "assets/js/browser.min.js", type = "text/javascript"),
@@ -145,7 +147,7 @@ ui <- shiny::bootstrapPage(
           ### Copyright ####
           shiny::div(
             class="col-12 col-12-medium box copyright",
-            p(HTML('&copy; Montilab | Boston University | ', format(Sys.Date(), format = "%Y"), ' | All rights reserved | Design by <a href="http://html5up.net">HTML5 UP</a>'))
+            shiny::p(shiny::HTML('&copy; Montilab | Boston University | ', base::format(base::Sys.Date(), format = "%Y"), ' | All rights reserved | Design by <a href="http://html5up.net">HTML5 UP</a>'))
           )
         )
       )
@@ -165,7 +167,7 @@ server <- function(input, output, session) {
   user_collection_tbl <- shiny::reactiveVal()
   
   # Print this when a session starts ####
-  cat("\nSession started.\n")
+  base::cat("\nSession started.\n")
   
   # Anything that calls autoInvalidate will automatically invalidate every 2 seconds.
   autoInvalidate <- shiny::reactiveTimer(2000)
@@ -173,20 +175,20 @@ server <- function(input, output, session) {
   # Prevent Shiny from graying out ####
   shiny::observe({
     autoInvalidate()
-    cat(".")
+    base::cat(".")
   })
   
   # Observe when session ends ####
   session$onSessionEnded(function(x){
     
-    cat("\nSession ended.\n")
+    base::cat("\nSession ended.\n")
     
   })
   
   # Observe when session stops ####
   shiny::onStop(function(){
     
-    cat("\nSession stopped.\n")
+    base::cat("\nSession stopped.\n")
     
   })
   
@@ -241,8 +243,14 @@ server <- function(input, output, session) {
   }, {
 
     # Get user name and password
-    user_name <- shiny::isolate({ input$username })
-    user_password <- shiny::isolate({ input$password })
+    user_name <- shiny::isolate({ input$username }) %>% base::trimws()
+    user_password <- shiny::isolate({ input$password }) %>% base::trimws()
+    
+    # Check inputs
+    if(user_name %in% c(NA, "") || user_password %in% c(NA, "")){
+      shinyjs::show(id = "login-error-message")
+      return(NULL)
+    }
 
     # Create a user connection handler
     conn_handler <- base::tryCatch({
@@ -255,10 +263,8 @@ server <- function(input, output, session) {
       )
     }, error = function(e){
       shinyjs::show(id = "login-error-message")
-      print(e, "\n")
+      base::print(e, "\n")
       return(NULL)
-    }, warning = function(w){
-      print(w, "\n")
     })
 
     # If conn_handler is not valid, escape the function
@@ -269,10 +275,8 @@ server <- function(input, output, session) {
       SigRepo::validateUser(conn_handler = conn_handler)
     }, error = function(e){
       shinyjs::show(id = "login-error-message")
-      print(e, "\n")
+      base::print(e, "\n")
       return(base::data.frame(NULL))
-    }, warning = function(w){
-      print(w, "\n")
     })
 
     # Check if conn is a MySQLConnection class object
@@ -322,7 +326,7 @@ server <- function(input, output, session) {
     req(user_login_info())
 
     # Get user connection info
-    shiny::HTML(sprintf("User: %s", user_login_info()$user_name))
+    shiny::HTML(base::sprintf("%s", user_login_info()$user_name))
 
   })
 
@@ -338,7 +342,465 @@ server <- function(input, output, session) {
     shiny::updateQueryString(session, queryString = "#login", mode = "push")
 
   })
+ 
+  # Create reactive to store messages
+  register_message <- shiny::reactiveVal()
+  forgot_psw_message <- shiny::reactiveVal()
+  change_profile_message <- shiny::reactiveVal()
+  
+  # OBSERVE REGISTER BUTTON #####
+  shiny::observeEvent({
+    input$register
+  }, {
+    
+    shiny::showModal(  
+      shiny::modalDialog(
+        size = "l", title = shiny::span("Register Form", shiny::icon(name = "user-plus", lib = "font-awesome")),
+        shiny::fluidRow(
+          shiny::column(
+            width = 12,
+            shiny::textInput(inputId = "register_username", label = shiny::strong(shiny::span(style = "color: red;", "*"), "Username"), value = "", placeholder = "Enter Username", width = "100%"),
+            shiny::textInput(inputId = 'register_password', label = shiny::strong(shiny::span(style = "color: red;", "*"), "Password"), value = "", placeholder = "Enter Password", width = "100%"),
+            shiny::textInput(inputId = "register_email", label = shiny::strong(shiny::span(style = "color: red;", "*"), "Email"), value = "", placeholder = "Enter Email", width = "100%"),
+            shiny::textInput(inputId = "register_first_name", label = shiny::strong("First Name"), value = "", placeholder = "Enter First Name", width = "100%"),
+            shiny::textInput(inputId = 'register_last_name', label = shiny::strong("Last Name"), value = "", placeholder = "Enter Last Name", width = "100%"),
+            shiny::textInput(inputId = 'register_affiliation', label = shiny::strong("Affiliation"), value = "", placeholder = "Enter Affiliation", width = "100%"),
+            shiny::uiOutput(outputId = "register_message")
+          )
+        ),
+        footer = shiny::tagList(
+          shiny::actionButton(inputId = "register_user", class = "primary-btn", label = shiny::strong("Register")),
+          shiny::actionButton(inputId = "dismiss_register", class = "primary-btn", label = shiny::strong("Cancel"))
+        )
+      )      
+    )
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  ## OBSERVE DISMISS REGISTER BUTTON #####
+  shiny::observeEvent({
+    input$dismiss_register
+  }, {
+    
+    shiny::removeModal()
+    register_message(NULL)
+    
+  })
+  
+  # OBSERVE REGISTER USER BUTTON #####
+  shiny::observeEvent({
+    input$register_user
+  }, {
+    
+    # Get user name and password
+    user_name <- shiny::isolate({ input$register_username }) %>% base::trimws()
+    user_password <- shiny::isolate({ input$register_password }) %>% base::trimws()
+    user_email <- shiny::isolate({ input$register_email }) %>% base::trimws()
+    user_first <- shiny::isolate({ input$register_first_name }) %>% base::trimws()
+    user_last <- shiny::isolate({ input$register_last_name }) %>% base::trimws()
+    user_affiliation <- shiny::isolate({ input$register_affiliation }) %>% base::trimws()
+    
+    # Check user name
+    if(user_name %in% c(NA, "")){
+      
+      register_message("'Username' cannot be empty")
+      return(NULL)
+      
+    }else{
+      
+      # Check user table
+      check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
+      
+      # If user exists, throw an error
+      if(nrow(check_user_tbl) > 0){
+        register_message(base::sprintf("User = '%s' already existed in our database. Please choose a different name.", user_name))
+        return(NULL)
+      }
+      
+    }
+    
+    # Check user name
+    if(user_password %in% c(NA, "")){
+      register_message("'Password' cannot be empty")
+      return(NULL)
+    }
+    
+    # Check user name
+    if(user_email %in% c(NA, "")){
+      
+      register_message("'Email' cannot be empty")
+      return(NULL)
+      
+    }else{
+      
+      # Check user emails ####
+      check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", base::as.character(user_email), ignore.case = TRUE)
+      
+      # If any emails do not have correct format, throw an error message
+      if(check_email == FALSE){
+        register_message("Invalid email format.")
+        return(NULL)
+      }
+      
+      # Check user table
+      check_email_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+      
+      # If user exists, throw an error
+      if(base::tolower(user_email) %in% base::tolower(check_email_tbl$user_email)){
+        register_message(base::sprintf("Email = '%s' already existed in our database. Please choose a different email.", user_email))
+        return(NULL)
+      }
+      
+    }
+    
+    # Create a new user table to add to database
+    user_tbl <- base::data.frame(
+      user_name = user_name,
+      user_password = user_password,
+      user_email = user_email,
+      user_first = user_first,
+      user_last = user_last,
+      user_affiliation = user_affiliation,
+      user_role = "editor",
+      active = 0,
+      stringsAsFactors = FALSE
+    )
+    
+    # Add user to database
+    SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
+    
+    # Send email to admin
+    api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/register_user?user_name=%s&api_key=%s", user_tbl$user_name[1], base::Sys.getenv("API_KEY"))
+    
+    # Send email to users through montilab server API
+    res <- httr::GET(url = api_url)
+    
+    # Check status code
+    if(res$status_code != 200){
+      register_message(base::sprintf("Something went wrong with the API. Cannot register user. Please contact admin for support."))
+      return(NULL)
+    }else{
+      register_message(base::sprintf("Thank you for signing up! Our administrator will contact you on how to access our database."))
+    }
+    
+    # Print message
+    base::print(base::sprintf("Adding user = '%s' to database", user_tbl$user_name[1]))
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  # Output register_message ####
+  output$register_message <- shiny::renderUI({
+    
+    req(register_message())
+    
+    shiny::p(class = "error-message", shiny::isolate({ register_message() }))
+    
+  })
+  
+  # OBSERVE FORGOT PASSWORD BUTTON #####
+  shiny::observeEvent({
+    input$forget_password
+  }, {
+    
+    shiny::showModal(  
+      shiny::modalDialog(
+        size = "l", title = NULL,
+        
+        shiny::fluidRow(
+          shiny::column(
+            width = 12,
+            shiny::h3("Forgot your password?", class="text-center"),
+            shiny::br(),
+            shiny::p(shiny::strong("To access your account, please fill in the following information:")),
+            shiny::br(),
+            shiny::radioButtons(inputId = "psw_lookup_option", label = NULL, choices = c("Username", "Email"), inline = TRUE),
+            shiny::conditionalPanel(
+              condition = 'input.psw_lookup_option == "Username"',
+              shiny::textInput(inputId = "psw_username", label = shiny::strong("Enter Your Username"), value = "", width = "100%")
+            ),
+            shiny::conditionalPanel(
+              condition = 'input.psw_lookup_option == "Email"',
+              shiny::textInput(inputId = "psw_email", label = shiny::strong("Enter Your Email"), value = "", width = "100%")
+            ),
+            shiny::uiOutput("forgot_psw_message")
+          )
+        ),
+        
+        footer = shiny::tagList(
+          shiny::actionButton(inputId = "send_tmp_password", class = "primary-btn", label = shiny::strong("Submit")),
+          shiny::actionButton(inputId = "dismiss_forgot_password", class = "primary-btn", label = shiny::strong("Cancel"))
+        )
+      )
+    )
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  # OBSERVE DISMISS FORGOT PASSWORD BUTTON #####
+  shiny::observeEvent({
+    input$dismiss_forgot_password
+  }, {
+    
+    shiny::removeModal()
+    forgot_psw_message(NULL)
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  # OBSERVE SEND TMP PASSWORD BUTTON #####
+  shiny::observeEvent({
+    input$send_tmp_password
+  }, {
+    
+    # Get user name and
+    psw_lookup_option <- shiny::isolate({ input$psw_lookup_option })
+    
+    if(psw_lookup_option == "Username"){
+      
+      user_name <- shiny::isolate({ input$psw_username }) %>% base::trimws()
+      
+      # Make sure user_name is not empty
+      if(user_name %in% c(NA, "")){
+        forgot_psw_message(base::sprintf("Username cannot be empty"))
+        return(NULL)
+      }
+      
+      # Check user table
+      user_tbl <- check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
+      
+      # If user exists, throw an error
+      if(nrow(check_user_tbl) == 0){
+        forgot_psw_message(base::sprintf("User = '%s' does not exist in our database. Please choose a different name.", user_name))
+        return(NULL)
+      }
+      
+    }else{
+      
+      user_email <- shiny::isolate({ input$psw_email }) %>% base::trimws()
+      
+      # Make sure email is not empty
+      if(user_email %in% c(NA, "")){
+        forgot_psw_message(base::sprintf("Email cannot be empty"))
+        return(NULL)
+      }
+      
+      # Check user emails ####
+      check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", base::as.character(user_email), ignore.case = TRUE)
+      
+      # If any emails do not have correct format, throw an error message
+      if(check_email == FALSE){
+        forgot_psw_message("Invalid email format.")
+        return(NULL)
+      }
+      
+      # Check user table
+      check_email_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+      
+      # If user exists, throw an error
+      if(!base::tolower(user_email) %in% base::tolower(check_email_tbl$user_email)){
+        forgot_psw_message(base::sprintf("Email = '%s' does not exist in our database. Please choose a different email.", user_email))
+        return(NULL)
+      }
+      
+      # Return user_tbl
+      user_tbl <- check_email_tbl %>% dplyr::filter(base::tolower(user_email) %in% base::tolower(!!user_email))
+      
+    }
+    
+    # Send email to users to notify their account are activated
+    api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/send_tmp_password?user_name=%s&api_key=%s", user_tbl$user_name[1], base::Sys.getenv("API_KEY"))
+    
+    # Send email to users through montilab server API
+    res <- httr::GET(url = api_url)
+    
+    # Check status code
+    if(res$status_code != 200){
+      forgot_psw_message(base::sprintf("Something went wrong with the API. Cannot send temporary password to user. Please contact admin for support."))
+      return(NULL)
+    }else{
+      forgot_psw_message(base::sprintf("A temporary password has been sent to your email at %s", user_tbl$user_email[1]))
+    }
+    
+    # Print message
+    base::print(base::sprintf("Sending temporary password to user = '%s'", user_tbl$user_name[1]))
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  # Output forgot_psw_message
+  output$forgot_psw_message <- shiny::renderUI({
+    
+    req(forgot_psw_message())
+    
+    shiny::p(class = "error-message", shiny::isolate({ forgot_psw_message() }))
+    
+  })
+  
+  ## OBSERVE EDIT PROFILE BUTTON #####
+  shiny::observeEvent({
+    input$edit_profile
+  }, {
+    
+    req(user_login_info())
+    
+    # Get user table
+    user_tbl <- shiny::isolate({ user_login_info() })
+    
+    # Show the modal dialog
+    shiny::showModal(
+      shiny::modalDialog(
+        size = "l", title = "USER PROFILE", 
+        shiny::fluidRow(
+          shiny::column(
+            width = 12, 
+            shiny::p(shiny::strong("Username: "), user_tbl$user_name[1]),
+            shiny::p(shiny::strong("Email: "), user_tbl$user_email[1]),
+            shiny::p(shiny::strong("Affliliation: "), user_tbl$user_affiliation[1]),
+            shiny::p(shiny::strong("Role: "), user_tbl$user_role[1]),
+            shiny::p(shiny::strong("API Key: "), user_tbl$api_key[1]),
+            br()
+          ),
+          shiny::column(
+            width = 12, id = "change-profile-email", style = "display: none;",
+            shiny::HTML("<span><b>Enter Your New Email</b></span>"),
+            shiny::HTML("<input type='text' id='new_profile_email'>")
+          ),
+          shiny::column(
+            width = 12, id = "change-profile-password", style = "display: none;",
+            shiny::HTML("<span><b>Enter Your New Password</b></span>"),
+            shiny::div(
+              class = "change-profile-password",
+              shiny::HTML("<input type='password' id='new_profile_password'>"),
+              shiny::HTML("<span class='toggle-password' onclick='toggle_change_password()'>👁️</span>")
+            )
+          ),
+          shiny::column(
+            width = 12,
+            shiny::uiOutput(outputId = "change_profile_message")
+          )
+        ),
+        footer = shiny::tagList(
+          shinyjs::hidden(shiny::actionButton(inputId = "save_change_email", class = "primary-btn", label = shiny::strong("Save Email"))),
+          shinyjs::hidden(shiny::actionButton(inputId = "save_change_password", class = "primary-btn", label = shiny::strong("Save Password"))),
+          shiny::actionButton(inputId = "change_email", class = "primary-btn", label = shiny::strong("Change Email")),
+          shiny::actionButton(inputId = "change_password", class = "primary-btn", label = shiny::strong("Change Password")),
+          shiny::actionButton(inputId = "dismiss_change_profile", class = "primary-btn", label = shiny::strong("Cancel"))
+        )
+      )
+    )
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  ## OBSERVE CHANGE EMAIL BUTTON #####
+  shiny::observeEvent({
+    input$change_email
+  }, {
+    
+    shinyjs::hide(id = "change_email")
+    shinyjs::show(id = "save_change_email")
+    shinyjs::show(id = "change-profile-email")
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  ## OBSERVE SAVE CHANGE EMAIL BUTTON #####
+  shiny::observeEvent({
+    input$save_change_email
+  }, {
+    
+    req(user_login_info())
+    
+    # Get user table
+    user_tbl <- shiny::isolate({ user_login_info() })
+    
+    # Get user inputs
+    user_email <- shiny::isolate({ input$new_profile_email }) %>% base::trimws()
+    
+    # Make sure email is not empty
+    if(user_email %in% c(NA, "")){
+      change_profile_message(base::sprintf("Email cannot be empty"))
+      return(NULL)
+    }
+    
+    # Check user emails ####
+    check_email <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", base::as.character(user_email), ignore.case = TRUE)
+    
+    # If any emails do not have correct format, throw an error message
+    if(check_email == FALSE){
+      change_profile_message("Invalid email format.")
+      return(NULL)
+    }
+    
+    # Check user table
+    check_email_tbl <- SigRepo::searchUser(conn_handler = conn_handler)
+    
+    # If user exists, throw an error
+    if(base::tolower(user_email) %in% base::tolower(check_email_tbl$user_email)){
+      change_profile_message(base::sprintf("Email = '%s' already existed in our database. Please choose a different email.", user_email))
+      return(NULL)
+    }    
+    
+    # Update user email in the database
+    SigRepo::updateUser(conn_handler = conn_handler, user_name = user_tbl$user_name[1], email = user_email)
+    
+    # Update message
+    change_profile_message(base::sprintf("Your email has been changed and updated."))
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
+  ## OBSERVE CHANGE PASSWORD BUTTON #####
+  shiny::observeEvent({
+    input$change_password
+  }, {
+    
+    shinyjs::hide(id = "change_password")
+    shinyjs::show(id = "save_change_password")
+    shinyjs::show(id = "change-profile-password")
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  ## OBSERVE SAVE CHANGE PASSWORD BUTTON #####
+  shiny::observeEvent({
+    input$save_change_password
+  }, {
+    
+    req(user_login_info())
+    
+    # Get user table
+    user_tbl <- shiny::isolate({ user_login_info() })
+    
+    # Get user inputs
+    user_password <- shiny::isolate({ input$new_profile_password }) %>% base::trimws()
+    
+    # Make sure password is not empty
+    if(user_password %in% c(NA, "")){
+      change_profile_message(base::sprintf("Password cannot be empty"))
+      return(NULL)
+    }
+    
+    # Update user password in the database
+    SigRepo::updateUser(conn_handler = conn_handler, user_name = user_tbl$user_name[1], password = user_password)
+    
+    # Update message
+    change_profile_message(base::sprintf("Your password has been changed and updated."))
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  ## OBSERVE DISMISS BUTTON #####
+  shiny::observeEvent({
+    input$dismiss_change_profile
+  }, {
+    
+    shiny::removeModal()
+    change_profile_message(NULL)
+    
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
+  
+  # Output change_profile_message ####
+  output$change_profile_message <- shiny::renderUI({
+    
+    req(change_profile_message())
+    
+    shiny::p(class = "error-message", shiny::isolate({ change_profile_message() }))
+    
+  })
+  
   # Create reactive values
   tab_selected <- shiny::reactiveVal("home")
 
@@ -349,7 +811,7 @@ server <- function(input, output, session) {
 
     shiny::isolate({ input$selected_tab }) %>% tab_selected()
 
-  })
+  }, ignoreNULL = TRUE, ignoreInit = TRUE)
 
   # Output the content page
   output$tab_content <- shiny::renderUI({
@@ -357,23 +819,22 @@ server <- function(input, output, session) {
     req(tab_selected())
 
     if(tab_selected() == "home"){
-      base::source("ui/home_page_ui.R")$value
+      #base::source("ui/home_page_ui.R")$value
     }else if(tab_selected() == "signatures"){
-      base::source("ui/signature_page_ui.R")$value
+      #base::source("ui/signature_page_ui.R")$value
     }else if(tab_selected() == "collections"){
-      base::source("ui/collection_page_ui.R")$value
+      #base::source("ui/collection_page_ui.R")$value
     }else if(tab_selected() == "compare"){
     }else if(tab_selected() == "analysis"){
     }else if(tab_selected() == "resources"){
     }
 
   })
-
+  
   # Import all source files
-  source("server/sign_in_server.R", local = TRUE)
-  source("server/signature_page_server.R", local = TRUE)
-  source("server/home_page_server.R", local = TRUE)
-  source("server/collection_page_server.R", local = TRUE)
+  #source("server/home_page_server.R", local = TRUE)
+  #source("server/signature_page_server.R", local = TRUE)
+  #source("server/collection_page_server.R", local = TRUE)
 
 
 }
