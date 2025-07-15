@@ -17,12 +17,16 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
+  user = Sys.getenv("DB_USER"), 
   password = Sys.getenv("PASSWORD")
 )
 
 # Look for current users in the database
 SigRepo::searchUser(conn_handler = conn_handler)
+
+# Delete users (just make it inactive as there are signatures are tied to those users)
+SigRepo::deleteUser(conn_handler = conn_handler, user_name = "rchau")
+SigRepo::deleteUser(conn_handler = conn_handler, user_name = "rchau88")
 
 
 
@@ -43,6 +47,9 @@ conn_handler <- SigRepo::newConnHandler(
 SigRepo::searchUser(conn_handler = conn_handler)
 SigRepo::searchSignature(conn_handler = conn_handler)
 SigRepo::searchSampleType(conn_handler = conn_handler)
+
+
+
 
 
 
