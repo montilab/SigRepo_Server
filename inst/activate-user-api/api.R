@@ -55,7 +55,7 @@ notify_admin <- function(
       '<p>Affiliation: <strong>', user_affiliation, '</strong></p>',
       '<br>',
       '<p>To give access to this user, please click on the API link below to activate the user!</p>',
-      '<p><strong>https://sigrepo.org/api/activate_user/?api_key=', api_key, '&user_name=', user_name, '</strong></p>',
+      '<p><strong>https://sigrepo.org/api/activate_user?api_key=', api_key, '&user_name=', user_name, '</strong></p>',
       '<br>',
       '<p>Best,</p>',
       '<p>Montilab Team</p>',
@@ -68,7 +68,7 @@ notify_admin <- function(
   msg[["headers"]][["Content-Type"]] <- "text/html"
   
   from <- base::paste0("\"Montilab Team\"<", from_sender, ">")
-  to <- base::paste0("<", user_email, ">")
+  to <- base::paste0("<", from_sender, ">")
   subject <- "SigRepo Register User Do Not Reply"
   msg <- base::list(msg)
   sendmailR::sendmail(from = from, to = to, subject = subject, msg = msg, control = base::list(smtpServer = "smtp.bu.edu", smtpPort = "25"))
@@ -101,7 +101,7 @@ notify_registered_user <- function(
       '<br>',
       '<p>Thank you for signing up to use our <strong>SigRepo</strong> database! Our administrator will contact you as soon as they had reviewed and activated our account.</p>',
       '<br>',
-      '<p>Below is the registration information that you submitted:</p>',
+      '<p>Below is the registration information you submitted:</p>',
       '<p>Username: <strong>', user_name, '</strong></p>',
       '<p>Email: <strong>', user_email, '</strong></p>',
       '<p>First name: <strong>', user_first, '</strong></p>',
@@ -272,7 +272,7 @@ serializers <- list(
 #' @get /register_user
 register_user <- function(res, user_name, api_key){
   
-  variables <- c("api_key", "user_name")
+  variables <- c("user_name", "api_key")
   
   # Check parameters
   if(base::missing(user_name) || base::missing(api_key)){
@@ -352,13 +352,13 @@ register_user <- function(res, user_name, api_key){
     user_email = user_tbl$user_email[1],
     user_first = user_tbl$user_first[1],
     user_last = user_tbl$user_last[1],
-    user_affiliation = user_affiliation[1]
+    user_affiliation = user_tbl$user_affiliation[1]
   )
   
   # Return message ####
   res$serializer <- serializers[["json"]]
   res$status <- 200
-  tbl <- base::data.frame(MESSAGES = base::sprintf("Emails have been sent to user = '%s' and SigRepo admins.", user_tbl$user_name[1]))
+  tbl <- base::data.frame(MESSAGES = base::sprintf("Emails have been sent to user = '%s' at %s and SigRepo admins.", user_tbl$user_name[1], user_tbl$user_email[1]))
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
 }
