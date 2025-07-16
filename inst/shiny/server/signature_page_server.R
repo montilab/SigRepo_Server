@@ -342,4 +342,52 @@ output$update_sig_error_msg <- renderUI({
   p(class = "error-message", HTML(update_sig_error_msg()))
 })
 
+# Donload Omic Signature Button Logic ####
+
+# Store selected RDS file paths
+selected_rds_files <- reactiveVal(NULL)
+
+observeEvent(input$download_oms_handler, {
+  selected_rows <- input$signature_tbl_rows_selected
+  sig_list <- signature_store()
+  all_ids <- names(sig_list)
+  
+  if (length(selected_rows) == 0) {
+    showNotification("❌ Please select at least one signature to download.", type = "error")
+    return()
+  }
+  
+  # Prepare temp files for selected signatures
+  temp_dir <- tempdir()
+  rds_paths <- c()
+  
+  for (i in selected_rows) {
+    sig_id <- all_ids[i]
+    sig_obj <- sig_list[[sig_id]]
+    sig_name <- sig_obj$metadata$signature_name
+    # Make safe filename
+    safe_name <- gsub("[^a-zA-Z0-9_\\-]", "_", sig_name)
+    file_path <- file.path(temp_dir, paste0(safe_name, ".rds"))
+    saveRDS(sig_obj, file_path)
+    rds_paths <- c(rds_paths, file_path)
+  }
+  
+  selected_rds_files(rds_paths)  # Save to be used in downloadHandler
+  # Trigger download automatically? You could programmatically click a hidden button here if needed
+})
+
+output$download_oms_zip <- downloadHandler(
+  filename = function() {
+    paste0("OmicSignatures_", Sys.Date(), ".zip")
+  },
+  content = function(file) {
+    files_to_zip <- selected_rds_files()
+    if (is.null(files_to_zip) || length(files_to_zip) == 0) {
+      stop("No signatures prepared for download.")
+    }
+    zip::zip(zipfile = file, files = files_to_zip, mode = "cherry-pick", flags = "-j")
+  }
+)
+
+
 
