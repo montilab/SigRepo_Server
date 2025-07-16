@@ -24,7 +24,7 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"),
   host = Sys.getenv("HOST"),
   port = as.integer(Sys.getenv("PORT")),
-  user = Sys.getenv("DB_USER"),
+  user = Sys.getenv("USER"),
   password = Sys.getenv("PASSWORD")
 )
 
@@ -266,7 +266,7 @@ server <- function(input, output, session) {
         login_error_message(base::sprintf("User = '%s' does not exist in our database.", user_name))
         return(NULL)        
       }else if(nrow(check_user_tbl) > 0 && check_user_tbl$active[1] == 0){
-        login_error_message(base::sprintf("User = '%s' is already existed in our database and currently inactive. If this is your account, please contact our admin to activate it.", user_name))
+        login_error_message(base::sprintf("User = '%s' is already exists in our database and is currently inactive. If this is your account, please contact our admin to activate it.", user_name))
         return(NULL)
       }
       
@@ -912,11 +912,10 @@ server <- function(input, output, session) {
     req(tab_selected())
 
     if(tab_selected() == "home"){
-      #base::source("ui/home_page_ui.R")$value
+      base::source("ui/home_page_ui.R")$value
     }else if(tab_selected() == "signatures"){
-      #base::source("ui/signature_page_ui.R")$value
+      base::source("ui/signature_page_ui.R")$value
     }else if(tab_selected() == "collections"){
-      #base::source("ui/collection_page_ui.R")$value
     }else if(tab_selected() == "compare"){
     }else if(tab_selected() == "analysis"){
     }else if(tab_selected() == "resources"){
@@ -925,9 +924,8 @@ server <- function(input, output, session) {
   })
   
   # Import all source files
-  #source("server/home_page_server.R", local = TRUE)
-  #source("server/signature_page_server.R", local = TRUE)
-  #source("server/collection_page_server.R", local = TRUE)
+  source("server/home_page_server.R", local = TRUE)
+  source("server/signature_page_server.R", local = TRUE)
 
 
 }

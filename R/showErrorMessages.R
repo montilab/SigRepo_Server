@@ -33,10 +33,9 @@ showPlatformErrorMessage <- function(
     unknown_values
 ){
   
-  base::stop(
-    base::sprintf("\nThe following platforms do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+  base::warning(
+    base::sprintf("\nThe following platform is not in our pre-determined list of platforms:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
     base::sprintf("\nYou can use 'searchPlatform()' to see a list of available platforms in the database."),
-    base::sprintf("\nTo add these platforms to our database, please contact our admin for support.\n")
   )
   
 }
