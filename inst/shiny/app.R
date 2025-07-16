@@ -67,7 +67,7 @@ ui <- shiny::bootstrapPage(
           shiny::HTML("<span class='login-label'><b>Username</b></span>"),
           shiny::div(
             class = "username-container",
-            shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username' required>")
+            shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username'>")
           )
         ),
         
@@ -76,7 +76,7 @@ ui <- shiny::bootstrapPage(
           shiny::HTML("<span class='login-label'><b>Password</b></span>"),
           shiny::div(
             class = "password-container",
-            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password' required>"),
+            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password'>"),
             shiny::HTML("<span class='toggle-password' onclick='toggle_password()'>👁️</span>")
           )
         ),
@@ -84,7 +84,6 @@ ui <- shiny::bootstrapPage(
         shiny::div(
           class = "validate-message", 
           shiny::uiOutput(outputId = "login_error_message")
-          #shinyjs::hidden(p(class = "error-message", id = "login-error-message", "Invalid username or password!"))
         ),
         
         shiny::div(
@@ -123,8 +122,61 @@ ui <- shiny::bootstrapPage(
       )
     ),
     
-    # Include the navbar tabs
-    shiny::htmlTemplate("www/nav.html"),
+    # Navbar tabs
+    shiny::div(
+      id = "navbar-wrapper",
+      shiny::tags$header(
+        class = "container",
+        # <!-- Logo -->
+        shiny::div(
+          class = "row header",
+          shiny::div(
+            class = "col-3 col-12-medium col-12-large box logo",
+            shiny::a(
+              class = "logo-brand", id = "home_tab", src = "images/logo.png",
+              shiny::span(
+                class = "logo-brand",
+                shiny::h2("SigRepo"),
+                shiny::p("Signature Repository")
+              )
+            )
+          ),
+          #<!-- Navbar -->
+          shiny::div(
+            class = "col-9 col-12-medium col-12-large box navbar",    
+            shiny::tags$nav(
+              id = "nav",
+              shiny::tags$ul(
+                shiny::tags$li(
+                  id = "home", class = "active", 
+                  shiny::a(href = "#home", onclick = "select_navtab(tab='home')", "Home")
+                ),
+                shiny::tags$li(
+                  id = "signatures", 
+                  shiny::a(href = "#signatures", onclick = "select_navtab(tab = 'signatures')", "Signatures")
+                ),
+                shiny::tags$li(
+                  id = "collections", 
+                  shiny::a(href = "#collections", onclick = "select_navtab(tab = 'collections')", "Collections")
+                ),
+                shiny::tags$li(
+                  id = "compare", 
+                  shiny::a(href = "#compare", onclick="select_navtab(tab='compare')", "Compare")
+                ),
+                shiny::tags$li(
+                  id = "annotate", 
+                  shiny::a(href = "#annotate", onclick="select_navtab(tab='annotate')", "Annotate")
+                ),
+                shiny::tags$li(
+                  id = "resources", 
+                  shiny::a(href = "#resources", onclick = "select_navtab(tab='resources')", "Resources")
+                )
+              )
+            )
+          )
+        )
+      )
+    ),
     
     tags$script(src = "assets/js/jquery.dropotron.min.js", type = "text/javascript"),
     tags$script(src = "assets/js/browser.min.js", type = "text/javascript"),
@@ -132,8 +184,38 @@ ui <- shiny::bootstrapPage(
     tags$script(src = "assets/js/util.js", type = "text/javascript"),
     tags$script(src = "assets/js/main.js", type = "text/javascript"),
     
-    ### Content #####
-    shiny::uiOutput(outputId = "tab_content"),
+    shiny::div(
+      id = "home-container",
+      "This is the Home tab"
+    ),
+    
+    shiny::div(
+      id = "signatures-container", class = "invisible",
+      "This is the Signatures tab"
+    ),
+    
+    shiny::div(
+      id = "collections-container", class =  "invisible",
+      "This is the Collections tab"
+    ) ,
+    
+    shiny::div(
+      id = "compare-container", class =  "invisible",
+      "This is the Compare tab"
+    ),
+    
+    shiny::div(
+      id = "annotate-container", class =  "invisible",
+      "This is the Annotate tab"
+    ),
+    
+    shiny::div(
+      id = "resources-container", class =  "invisible",
+      "This is the Resources tab"
+    ),
+    
+    # ### Tab Content #####
+    # shiny::uiOutput(outputId = "tab_content"),
     
     ### Footer ####
     shiny::div(
@@ -263,7 +345,7 @@ server <- function(input, output, session) {
       
       # If user exists, throw an error
       if(nrow(check_user_tbl) == 0){
-        login_error_message(base::sprintf("User = '%s' does not exist in our database.", user_name))
+        login_error_message(base::sprintf("Invalid username or password!"))
         return(NULL)        
       }else if(nrow(check_user_tbl) > 0 && check_user_tbl$active[1] == 0){
         login_error_message(base::sprintf("User = '%s' is already existed in our database and currently inactive. If this is your account, please contact our admin to activate it.", user_name))
@@ -426,7 +508,7 @@ server <- function(input, output, session) {
     
     shiny::removeModal()
     register_message(NULL)
-
+    
   })
   
   # OBSERVE REGISTER USER BUTTON #####
@@ -515,7 +597,7 @@ server <- function(input, output, session) {
       base::replace(. == "", "") %>% 
       base::replace(is.na(.), "") %>% 
       base::replace(is.null(.), "")
-      
+    
     # Add user to database
     SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
     
@@ -698,7 +780,7 @@ server <- function(input, output, session) {
       base::replace(. == "", "") %>% 
       base::replace(is.na(.), "") %>% 
       base::replace(is.null(.), "")
-
+    
     # Show the modal dialog
     shiny::showModal(
       shiny::modalDialog(
@@ -866,7 +948,7 @@ server <- function(input, output, session) {
     
     shiny::removeModal()
     change_profile_message(NULL)
-
+    
   }, ignoreNULL = TRUE, ignoreInit = TRUE)
   
   # Output change_profile_message ####
@@ -875,36 +957,6 @@ server <- function(input, output, session) {
     req(change_profile_message())
     
     shiny::p(class = "error-message", shiny::isolate({ change_profile_message() }))
-    
-  })
-  
-  # Create reactive values
-  tab_selected <- shiny::reactiveVal("home")
-  
-  # Observe the selected page by users
-  shiny::observeEvent({
-    input$selected_tab
-  }, {
-    
-    shiny::isolate({ input$selected_tab }) %>% tab_selected()
-    
-  }, ignoreNULL = TRUE, ignoreInit = TRUE)
-  
-  # Output the content page
-  output$tab_content <- shiny::renderUI({
-    
-    req(tab_selected())
-    
-    if(tab_selected() == "home"){
-      #base::source("ui/home_page_ui.R")$value
-    }else if(tab_selected() == "signatures"){
-      #base::source("ui/signature_page_ui.R")$value
-    }else if(tab_selected() == "collections"){
-      #base::source("ui/collection_page_ui.R")$value
-    }else if(tab_selected() == "compare"){
-    }else if(tab_selected() == "analysis"){
-    }else if(tab_selected() == "resources"){
-    }
     
   })
   
