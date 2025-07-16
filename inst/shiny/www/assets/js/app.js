@@ -28,9 +28,29 @@ function toggle_change_password(){
   }
 }
 
+function toggle_register_password(){
+  const passwordField = document.getElementById('register_password');
+  const passwordFieldType = passwordField.getAttribute('type');
+  if(passwordFieldType === 'password'){
+    passwordField.setAttribute('type', 'text');
+  }else{
+    passwordField.setAttribute('type', 'password');
+  }
+}
+
+var tabs = ["home", "signatures", "collections", "compare", "annotate", "resources"]
+
 function select_navtab(tab){
-  var tab = String(tab);
-  Shiny.onInputChange("selected_tab", tab);
+  var id = String(tab);
+  for (var i = 0; i < tabs.length; i++) {
+    if(tabs[i] === id){
+      document.getElementById(tabs[i]).classList.add("active");
+      document.getElementById(tabs[i]+"-"+"container").classList.remove("invisible");
+    }else{
+      document.getElementById(tabs[i]).classList.remove("active");
+      document.getElementById(tabs[i]+"-"+"container").classList.add("invisible");
+    }
+  }
 }
 
 function sig_tbl_select_all(){

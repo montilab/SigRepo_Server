@@ -6,11 +6,11 @@ library(DBI)
 ## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = 'sigrepo', 
-  host = 'sigrepo.org', 
-  port = 3306, 
-  user = 'root', 
-  password = 'sigrepo'
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("DB_USER"), 
+  password = Sys.getenv("PASSWORD")
 )
 
 # Set foreign key checks to false when dropping tables

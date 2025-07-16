@@ -28,7 +28,8 @@ section, summary, time, mark, audio, video {
 
 article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
-	display: block;}
+	display: block;
+}
 
 body {
 	line-height: 1;
@@ -71,12 +72,6 @@ input, select, textarea {
 	-webkit-appearance: none;
 	-ms-appearance: none;
 	appearance: none;
-}
-
-.primary-btn {
-  font-weight: bold;
-  color: #fff;
-  background-color: gray;  
 }
 
 /* Basic */
