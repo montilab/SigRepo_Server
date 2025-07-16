@@ -28,7 +28,7 @@ insert_table_sql <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-      base::stop("\n'table' must be a data frame object and cannot be empty.\n")
+    base::stop("\n'table' must be a data frame object and cannot be empty.\n")
   }
   
   # If table is not empty, import table into database
@@ -193,7 +193,7 @@ lookup_table_sql <- function(
     # Return error message
     base::stop("\n'return_var' cannot be empty.\n")
   }
-
+  
   # Check filter_coln_var and filter_coln_val
   if(length(filter_coln_var) == 0 && length(filter_coln_val) == 0){
     

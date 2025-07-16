@@ -220,6 +220,8 @@ checkTableInput <- function(
   # Clean up the table by converting all empty values as NULL 
   table <- base::data.frame(table, stringsAsFactors = FALSE) %>% 
     dplyr::mutate_if(is.character, ~base::trimws(base::gsub("'", "", ., perl = TRUE))) %>% 
+    base::replace(. == "NA", "'NULL'") %>% 
+    base::replace(. == "NULL", "'NULL'") %>% 
     base::replace(. == "", "'NULL'") %>% 
     base::replace(is.na(.), "'NULL'") %>% 
     base::replace(is.null(.), "'NULL'") %>% 
