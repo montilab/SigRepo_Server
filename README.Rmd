@@ -112,8 +112,8 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = "sigrepo", 
   host = "142.93.67.157", 
   port = 3306, 
-  user = "H_Nikoueian", 
-  password = "H_Nikoueian@1443322"
+  user = "montilab", 
+  password = "sigrepo"
 )
 ```
 
