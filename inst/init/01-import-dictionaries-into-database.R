@@ -14,18 +14,18 @@ devtools::load_all()
 
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = 'sigrepo', 
+  host = 'sigrepo.org', 
+  port = 3306, 
+  user = 'root', 
+  password = 'sigrepo'
 )
 
 # Establish user connection ###
 conn <- SigRepo::conn_init(conn_handler = conn_handler)
 
 # Get data path
-data_path <- base::system.file("inst/data", package = "SigRepo")
+data_path <- base::system.file("inst/extdata", package = "SigRepo")
 
 # 1. Add organisms to database ####
 organism_tbl <- readr::read_csv(file.path(data_path, "organisms/organism_tbl.csv"), show_col_types = FALSE)
@@ -34,9 +34,9 @@ SigRepo::addOrganism(conn_handler = conn_handler, organism_tbl = organism_tbl)
 # Check the imported values
 organism_db_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler)
 
-# 2. Add platforms to database ####
-platform_tbl <- readRDS(file.path(data_path, "platforms/GEO_platforms.rds")) 
-SigRepo::addPlatform(conn_handler = conn_handler, platform_tbl = platform_tbl)
+# # 2. Add platforms to database #### 
+# platform_tbl <- readr::read_csv(file.path(data_path, "platforms/platforms.csv")) 
+# SigRepo::addPlatform(conn_handler = conn_handler, platform_tbl = platform_tbl)
 
 # Check the imported values
 platform_db_tbl <- SigRepo::searchPlatform(conn_handler = conn_handler)
@@ -72,6 +72,11 @@ SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcripto
 
 # Check the imported values
 transcriptomics_features_db_tbl <- SigRepo::searchFeature(conn_handler = conn_handler, assay_type = "transcriptomics")
+
+
+# Add Proteomics feature set ####
+
+# read in proteomics
 
 # 6. Add users ####
 
@@ -299,8 +304,8 @@ DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM m
 DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", "test"))
 
 # 7. Add signatures ####
-omic_signature_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/omic_signature_AGS_OmS.RDS"))
-SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_AGS_OmS)
+omic_signature_1 <- base::readRDS(file.path(data_path, "signatures/omic_signature_1.RDS"))
+SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_1)
 
 # Check the signatures table ####
 signature_db_tbl <- SigRepo::searchSignature(conn_handler = conn_handler)

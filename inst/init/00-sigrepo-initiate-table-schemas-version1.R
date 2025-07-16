@@ -6,11 +6,11 @@ library(DBI)
 ## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = 'sigrepo', 
+  host = 'sigrepo.org', 
+  port = 3306, 
+  user = 'root', 
+  password = 'sigrepo'
 )
 
 # Set foreign key checks to false when dropping tables
@@ -95,6 +95,9 @@ CREATE TABLE `%s` (
 ', table_name)
 
 base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
+
+
+
 
 ############# 
 #
@@ -433,11 +436,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
+  `platform_id_db` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `platform_id` VARCHAR(255) NOT NULL,
-  `platform_name` TEXT NOT NULL,
-  `seq_technology` TEXT DEFAULT NULL,
-  `organisms` TEXT DEFAULT NULL,
-  PRIMARY KEY (`platform_id`),
+  PRIMARY KEY (`platform_id_db`),
   UNIQUE (`platform_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)

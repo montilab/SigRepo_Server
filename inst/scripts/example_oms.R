@@ -19,15 +19,9 @@ brca_diffanal<- base::readRDS(file.path(data_path, "signatures/ahr_cyp1b1_brca_d
 
 # reading in example proteomics signature
 
-prot_sig <- read_csv(file.path(data_path, "signatures/NECS_protein_annot.csv")) %>%
-  rename(feature_name = uniprot)
-
 # adding the required columns to the signature
 
-prot_sig <- prot_sig %>%
-  mutate(probe_id = 1) %>%
-  mutate(score = 1) %>%
-  mutate(direction = "+") 
+
 
 OmS_MDA_CYP <- brca_diffanal$MDA.CYP
 
@@ -65,7 +59,7 @@ metadata_MDA_CYP <- OmicSignature::createMetadata(
   phenotype = "CYP181 knockdown",
   sample_type = "MDA-MB-231 cell",
   direction_type = "bi-directional", 
-  platform = "GPL17930", 
+  platform = "DNA assay by ChIP-seq", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "CYP181 knockdown"), 
@@ -77,9 +71,9 @@ metadata_MDA_AhR <- OmicSignature::createMetadata(
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "AhR knockdown",
-  sample_type = "MDA-MB-231 cell",
+  sample_type = "genotyping by array",
   direction_type = "bi-directional", 
-  platform = "GPL17930", 
+  platform = "transcriptomics by long-read sequencing", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "AhR knockdown"), 
@@ -93,7 +87,7 @@ metadata_SUM_CYP <- OmicSignature::createMetadata(
   phenotype = "AhR knockdown",
   sample_type = "SUM-149PT cell",
   direction_type = "bi-directional", 
-  platform = "GPL17930", 
+  platform = "transcriptomics by array", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "CYP181 knockdown"), 
@@ -211,28 +205,28 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
 # Creating an OmicSignature Collection
 
 
-colMeta <- list(
-  'collection_name' = 'example',
-  'description' = 'example of signature collection',
-  'author' = 'me')
+# colMeta <- list(
+#   'collection_name' = 'example',
+#   'description' = 'example of signature collection',
+#   'author' = 'me')
 
-OmSC <- OmicSignature::OmicSignatureCollection$new(
-  OmicSigList = list(omic_signature_MDA_AhR,omic_signature_MDA_CYP, omic_signature_SUM_CYP, omic_signature_SUM_Ahr),
-  metadata = colMeta
-)
+# OmSC <- OmicSignature::OmicSignatureCollection$new(
+#   OmicSigList = list(omic_signature_MDA_AhR,omic_signature_MDA_CYP, omic_signature_SUM_CYP, omic_signature_SUM_Ahr),
+#   metadata = colMeta
+# )
 
 # saving the RDS objcts to the siganture folder
 
 # saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
 
-# saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
+ saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
 
-# saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
+ saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
 
-# saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
+ saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
 
-# saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
+ saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
 
-# saveRDS(prot_omic_signature_ex, file = file.path(data_path, "signatures/prot_omic_signature_ex.RDS"))
+ saveRDS(prot_omic_signature_ex, file = file.path(data_path, "signatures/prot_omic_signature_ex.RDS"))
 
 

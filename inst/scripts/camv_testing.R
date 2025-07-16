@@ -117,3 +117,13 @@ sig_object_tr <- SigRepo::getSignature(conn_handler = conn_handler,
                                        signature_name = "male SIRT6-transgenic mice vs. male WT")
 
 sig_ex <- sig_object_pr$NECS_SomaScan_SurvivalOffspring$signature
+
+
+sigs_list <- SigRepo::searchSignature(conn_handler = conn_handler)
+
+platforms_list_test <- SigRepo::searchPlatform(conn_handler)
+
+# adding signatures to the database with updated platforms
+
+
+SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_SUM_CYP)
