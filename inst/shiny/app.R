@@ -348,7 +348,7 @@ server <- function(input, output, session) {
         login_error_message(base::sprintf("Invalid username or password!"))
         return(NULL)        
       }else if(nrow(check_user_tbl) > 0 && check_user_tbl$active[1] == 0){
-        login_error_message(base::sprintf("User = '%s' is already existed in our database and currently inactive. If this is your account, please contact our admin to activate it.", user_name))
+        login_error_message(base::sprintf("User = '%s' is currently inactive in our database. Please contact our admin to activate it.", user_name))
         return(NULL)
       }
       
