@@ -142,12 +142,13 @@ addUser <- function(
     check_db_table = FALSE
   )
   
-  # Get db user table
+  # Get db user table 
+  # Note inactive users do not have an account in DB
   db_user_tbl <- base::suppressWarnings(
     DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user"))
   ) 
   
-  # Extract inactive users and reactive them
+  # Extract inactive users and re-activate them
   inactive_user_tbl <- table %>% dplyr::filter(!user_name %in% db_user_tbl$user)
   
   # Remove duplicated hash keys ####
