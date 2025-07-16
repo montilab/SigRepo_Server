@@ -105,4 +105,16 @@ showProteomicsErrorMessage <- function(
 }
 
 #' @title showAssayTypeErrorMessage
-#' make this a stop, not a warning.
+#' @description Error message for trying to add unknown assay types to the database
+#' @param assay_type The unknown assay type
+#' @keywords internal
+#' @export
+
+showAssayErrorMessage <- function(
+    assay_type
+){
+  
+  base::stop(
+    base::sprintf("\nThe following assay does not currently exist in the database yet: '%s'", assay_type)
+  )
+}
