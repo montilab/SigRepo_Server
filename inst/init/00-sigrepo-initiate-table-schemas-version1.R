@@ -9,7 +9,7 @@ conn <- DBI::dbConnect(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("USER"), 
+  user = Sys.getenv("DB_USER"), 
   password = Sys.getenv("PASSWORD")
 )
 

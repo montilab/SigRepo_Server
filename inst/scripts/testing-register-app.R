@@ -29,6 +29,8 @@ SigRepo::deleteUser(conn_handler = conn_handler, user_name = "rchau")
 SigRepo::deleteUser(conn_handler = conn_handler, user_name = "rchau88")
 
 
+SigRepo::updateUser(conn_handler = conn_handler, user_name = 'rchau', active = 1)
+SigRepo::updateUser(conn_handler = conn_handler, user_name = 'rchau88', active = 1)
 
 
 
@@ -36,13 +38,15 @@ SigRepo::deleteUser(conn_handler = conn_handler, user_name = "rchau88")
 
 
 ## Create a database handler
-conn_handler <- SigRepo::newConnHandler(
+user_conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"), 
   host = Sys.getenv("HOST"), 
   port = as.integer(Sys.getenv("PORT")), 
   user = "rchau88", 
-  password = "rchau88"
+  password = "123456789"
 )
+
+SigRepo::validateUser(conn_handler = user_conn_handler)
 
 SigRepo::searchUser(conn_handler = conn_handler)
 SigRepo::searchSignature(conn_handler = conn_handler)

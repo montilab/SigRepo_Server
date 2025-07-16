@@ -28,6 +28,16 @@ function toggle_change_password(){
   }
 }
 
+function toggle_register_password(){
+  const passwordField = document.getElementById('register_password');
+  const passwordFieldType = passwordField.getAttribute('type');
+  if(passwordFieldType === 'password'){
+    passwordField.setAttribute('type', 'text');
+  }else{
+    passwordField.setAttribute('type', 'password');
+  }
+}
+
 function select_navtab(tab){
   var tab = String(tab);
   Shiny.onInputChange("selected_tab", tab);
