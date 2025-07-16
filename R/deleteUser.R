@@ -65,12 +65,12 @@ deleteUser <- function(
     base::stop(base::sprintf("\nThere is no user = '%s' existed in the 'users' table of the SigRepo database.\n", user_name))
   }
   
-  # Update user to be inactive in the users table ####
-  SigRepo::updateUser(
-    conn_handler = conn_handler,
-    user_name = user_name,
-    active = FALSE,
-    verbose = FALSE
+  # Delete user from users table ####
+  SigRepo::delete_table_sql(
+    conn = conn,
+    db_table_name =  db_table_name,
+    delete_coln_var = "user_name",
+    delete_coln_val = user_name
   )
   
   # Reset message options

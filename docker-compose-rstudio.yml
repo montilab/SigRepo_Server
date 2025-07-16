@@ -1,8 +1,8 @@
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: /SigRepo
-  target: /home/SigRepo
+  source: /home/SigRepo
+  target: /home/rstudio/SigRepo
 
 services:
   sigrepo-rstudio:
@@ -18,9 +18,9 @@ services:
     ports:
       - 7878:8787
     restart: always
-    working_dir: /home
     volumes:
       - *sigrepo-volume
+      - /montilab-p/docker:/home/docker
 
 networks:
   db-net:

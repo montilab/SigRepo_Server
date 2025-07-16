@@ -24,22 +24,24 @@ Add a list of users to database
 }
 \examples{
 
- # creating a user dataframe
+ # Create a user dataframe
 
-# user_tbl <- data.frame(
-# user_name = "new_user",
-# user_password = "password123",
-# user_email = "test_email123",
-# user_first = "First",
-# user_last = "Last",
-# user_affiliation = "University",
-# user_role = "editor")
+# user_tbl <- base::data.frame(
+#   user_name = "new_user",
+#   user_password = "password123",
+#   user_email = "test_email123@example.com",
+#   user_first = "First",
+#   user_last = "Last",
+#   user_affiliation = "University",
+#   user_role = "editor"
+#)
 
-
+ # Add a user in dataframe to database
+ 
 # SigRepo::addUser(
-# conn_handler = conn,
-# user_tbl = user_tbl,
-# verbose = FALSE
+#   conn_handler = conn_handler,
+#   user_tbl = user_tbl,
+#   verbose = FALSE
 # )
 
 }
