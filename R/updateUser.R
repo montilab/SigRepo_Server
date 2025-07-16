@@ -202,7 +202,8 @@ updateUser <- function(
     }else if(length(role[1]) == 1 && role[1] %in% "editor"){
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`keywords` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
-      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`platforms` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_access` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
       base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_feature_set` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))

@@ -10,7 +10,7 @@ x-sql-schema-init:
   type: bind
   source: $SIGREPO_DIR/SigRepo/inst/mysql/schema/init.sql
   target: /docker-entrypoint-initdb.d/init.sql
-  
+
 x-difexp-volume:
   &difexp-volume
   type: bind

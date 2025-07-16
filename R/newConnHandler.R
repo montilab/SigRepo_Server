@@ -9,17 +9,16 @@
 #' @return A list of user credentials to establish connection to the remote database.
 #' @examples
 #' 
-#' # the easiest way to do this is use sys.getenv if you have the environment variables set correctly
+#' # Create a connection handler using Sys.getenv with the environment variables 
+#' # stored in your .Renviron
 #' 
-#' # conn <- SigRepo::newConnHandler(
-#' # dbname = "sigrepo",
-#' # host = Sys.getenv("HOST"),  
-#' # port = as.integer(Sys.getenv("PORT")), 
-#' # user = Sys.getenv("USER"),
-#' # password = Sys.getenv("PASSWORD") 
+#' # conn_handler <- SigRepo::newConnHandler(
+#' #   dbname = "sigrepo",
+#' #   host = Sys.getenv("HOST"),  
+#' #   port = as.integer(Sys.getenv("PORT")), 
+#' #   user = Sys.getenv("USER"),
+#' #   password = Sys.getenv("PASSWORD") 
 #' # )
-#' 
-#' 
 #' 
 #' @export
 newConnHandler <- function(

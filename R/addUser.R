@@ -11,23 +11,24 @@
 #' 
 #' @examples
 #' 
-#'  # creating a user dataframe
+#'  # Create a user dataframe
 #' 
-#' # user_tbl <- data.frame(
-#' # user_name = "new_user",
-#' # user_password = "password123",
-#' # user_email = "test_email123",
-#' # user_first = "First",
-#' # user_last = "Last",
-#' # user_affiliation = "University",
-#' # user_role = "editor")
+#' # user_tbl <- base::data.frame(
+#' #   user_name = "new_user",
+#' #   user_password = "password123",
+#' #   user_email = "test_email123@example.com",
+#' #   user_first = "First",
+#' #   user_last = "Last",
+#' #   user_affiliation = "University",
+#' #   user_role = "editor"
+#' #)
 #' 
-#' 
+#'  # Add a user in dataframe to database
+#'  
 #' # SigRepo::addUser(
-#' # conn_handler = conn,
-#' # user_tbl = user_tbl,
-#' # active = TRUE
-#' # verbose = FALSE
+#' #   conn_handler = conn_handler,
+#' #   user_tbl = user_tbl,
+#' #   verbose = FALSE
 #' # )
 #' 
 #' @export
@@ -192,6 +193,7 @@ addUser <- function(
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`keywords` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`platforms` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_access` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_feature_set` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))

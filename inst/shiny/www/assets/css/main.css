@@ -73,6 +73,12 @@ input, select, textarea {
 	appearance: none;
 }
 
+.primary-btn {
+  font-weight: bold;
+  color: #fff;
+  background-color: gray;  
+}
+
 /* Basic */
 
 	@-ms-viewport {
