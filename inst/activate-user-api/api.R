@@ -99,7 +99,7 @@ notify_registered_user <- function(
       '<body>',
       '<p>Hi <strong>', user_name, ',</strong></p>',
       '<br>',
-      '<p>Thank you for signing up to use our <strong>SigRepo</strong> database! Our administrator will contact you as soon as they had reviewed and activated our account.</p>',
+      '<p>Thank you for signing up to use our <strong>SigRepo</strong> database! Our administrator will contact you as soon as they had reviewed and activated your account.</p>',
       '<br>',
       '<p>Below is the registration information you submitted:</p>',
       '<p>Username: <strong>', user_name, '</strong></p>',
@@ -335,6 +335,14 @@ register_user <- function(res, user_name, api_key){
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
   }
+  
+  # Replace NA with empty string 
+  user_tbl <- user_tbl %>% 
+    base::replace(. == "NA", "") %>% 
+    base::replace(. == "NULL", "") %>% 
+    base::replace(. == "", "") %>% 
+    base::replace(is.na(.), "") %>% 
+    base::replace(is.null(.), "")
   
   # Send email to admin
   notify_admin(
