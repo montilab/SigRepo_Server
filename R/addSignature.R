@@ -215,9 +215,9 @@ addSignature <- function(
     # throw error using the showAssayType error message if the assay type is metabolomics, methylomics, genetic_variations, or dna_binding_sites
     assay_stop <- c("methylomics", "metabolomics", "genetic_variations", "dna_binding_sites")
     
-    if(assay_type %in% assay_stop{
+    if(assay_type %in% assay_stop){
       SigRepo::showAssayErrorMessage(assay_type = assay_type)
-    })
+    }
     
     # Add signature set to database based on its assay type
     if(assay_type == "transcriptomics"){
