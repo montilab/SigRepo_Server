@@ -31,6 +31,7 @@ SigRepo::deleteUser(conn_handler = conn_handler, user_name = "rchau88")
 
 SigRepo::updateUser(conn_handler = conn_handler, user_name = 'rchau', active = 1)
 SigRepo::updateUser(conn_handler = conn_handler, user_name = 'rchau88', active = 1)
+SigRepo::updateUser(conn_handler = conn_handler, user_name = 'montilab', active = 1)
 
 
 
