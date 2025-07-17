@@ -33,7 +33,18 @@ Imports:
   rlang,
   RMySQL,
   sodium,
-  stringr
+  stringr,
+  DT,
+  future,
+  htmltools,
+  odbc,
+  plumber,
+  promises,
+  shiny,
+  shinyjs,
+  tidyverse,
+  tools, 
+  utils
 Remotes:
   montilab/OmicSignature
 Suggests:
