@@ -126,36 +126,34 @@ createSignatureMetadata <- function(
     phenotype_id <- phenotype_id_tbl$phenotype_id[1]
   }
   
-  # Look up platform id ####
-  lookup_platform <- metadata$platform[1]
-  
-  # Check if variable has values 
-  if(length(lookup_platform) == 0 || lookup_platform %in% c("", NA)){
-    lookup_platform <- 'GPLXXXXX'
-  }
-  
-  # Look up ID
-  platform_id_tbl <- SigRepo::lookup_table_sql(
-    conn = conn,
-    db_table_name = "platforms", 
-    return_var = "platform_id",
-    filter_coln_var = "platform_id", 
-    filter_coln_val = list("platform_id" = lookup_platform),
-    check_db_table = TRUE
-  ) 
-  
-  # If ID not exists in database, throw an error message
-  if(nrow(platform_id_tbl) == 0){
-    # Disconnect from database
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    # Show error message ####
-    SigRepo::showPlatformErrorMessage(
-      db_table_name = "platforms",
-      unknown_values = lookup_platform
-    )
-  }else{
-    platform_id <- platform_id_tbl$platform_id[1]
-  }   
+  # # Look up platform id ####
+  # lookup_platform <- metadata$platform[1]
+  # 
+  # 
+  # # Look up ID
+  # platform_id_tbl <- SigRepo::lookup_table_sql(
+  #   conn = conn,
+  #   db_table_name = "platforms",
+  #   return_var = "platform_name",
+  #   filter_coln_var = "platform_name",
+  #   filter_coln_val = list("platform_name" = lookup_platform),
+  #   check_db_table = TRUE
+  # )
+  # 
+  # # If ID not exists in database, throw an error message
+  # if(nrow(platform_id_tbl) == 0){
+  #   # Disconnect from database
+  #   base::suppressWarnings(DBI::dbDisconnect(conn))
+  #   # Show error message ####
+  #   SigRepo::showPlatformErrorMessage(
+  #     db_table_name = "platforms",
+  #     unknown_values = lookup_platform
+  #   )
+  # }else{
+  #   platform_id <- platform_id_tbl$platform_id[1]
+  # }
+
+ 
   
   # Look up sample_type id ####
   lookup_sample_type <- metadata$sample_type[1]
@@ -230,6 +228,19 @@ createSignatureMetadata <- function(
     }
   }else{
     logfc_cutoff <- 'NULL'
+  }
+  
+  
+  # platform_id ### 
+  
+  if("platform" %in% names(metadata)){
+    if(length(metadata$platform[1]) == 0){
+      platform_id <- 'NULL'
+    }else{
+      platform_id <- metadata$platform[1]
+    }
+  }else{
+    platform_id <- 'NULL'
   }
   
   # p_value_cutoff ####

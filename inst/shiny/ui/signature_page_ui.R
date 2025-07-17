@@ -83,7 +83,7 @@
     
     mainPanel(
       DTOutput("signature_tbl"),
-      uiOutput("sig_tbl_error_msg"),  # if applicable
+      uiOutput("sig_tbl_error_msg"),  
       br(),
       div(
         downloadButton("download_oms_handler", "Download OmicSignature", class = "submit-button", 

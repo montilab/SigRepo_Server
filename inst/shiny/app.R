@@ -24,7 +24,7 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"),
   host = Sys.getenv("HOST"),
   port = as.integer(Sys.getenv("PORT")),
-  user = Sys.getenv("DB_USER"),
+  user = Sys.getenv("USER"),
   password = Sys.getenv("PASSWORD")
 )
 

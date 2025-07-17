@@ -96,6 +96,9 @@ CREATE TABLE `%s` (
 
 base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = create_table_sql))
 
+
+
+
 ############# 
 #
 # SIGNATURE FEATURE SET ####
@@ -433,11 +436,9 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
+  `platform_id_db` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `platform_id` VARCHAR(255) NOT NULL,
-  `platform_name` TEXT NOT NULL,
-  `seq_technology` TEXT DEFAULT NULL,
-  `organisms` TEXT DEFAULT NULL,
-  PRIMARY KEY (`platform_id`),
+  PRIMARY KEY (`platform_id_db`),
   UNIQUE (`platform_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
