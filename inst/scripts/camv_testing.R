@@ -32,7 +32,7 @@ SigRepo::addUser(
 )
 
 
-platforms <- SigRepo::searchPlatform(conn_handler = conn_handler, verbose = TRUE)
+ platforms <- SigRepo::searchPlatform(conn_handler = conn_handler, verbose = TRUE)
 signatures <- SigRepo::searchSignature(conn_handler = conn_handler, verbose = TRUE)
 searchFeature <-SigRepo::searchFeature(conn_handler = conn_handler, assay_type = "proteomics",verbose = TRUE)
 
@@ -91,16 +91,72 @@ api_response <- SigRepo::Refcheck(conn_handler = conn_handler,
                   ref_ids_tbl = sig_ex$feature_name, assay = "transcriptomics")
 
 
-outdated_ids <- api_response[api_response$is_current == "1", ]
+# adding new ensembl reference feature id
 
-# subsetting the na values
+# feature_name,organism,gene_symbol,is_current
 
-bad_ids <- all_missing_transcriptomics_ids$overall
+ref_set_ids <- data.frame(
+  feature_name = "ENSG00000223784",
+  organism = "homo sapiens",
+  gene_symbol = "LINP1",
+  is_current = 1
+)
 
-bad_ids <- as.data.frame(bad_ids)
 
-bad_ids <- bad_ids %>%
-  rename("feature_name" = "bad_ids")
+SigRepo::addRefFeatureSet(conn_handler = conn_handler,
+                          assay_type = "transcriptomics",
+                          feature_set = ref_set_ids )
 
-# need to also add the other assay types <- proteomics
-#
+
+sig_object_pr <- SigRepo::getSignature(conn_handler = conn_handler,
+                      signature_id = "321",
+                      signature_name = "NECS_SomaScan_SurvivalOffspring")
+
+sig_object_tr <- SigRepo::getSignature(conn_handler = conn_handler,
+                                       signature_id = "319",
+                                       signature_name = "male SIRT6-transgenic mice vs. male WT")
+
+
+sigs_list <- SigRepo::searchSignature(conn_handler = conn_handler)
+
+
+
+# adding signatures to the database with updated platforms
+
+
+# refCheck Testing Transcriptomics ####
+
+results_refcheck <- SigRepo::Refcheck(omic_signature_MDA_CYP, assay = 'transcriptomics')
+
+
+# Load required package
+if (!require("httr")) install.packages("httr", dependencies = TRUE)
+if (!require("jsonlite")) install.packages("jsonlite", dependencies = TRUE)
+
+library(httr)
+library(jsonlite)
+
+# List of UniProt IDs to check
+uniprot_ids <- c("P12345", "Q9Y6K9")
+
+# Function to check if a UniProt ID is valid, different output compared to the ensembl API.
+check_uniprot_id <- function(id) {
+  url <- paste0("https://rest.uniprot.org/uniprotkb/", id)
+  res <- GET(url, add_headers(Accept = "application/json"))
+# Need to see if there is a query limit for this, might need to split the ids into batches of 1000 like ensembl API  
+  if (status_code(res) == 200) {
+    return(paste(id, "is valid."))
+  } else if (status_code(res) == 404) {
+    return(paste(id, "is invalid or deprecated."))
+  } else {
+    return(paste(id, "returned status:", status_code(res)))
+  }
+}
+
+# Apply the function to all IDs
+results <- sapply(uniprot_ids, check_uniprot_id)
+
+# Print the results
+cat(paste(results, collapse = "\n"))
+
+
