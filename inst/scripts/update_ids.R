@@ -1,34 +1,37 @@
-library(httr)
-library(jsonlite)
-library(xml2)
-library(SigRepo)
-# example code
+library(dplyr)
 
 
 
 
-# Query the database and grab all of the signature names (ids)
+# script to process the reference tables to cnform to our database
 
-current_ids <- SigRepo::lookup_table_sql(
-  conn = conn,
-  db_table_name = 'signatures',
-  return_var =  '*',
-  filter_coln_var = NULL,
-  filter_coln_val = NULL,
-  filter_var_by = NULL,
-  check_db_table = TRUE
-)
 
-# using the ensembl rest API to find the
-server <- "https://rest.ensembl.org"
-ext <- "/archive/id"
-r <- POST(paste(server, ext, sep = ""), content_type("application/json"), accept("application/json"), body = '{ "id" : ["ENSG00000157764", "ENSG00000248378"] }')
+# proteomics ids
 
-stop_for_status(r)
 
-# use this if you get a simple nested list back, otherwise inspect its structure
-ids <- data.frame(t(sapply(content(r),c)))
-head(fromJSON(toJSON(content(r))))
+
+proteomics_refs <- read_delim('HUMAN_9606_idmapping_selected.tab', col_names = FALSE)
+
+
+# cleaning the data
+# need to add a is_current column with 1, a version column, and an organism column
+
+proteomics_ids <- proteomics_refs %>%
+  select(X1, X2) %>%
+  rename(feature_name = X1, gene_symbol = X2) %>%
+  mutate(
+    is_current = 1,
+    version =20250618, # using the date for now, can find the actualy version (dont think they keep track of that?) Also ids are updated every 8 weeks.
+    organism = 'Homo Sapiens'
+  )
+
+# save proteomics ids dataframe to a csv file
+
+
+# write.csv(proteomics_ids, file = 'prot_ids.csv')
+
+# transcriptomics reference change
+
 
 
 

@@ -75,6 +75,11 @@ transcriptomics_features_db_tbl <- SigRepo::searchFeature(conn_handler = conn_ha
 
 
 # Add Proteomics feature set ####
+SigRepo::addRefFeatureSet(
+  conn_handler = conn_handler,
+  assay_type = "proteomics",
+  feature_set = proteomics_ids)
+
 
 # read in proteomics
 

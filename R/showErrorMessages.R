@@ -34,8 +34,9 @@ showPlatformErrorMessage <- function(
 ){
   
   base::warning(
-    base::sprintf("\nThe following platform is not in our pre-determined list of platforms:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
-    base::sprintf("\nYou can use 'searchPlatform()' to see a list of available platforms in the database."),
+    base::sprintf("\nWarning: Your platform %s is not included in the dictionary (you can list the available platforms using SigRepo::SearchPlatform()):\n", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\n If you think you can use one of the already available platforms, please update your signature accordingly"),
+    base::sprintf("\n Otherwise, please consider adding your newly defined platform to the dictionary using SigRepo::AddPlatform()")
   )
   
 }

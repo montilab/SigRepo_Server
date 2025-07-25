@@ -6,11 +6,11 @@ library(DBI)
 ## Establish database connection
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
-  dbname = Sys.getenv("DBNAME"), 
-  host = Sys.getenv("HOST"), 
-  port = as.integer(Sys.getenv("PORT")), 
-  user = Sys.getenv("DB_USER"), 
-  password = Sys.getenv("PASSWORD")
+  dbname = 'sigrepo', 
+  host = 'sigrepo.org', 
+  port = 3306, 
+  user = 'root', 
+  password = 'sigrepo'
 )
 
 # Set foreign key checks to false when dropping tables
@@ -288,6 +288,7 @@ CREATE TABLE `%s` (
   `gene_symbol` TEXT DEFAULT NULL,
   `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
+  `version` INT NOT NULL,
   PRIMARY KEY (`feature_id`), 
   UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
@@ -322,6 +323,7 @@ CREATE TABLE `%s` (
   `gene_symbol` TEXT DEFAULT NULL,
   `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
+  `version` INT NOT NULL,
   PRIMARY KEY (`feature_id`), 
   UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
