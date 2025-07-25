@@ -19,6 +19,12 @@ library(promises)
 library(future)
 future::plan(multisession)
 
+# source modules ####
+source("utils.R")
+source("ui/signature_page_ui.R")
+source("ui/collection_page_ui.R")
+source("server/signature_page_server.R")
+
 # Create a default database handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"),
@@ -191,7 +197,7 @@ ui <- shiny::bootstrapPage(
     
     shiny::div(
       id = "signatures-container", class = "invisible",
-      "This is the Signatures tab"
+      signaturesUI("signatures_module")
     ),
     
     shiny::div(
@@ -402,6 +408,9 @@ server <- function(input, output, session) {
       
       # Get user login info ####
       user_login_info(user_tbl)
+      
+      
+    
       
       # # Get user signature table #####
       # promises::future_promise({
@@ -960,10 +969,10 @@ server <- function(input, output, session) {
     
   })
   
-  # Import all source files
-  #source("server/home_page_server.R", local = TRUE)
-  #source("server/signature_page_server.R", local = TRUE)
-  #source("server/collection_page_server.R", local = TRUE)
+
+  # importing modules
+  
+  signaturesServer("signatures_module")
   
 }
 

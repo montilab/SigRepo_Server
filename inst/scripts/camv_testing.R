@@ -1,5 +1,6 @@
 # need this script for the difexp table display, need to modify it, onclick 
 library(dplyr)
+library(readr)
 # If signature has difexp, get a copy by its signature hash key ####
 sig_tran <- SigRepo::getSignature(
   conn_handler = conn_handler,
@@ -31,6 +32,14 @@ SigRepo::addUser(
   verbose = TRUE
 )
 
+# SigRepo updateUser
+
+SigRepo::updateUser(
+  conn_handler = conn_handler,
+  user_name = "H_Nikoueian",
+  active = TRUE,
+  verbose = TRUE
+)
 
 platforms <- SigRepo::searchPlatform(conn_handler = conn_handler, verbose = TRUE)
 signatures <- SigRepo::searchSignature(conn_handler = conn_handler, verbose = TRUE)
@@ -127,3 +136,39 @@ platforms_list_test <- SigRepo::searchPlatform(conn_handler)
 
 
 SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_SUM_CYP)
+
+
+ids <- read_delim('HUMAN_9606_idmapping_selected.tab')
+
+old_ids_human <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), show_col_types = FALSE)
+
+# adding a version column to old_ids_human
+old_ids_human <- old_ids_human %>%
+  mutate(version = 113)
+
+# writing it to the csv
+
+write.csv(old_ids_human, file = file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), row.names = FALSE)
+
+
+old_ids_mouse <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv"), show_col_types = FALSE)
+
+old_ids_mouse <- old_ids_mouse %>%
+  mutate(version = 113)
+# write to csv
+
+
+
+ref_data <- SigRepo::protTransform(
+  organism_code = "HUMAN",
+  tax_id = "9606"
+)
+
+
+mouse_data <- SigRepo::protTransform(
+  organism_code = "MOUSE",
+  tax_id = "10090"
+)
+# grabbing ref ids 
+
+refs <- SigRepo::searchFeature(conn_handler)

@@ -1,5 +1,6 @@
 # Signature Page Server Logic ####
-
+signaturesServer <- function(id){
+  moduleServer(id, function(input, output, session){
 # Signature table refresh trigger
 signature_update_trigger <- reactiveVal(0)
 
@@ -7,11 +8,11 @@ signature_update_trigger <- reactiveVal(0)
 signature_db <- reactive({
   
   req(user_conn_handler())
-  conn_handler <- user_conn_handler()
+ 
   
   signature_update_trigger()  # Triggers re-evaluation
   tryCatch({
-    df <- SigRepo::searchSignature(conn_handler = conn_handler)
+    df <- SigRepo::searchSignature(conn_handler = user_conn_handler)
     validate(need(nrow(df) > 0, "No signatures found."))
     df
   }, error = function(e) {
@@ -387,7 +388,8 @@ output$download_oms_zip <- downloadHandler(
     }
     zip::zip(zipfile = file, files = files_to_zip, mode = "cherry-pick", flags = "-j")
   }
-)
+)})
+}
 
 
 
