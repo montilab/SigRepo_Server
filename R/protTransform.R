@@ -1,0 +1,48 @@
+#' @title protTransform
+#' @description Function to dynamically transform the ftp uniprot data into the SigRepo dictionary structure
+#' @param organism_code organism name you want to retrieve data from
+#' @param tax_id Taxonomic id of organism 
+#' @param version this is set the date of downloading the ftp file
+#' @param is_current boolean for if the feature_names are current or not.
+#' 
+#' @export
+
+
+# Define a reusable function
+protTransform <- function(organism_code = "HUMAN", tax_id = "9606",
+                                version = format(Sys.Date(), "%m%d%Y"),
+                                is_current = 1) {
+  
+  # Construct filename and URL dynamically
+  file_name <- paste0(organism_code, "_", tax_id, "_idmapping_selected.tab.gz")
+  url <- paste0("https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/", file_name)
+  
+  # Download if not already present
+  if (!file.exists(file_name)) {
+    message("Downloading: ", url)
+    download.file(url, destfile = file_name, method = "curl")
+  } else {
+    message("File already exists: ", file_name)
+  }
+  
+  # Read the tab-separated data
+  raw_data <- readr::read_tsv(file_name, col_names = FALSE, show_col_types = FALSE)
+  
+  # Check minimum number of columns before renaming
+  if (ncol(raw_data) < 2) {
+    stop("The downloaded file does not have the expected structure.")
+  }
+  
+  # Clean and transform
+  cleaned_data <- raw_data %>%
+    dplyr::rename("feature_name" = "X1",
+           "gene_symbol" = "X2") %>%
+    dplyr::select(feature_name, gene_symbol) %>%
+    dplyr::mutate(
+      organism = organism_code,
+      version = as.integer(version),
+      is_current = is_current
+    )
+  
+  return(cleaned_data)
+}
