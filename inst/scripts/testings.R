@@ -14,11 +14,15 @@ load_all()
 conn <- DBI::dbConnect(
   drv = RMySQL::MySQL(),
   dbname = "sigrepo", 
-  host = "127.0.0.1", 
+  host = "sigrepo.org", 
   port = 3306, 
-  user = "root", 
-  password = "sigrepo"
+  user = "rchau88", 
+  password = "VYDUH3190O"
 )
+
+
+ENSG00000238266
+
 
 
 base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "show tables;"))
@@ -61,7 +65,9 @@ SigRepo::searchSignature(
 
 # Searching signature 
 
-SigRepo::searchSignature(conn_init, signature_name = '_Aging_Gene_2023')
+sigs_list <- SigRepo::searchSignature(conn_handler)
+
+platforms_q <- SigRepo::searchPlatform(conn_handler)
 
 # 7. Add signatures ####
 LLFS_Transcriptomic_AGS_OmS <- base::readRDS(file.path(data_path, "signatures/LLFS_Transcriptomic_AGS_OmS.rds"))

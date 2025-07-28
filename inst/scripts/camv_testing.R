@@ -1,5 +1,6 @@
 # need this script for the difexp table display, need to modify it, onclick 
 library(dplyr)
+library(readr)
 # If signature has difexp, get a copy by its signature hash key ####
 sig_tran <- SigRepo::getSignature(
   conn_handler = conn_handler,
@@ -31,6 +32,14 @@ SigRepo::addUser(
   verbose = TRUE
 )
 
+# SigRepo updateUser
+
+SigRepo::updateUser(
+  conn_handler = conn_handler,
+  user_name = "H_Nikoueian",
+  active = TRUE,
+  verbose = TRUE
+)
 
  platforms <- SigRepo::searchPlatform(conn_handler = conn_handler, verbose = TRUE)
 signatures <- SigRepo::searchSignature(conn_handler = conn_handler, verbose = TRUE)
@@ -116,47 +125,51 @@ sig_object_tr <- SigRepo::getSignature(conn_handler = conn_handler,
                                        signature_id = "319",
                                        signature_name = "male SIRT6-transgenic mice vs. male WT")
 
+sig_ex <- sig_object_pr$NECS_SomaScan_SurvivalOffspring$signature
+
 
 sigs_list <- SigRepo::searchSignature(conn_handler = conn_handler)
 
-
+platforms_list_test <- SigRepo::searchPlatform(conn_handler)
 
 # adding signatures to the database with updated platforms
 
 
-# refCheck Testing Transcriptomics ####
-
-results_refcheck <- SigRepo::Refcheck(omic_signature_MDA_CYP, assay = 'transcriptomics')
+SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_SUM_CYP)
 
 
-# Load required package
-if (!require("httr")) install.packages("httr", dependencies = TRUE)
-if (!require("jsonlite")) install.packages("jsonlite", dependencies = TRUE)
+ids <- read_delim('HUMAN_9606_idmapping_selected.tab')
 
-library(httr)
-library(jsonlite)
+old_ids_human <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), show_col_types = FALSE)
 
-# List of UniProt IDs to check
-uniprot_ids <- c("P12345", "Q9Y6K9")
+# adding a version column to old_ids_human
+old_ids_human <- old_ids_human %>%
+  mutate(version = 113)
 
-# Function to check if a UniProt ID is valid, different output compared to the ensembl API.
-check_uniprot_id <- function(id) {
-  url <- paste0("https://rest.uniprot.org/uniprotkb/", id)
-  res <- GET(url, add_headers(Accept = "application/json"))
-# Need to see if there is a query limit for this, might need to split the ids into batches of 1000 like ensembl API  
-  if (status_code(res) == 200) {
-    return(paste(id, "is valid."))
-  } else if (status_code(res) == 404) {
-    return(paste(id, "is invalid or deprecated."))
-  } else {
-    return(paste(id, "returned status:", status_code(res)))
-  }
-}
+# writing it to the csv
 
-# Apply the function to all IDs
-results <- sapply(uniprot_ids, check_uniprot_id)
+write.csv(old_ids_human, file = file.path(data_path, "feature_tables/Transcriptomics_HomoSapiens.csv"), row.names = FALSE)
 
-# Print the results
-cat(paste(results, collapse = "\n"))
 
+old_ids_mouse <- readr::read_csv(file.path(data_path, "feature_tables/Transcriptomics_MusMusculus.csv"), show_col_types = FALSE)
+
+old_ids_mouse <- old_ids_mouse %>%
+  mutate(version = 113)
+# write to csv
+
+
+
+ref_data <- SigRepo::protTransform(
+  organism_code = "HUMAN",
+  tax_id = "9606"
+)
+
+
+mouse_data <- SigRepo::protTransform(
+  organism_code = "MOUSE",
+  tax_id = "10090"
+)
+# grabbing ref ids 
+
+refs <- SigRepo::searchFeature(conn_handler)
 
