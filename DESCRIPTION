@@ -1,6 +1,6 @@
 Package: SigRepo
 Type: Package
-Title: Storing and processing omic signature
+Title: Storing and processing omic signatures
 Version: 1.0.0
 Authors@R: 
   c(person(given="Reina", family="Chau", role=c("aut","cre"), 
@@ -20,30 +20,41 @@ URL: https://github.com/montilab/SigRepo/
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 Imports:
+  data.table,
   DBI,
   digest,
+  dplyr,
   httr,
   jsonlite,
-  RMySQL,
-  sodium,
-  dplyr,
   magrittr,
-  rlang,
-  data.table,
   methods,
   OmicSignature,
   purrr,
-  stringr
+  rlang,
+  RMySQL,
+  sodium,
+  stringr,
+  DT,
+  future,
+  htmltools,
+  odbc,
+  plumber,
+  promises,
+  shiny,
+  shinyjs,
+  tidyverse,
+  tools, 
+  utils
 Remotes:
   montilab/OmicSignature
 Suggests:
-    BiocManager,
-    BiocStyle,
-    devtools,
-    knitr,
-    pkgdown,
-    rmarkdown,
-    testthat (>= 3.0.0)
+  BiocManager,
+  BiocStyle,
+  devtools,
+  knitr,
+  pkgdown,
+  rmarkdown,
+  testthat (>= 3.0.0)
 Config/testthat/edition: 3
 biocViews: Software, FeatureExtraction
 VignetteBuilder: knitr

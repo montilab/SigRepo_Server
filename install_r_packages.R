@@ -27,7 +27,6 @@ biocPackages <- url %>%
 # Read in package dependencies in DESCRIPTION
 DESCRIPTION <- yaml::read_yaml("DESCRIPTION")
 
-
 # Extract all imports packages
 required_pkgs <- trimws(strsplit(DESCRIPTION$Imports, ",", fixed=TRUE)[[1]])
 
