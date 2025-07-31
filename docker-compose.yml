@@ -15,6 +15,12 @@ x-difexp-volume:
   type: bind
   source: $BASE_INSTALL_DIR/mysql/difexp
   target: /difexp
+
+x-signature-volume:
+  &signature-volume
+  type:bind
+  source: $BASE_INSTALL_DIR/mysql/signatures
+  target: /signatures
   
 x-sigrepo-volume:
   &sigrepo-volume
@@ -72,6 +78,7 @@ services:
     volumes:
       - *sigrepo-volume
       - *difexp-volume
+      - *signature-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
 
   sigrepo-shiny:

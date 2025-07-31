@@ -199,9 +199,14 @@ sigs <- SigRepo::searchSignature(conn_handler = conn_handler)
 sig_obj <- SigRepo::getSignature(conn_handler = conn_handler,
                       signature_name = "CYP181 knockdown in breast cancer cell line",
                      signature_id = "1")
-# adding a signature
+
+SigRepo::deleteSignature(conn_handler = conn_handler,
+                         signature_id = 13)
 
 sig_add_id <- SigRepo::addSignature(conn_handler = conn_handler,
-                                    omic_signature = omic_signature_1)
+                                    omic_signature = omic_signature_MDA_AhR)
+
 
 omic_signature_1$metadata$platform[1] <- "genotyping by array"
+
+
