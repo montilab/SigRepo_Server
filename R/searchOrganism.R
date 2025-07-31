@@ -43,7 +43,7 @@ searchOrganism <- function(
       conn = conn, 
       db_table_name = "organisms", 
       return_var = "organism", 
-      filter_coln_var = "*", 
+      filter_coln_var = "organism", 
       filter_coln_val = list("organism" = organism),
       check_db_table = TRUE
     ) 

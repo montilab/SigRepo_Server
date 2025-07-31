@@ -65,6 +65,8 @@ serializers <- list(
 
 # Create difexp directory
 data_path <- base::file.path("/difexp")
+data_path_sig <- base::file.path("/signatures")
+base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
 base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
 #* Store difexp in the database
@@ -150,11 +152,79 @@ store_difexp <- function(res, api_key, signature_hashkey, difexp){
   if(base::is.data.frame(difexp[[1]])){
     base::saveRDS(difexp[[1]], file = base::file.path(data_path, base::paste0(signature_hashkey, ".RDS")))
   }else{
-    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("difexp is not a valid file."))
+    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("signature is not a valid file."))
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
   }  
   
 }
+#* Store full omic signature in the database
+#* @parser multi
+#* @parser rds
+#* @param api_key
+#* @param signature_hashkey
+#* @param signature:file
+#' @post /store_signature
+store_signature <- function(res, api_key, signature_hashkey, signature){
+  
+  # Define required parameters
+  variables <- c("api_key", "signature_hashkey")
+  
+  # Check and clean inputs
+  missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
+  if (any(missing_variables)) {
+    error_message <- sprintf(
+      "Missing required parameter(s): %s", 
+      paste0(variables[which(missing_variables)], collapse = ", ")
+    )
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = error_message), pretty = TRUE))
+  }
+  
+  api_key <- base::trimws(api_key[1])
+  signature_hashkey <- base::trimws(signature_hashkey[1])
+  
+  if (api_key == "" || signature_hashkey == "") {
+    error_message <- "api_key and signature_hashkey cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = error_message), pretty = TRUE))
+  }
+  
+  # Validate API key
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  user_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = "users",
+    return_var = "*",
+    filter_coln_var = "api_key",
+    filter_coln_val = list("api_key" = api_key),
+    check_db_table = TRUE
+  )
+  base::suppressWarnings(DBI::dbDisconnect(conn))
+  
+  if (nrow(user_tbl) == 0) {
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = "Invalid API key."), pretty = TRUE))
+  }
+  
+  # Store signature
+  output_path <- file.path("/signatures", paste0(signature_hashkey, ".RDS"))
+  tryCatch({
+    base::saveRDS(signature[[1]], file = output_path)
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    return(jsonlite::toJSON(data.frame(MESSAGES = "Signature saved successfully."), pretty = TRUE))
+  }, error = function(e) {
+    res$serializer <- serializers[["json"]]
+    res$status <- 500
+    return(jsonlite::toJSON(data.frame(MESSAGES = sprintf("Failed to save signature: %s", e$message)), pretty = TRUE))
+  })
+}
+
+
+
 
 
 #* Get difexp from the database

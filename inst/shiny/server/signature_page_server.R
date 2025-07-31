@@ -1,6 +1,8 @@
 # Signature Page Server Logic ####
 signaturesServer <- function(id){
-  moduleServer(id, function(input, output, session){
+   moduleServer(id, function(input, output, session){
+     
+    ns <- session$ns
 # Signature table refresh trigger
 signature_update_trigger <- reactiveVal(0)
 
@@ -12,7 +14,7 @@ signature_db <- reactive({
   
   signature_update_trigger()  # Triggers re-evaluation
   tryCatch({
-    df <- SigRepo::searchSignature(conn_handler = user_conn_handler)
+    df <- SigRepo::searchSignature(conn_handler = user_conn_handler())
     validate(need(nrow(df) > 0, "No signatures found."))
     df
   }, error = function(e) {
@@ -163,12 +165,14 @@ output$signature_tbl <- DT::renderDataTable({
   df <- filtered_signatures()
   req(!is.null(df), nrow(df) > 0)
   
+  
   df$signature_name <- sprintf(
-    '<a href="signature_info?sig_id=%s&sig_name=%s" target="_blank">%s</a>',
+    '<a href="#" class="sig-link" data-sig_id="%s" data-sig_name="%s">%s</a>',
     df$signature_id,
-    URLencode(df$signature_name, reserved = TRUE),  # encode to handle spaces/special chars
-    df$signature_name
+    htmltools::htmlEscape(df$signature_name),
+    htmltools::htmlEscape(df$signature_name)
   )
+  
   
   
   
@@ -194,6 +198,7 @@ output$signature_tbl <- DT::renderDataTable({
     options = list(
       pageLength = 10,
       scrollX = TRUE,
+      scrollY = "300px",
       columnDefs = list(
         list(
           targets = which(names(df) %in% c("signature_hashkey", "visibility", "others", "keywords", "cutoff_description")) - 1,
@@ -354,7 +359,7 @@ observeEvent(input$download_oms_handler, {
   all_ids <- names(sig_list)
   
   if (length(selected_rows) == 0) {
-    showNotification("❌ Please select at least one signature to download.", type = "error")
+    showNotification("Please select at least one signature to download.", type = "error")
     return()
   }
   
@@ -388,7 +393,15 @@ output$download_oms_zip <- downloadHandler(
     }
     zip::zip(zipfile = file, files = files_to_zip, mode = "cherry-pick", flags = "-j")
   }
-)})
+)
+
+# logic for signature info
+
+
+
+
+
+})
 }
 
 

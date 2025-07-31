@@ -1,6 +1,9 @@
 # need this script for the difexp table display, need to modify it, onclick 
 library(dplyr)
 library(readr)
+
+devtools::install_github("montilab/OmicSignature")
+
 # If signature has difexp, get a copy by its signature hash key ####
 sig_tran <- SigRepo::getSignature(
   conn_handler = conn_handler,
@@ -173,3 +176,32 @@ mouse_data <- SigRepo::protTransform(
 
 refs <- SigRepo::searchFeature(conn_handler)
 
+platform_table <- data.frame(
+  platform_id = 'test_platform'
+)
+
+write.csv(platform_table, file = 'tests/testthat/test_data/test_platform.csv')
+
+phenotype_table <- data.frame(
+  pheontype = "test_phenotype"
+)
+
+write.csv(phenotype_table, file = "tests/testthat/test_data/test_phenotype.csv")
+
+organism_table <- data.frame(
+  organism = "test_organism"
+)
+
+write.csv(organism_table, file = "tests/testthat/test_data/test_organism.csv")
+
+sigs <- SigRepo::searchSignature(conn_handler = conn_handler)
+# 
+sig_obj <- SigRepo::getSignature(conn_handler = conn_handler,
+                      signature_name = "CYP181 knockdown in breast cancer cell line",
+                     signature_id = "1")
+# adding a signature
+
+sig_add_id <- SigRepo::addSignature(conn_handler = conn_handler,
+                                    omic_signature = omic_signature_1)
+
+omic_signature_1$metadata$platform[1] <- "genotyping by array"

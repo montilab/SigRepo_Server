@@ -20,7 +20,7 @@ library(future)
 future::plan(multisession)
 
 # source modules ####
-source("utils.R")
+source("server/signature_info_module.R")
 source("ui/signature_page_ui.R")
 source("ui/collection_page_ui.R")
 source("server/signature_page_server.R")
@@ -30,7 +30,7 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DBNAME"),
   host = Sys.getenv("HOST"),
   port = as.integer(Sys.getenv("PORT")),
-  user = Sys.getenv("DB_USER"),
+  user = Sys.getenv("USER"),
   password = Sys.getenv("PASSWORD")
 )
 
@@ -54,6 +54,24 @@ ui <- shiny::bootstrapPage(
       tags$script(src = "assets/js/app.js", type = "text/javascript")
     )
   ),
+  
+ 
+# JS TAGS ####
+tags$script(HTML("
+  $(document).on('click', '.sig-link', function(e) {
+    e.preventDefault();
+    const sig_id = $(this).data('sig_id');
+    const sig_name = $(this).data('sig_name');
+    Shiny.setInputValue('show_signature_info', {
+      signature_id: sig_id,
+      signature_name: sig_name,
+      nonce: Math.random()  // force re-trigger even if same sig clicked
+    });
+  });
+")),
+
+
+  
   
   shinyjs::useShinyjs(),
   
@@ -970,9 +988,44 @@ server <- function(input, output, session) {
   })
   
 
-  # importing modules
+  # observer even for loading in server logic conditionally
   
-  signaturesServer("signatures_module")
+  observeEvent(user_conn_handler(), {
+    req(user_conn_handler())
+    
+    source("server/signature_page_server.R", local = TRUE)  # Defines signaturesServer()
+    
+    # Only now call the module function
+    signaturesServer("signatures_module")
+    
+    
+    observeEvent(input$show_signature_info, {
+      req(input$show_signature_info$signature_id, input$show_signature_info$signature_name)
+      
+      showModal(modalDialog(
+        size = "xl", 
+        easyClose = TRUE,
+        footer = modalButton("Close"),
+        signatureInfoUI("sig_info_modal")
+      ))
+      
+      signatureInfoServer(
+        "sig_info_modal", 
+        conn_handler = reactive({ user_conn_handler() }), 
+        sig_id = reactive({ input$show_signature_info$signature_id }), 
+        sig_name = reactive({ input$show_signature_info$signature_name })
+      )
+    })
+    
+    
+    
+    
+  })
+  
+  
+
+  
+  
   
 }
 
