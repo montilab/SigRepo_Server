@@ -33,28 +33,28 @@ signatureInfoServer <- function(id, conn_handler, sig_id, sig_name) {
     
     # Load full signature object
     signature_obj <- reactive({
-      req(conn_handler(), sig_id(), sig_name())
+      req(conn_handler(), sig_id(''), sig_name(''))
       SigRepo::getSignature(
         conn_handler = conn_handler(),
-        signature_id = sig_id(),
-        signature_name = sig_name()
+        signature_id = sig_id(''),
+        signature_name = sig_name('')
       )
     })
     
     # Extract metadata
     signature_metadata <- reactive({
-      req(signature_obj(), sig_name())
-      sig_data <- signature_obj()[[sig_name()]]
+      req(signature_obj())
+      sig_data <- signature_obj()$metadata
       validate(need(!is.null(sig_data), "Signature data not found."))
-      sig_data$meta  # Adjust this if you use a different field name
+      sig_data
     })
     
     # Extract difexp
     signature_difexp <- reactive({
-      req(signature_obj(), sig_name())
-      sig_data <- signature_obj()[[sig_name()]]
+      req(signature_obj())
+      sig_data <- signature_obj()$difexp
       validate(need(!is.null(sig_data$difexp), "Differential expression data not found."))
-      sig_data$difexp
+      sig_data
     })
     
     # Render metadata table

@@ -34,7 +34,7 @@ addOrganism <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "admin"
+    required_role = "editor"
   )
   
   # Create a list of variables to check database ####

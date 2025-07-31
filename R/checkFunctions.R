@@ -193,7 +193,7 @@ checkTableInput <- function(
   db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
-    check_db_table = check_db_table
+    check_db_table = check_db_table,
   )
   
   # Check if table is a data frame object and not empty
@@ -570,14 +570,15 @@ getNumOfObs <- function(
 #' @param conn An established connection to database using SigRepo::newConnhandler() 
 #' @param db_table_name Name of a table in the database
 #' @param check_db_table Check whether table exists in the database. Default = TRUE
-#' 
+#' @param exclude_coln_names optional flag to exclude column names from the Colnames list.
 #' @keywords internal
 #' 
 #' @export
 getDBColNames <- function(
     conn,
     db_table_name,
-    check_db_table = TRUE
+    check_db_table = TRUE,
+    exclude_coln_names = NULL
 ){
   
   # Check whether table exists in the database
@@ -602,8 +603,14 @@ getDBColNames <- function(
     base::message(w, "\n")
   })
   
+  col_names <- colnames(db_table)
+  
+  if(!is.null(exclude_coln_names)) {
+    col_names <- setdiff(col_names, exclude_coln_names)
+  }
+  
   # Return column names ####
-  return(colnames(db_table))
+  return(col_names)
   
 }
 

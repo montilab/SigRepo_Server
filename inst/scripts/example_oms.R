@@ -100,7 +100,7 @@ metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "AhR knockdow
                                                   phenotype = "AhR knockdown",
                                                   sample_type = "SUM-149PT cell",
                                                   direction_type = "bi-directional", 
-                                                  platform = "GPL17930", 
+                                                  platform = "transcriptomics by array", 
                                                   covariates = "none", 
                                                   year = 2016, 
                                                   keywords = c("breast cancer", "AhR knockdown"), 
@@ -219,14 +219,13 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
 
 # saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
 
- saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR.RDS"))
+ saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR_revised.RDS"))
 
- saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP.RDS"))
+ saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP_revised.RDS"))
 
- saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR.RDS"))
+ saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR_revised.RDS"))
 
- saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP.RDS"))
+ saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP_revised.RDS"))
 
- saveRDS(prot_omic_signature_ex, file = file.path(data_path, "signatures/prot_omic_signature_ex.RDS"))
 
 
