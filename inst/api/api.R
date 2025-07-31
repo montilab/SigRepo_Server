@@ -67,7 +67,7 @@ serializers <- list(
 data_path <- base::file.path("/difexp")
 data_path_sig <- base::file.path("/signatures")
 base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
-base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
+base::dir.create(path = data_path_sig, showWarnings = FALSE, recursive = TRUE, mode = "0777")
 
 #* Store difexp in the database
 #* @parser multi

@@ -208,7 +208,7 @@ addSignature <- function(
     res <- httr::POST(
       url = api_url,
       body = list(
-        signature_object = httr::upload_file(rds_file, "application/rds")
+        signature = httr::upload_file(rds_file, "application/rds")
       )
     )
     
