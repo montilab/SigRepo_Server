@@ -317,6 +317,85 @@ get_difexp <- function(res, api_key, signature_hashkey){
   
 }
 
+
+#* get signature from the database
+#* @param api_key
+#* @param signature_hashkey
+#* @get /get_signature
+#' @get /get_signature
+#' @serializer json
+get_signature <- function(res, api_key, signature_hashkey) {
+  
+  # Define required parameters
+  variables <- c("api_key", "signature_hashkey")
+  
+  # Check and clean inputs
+  missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
+  if (any(missing_variables)) {
+    error_message <- sprintf(
+      "Missing required parameter(s): %s", 
+      paste0(variables[which(missing_variables)], collapse = ", ")
+    )
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = error_message), pretty = TRUE))
+  }
+  
+  api_key <- base::trimws(api_key[1])
+  signature_hashkey <- base::trimws(signature_hashkey[1])
+  
+  if (api_key == "" || signature_hashkey == "") {
+    error_message <- "api_key and signature_hashkey cannot be empty."
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = error_message), pretty = TRUE))
+  }
+  
+  # Validate API key
+  conn <- SigRepo::conn_init(conn_handler = conn_handler)
+  user_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = "users",
+    return_var = "*",
+    filter_coln_var = "api_key",
+    filter_coln_val = list("api_key" = api_key),
+    check_db_table = TRUE
+  )
+  base::suppressWarnings(DBI::dbDisconnect(conn))
+  
+  if (nrow(user_tbl) == 0) {
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = "Invalid API key."), pretty = TRUE))
+  }
+  
+  # Build file path
+  signature_file <- file.path("/signatures", paste0(signature_hashkey, ".RDS"))
+  
+  # Check if file exists and read it
+  if (!file.exists(signature_file)) {
+    res$status <- 404
+    return(jsonlite::toJSON(data.frame(MESSAGES = "Signature file not found."), pretty = TRUE))
+  }
+  
+  tryCatch({
+    signature_obj <- base::readRDS(signature_file)
+    
+    # Optionally encode as base64 to transmit via JSON
+    raw_obj <- base::serialize(signature_obj, NULL)
+    encoded_signature <- base64enc::base64encode(raw_obj)
+    
+    res$status <- 200
+    return(jsonlite::toJSON(list(
+      MESSAGES = "Signature retrieved successfully.",
+      signature = encoded_signature
+    ), pretty = TRUE, auto_unbox = TRUE))
+    
+  }, error = function(e) {
+    res$status <- 500
+    return(jsonlite::toJSON(data.frame(MESSAGES = sprintf("Failed to retrieve signature: %s", e$message)), pretty = TRUE))
+  })
+}
+
+
+
 #* Delete difexp from the database
 #* @param api_key
 #* @param signature_hashkey
