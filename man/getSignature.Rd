@@ -12,7 +12,7 @@ getSignature(
 )
 }
 \arguments{
-\item{conn_handler}{A handler uses to establish connection to the database 
+\item{conn_handler}{A handler used to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
 \item{signature_name}{Name of signatures to be returned}
@@ -24,15 +24,4 @@ diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get a list of signatures uploaded by a specified user in the database.
-}
-\examples{
-# Establish a Connection Handler using newConnHandler if not done so already.
-
-# SigRepo::getSignature(
-# conn_handler = conn,
-# signature_name = "test_signature",
-# signature_id = 170,
-# verbose = FALSE)
-
-
 }
