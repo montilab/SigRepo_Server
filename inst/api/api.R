@@ -375,23 +375,12 @@ get_signature <- function(res, api_key, signature_hashkey) {
     return(jsonlite::toJSON(data.frame(MESSAGES = "Signature file not found."), pretty = TRUE))
   }
   
-  tryCatch({
-    signature_obj <- base::readRDS(signature_file)
-    
-    # Optionally encode as base64 to transmit via JSON
-    raw_obj <- base::serialize(signature_obj, NULL)
-    encoded_signature <- base64enc::base64encode(raw_obj)
-    
-    res$status <- 200
-    return(jsonlite::toJSON(list(
-      MESSAGES = "Signature retrieved successfully.",
-      signature = encoded_signature
-    ), pretty = TRUE, auto_unbox = TRUE))
-    
-  }, error = function(e) {
-    res$status <- 500
-    return(jsonlite::toJSON(data.frame(MESSAGES = sprintf("Failed to retrieve signature: %s", e$message)), pretty = TRUE))
-  })
+# raw rds file
+  
+  res4body <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
+  res$content_type <- "application/octet-stream"
+  res$status <- 200
+  return(res)
 }
 
 
