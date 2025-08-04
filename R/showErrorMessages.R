@@ -13,7 +13,7 @@ showOrganismErrorMessage <- function(
 ){
   
   base::stop(
-    base::sprintf("\nThe following organisms do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\nThe following organisms do not exist in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
     base::sprintf("\nYou can use 'searchOrganism()' to see a list of available organisms in the database."),
     base::sprintf("\nTo add these organisms to our database, please contact our admin for support.\n")
   ) 

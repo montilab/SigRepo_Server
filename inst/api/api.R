@@ -363,7 +363,96 @@ get_signature <- function(res, api_key, signature_hashkey) {
   return(res)
 }
 
+#* Delete Signature from the database
+#* @param api_key 
+#* @param signature_hashkey
+#* @delete /delete_signature
 
+delete_signature <- function(res, api_key, signature_hashkey){
+  
+  variables <- c('api_key', 'signature_hashkey')
+  
+  # Check parameters
+  if(base::missing(api_key)){
+    
+    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
+    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check parameters and trim white spaces
+  api_key <- base::trimws(api_key[1]); 
+  signature_hashkey <- base::trimws(signature_hashkey[1]); 
+  
+  # Check signature_hashkey ####
+  if(signature_hashkey %in% c(NA, "")){
+    
+    error_message <- "signature_hashkey cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check api_key ####
+  if(api_key %in% ""){
+    
+    error_message <- "api_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else{
+    
+    ## Establish database connection
+    conn <- SigRepo::conn_init(conn_handler = conn_handler)
+    
+    # Check if api_key exists in the database
+    user_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "users",
+      return_var = "*",
+      filter_coln_var = "api_key",
+      filter_coln_val = list("api_key" = api_key),
+      check_db_table = TRUE
+    )
+    
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    
+    # Check user tbl
+    if(nrow(user_tbl) == 0){
+      error_message <- "Invalid API Key."
+      res$serializer <- serializers[["json"]]
+      res$status <- 404
+      warn_tbl <- base::data.frame(MESSAGES = error_message)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    }
+    
+  }
+  
+  # Get difexp path
+  signature_path <- base::file.path(data_path_sig, base::paste0(signature_hashkey, ".RDS"))
+  
+  # Check if file exists
+  if(base::file.exists(signature_path)){
+    base::unlink(signature_path)
+  }
+  
+  # Return messages
+  tbl <- base::data.frame(MESSAGES = base::sprintf("signature file has been removed for signature_hashkey = '%s'", signature_hashkey))
+  return(jsonlite::toJSON(tbl, pretty=TRUE))
+  
+  
+}
 
 
 #* Delete difexp from the database
