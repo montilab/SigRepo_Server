@@ -346,23 +346,23 @@ get_signature <- function(res, api_key, signature_hashkey) {
     return(jsonlite::toJSON(list(MESSAGES = "Invalid API key."), auto_unbox = TRUE, pretty = TRUE))
   }
   
-  # Build file path
-  signature_file <- file.path("/signatures", paste0(signature_hashkey, ".RDS"))
+  signature_file <- file.path(data_path, paste0(signature_hashkey, ".RDS"))
   
-  # Return error if file not found
   if (!file.exists(signature_file)) {
-    return(jsonlite::toJSON(list(MESSAGES = "Signature file not found."), auto_unbox = TRUE, pretty = TRUE))
+    res$status <- 404
+    return(list(MESSAGES = "Signature file not found."))
   }
   
-  # Read the binary RDS file
-  raw_bytes <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
+  # Read raw binary data (not readRDS)
+  raw_data <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
   
-  # Return as plumber::response
-  plumber::response(
-    status = 200,
-    headers = list("Content-Type" = "application/octet-stream"),
-    body = raw_bytes
-  )
+  # Set response headers for raw binary
+  res$status <- 200
+  res$body <- raw_data
+  res$content_type <- "application/octet-stream"
+  res$serializer <- plumber::serializer_content_type("application/octet-stream")
+  
+  return(res)
 }
 
 
