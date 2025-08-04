@@ -358,10 +358,8 @@ get_signature <- function(res, api_key, signature_hashkey) {
   
   # Set response headers for raw binary
   res$status <- 200
+  res$setHeader("Content-Type", "application/octet-stream")
   res$body <- raw_data
-  res$content_type <- "application/octet-stream"
-  res$serializer <- plumber::serializer_content_type("application/octet-stream")
-  
   return(res)
 }
 
