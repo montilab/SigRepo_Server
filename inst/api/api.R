@@ -377,7 +377,7 @@ get_signature <- function(res, api_key, signature_hashkey) {
   
 # raw rds file
   
-  res4body <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
+  res$body <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
   res$content_type <- "application/octet-stream"
   res$status <- 200
   return(res)
