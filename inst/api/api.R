@@ -322,7 +322,8 @@ get_difexp <- function(res, api_key, signature_hashkey){
 #* @param api_key
 #* @param signature_hashkey
 #* @get /get_signature
-function(api_key, signature_hashkey) {
+
+get_signature <- function(res, api_key, signature_hashkey) {
   # Validate inputs
   if (missing(api_key) || missing(signature_hashkey) ||
       trimws(api_key) == "" || trimws(signature_hashkey) == "") {
