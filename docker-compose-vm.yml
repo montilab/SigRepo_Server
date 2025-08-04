@@ -19,7 +19,7 @@ x-difexp-volume:
   
 x-signature-volume:
   &signature-volume
-  type:bind
+  type: bind
   source: /mysql/signatures
   target: /signatures
   
