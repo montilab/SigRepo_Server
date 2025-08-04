@@ -346,7 +346,7 @@ get_signature <- function(res, api_key, signature_hashkey) {
     return(jsonlite::toJSON(list(MESSAGES = "Invalid API key."), auto_unbox = TRUE, pretty = TRUE))
   }
   
-  signature_file <- file.path(data_path, paste0(signature_hashkey, ".RDS"))
+  signature_file <- file.path(data_path_sig, paste0(signature_hashkey, ".RDS"))
   
   if (!file.exists(signature_file)) {
     res$status <- 404
