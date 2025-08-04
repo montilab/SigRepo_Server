@@ -118,21 +118,7 @@ deleteSignature <- function(
       }
     }
     
-    # Check if signature has difexp, remove it
-    if(signature_tbl$has_difexp[1] == 1){
-      # Get API URL
-      api_url <- base::sprintf("http://%s:%s/delete_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], signature_tbl$signature_hashkey[1])
-      # Delete difexp from database
-      res <- httr::DELETE(url = api_url)
-      # Check status code
-      if(res$status_code != 200){
-        # Disconnect from database ####
-        base::suppressWarnings(DBI::dbDisconnect(conn))
-        # Show message
-        base::stop("\nSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n")
-      }
-    }
-    
+ 
     # Return message
     SigRepo::verbose(base::sprintf("Remove signature_id = '%s' from 'signatures' table of the database.", signature_id))
     
@@ -180,6 +166,31 @@ deleteSignature <- function(
       delete_coln_val = signature_id,
       check_db_table = TRUE
     )
+    
+    
+    # API call to delete signature RDS file from storage
+    signature_hashkey <- signature_tbl$signature_hashkey[1]
+    api_key <- conn_info$api_key[1]
+    
+    # Construct the API URL
+    api_url <- base::sprintf(
+      "http://%s:%s/delete_signature?api_key=%s&signature_hashkey=%s",
+      conn_handler$host[1],
+      conn_handler$api_port[1],
+      api_key,
+      signature_hashkey
+    )
+    
+    # Send DELETE request to delete the RDS file
+    res <- httr::DELETE(url = api_url)
+    
+    # Optional: check and handle response
+    if (res$status_code != 200) {
+      warning(sprintf("Failed to delete signature file for hashkey = '%s'. Status: %s", signature_hashkey, res$status_code))
+    } else {
+      SigRepo::verbose(sprintf("Deleted RDS file for signature_hashkey = '%s'", signature_hashkey))
+    }
+    
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
