@@ -318,35 +318,15 @@ get_difexp <- function(res, api_key, signature_hashkey){
 }
 
 
-#* get signature from the database
+#* Get signature from the database
 #* @param api_key
 #* @param signature_hashkey
 #* @get /get_signature
-#' @get /get_signature
-#' @serializer json
-get_signature <- function(res, api_key, signature_hashkey) {
-  
-  # Define required parameters
-  variables <- c("api_key", "signature_hashkey")
-  
-  # Check and clean inputs
-  missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
-  if (any(missing_variables)) {
-    error_message <- sprintf(
-      "Missing required parameter(s): %s", 
-      paste0(variables[which(missing_variables)], collapse = ", ")
-    )
-    res$status <- 404
-    return(jsonlite::toJSON(data.frame(MESSAGES = error_message), pretty = TRUE))
-  }
-  
-  api_key <- base::trimws(api_key[1])
-  signature_hashkey <- base::trimws(signature_hashkey[1])
-  
-  if (api_key == "" || signature_hashkey == "") {
-    error_message <- "api_key and signature_hashkey cannot be empty."
-    res$status <- 404
-    return(jsonlite::toJSON(data.frame(MESSAGES = error_message), pretty = TRUE))
+function(api_key, signature_hashkey) {
+  # Validate inputs
+  if (missing(api_key) || missing(signature_hashkey) ||
+      trimws(api_key) == "" || trimws(signature_hashkey) == "") {
+    return(jsonlite::toJSON(list(MESSAGES = "Missing or empty api_key or signature_hashkey."), auto_unbox = TRUE, pretty = TRUE))
   }
   
   # Validate API key
@@ -362,26 +342,28 @@ get_signature <- function(res, api_key, signature_hashkey) {
   base::suppressWarnings(DBI::dbDisconnect(conn))
   
   if (nrow(user_tbl) == 0) {
-    res$status <- 404
-    return(jsonlite::toJSON(data.frame(MESSAGES = "Invalid API key."), pretty = TRUE))
+    return(jsonlite::toJSON(list(MESSAGES = "Invalid API key."), auto_unbox = TRUE, pretty = TRUE))
   }
   
   # Build file path
   signature_file <- file.path("/signatures", paste0(signature_hashkey, ".RDS"))
   
-  # Check if file exists and read it
+  # Return error if file not found
   if (!file.exists(signature_file)) {
-    res$status <- 404
-    return(jsonlite::toJSON(data.frame(MESSAGES = "Signature file not found."), pretty = TRUE))
+    return(jsonlite::toJSON(list(MESSAGES = "Signature file not found."), auto_unbox = TRUE, pretty = TRUE))
   }
   
-# raw rds file
+  # Read the binary RDS file
+  raw_bytes <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
   
-  res$body <- readBin(signature_file, what = "raw", n = file.info(signature_file)$size)
-  res$content_type <- "application/octet-stream"
-  res$status <- 200
-  return(res)
+  # Return as plumber::response
+  plumber::response(
+    status = 200,
+    headers = list("Content-Type" = "application/octet-stream"),
+    body = raw_bytes
+  )
 }
+
 
 
 
