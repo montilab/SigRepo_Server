@@ -19,7 +19,7 @@ library(promises)
 library(future)
 future::plan(multisession)
 
-# source modules ####
+# source modules for UI ####
 source("server/signature_info_module.R")
 source("ui/signature_page_ui.R")
 source("ui/collection_page_ui.R")
@@ -220,7 +220,7 @@ tags$script(HTML("
     
     shiny::div(
       id = "collections-container", class =  "invisible",
-      "This is the Collections tab"
+      collectionsUI("collection_module")
     ) ,
     
     shiny::div(

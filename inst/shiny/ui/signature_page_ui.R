@@ -7,7 +7,6 @@ signaturesUI <- function(id) {
   tagList(
     useShinyjs(),  # Make sure this is called ONCE in the main UI (not needed here if already used globally)
     
-    h4("Signature Management"),
     
     sidebarLayout(
       sidebarPanel(
