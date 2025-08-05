@@ -1,10 +1,6 @@
 # testing script for the SampleType functions in the SigRepo package
 
-library(SigRepo)
-library(testthat)
-library(DBI)
-library(RMySQL)
-library(rlang)
+
 
 
 # just use a test for one, not all omics types ####
@@ -32,16 +28,14 @@ test_that("newConnHandler creates a connection handler correctly",{
 test_that("addSampleType correctly adds the desired sample type into the database",{
   
   # loading in SampleType Data
-  sample_data <- read.csv(testthat::test_path("test_data", "test_sampletype.csv"))
+  sample_data <- read.csv(testthat::test_path("test_data", "test_SampleType.csv"))
   
-  sample_msg <- SigRepo::addSampleType(
-    conn_handler = conn_handler,
-    sample_type_tbl = sample_data,
-    verbose = TRUE
+ 
+  
+  expect_message(SigRepo::addSampleType(conn_handler = conn_handler,
+                                        sample_type_tbl = sample_data,
+                                        verbose = TRUE), "Finished uploading"
   )
-  
-  expect_equal(sample_msg, "Finished uploading.")
-  
 })
 
 test_that("searchSampleType correctly searches for the desired sample type", {

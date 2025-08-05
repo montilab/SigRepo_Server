@@ -4,12 +4,6 @@
 
 
 
-library(SigRepo)
-library(testthat)
-library(DBI)
-library(RMySQL)
-library(rlang)
-
 
 # connection handler testing
 
