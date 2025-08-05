@@ -50,18 +50,16 @@ observeEvent(input$upload_btn_signature, {
     return(NULL)
   }
   
-  file_extension <- tools::file_ext(inputfile$datapath)
+  omic_signature <- base::readRDS(inputfile$datapath)
   
-  if (toupper(file_extension) != "RDS") {
-    upload_sig_error_msg("Incorrect file format. Please check your 'OmicSignature' file again.")
+  if (!inherits(omic_signature, "R6")) {
+    upload_sig_error_msg("The uploaded file is not a valid 'OmicSignature' R6 object.")
     return(NULL)
   }
   
-  omic_signature <- base::readRDS(inputfile$datapath)
-  conn_handler <- shiny::isolate({ user_conn_handler() })
   # for minimal version this works, but I need to have the option for the user to make their signature public or not in the GUI 
   upload_message <- base::tryCatch({
-    SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature, return_signature_id = TRUE, visibility = TRUE, verbose = TRUE)
+    SigRepo::addSignature(conn_handler = user_conn_handler(), omic_signature = omic_signature, return_signature_id = TRUE, visibility = TRUE, verbose = TRUE)
   }, error = function(e) {
     msg <- gsub("\\n|\\t", "<br>", conditionMessage(e), perl = TRUE)
     upload_sig_error_msg(msg)

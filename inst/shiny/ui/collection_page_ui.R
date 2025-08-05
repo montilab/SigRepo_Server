@@ -1,4 +1,8 @@
 # Signature Collection Management UI Panel
+
+collectionsUI <- function(id){
+  
+  ns <- NS(id)
 tabPanel(
   "Collections",
   
@@ -100,3 +104,4 @@ tabPanel(
     )
   )
 )
+}
