@@ -1,10 +1,6 @@
 # testing scripts for the signature collection functions in the SigRepo package
 
-library(SigRepo)
-library(testthat)
-library(DBI)
-library(RMySQL)
-library(rlang)
+
 
 
 # test connection 

@@ -2,12 +2,6 @@
 # addphenotype
 
 
-library(SigRepo)
-library(testthat)
-library(DBI)
-library(RMySQL)
-library(rlang)
-
 
 # connection handler test
 
@@ -34,18 +28,16 @@ test_that("addPhenotype correctly adds the phenotype into the database",{
   
   #reading in the phenotype data
   
-  phenotype_table <- testthat:test_data('test_data', 'test_phenotype.csv')
+  phenotype_table <- read.csv(testthat::test_path('test_data', 'test_phenotype.csv'))
   
   # sigrepo function
   
-  phenotype_msg <- SigRepo::addPhenotype(
-    conn_handler = test_conn,
-    phenotype_tbl = phenotyp_table,
-    verbose = TRUE
-  )
   
-  expect_equals(phenotype_msg, "Finished uploading")
-  
+  expect_message(SigRepo::addPhenotype(
+                          conn_handler = test_conn,
+                          phenotype_tbl = phenotype_table,
+                          verbose = TRUE
+                          ), "Finished uploading.")
   
 })
 
@@ -58,6 +50,23 @@ test_that("searchPhenotype correcty searches for the desired phenotype",{
     verbose = TRUE
   )
   
-  expect_equals(phenotype_search$phenotype[1], "test_phenotype")
+  expect_equal(phenotype_search$phenotype[1], "test_phenotype")
 })
 
+# deleting test_phenotype
+
+conn <- DBI::dbConnect(
+  drv = RMySQL::MySQL(),
+  dbname = 'sigrepo', 
+  host = 'sigrepo.org', 
+  port = 3306, 
+  user = 'montilab', 
+  password = 'sigrepo'
+)
+
+
+statement <- "DELETE FROM phenotypes WHERE phenotype = 'test_phenotype';"
+
+DBI::dbGetQuery(conn = conn, statement = statement)
+
+DBI::dbDisconnect(conn = conn) 

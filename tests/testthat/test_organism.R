@@ -1,13 +1,6 @@
 # script to test organism functions for the SigRepo package
 
 
-library(SigRepo)
-library(testthat)
-library(DBI)
-library(RMySQL)
-library(rlang)
-
-
 
 # testing connection handler
 
@@ -31,19 +24,20 @@ test_that("newConnHandler creates a connection handler correctly",{
   
 })
 
-test_that("addOrganism correctly adds the desired organisms", {
-  # loading in organism data
+test_that("addOrganism prints success message", {
   
-  organism_table <- read.csv(testthat::test_path('test_data', 'test_organism.csv'))
+  organism_table <<- read.csv(testthat::test_path('test_data', 'test_organism.csv'))
   
-  organism_msg <- SigRepo::addOrganism(
-    conn_handler = test_conn,
-    organism_tbl = organism_table,
-    verbose = TRUE
-  )
   
-  expect_equal(organism_msg, "Finished uploading.")
+    expect_message(SigRepo::addOrganism(conn_handler = test_conn,
+                                       organism_tbl = organism_table,
+                                       verbose = TRUE), "Finished uploading.")
+   
+    
+    
+  
 })
+
 
 test_that("searchOrganism correctly searches for the desired organisms", {
   
@@ -52,5 +46,24 @@ test_that("searchOrganism correctly searches for the desired organisms", {
     organism = "test_organism",
   )
   
-  expects_equal(organism_tbl$organism[1], "test_organism")
+  expect_equal(organism_tbl$organism[1], "test_organism")
 })
+
+
+# delete test organism
+
+ conn <- DBI::dbConnect(
+  drv = RMySQL::MySQL(),
+  dbname = 'sigrepo', 
+  host = 'sigrepo.org', 
+  port = 3306, 
+  user = 'montilab', 
+  password = 'sigrepo'
+)
+
+
+statement <- "DELETE FROM organisms WHERE organism = 'test_organism';"
+
+DBI::dbGetQuery(conn = conn, statement = statement)
+
+DBI::dbDisconnect(conn = conn) 

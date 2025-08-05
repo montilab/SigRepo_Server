@@ -5,12 +5,6 @@
 # getSignature
 # searchSignature
 
-library(SigRepo)
-library(testthat)
-library(DBI)
-library(RMySQL)
-library(rlang)
-
 
 # just use a test for one, not all omics types ####
 
