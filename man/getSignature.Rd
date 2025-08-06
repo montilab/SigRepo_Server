@@ -12,7 +12,7 @@ getSignature(
 )
 }
 \arguments{
-\item{conn_handler}{A handler used to establish connection to the database 
+\item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
 \item{signature_name}{Name of signatures to be returned}

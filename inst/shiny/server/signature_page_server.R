@@ -1,20 +1,17 @@
-# Signature Page Server Logic ####
-signaturesServer <- function(id){
-   moduleServer(id, function(input, output, session){
-     
-    ns <- session$ns
+
+
+setup_signature_tab <- function(input, output, session, user_conn_handler) {
 # Signature table refresh trigger
 signature_update_trigger <- reactiveVal(0)
 
 # Load all user-accessible/public signatures (reactive)
 signature_db <- reactive({
   
-  req(user_conn_handler())
- 
+
   
   signature_update_trigger()  # Triggers re-evaluation
   tryCatch({
-    df <- SigRepo::searchSignature(conn_handler = user_conn_handler())
+    df <- SigRepo::searchSignature(conn_handler = conn_handler())
     validate(need(nrow(df) > 0, "No signatures found."))
     df
   }, error = function(e) {
@@ -29,7 +26,7 @@ search_sig_error_msg <- reactiveVal()
 
 # Initialize filtered table with all records
 observe({
-  req(user_conn_handler())
+  
   
   sigs <- signature_db()
   filtered_signatures(sigs)
@@ -40,7 +37,7 @@ observe({
 upload_sig_error_msg <- shiny::reactiveVal()
 
 observeEvent(input$upload_btn_signature, {
-  req(user_conn_handler())
+  
   upload_sig_error_msg("")
   
   inputfile <- shiny::isolate({ input$upload_file_signature })
@@ -59,7 +56,7 @@ observeEvent(input$upload_btn_signature, {
   
   # for minimal version this works, but I need to have the option for the user to make their signature public or not in the GUI 
   upload_message <- base::tryCatch({
-    SigRepo::addSignature(conn_handler = user_conn_handler(), omic_signature = omic_signature, return_signature_id = TRUE, visibility = TRUE, verbose = TRUE)
+    SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature, return_signature_id = TRUE, visibility = TRUE, verbose = TRUE)
   }, error = function(e) {
     msg <- gsub("\\n|\\t", "<br>", conditionMessage(e), perl = TRUE)
     upload_sig_error_msg(msg)
@@ -87,7 +84,7 @@ output$upload_sig_error_msg <- renderUI({
 # Filter logic ####
 
 observeEvent(input$search_options_signature, {
-  req(user_conn_handler())
+
   
   all_fields <- c("signature_name", "organism", "phenotype", "sample_type", "platform_id", "assay_type")
   selected_fields <- input$search_options_signature
@@ -121,8 +118,8 @@ observeEvent(input$search_options_signature, {
 observeEvent(input$search_signature, {
   tryCatch({
     
-    conn_handler <- user_conn_handler()
-    req(conn_handler)  # Ensure connection is ready
+    conn_handler <- conn_handler
+     # Ensure connection is ready
 
     args <- list(conn_handler = conn_handler)
     
@@ -175,7 +172,7 @@ output$signature_tbl <- DT::renderDataTable({
   
   
   
-  current_user <- user_conn_handler()$user
+  current_user <- conn_handler$user
   owner_col_index <- which(colnames(df) == "user_name") - 1
   
   DT::datatable(
@@ -255,7 +252,7 @@ observeEvent(input$delete_btn, {
   req(input$delete_sig)
   
   # get the connection handler reactively
-  conn_handler <- user_conn_handler()
+  conn_handler <- conn_handler
   req(conn_handler)  # make sure connection is ready
   
   tryCatch({
@@ -302,7 +299,7 @@ observeEvent(input$update_btn, {
   req(input$update_sig)
   req(input$update_sig_file)
   
-  conn_handler <- user_conn_handler()
+  conn_handler <- conn_handler
   req(conn_handler)
   
   file <- input$update_sig_file
@@ -393,14 +390,9 @@ output$download_oms_zip <- downloadHandler(
   }
 )
 
-# logic for signature info
-
-
-
-
-
-})
 }
+
+
 
 
 

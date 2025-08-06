@@ -12,8 +12,8 @@ test_that("newConnHandler creates a connection handler correctly",{
   
   test_conn <<- SigRepo::newConnHandler(
     dbname = "sigrepo",
-    host = Sys.getenv("HOST"),  # grabbing the env variables so this can run on local machine and server version
-    port = as.integer(Sys.getenv("PORT")), 
+    host = "sigrepo.org",  # grabbing the env variables so this can run on local machine and server version
+    port = 3306,
     user = "montilab", # account for testing
     password = "sigrepo" 
   )

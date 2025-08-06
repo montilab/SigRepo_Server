@@ -33,11 +33,11 @@ signatureInfoServer <- function(id, conn_handler, sig_id, sig_name) {
     
     # Load full signature object
     signature_obj <- reactive({
-      req(conn_handler(), sig_id(''), sig_name(''))
+      req(conn_handler(), sig_id(), sig_name())
       SigRepo::getSignature(
         conn_handler = conn_handler(),
-        signature_id = sig_id(''),
-        signature_name = sig_name('')
+        signature_id = sig_id(),
+        signature_name = sig_name()
       )
     })
     

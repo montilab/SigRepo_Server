@@ -143,87 +143,44 @@ addSignature <- function(
     # If signature has difexp, save a copy with its signature hash key ####
     # This action must be performed before a signature is imported into the database.
     # This helps to make sure data is stored properly if there are interruptions in-between.
-    # if(metadata_tbl$has_difexp == TRUE){
-    #   # 1.1 Saving signature difexp into database
-    #   SigRepo::verbose("Saving difexp to the database...\n")
-    #   # Extract difexp from omic_signature ####
-    #   difexp <- omic_signature$difexp
-    #   # Save difexp to local storage ####
-    #   data_path <- base::tempfile()
-    #   # Create the directory
-    #   if(!base::dir.exists(data_path)){
-    #     base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
-    #   }
-    #   base::saveRDS(difexp, file = base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
-    #   # Get API URL
-    #   api_url <- base::sprintf("http://%s:%s/store_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], metadata_tbl$signature_hashkey[1])
-    #   # Store difexp in database
-    #   res <- 
-    #     httr::POST(
-    #       url = api_url,
-    #       body = list(
-    #         difexp = httr::upload_file(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")), "application/rds")
-    #       )
-    #     )
-    #   # Check status code
-    #   if(res$status_code != 200){
-    #     # Delete signature
-    #     SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-    #     # Disconnect from database ####
-    #     base::suppressWarnings(DBI::dbDisconnect(conn))
-    #     # Show message
-    #     base::stop(base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n"))
-    #   }else{
-    #     # Remove files from file system 
-    #     base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
-    #   }
-    # }
-    # 
-    
-    
-    # testing, adding the full signature object to the storage rather than just difexp
-    # Verbose message
-    SigRepo::verbose("Saving full signature object to the database...\n")
-    
-    # Create temp path
-    data_path <- base::tempfile()
-    if (!base::dir.exists(data_path)) {
-      base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
+    if(metadata_tbl$has_difexp == TRUE){
+      # 1.1 Saving signature difexp into database
+      SigRepo::verbose("Saving difexp to the database...\n")
+      # Extract difexp from omic_signature ####
+      difexp <- omic_signature$difexp
+      # Save difexp to local storage ####
+      data_path <- base::tempfile()
+      # Create the directory
+      if(!base::dir.exists(data_path)){
+        base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
+      }
+      base::saveRDS(difexp, file = base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
+      # Get API URL
+      api_url <- base::sprintf("http://%s:%s/store_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], metadata_tbl$signature_hashkey[1])
+      # Store difexp in database
+      res <-
+        httr::POST(
+          url = api_url,
+          body = list(
+            difexp = httr::upload_file(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")), "application/rds")
+          )
+        )
+      # Check status code
+      if(res$status_code != 200){
+        # Delete signature
+        SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))
+        # Show message
+        base::stop(base::sprintf("\tSomething went wrong with API. Cannot upload the difexp table to the SigRepo database. Please contact admin for support.\n"))
+      }else{
+        # Remove files from file system
+        base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
+      }
     }
+
     
-    # Save full omic_signature
-    rds_file <- base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS"))
-    base::saveRDS(omic_signature, file = rds_file)
     
-    # Build API endpoint
-    api_url <- sprintf(
-      "http://%s:%s/store_signature?api_key=%s&signature_hashkey=%s", 
-      conn_handler$host[1],
-      conn_handler$api_port[1],
-      conn_info$api_key[1],
-      metadata_tbl$signature_hashkey[1]
-    )
-    
-    # POST full signature object
-    res <- httr::POST(
-      url = api_url,
-      body = list(
-        signature = httr::upload_file(rds_file, "application/rds")
-      )
-    )
-    
-    # Handle response
-    if (res$status_code != 200) {
-      SigRepo::deleteSignature(
-        conn_handler = conn_handler,
-        signature_id = signature_tbl$signature_id[1],
-        verbose = FALSE
-      )
-      base::suppressWarnings(DBI::dbDisconnect(conn))
-      stop("Failed to upload signature object. Contact the admin.\n")
-    } else {
-      base::unlink(rds_file)
-    }
     
     
     # 2. Adding user to signature access table after signature

@@ -17,19 +17,3 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Delete a signature from the signature table of the database
 }
-\examples{
-# Establish a Connection Handler using newConnHandler if not done so already .
-
-
-# Get a list of signatures available in the database
-# signature_tbl <- SigRepo::searchSignature(
- #  conn_handler = conn,
- #  user_name = "guest"
-# )
-
-# Delete signature from database (NOT RUN)
-# SigRepo::deleteSignature(
-#   conn_handler = conn,
-#   collection_id = signature_tbl$signature_id[1]
-# )
-}
