@@ -11,6 +11,7 @@ library(tidyverse)
 library(devtools)
 load_all()
 
+
 # Loading omic signature package
 library(OmicSignature)
 
@@ -21,21 +22,21 @@ future::plan(multisession)
 
 # source modules for UI ####
 source("server/signature_info_module.R")
-source("ui/signature_page_ui.R")
+#source("ui/signature_page_ui.R")
 source("ui/collection_page_ui.R")
-source("server/signature_page_server.R")
+source("server/sig_server_test.R")
 
-# Create a default database handler
-conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DBNAME"),
-  host = Sys.getenv("HOST"),
-  port = as.integer(Sys.getenv("PORT")),
-  user = Sys.getenv("DB_USER"),
-  password = Sys.getenv("PASSWORD")
-)
+# # Create a default database handler
+# conn_handler <- SigRepo::newConnHandler(
+#   dbname = Sys.getenv("DBNAME"),
+#   host = Sys.getenv("HOST"),
+#   port = as.integer(Sys.getenv("PORT")),
+#   user = Sys.getenv("DB_USER"),
+#   password = Sys.getenv("PASSWORD")
+# )
 
 ## Define ui logic ####
-ui <- shiny::bootstrapPage(
+ui <- fluidPage(
   
   title = "SigRepo - Signature Repository",
   
@@ -54,6 +55,7 @@ ui <- shiny::bootstrapPage(
       tags$script(src = "assets/js/app.js", type = "text/javascript")
     )
   ),
+  
   
  
 # JS TAGS ####
@@ -146,98 +148,36 @@ tags$script(HTML("
       )
     ),
     
-    # Navbar tabs
-    shiny::div(
-      id = "navbar-wrapper",
-      shiny::tags$header(
-        class = "container",
-        # <!-- Logo -->
-        shiny::div(
-          class = "row header",
-          shiny::div(
-            class = "col-3 col-12-medium col-12-large box logo",
-            shiny::a(
-              class = "logo-brand", id = "home_tab", src = "images/logo.png",
-              shiny::span(
-                class = "logo-brand",
-                shiny::h2("SigRepo"),
-                shiny::p("Signature Repository")
-              )
-            )
-          ),
-          #<!-- Navbar -->
-          shiny::div(
-            class = "col-9 col-12-medium col-12-large box navbar",    
-            shiny::tags$nav(
-              id = "nav",
-              shiny::tags$ul(
-                shiny::tags$li(
-                  id = "home", class = "active", 
-                  shiny::a(href = "#home", onclick = "select_navtab(tab='home')", "Home")
-                ),
-                shiny::tags$li(
-                  id = "signatures", 
-                  shiny::a(href = "#signatures", onclick = "select_navtab(tab = 'signatures')", "Signatures")
-                ),
-                shiny::tags$li(
-                  id = "collections", 
-                  shiny::a(href = "#collections", onclick = "select_navtab(tab = 'collections')", "Collections")
-                ),
-                shiny::tags$li(
-                  id = "compare", 
-                  shiny::a(href = "#compare", onclick="select_navtab(tab='compare')", "Compare")
-                ),
-                shiny::tags$li(
-                  id = "annotate", 
-                  shiny::a(href = "#annotate", onclick="select_navtab(tab='annotate')", "Annotate")
-                ),
-                shiny::tags$li(
-                  id = "resources", 
-                  shiny::a(href = "#resources", onclick = "select_navtab(tab='resources')", "Resources")
-                )
-              )
-            )
-          )
-        )
+    navbarPage(
+      title = div(h2("SigRepo")),  # logo/branding
+      id = "main_navbar",
+      
+      tabPanel("Home", value = "home",
+               div(class = "container", h3("This is the Home tab")),
+
+               
+      ),
+      
+      tabPanel("Signatures", value = "signatures",
+               signaturesModuleUI("signatures_module")  # Will init only on click
+      ),
+      
+      tabPanel("Collections", value = "collections",
+               collectionsUI("collection_module")
+      ),
+      
+      tabPanel("Compare", value = "compare",
+               div(class = "container", h3("Compare tab"))
+      ),
+      
+      tabPanel("Annotate", value = "annotate",
+               div(class = "container", h3("Annotate tab"))
+      ),
+      
+      tabPanel("Resources", value = "resources",
+               div(class = "container", h3("Resources tab"))
       )
     ),
-    
-    tags$script(src = "assets/js/jquery.dropotron.min.js", type = "text/javascript"),
-    tags$script(src = "assets/js/browser.min.js", type = "text/javascript"),
-    tags$script(src = "assets/js/breakpoints.min.js", type= "text/javascript"),
-    tags$script(src = "assets/js/util.js", type = "text/javascript"),
-    tags$script(src = "assets/js/main.js", type = "text/javascript"),
-    
-    shiny::div(
-      id = "home-container",
-      "This is the Home tab"
-    ),
-    
-    shiny::div(
-      id = "signatures-container", class = "invisible",
-      signaturesUI("signatures_module")
-    ),
-    
-    shiny::div(
-      id = "collections-container", class =  "invisible",
-      collectionsUI("collection_module")
-    ) ,
-    
-    shiny::div(
-      id = "compare-container", class =  "invisible",
-      "This is the Compare tab"
-    ),
-    
-    shiny::div(
-      id = "annotate-container", class =  "invisible",
-      "This is the Annotate tab"
-    ),
-    
-    shiny::div(
-      id = "resources-container", class =  "invisible",
-      "This is the Resources tab"
-    ),
-    
     # ### Tab Content #####
     # shiny::uiOutput(outputId = "tab_content"),
     
@@ -272,9 +212,6 @@ server <- function(input, output, session) {
   user_conn_handler <- shiny::reactiveVal()
   user_login_info <- shiny::reactiveVal()
   
-  # Create reactive values to store user signature and collection ####
-  user_signature_tbl <- shiny::reactiveVal()
-  user_collection_tbl <- shiny::reactiveVal()
   
   # Print this when a session starts ####
   base::cat("\nSession started.\n")
@@ -429,17 +366,6 @@ server <- function(input, output, session) {
       
       
     
-      
-      # # Get user signature table #####
-      # promises::future_promise({
-      #   SigRepo::searchSignature(conn_handler = user_conn_handler, user_name = user_name)
-      # }, package = "tidyverse") %...>% user_signature_tbl()
-      # 
-      # # Get user collection table ####
-      # #promises::future_promise({
-      # SigRepo::searchCollection(conn_handler = user_conn_handler) %>% user_collection_tbl()
-      # #}, package = "tidyverse") %...>% user_collection_tbl()
-      
       # Hide login wrapper
       shinyjs::hide(id = "login-wrapper")
       
@@ -988,15 +914,22 @@ server <- function(input, output, session) {
   })
   
 
-  # observer even for loading in server logic conditionally
+ 
+  # observe event for loading in server logic conditionally
+  signature_loaded <- reactiveVal(FALSE)
+  
+  observeEvent(input$main_navbar, {
+    if (input$main_navbar == "signatures" && !signature_loaded()) {
+      signaturesModuleServer("signatures_module", user_conn_handler = user_conn_handler)
+      signature_loaded(TRUE)
+    }
+  })
+  
   
   observeEvent(user_conn_handler(), {
     req(user_conn_handler())
     
-    source("server/signature_page_server.R", local = TRUE)  # Defines signaturesServer()
     
-    # Only now call the module function
-    signaturesServer("signatures_module")
     
     
     observeEvent(input$show_signature_info, {
@@ -1021,11 +954,6 @@ server <- function(input, output, session) {
     
     
   })
-  
-  
-
-  
-  
   
 }
 

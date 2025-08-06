@@ -183,7 +183,7 @@ platform_table <- data.frame(
 write.csv(platform_table, file = 'tests/testthat/test_data/test_platform.csv')
 
 phenotype_table <- data.frame(
-  pheontype = "test_phenotype"
+  phenotype = "test_phenotype"
 )
 
 write.csv(phenotype_table, file = "tests/testthat/test_data/test_phenotype.csv")
@@ -201,12 +201,26 @@ sig_obj <- SigRepo::getSignature(conn_handler = conn_handler,
                      signature_id = "1")
 
 SigRepo::deleteSignature(conn_handler = conn_handler,
-                         signature_id = 13)
-
+                         signature_id = 1)
 sig_add_id <- SigRepo::addSignature(conn_handler = conn_handler,
-                                    omic_signature = omic_signature_MDA_AhR)
+                                    omic_signature = omic_signature_MDA_CYP)
 
 
 omic_signature_1$metadata$platform[1] <- "genotyping by array"
 
+
+SigRepo::deleteSignature(conn_handler = conn_handler,
+                        signature_id = 28)
+
+
+SigRepo::addSignature(conn_handler = conn_handler,
+                      omic_signature = omic_signature_MDA_AhR_revised)
+
+
+
+
+sig_test <- SigRepo::getSignature(conn_handler = conn_handler,
+                                  signature_id = 29)
+
+SigRepo::searchSignature(conn_handler = conn_handler)
 
