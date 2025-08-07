@@ -201,3 +201,64 @@ collection_id <- SigRepo::addCollection(conn_handler = conn_handler,
                                         omic_collection = OmSC_example)
 
 collections <- SigRepo::searchCollection(conn_handler = conn_handler)
+
+
+
+
+
+
+
+
+
+####
+
+
+plot_data <- SigRepo::searchSignature(conn_handler = conn_handler)
+# plots testing for homepage
+
+
+# number of signatures per organism
+
+ggplot(plot_data, aes(x = organism))+
+  geom_bar(fill = "#007bff") +
+  labs(title = "Signatures by Organism", x = "Organism", y = "Signature Count") +
+  theme_minimal()
+
+
+# number of signatures by Assay Type
+
+ggplot(plot_data, aes(x = assay_type)) +
+  geom_bar(fill = "#007bff") +
+  labs(title = "Signatures by Assay", x = "Assay", y = "Signature Count")
+  
+# stacked bar
+
+ggplot(plot_data, aes(x = organism, fill = assay_type)) +
+  geom_bar(position = "stack ") +
+  labs(title = "Organism by Assay Type", x = "Organism", y = "Count") +
+  theme_minimal()
+
+
+# Top Users Plot
+
+plot_data %>%
+  count(user_name, sort = TRUE) %>%
+  top_n(10) %>%
+  ggplot(aes(x = reorder(user_name, n), y = n)) +
+  geom_col(fill = "#6c757d") +
+  coord_flip() +
+  labs(title = "Top Signature Contributors", x = "User", y = "Signatures") +
+  theme_minimal()
+
+# Pie Chart for public vs private, # need to make the 0 private, and the 1 public
+
+plot_data %>%
+  count(visibility) %>%
+  ggplot(aes(x = "", y = n, fill = visibility)) +
+  geom_col(width = 1) +
+  coord_polar("y") +
+  theme_void() +
+  labs(title = "Signature Visibility")
+
+
+
