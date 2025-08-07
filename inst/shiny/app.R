@@ -150,12 +150,112 @@ tags$script(HTML("
       id = "main_navbar",
       
       tabPanel("Home", value = "home",
-               div(class = "container", h3("This is the Home tab")),
-
+               tags$head(
+                 tags$style(HTML("
+        .homepage-title {
+          text-align: center;
+          font-size: 36px;
+          font-weight: bold;
+          margin-top: 30px;
+        }
+        .homepage-subtitle {
+          text-align: center;
+          font-size: 20px;
+          color: #666;
+          margin-bottom: 30px;
+        }
+        .homepage-section {
+          background-color: #f8f9fa;
+          padding: 20px;
+          border-radius: 10px;
+          margin-bottom: 20px;
+        }
+        .homepage-icon {
+          font-size: 40px;
+          color: #007bff;
+          margin-bottom: 10px;
+        }
+      "))
+               ),
                
+               div(class = "homepage-title", "Welcome to SigRepo"),
+               div(class = "homepage-subtitle", "A platform for managing and exploring genomic signatures and collections"),
+               
+               
+               fluidRow(
+                 column(
+                   width = 6,
+                   div(class = "homepage-section text-intro",
+                       tabsetPanel(
+                         tabPanel("Overview",
+                                  p("Overview of SigRepo Motivations")),
+                         tabPanel("Database Schema",
+                                  p("picture of database schema")),
+                         tabPanel("Top Users",
+                                  p("horizontal bar chart with top 10 users and their # signatures added into the database"))
+                       )
+                       )
+                 ), 
+                 column(width = 6,
+                        div(class = "homepage-section",
+                             h4("Signature Overview"),
+                            tabsetPanel(
+                              tabPanel("By Organism", plotOutput("organism_plot", height = "300px")),
+                              tabPanel("Upload Over Time", plotOutput("upload_trend_plot", height = "300px")),
+                              tabPanel("Visibility", plotOutput("visiblity_plot", height = "300px")),
+                              tabPanel("By assay", plotOutput("assay_plot", height = "300px" ))
+                            )
+                             )
+                        )
+                 
+               ),
+               fluidRow(
+                 
+                 column(
+                   width = 4,
+                   div(class = "homepage-section text-center",
+                       span(class = "homepage-icon", icon("dna")),
+                       h4("Signatures"),
+                       p("Browse, filter, and manage gene expression signatures."),
+                       actionButton("go_signatures", "Go to Signatures", class = "btn-primary")
+                   )
+                 ),
+                 column(
+                   width = 4,
+                   div(class = "homepage-section text-center",
+                       span(class = "homepage-icon", icon("layer-group")),
+                       h4("Collections"),
+                       p("Explore curated collections of signatures."),
+                       actionButton("go_collections", "Go to Collections", class = "btn-primary")
+                   )
+                 ),
+                 column(
+                   width = 4,
+                   div(class = "homepage-section text-center",
+                       span(class = "homepage-icon", icon("upload")),
+                       h4("R-Client"),
+                       p("View our R-Client Documentation to use SigRepo in R."),
+                       actionButton("go_upload", "Github Docs", class = "btn-success")
+                   )
+                 )
+               ),
+               
+               br(),
+               fluidRow(
+                 column(12,
+                        div(class = "text-center text-muted",
+                            p("Created by SigRepo Team  · Version 1.0 · © 2025")
+                        )
+                 )
+               )
       ),
+               
       
       tabPanel("Signatures", value = "signatures",
+               
+               div(class = "homepage-title", "Signature Management"),
+               div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
+               
                sidebarLayout(
                  sidebarPanel(width = 4,
                               tabsetPanel(
@@ -167,7 +267,9 @@ tags$script(HTML("
                                          h4("Upload Signature"),
                                          fileInput("upload_file_signature", "Choose a file to upload"),
                                          actionButton("upload_btn_signature", "Upload"),
-                                         uiOutput("upload_sig_error_msg")
+                                         uiOutput("upload_sig_error_msg"),
+                                         verbatimTextOutput("upload_output")
+                                         
                                 ),
                                 
                                 # ---- Filter Tab ----
@@ -233,6 +335,9 @@ tags$script(HTML("
       
       tabPanel("Collections", value = "collections",
         
+               div(class = "homepage-title", "Collection Management"),
+               div(class = "homepage-subtitle", "Add Signature Collections or browse the curated list of Signature Collections"),
+               
                
                sidebarLayout(
                  sidebarPanel( width = 4,
@@ -261,7 +366,7 @@ tags$script(HTML("
                                           actionButton("delete_btn_collection", "Delete")
                                           )
                                )
-                            ), mainPanel(wdith = 8,
+                            ), mainPanel(width = 8,
                                          DTOutput("collection_tbl"),
                                          uiOutput("collection_tbl_error_msg"),
                                          br(),
@@ -279,11 +384,105 @@ tags$script(HTML("
       tabPanel("Annotate", value = "annotate",
                div(class = "container", h3("Annotate tab"))
       ),
+      tabPanel("References", value = "references",
+               
+               
+               
+               sidebarLayout(
+                 sidebarPanel(
+                   width = 4,
+                   id = "main_tabs",
+                   type = "tabs",
+                   
+                   tabPanel("References",
+                            
+                            selectInput("ref_organism", "select an organism", choices = c("Homo sapiens", "Mus musculus")),
+                            selectInput("ref_assay", "select an assay type", choice = c("transcriptomics", "proteomics")),
+                            actionButton("search_ref_btn", "Search")
+                            )
+                 ), 
+                 mainPanel(width = 8,
+                           DTOutput("ref_feature_tbl"))
+               )),
       
       tabPanel("Resources", value = "resources",
-               div(class = "container", h3("Resources tab"))
+               tags$head(
+                 tags$style(HTML("
+      .card-header {
+        background-color: #f8f9fa;
+        cursor: pointer;
+      }
+      .card {
+        margin-bottom: 10px;
+      }
+    "))
+               ),
+               
+               div(class = "container",
+                   
+                   h3("Resources"),
+                   
+                   # First collapsing section
+                   div(class = "card",
+                       div(class = "card-header", 
+                           `data-toggle` = "collapse", 
+                           `data-target` = "#collapseOne",
+                           tags$h5("📘 Getting Started")
+                       ),
+                       div(id = "collapseOne", class = "collapse card-body",
+                           p("This section helps you understand the basics of SigRepo."),
+                           tags$ul(
+                             tags$li("How to upload a signature"),
+                             tags$li("How to search and filter"),
+                             tags$li("Basic usage")
+                           )
+                       )
+                   ),
+                   
+                   # Second collapsing section
+                   div(class = "card",
+                       div(class = "card-header", 
+                           `data-toggle` = "collapse", 
+                           `data-target` = "#collapseTwo",
+                           tags$h5("📂 File Formats")
+                       ),
+                       div(id = "collapseTwo", class = "collapse card-body",
+                           p("Supported file formats for upload:"),
+                           tags$ul(
+                             tags$li(".RDS - for omic_signature objects"),
+                             tags$li(".CSV - for batch metadata uploads")
+                           )
+                       )
+                   ),
+                   
+                   # Third collapsing section
+                   div(class = "card",
+                       div(class = "card-header", 
+                           `data-toggle` = "collapse", 
+                           `data-target` = "#collapseThree",
+                           tags$h5("🔒 Access & Permissions")
+                       ),
+                       div(id = "collapseThree", class = "collapse card-body",
+                           p("Learn how visibility and permissions work for users.")
+                       )
+                   ),
+                   div(class = "card",
+                       div(class = "card-header",
+                           `data-toggle` = "colapse",
+                           `data-target` = "#collapseFour",
+                           tags$h5("Omic Signature Object Overview")
+                           ),
+                       div(id = "CollapseFour", class = "collapse card-body",
+                           p("Omic Signature Object Overview")))
+               )
       )
+      
+      
+      
+      
+      
     )
+    
 )
 )
     # ### Tab Content #####
@@ -1021,6 +1220,74 @@ server <- function(input, output, session) {
   })
   
   
+  ### HOME PAGE SERVER LOGIC #### 
+  
+  # plots for homepage 
+  # on home page load, use getSignature to get the plot data, then output the plots
+  
+  
+  observe({
+    req(input$main_navbar == "home")
+    signature_data <- tryCatch({
+      SigRepo::searchSignature(conn_handler = user_conn_handler())
+    }, error = function(e) {
+      showNotification(paste("Error loading signature_data:", e$message), type = "error")
+      return(NULL)
+    })
+    
+    # cache the signatures 
+    
+    homepage_signatures(signature_data)
+  })
+  
+  # reactive for storing
+  
+  homepage_signatures <- reactiveVal(data.frame())
+  
+  # homepage plot outputs #####
+  
+  # organism plot
+  
+  output$organism_plot <- renderPlot({
+    df <- homepage_signatures()
+    req(nrow(df) > 0, "organism" %in% names(df))
+    
+    ggplot(df, aes(x = organism, fill = organism)) +
+      geom_bar() +
+      labs(x = "Organism", y = "Signature Count")+
+      theme_minimal() +
+      theme(legend.position = "right")
+  })
+  
+  
+  # assay type plot
+  
+  output$assay_plot <- renderPlot({
+    df <- homepage_signatures()
+    req(nrow(df) >0, "assay_type" %in% names(df))
+    
+    ggplot(df, aes(x = assay_type, fill = assay_type)) + 
+      geom_bar() +
+      labs("x = Assay Type", y = "Signature Count") +
+      theme_minimal() +
+      theme(legend.position = "right")
+  })
+  
+  
+  
+  # redirect button logic for home page
+  
+  observeEvent(input$go_signatures, {
+    updateTabsetPanel(session, "main_navbar", selected = "signatures")
+  })
+  
+  observeEvent(input$go_collections, {
+    updateTabsetPanel(session, "main_navbar", selected = "collections")
+  })
+  
+  # observe event for github docs when it is done.
+  
+  
 
   search_sig_error_msg <- reactiveVal("")
   # Reactive trigger for refreshing signature table
@@ -1135,7 +1402,70 @@ server <- function(input, output, session) {
     search_sig_error_msg(NULL)
   })
   
-  # Delete Server Logic ####
+  
+ 
+  #### UPDATE SERVER LOGIC #### 
+  
+  # Populate the update dropdown (when filtered_signatures or signature_db changes)
+  observe({
+    sigs <- filtered_signatures()
+    all_sigs <- signature_db()
+    sigs_to_show <- if (!is.null(sigs) && nrow(sigs) > 0) sigs else all_sigs
+    
+    if (is.null(sigs_to_show) || nrow(sigs_to_show) == 0) {
+      updateSelectInput(session, "update_sig", choices = c("No signatures available" = ""), selected = NULL)
+      return()
+    }
+    
+    update_choices <- setNames(
+      as.character(sigs_to_show$signature_id),
+      paste0(sigs_to_show$signature_name, " (ID: ", sigs_to_show$signature_id, ")")
+    )
+    
+    updateSelectInput(session, "update_sig", choices = update_choices, selected = NULL)
+  })
+  
+  
+  # Perform update when button clicked
+  observeEvent(input$update_btn, {
+    req(input$update_sig)
+    req(input$update_sig_file)
+    
+    signature_id_to_be_updated <- input$update_sig
+    file <- input$update_sig_file
+    
+    # Try to read the RDS file
+    omic_signature <- tryCatch({
+      readRDS(file$datapath)
+    }, error = function(e) {
+      showNotification(paste("Error reading RDS file:", e$message), type = "error")
+      return(NULL)
+    })
+    
+    req(!is.null(omic_signature))  # Stop if file couldn't be read
+    
+    # Attempt to update
+    success <- tryCatch({
+      SigRepo::updateSignature(
+        conn_handler = user_conn_handler(),
+        signature_id = signature_id_to_be_updated,
+        omic_signature = omic_signature
+      )
+      TRUE
+    }, error = function(e) {
+      showNotification(paste("Update failed:", e$message), type = "error")
+      FALSE
+    })
+    
+    if (success) {
+      showNotification("Signature updated successfully!", type = "message")
+      signature_update_trigger(isolate(signature_update_trigger()) + 1)  # Refresh table
+    }
+  })
+  
+  
+  
+  #### DELETE SERVER LOGIC ####
   
   # Update delete dropdown whenever filtered_signatures or signature_db changes
   observe({
@@ -1181,7 +1511,7 @@ server <- function(input, output, session) {
   
   #######
   
-  # Main Table Logic ####
+  # MAIN TABLE LOGIC ####
   
   output$signature_tbl <- DT::renderDataTable({
     df <- filtered_signatures()
@@ -1221,13 +1551,16 @@ server <- function(input, output, session) {
   })
   
       
-      #### Upload Button Logic ####
+      #### UPLOAD BUTTON LOGIC ####
+  
+  
+  output$upload_output <- renderText({ "" })  # Initialize output
+  
   observeEvent(input$upload_btn_signature, {
     file <- input$upload_file_signature
     
-    if (is.null(file)) return()  # No file uploaded yet
+    if (is.null(file)) return()
     
-    # Read uploaded RDS file
     new_signatures <- tryCatch({
       readRDS(file$datapath)
     }, error = function(e) {
@@ -1235,21 +1568,38 @@ server <- function(input, output, session) {
       return(NULL)
     })
     
-    print(new_signatures)
-  
-    # Upload logic
+    req(!is.null(new_signatures))
+    
+    # Initialize log collector
+    log_output <- character()
+    
     success <- tryCatch({
-      SigRepo::addSignature(omic_signature = new_signatures, conn_handler = user_conn_handler())
+      log_output <- capture.output({
+        withCallingHandlers({
+          SigRepo::addSignature(
+            omic_signature = new_signatures,
+            conn_handler = user_conn_handler()
+          )
+        }, message = function(m) {
+          log_output <<- c(log_output, paste("MESSAGE:", conditionMessage(m)))
+          invokeRestart("muffleMessage")
+        }, warning = function(w) {
+          log_output <<- c(log_output, paste("WARNING:", conditionMessage(w)))
+          invokeRestart("muffleWarning")
+        })
+      })
       TRUE
     }, error = function(e) {
-      showNotification(paste("Upload failed:", e$message), type = "error")
+      log_output <<- c(log_output, paste("ERROR:", e$message))
       FALSE
+    })
+    
+    output$upload_output <- renderText({
+      paste(log_output, collapse = "\n")
     })
     
     if (success) {
       showNotification("Signature uploaded successfully!", type = "message")
-      
-      # Trigger refresh of signature table
       signature_update_trigger(isolate(signature_update_trigger()) + 1)
     }
   })
@@ -1288,28 +1638,38 @@ server <- function(input, output, session) {
   })
       
   
-# Delete Collection Server Logic ####
-  # observe({
-  #   collections <- filtered_collection()
-  #   all_collections <- signature_db()
-  #   
-  #   collections_to_show <- if (!is.null(collections) && nrow(collections) > 0) collections else all_collections
-  #   
-  #   if (is.null(collections_to_show) || nrow(collections_to_show) == 0) {
-  #     updateSelectInput(session, "delete_sig", choices = c("No collections available available" = ""), selected = NULL)
-  #     return()
-  #   }
-  #   
-  #   delete_choices <- setNames(
-  #     as.character(collections_to_show$collection_id),
-  #     paste0(collections_to_show$collection_name, " (ID: ", collections_to_show$collection_id, ")")
-  #   )
-  #   
-  #   updateSelectInput(session, "delete_collection", choices = delete_choices, selected = NULL)
-  # })
-  # 
-  # delete logic ####
-  # delete logic
+####Delete Collection Server Logic ####
+  
+  observe({
+    collections <- filtered_collection()
+    all_collections <- signature_db()
+    
+    # Make sure both are data frames; if not, replace with empty data frames
+    if (!is.data.frame(collections)) collections <- data.frame()
+    if (!is.data.frame(all_collections)) all_collections <- data.frame()
+    
+    # Choose which collections to show
+    collections_to_show <- if (nrow(collections) > 0) collections else all_collections
+    
+    # Still check if we now have any collections to show
+    if (nrow(collections_to_show) == 0) {
+      updateSelectInput(session, "delete_collection", choices = c("No collections available" = ""), selected = NULL)
+      return()
+    }
+    
+    # Build named choices
+    delete_choices <- setNames(
+      as.character(collections_to_show$collection_id),
+      paste0(collections_to_show$collection_name, " (ID: ", collections_to_show$collection_id, ")")
+    )
+    
+    updateSelectInput(session, "delete_collection", choices = delete_choices, selected = NULL)
+  })
+  
+
+
+  
+  
   observeEvent(input$delete_btn_collection, {
     req(input$delete_collection)  # Ensure something is selected
     
@@ -1345,11 +1705,69 @@ server <- function(input, output, session) {
         fixedHeader = TRUE
       )
     )
-    
-    
-    
   })
  
+  # Upload Collection Logic ####
+  
+  observeEvent(input$upload_btn_collection, {
+    
+    collection_file <- input$upload_file_collection
+    
+    # Ensure a file was uploaded
+    req(collection_file)
+    
+    # Read the RDS file into an object
+    tryCatch({
+      rds_object <- readRDS(collection_file$datapath)
+      
+      # Now pass the R object to the SigRepo function
+      SigRepo::addCollection(
+        conn_handler = user_conn_handler(),
+        omic_collection = rds_object
+      )
+      
+      showNotification("Collection uploaded and added successfully!", type = "message")
+      
+      # Trigger a refresh after successful upload
+      collection_update_trigger(isolate(collection_update_trigger()) + 1)
+      
+    }, error = function(e) {
+      showNotification(paste("Error reading or uploading collection:", e$message), type = "error")
+    })
+  })
+  
+  #### REFERENCE FEATURES TAB LOGIC ####
+  
+  
+  
+  ref_features <- eventReactive(input$search_ref_btn, {
+    
+  
+
+    
+    tryCatch({
+      features <- SigRepo::searchFeature(conn_handler = user_conn_handler(),
+                                         assay_type = input$ref_assay)
+      
+      if (!is.null(features) && "organism" %in% colnames(features)){
+        features <- subset(features, organism == input$ref_organism)
+      } else {
+        showNotification("Warning: no `organism` column found in returned data", type = "warning")
+      }
+      
+      return(features)
+    }, error = function(e){
+      showNotification(paste("Error:", e$message), type = "error")
+    })
+  })
+  
+  
+  # render the table
+  
+  output$ref_feature_tbl <- renderDT({
+    req(ref_features())
+    datatable(ref_features(), options = list(pageLength = 10))
+  })
   
 } # server end bracket
 

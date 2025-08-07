@@ -53,7 +53,7 @@ OmS_SUM_AhR <- dplyr::filter(OmS_SUM_AhR, ensembl_gene_id %in% filter_list$featu
 # transcriptomics example metadata 
 
 metadata_MDA_CYP <- OmicSignature::createMetadata(
-  signature_name = "CYP181 knockdown in breast cancer cell line", 
+  signature_name = "test_sig_1", 
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "CYP181 knockdown",
@@ -67,7 +67,7 @@ metadata_MDA_CYP <- OmicSignature::createMetadata(
   adj_p_cutoff = "0.01")
 
 metadata_MDA_AhR <- OmicSignature::createMetadata( 
-  signature_name = "AhR knockdown in breast cancer cell line", 
+  signature_name = "test_sig_2", 
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "AhR knockdown",
@@ -81,7 +81,7 @@ metadata_MDA_AhR <- OmicSignature::createMetadata(
   adj_p_cutoff = "0.01")
 
 metadata_SUM_CYP <- OmicSignature::createMetadata(
-  signature_name = "CYP181 knockdown in breast cancer cell line", 
+  signature_name = "test_sig_3", 
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "AhR knockdown",
@@ -94,7 +94,7 @@ metadata_SUM_CYP <- OmicSignature::createMetadata(
   description = "Profiles of the transcriptional response of CYP181 knockdown in breast cancer cell ines", 
   adj_p_cutoff = "0.01")
 
-metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "AhR knockdown in breast cancer cell line", 
+metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "test_sig_4", 
                                                   organism = "Homo sapiens",
                                                   assay_type = "transcriptomics", 
                                                   phenotype = "AhR knockdown",
@@ -217,15 +217,20 @@ OmSC <- OmicSignature::OmicSignatureCollection$new(
 
 # saving the RDS objcts to the siganture folder
 
-  saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
+  #saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
 
- # saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR_revised.RDS"))
- # 
- # saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP_revised.RDS"))
- # 
- # saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR_revised.RDS"))
- # 
- # saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP_revised.RDS"))
- # 
- # 
+ saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_2_revised.RDS"))
 
+ saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_1_revised.RDS"))
+
+ saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_4_revised.RDS"))
+
+ saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_3_revised.RDS"))
+
+
+
+  # checking for probe id accuracy
+  
+  
+  #all(sig_SUM_AhR$probe_id %in% difexp_SUM_Ahr$probe_id)
+  
