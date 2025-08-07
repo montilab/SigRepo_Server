@@ -20,11 +20,7 @@ library(promises)
 library(future)
 future::plan(multisession)
 
-# source modules for UI ####
-source("server/signature_info_module.R")
-#source("ui/signature_page_ui.R")
-source("ui/collection_page_ui.R")
-source("server/sig_server_test.R")
+
 
 # # Create a default database handler
 # conn_handler <- SigRepo::newConnHandler(
@@ -159,11 +155,120 @@ tags$script(HTML("
       ),
       
       tabPanel("Signatures", value = "signatures",
-               signaturesModuleUI("signatures_module")  # Will init only on click
+               sidebarLayout(
+                 sidebarPanel(width = 4,
+                              tabsetPanel(
+                                id = "main_tabs",
+                                type = "tabs",
+                                
+                                # ---- Upload Tab ----
+                                tabPanel("Upload",
+                                         h4("Upload Signature"),
+                                         fileInput("upload_file_signature", "Choose a file to upload"),
+                                         actionButton("upload_btn_signature", "Upload"),
+                                         uiOutput("upload_sig_error_msg")
+                                ),
+                                
+                                # ---- Filter Tab ----
+                                tabPanel("Filter",
+                                         h4("Filter Signatures"),
+                                         selectizeInput(
+                                           inputId = "search_options_signature",
+                                           label = "Search Options:",
+                                           choices = c(
+                                             "Choose from a list of options below" = "",
+                                             "signature_name", 
+                                             "organism", 
+                                             "phenotype",
+                                             "sample_type", 
+                                             "platform_id", 
+                                             "assay_type"
+                                           ),
+                                           multiple = TRUE,
+                                           width = "100%"
+                                         ),
+                                         shinyjs::hidden(selectizeInput("signature_name", "signature_name:", choices = "", multiple = TRUE)),
+                                         shinyjs::hidden(selectizeInput("organism", "organism:", choices = "", multiple = TRUE)),
+                                         shinyjs::hidden(selectizeInput("phenotype", "phenotype:", choices = "", multiple = TRUE)),
+                                         shinyjs::hidden(selectizeInput("sample_type", "sample_type:", choices = "", multiple = TRUE)),
+                                         shinyjs::hidden(selectizeInput("platform_id", "platform:", choices = "", multiple = TRUE)),
+                                         shinyjs::hidden(selectizeInput("assay_type", "assay_type:", choices = "", multiple = TRUE)),
+                                         br(),
+                                         actionButton("search_signature", "Search", class = "submit-button"),
+                                         actionButton("clear_filters", "Clear Filters"),
+                                         br(), br(),
+                                         uiOutput("search_sig_error_msg")
+                                ),
+                                
+                                # ---- Update Tab ----
+                                tabPanel("Update",
+                                         h4("Update a Signature"),
+                                         selectInput("update_sig", "Select Signature to Update", choices = "", multiple = FALSE),
+                                         fileInput("update_sig_file", "Choose a file to update"),
+                                         actionButton("update_btn", "Update"),
+                                         uiOutput("update_sig_error_msg")
+                                ),
+                                
+                                # ---- Delete Tab ----
+                                tabPanel("Delete",
+                                         h4("Delete Signature"),
+                                         selectInput("delete_sig", "Select Signature to Delete", choices = NULL, multiple = FALSE),
+                                         actionButton("delete_btn_sig", "Delete")
+                                )
+                              )
+                 ),
+                 
+                 mainPanel(width = 8,
+                           DTOutput("signature_tbl"),
+                           uiOutput("sig_tbl_error_msg"),
+                           br(),
+                           downloadButton("download_oms_handler", "Download OmicSignature", class = "submit-button",
+                                          onclick = "sig_tbl_select_rows();")
+                 )
+               )
       ),
       
+      
+      
       tabPanel("Collections", value = "collections",
-               collectionsUI("collection_module")
+        
+               
+               sidebarLayout(
+                 sidebarPanel( width = 4,
+                               tabsetPanel(
+                                 id = "main_tabs",
+                                 type = "tabs",
+                                 
+                                  #upload tab for collections
+                                 
+                                 tabPanel("Upload",
+                                          h4("Upload Collection"),
+                                          fileInput("upload_file_collection", "Choose a file to upload"),
+                                          actionButton("upload_btn_collection","Upload"),
+                                          uiOutput("upload_sig_error_msg")
+                                          ),
+                                 tabPanel("Update",
+                                          h4("Update a Collection"),
+                                          selectInput("update_collection","Select a Collection to Update", choices = "", multiple = FALSE),
+                                          fileInput("update_collection_file", "Choose a collection file"),
+                                          actionButton("update_btn_collection", "Update"),
+                                          uiOutput("update_collection_error_msg")
+                                          ),
+                                 tabPanel("Delete",
+                                          h4("Delete Collection"),
+                                          selectInput("delete_collection", "Select a Collection to delete", choices = NULL, multiple = FALSE),
+                                          actionButton("delete_btn_collection", "Delete")
+                                          )
+                               )
+                            ), mainPanel(wdith = 8,
+                                         DTOutput("collection_tbl"),
+                                         uiOutput("collection_tbl_error_msg"),
+                                         br(),
+                                         downloadButton("download_collection","Download Collection", class = "submit-button",
+                                                        onclick = "collection_tbl_select_rows();")
+                                         )
+               )
+               
       ),
       
       tabPanel("Compare", value = "compare",
@@ -177,7 +282,9 @@ tags$script(HTML("
       tabPanel("Resources", value = "resources",
                div(class = "container", h3("Resources tab"))
       )
-    ),
+    )
+)
+)
     # ### Tab Content #####
     # shiny::uiOutput(outputId = "tab_content"),
     
@@ -199,8 +306,8 @@ tags$script(HTML("
         )
       )
     )
-  )
-)
+  
+
 
 ## Define server logic ####
 server <- function(input, output, session) {
@@ -910,52 +1017,340 @@ server <- function(input, output, session) {
     req(change_profile_message())
     
     shiny::p(class = "error-message", shiny::isolate({ change_profile_message() }))
-    
   })
   
-
- 
-  # observe event for loading in server logic conditionally
-  signature_loaded <- reactiveVal(FALSE)
   
-  observeEvent(input$main_navbar, {
-    if (input$main_navbar == "signatures" && !signature_loaded()) {
-      signaturesModuleServer("signatures_module", user_conn_handler = user_conn_handler)
-      signature_loaded(TRUE)
+
+  search_sig_error_msg <- reactiveVal("")
+  # Reactive trigger for refreshing signature table
+  signature_update_trigger <- reactiveVal(0)
+  
+  filtered_signatures <- reactiveVal(data.frame())
+  
+  # Signature DB reactive — scoped globally so it exists across your server
+  signature_db <- reactive({
+    signature_update_trigger()  # trigger dependency
+    
+    if (input$main_navbar != "signatures") return(data.frame())  # only run on the tab
+    
+    tryCatch({
+      df <- SigRepo::searchSignature(conn_handler = user_conn_handler())
+      validate(need(nrow(df) > 0, "No Signatures found."))
+      df
+    }, error = function(e) {
+      showNotification(paste("Error fetching signatures:", e$message), type = "error")
+      data.frame()
+    })
+  })
+  
+  observe({
+    req(input$main_navbar == "signatures")
+    filtered_signatures(signature_db())
+  })
+  ######
+  observeEvent(input$search_options_signature, {
+    
+    
+    all_fields <- c("signature_name", "organism", "phenotype", "sample_type", "platform_id", "assay_type")
+    selected_fields <- input$search_options_signature
+    
+    for (f in all_fields) {
+      if (f %in% selected_fields) {
+        shinyjs::show(f)
+      } else {
+        shinyjs::hide(f)
+        updateSelectizeInput(session, f, choices = "", selected = NULL)
+      }
+    }
+    
+    sigs <- signature_db()
+    if (nrow(sigs) > 0) {
+      if ("signature_name" %in% selected_fields)
+        updateSelectizeInput(session, "signature_name", choices = unique(sigs$signature_name), server = TRUE)
+      if ("organism" %in% selected_fields)
+        updateSelectizeInput(session, "organism", choices = unique(sigs$organism), server = TRUE)
+      if ("phenotype" %in% selected_fields)
+        updateSelectizeInput(session, "phenotype", choices = unique(sigs$phenotype), server = TRUE)
+      if ("sample_type" %in% selected_fields)
+        updateSelectizeInput(session, "sample_type", choices = unique(sigs$sample_type), server = TRUE)
+      if ("platform_id" %in% selected_fields)
+        updateSelectizeInput(session, "platform_id", choices = unique(sigs$platform_id), server = TRUE)
+      if ("assay_type" %in% selected_fields)
+        updateSelectizeInput(session, "assay_type", choices = unique(sigs$assay_type), server = TRUE)
+    }
+  }, ignoreNULL = FALSE)
+  
+  observeEvent(input$search_signature, {
+    tryCatch({
+      
+      conn_handler <- conn_handler
+      # Ensure connection is ready
+      
+      args <- list(conn_handler = user_conn_handler())
+      
+      if (!is.null(input$signature_name) && input$signature_name != "")
+        args$signature_name <- input$signature_name
+      if (!is.null(input$organism) && input$organism != "")
+        args$organism <- input$organism
+      if (!is.null(input$phenotype) && input$phenotype != "")
+        args$phenotype <- input$phenotype
+      if (!is.null(input$sample_type) && input$sample_type != "")
+        args$sample_type <- input$sample_type
+      if (!is.null(input$platform_id) && input$platform_id != "")
+        args$platform_id <- input$platform_id
+      if (!is.null(input$assay_type) && input$assay_type != "")
+        args$assay_type <- input$assay_type
+      
+      df <- do.call(SigRepo::searchSignature, args)
+      
+      if (nrow(df) == 0) {
+        search_sig_error_msg("No matching signatures found.")
+      } else {
+        search_sig_error_msg(NULL)
+      }
+      
+      filtered_signatures(df)
+    }, error = function(e) {
+      search_sig_error_msg(paste("Error searching signatures:", e$message))
+      filtered_signatures(data.frame())
+    })
+  })
+  
+  output$search_sig_error_msg <- renderUI({
+    req(search_sig_error_msg())
+    p(class = "error-message", HTML(search_sig_error_msg()))
+  })
+
+  
+  
+  observeEvent(input$clear_filters, {
+    updateSelectInput(session, "search_options_signature", selected = character(0))
+    all_fields <- c("signature_name", "organism", "phenotype", "sample_type", "platform_id", "assay_type")
+    for (f in all_fields) {
+      shinyjs::hide(f)
+      updateSelectizeInput(session, f, choices = "", selected = NULL)
+    }
+    filtered_signatures(signature_db())
+    search_sig_error_msg(NULL)
+  })
+  
+  # Delete Server Logic ####
+  
+  # Update delete dropdown whenever filtered_signatures or signature_db changes
+  observe({
+    sigs <- filtered_signatures()
+    all_sigs <- signature_db()
+    
+    sigs_to_show <- if (!is.null(sigs) && nrow(sigs) > 0) sigs else all_sigs
+    
+    if (is.null(sigs_to_show) || nrow(sigs_to_show) == 0) {
+      updateSelectInput(session, "delete_sig", choices = c("No signatures available" = ""), selected = NULL)
+      return()
+    }
+    
+    delete_choices <- setNames(
+      as.character(sigs_to_show$signature_id),
+      paste0(sigs_to_show$signature_name, " (ID: ", sigs_to_show$signature_id, ")")
+    )
+    
+    updateSelectInput(session, "delete_sig", choices = delete_choices, selected = NULL)
+  })
+  
+  # delete logic
+  observeEvent(input$delete_btn_sig, {
+    req(input$delete_sig)  # Ensure something is selected
+    
+    signature_id_to_delete <- input$delete_sig
+    
+    tryCatch({
+      # Call your delete function
+      SigRepo::deleteSignature(signature_id = signature_id_to_delete, conn_handler = user_conn_handler())
+      
+      showNotification("Signature deleted successfully.", type = "message")
+      
+      # Refresh signature table
+      signature_update_trigger(isolate(signature_update_trigger()) + 1)
+      
+    }, error = function(e) {
+      showNotification(paste("Error deleting signature:", e$message), type = "error")
+    })
+  })
+  
+  
+  
+  #######
+  
+  # Main Table Logic ####
+  
+  output$signature_tbl <- DT::renderDataTable({
+    df <- filtered_signatures()
+    req(!is.null(df), nrow(df) > 0)
+    
+
+    # === Remove original name + id columns ===
+    df$signature_id <- NULL
+    # Get current user for row styling
+    current_user <- user_conn_handler()$user
+    owner_col_index <- which(names(df) == "user_name") - 1
+    
+    DT::datatable(
+      df,
+      escape = FALSE,
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE,
+        scrollY = "300px",
+        fixedHeader = TRUE,
+        columnDefs = list(
+          list(
+            targets = which(names(df) %in% c("visibility", "others", "keywords", "cutoff_description")) - 1,
+            visible = FALSE
+          )
+        ),
+        rowCallback = DT::JS(sprintf("
+        function(row, data, index) {
+          if (data[%d] === '%s') {
+            $('td', row).css('background-color', '#d9edf7');
+          }
+        }", owner_col_index, current_user))
+      ),
+      rownames = FALSE,
+      class = "nowrap"
+    )
+  })
+  
+      
+      #### Upload Button Logic ####
+  observeEvent(input$upload_btn_signature, {
+    file <- input$upload_file_signature
+    
+    if (is.null(file)) return()  # No file uploaded yet
+    
+    # Read uploaded RDS file
+    new_signatures <- tryCatch({
+      readRDS(file$datapath)
+    }, error = function(e) {
+      showNotification(paste("Upload error:", e$message), type = "error")
+      return(NULL)
+    })
+    
+    print(new_signatures)
+  
+    # Upload logic
+    success <- tryCatch({
+      SigRepo::addSignature(omic_signature = new_signatures, conn_handler = user_conn_handler())
+      TRUE
+    }, error = function(e) {
+      showNotification(paste("Upload failed:", e$message), type = "error")
+      FALSE
+    })
+    
+    if (success) {
+      showNotification("Signature uploaded successfully!", type = "message")
+      
+      # Trigger refresh of signature table
+      signature_update_trigger(isolate(signature_update_trigger()) + 1)
     }
   })
   
   
-  observeEvent(user_conn_handler(), {
-    req(user_conn_handler())
+  #### COLLECTION SERVER LOGIC #####
+  
+  search_collection_error_msg <- reactiveVal("")
+  
+  # reactive trigger for refreshing collection table
+  
+  collection_update_trigger <- reactiveVal(0)
+  
+  filtered_collection <- reactiveVal(data.frame())
+  
+  
+  # collection DB reactive
+  collection_db <- reactive({
     
+    collection_update_trigger()
+    if (input$main_navbar != 'collections') return(data.frame())
     
-    
-    
-    observeEvent(input$show_signature_info, {
-      req(input$show_signature_info$signature_id, input$show_signature_info$signature_name)
-      
-      showModal(modalDialog(
-        size = "xl", 
-        easyClose = TRUE,
-        footer = modalButton("Close"),
-        signatureInfoUI("sig_info_modal")
-      ))
-      
-      signatureInfoServer(
-        "sig_info_modal", 
-        conn_handler = reactive({ user_conn_handler() }), 
-        sig_id = reactive({ input$show_signature_info$signature_id }), 
-        sig_name = reactive({ input$show_signature_info$signature_name })
-      )
+    tryCatch({
+      df <- SigRepo::searchCollection(conn_handler = user_conn_handler())
+      validate(need(nrow(df) > 0, "No Collections Found."))
+      df
+    },error = function(e){
+      showNotification(paste("Error fetching Collections", e$message), type = "error")
+    data.frame()
     })
+  })
+
+  observe({
+    req(input$main_navbar == "collections")
+    filtered_collection(collection_db())
+  })
+      
+  
+# Delete Collection Server Logic ####
+  # observe({
+  #   collections <- filtered_collection()
+  #   all_collections <- signature_db()
+  #   
+  #   collections_to_show <- if (!is.null(collections) && nrow(collections) > 0) collections else all_collections
+  #   
+  #   if (is.null(collections_to_show) || nrow(collections_to_show) == 0) {
+  #     updateSelectInput(session, "delete_sig", choices = c("No collections available available" = ""), selected = NULL)
+  #     return()
+  #   }
+  #   
+  #   delete_choices <- setNames(
+  #     as.character(collections_to_show$collection_id),
+  #     paste0(collections_to_show$collection_name, " (ID: ", collections_to_show$collection_id, ")")
+  #   )
+  #   
+  #   updateSelectInput(session, "delete_collection", choices = delete_choices, selected = NULL)
+  # })
+  # 
+  # delete logic ####
+  # delete logic
+  observeEvent(input$delete_btn_collection, {
+    req(input$delete_collection)  # Ensure something is selected
     
+    collection_id_to_delete <- input$delete_collection
+    
+    tryCatch({
+      # Call your delete function
+      SigRepo::deleteCollection(collection_id = collection_id_to_delete, conn_handler = user_conn_handler())
+      
+      showNotification("Collection deleted successfully.", type = "message")
+      
+      # Refresh signature table
+      collection_update_trigger(isolate(collection_update_trigger()) + 1)
+      
+    }, error = function(e) {
+      showNotification(paste("Error deleting collection:", e$message), type = "error")
+    })
+  })
+  
+  # Main Collection Table Logic ####
+  
+  output$collection_tbl <- DT::renderDataTable({
+    df <- filtered_collection()
+    req(!is.null(df), nrow(df) >0)
+    
+    
+    DT::datatable(
+      df,
+      options = list(
+        pageLength = 10,
+        scrollX = TRUE,
+        scrollY = "300px",
+        fixedHeader = TRUE
+      )
+    )
     
     
     
   })
+ 
   
-}
+} # server end bracket
 
 ## Start the app ####
 shiny::shinyApp(ui=ui, server=server)
