@@ -30,3 +30,7 @@ inst/extdata/signatures/omic_signature_SUM_AhR_revised.RDS
 inst/extdata/signatures/omic_signature_SUM_CYP_revised.RDS
 inst/shiny/ui/login_ui.R
 inst/extdata/signatures/OmSC_example.RDS
+inst/extdata/signatures/omic_signature_1_revised.RDS
+inst/extdata/signatures/omic_signature_2_revised.RDS
+inst/extdata/signatures/omic_signature_3_revised.RDS
+inst/extdata/signatures/omic_signature_4_revised.RDS
