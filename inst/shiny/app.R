@@ -22,14 +22,15 @@ future::plan(multisession)
 
 
 
-# # Create a default database handler
-# conn_handler <- SigRepo::newConnHandler(
-#   dbname = Sys.getenv("DBNAME"),
-#   host = Sys.getenv("HOST"),
-#   port = as.integer(Sys.getenv("PORT")),
-#   user = Sys.getenv("DB_USER"),
-#   password = Sys.getenv("PASSWORD")
-# )
+# Create a default database handler 
+# FOR ROOT ONLY, DONT USE IN ACTUAL R SHINY
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"),
+  host = Sys.getenv("HOST"),
+  port = as.integer(Sys.getenv("PORT")),
+  user = Sys.getenv("DB_USER"),
+  password = Sys.getenv("PASSWORD")
+)
 
 ## Define ui logic ####
 ui <- fluidPage(
