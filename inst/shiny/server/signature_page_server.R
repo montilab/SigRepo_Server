@@ -1,6 +1,6 @@
 
 
-setup_signature_tab <- function(input, output, session, user_conn_handler) {
+
 # Signature table refresh trigger
 signature_update_trigger <- reactiveVal(0)
 
@@ -9,9 +9,11 @@ signature_db <- reactive({
   
 
   
-  signature_update_trigger()  # Triggers re-evaluation
+  signature_update_trigger() 
+  
+
   tryCatch({
-    df <- SigRepo::searchSignature(conn_handler = conn_handler())
+    df <- SigRepo::searchSignature(conn_handler = user_conn_handler())
     validate(need(nrow(df) > 0, "No signatures found."))
     df
   }, error = function(e) {
@@ -172,7 +174,7 @@ output$signature_tbl <- DT::renderDataTable({
   
   
   
-  current_user <- conn_handler$user
+  current_user <- user_conn_handler()$user
   owner_col_index <- which(colnames(df) == "user_name") - 1
   
   DT::datatable(
@@ -251,12 +253,10 @@ observe({
 observeEvent(input$delete_btn, {
   req(input$delete_sig)
   
-  # get the connection handler reactively
-  conn_handler <- conn_handler
-  req(conn_handler)  # make sure connection is ready
+ 
   
   tryCatch({
-    SigRepo::deleteSignature(conn_handler = conn_handler,
+    SigRepo::deleteSignature(conn_handler = user_conn_handler(),
                              signature_id = input$delete_sig)
     
     showNotification(paste("Signature", input$delete_sig, "deleted successfully."), type = "message")
@@ -299,9 +299,7 @@ observeEvent(input$update_btn, {
   req(input$update_sig)
   req(input$update_sig_file)
   
-  conn_handler <- conn_handler
-  req(conn_handler)
-  
+
   file <- input$update_sig_file
   file_ext <- tools::file_ext(file$datapath)
   
@@ -322,7 +320,7 @@ observeEvent(input$update_btn, {
   
   tryCatch({
     SigRepo::updateSignature(
-      conn_handler = conn_handler,
+      conn_handler = user_conn_handler(),
       signature_id = input$update_sig,
       omic_signature = omic_signature,
       visibility = TRUE,  # need to make this dynamic for the user GUI 
@@ -390,7 +388,7 @@ output$download_oms_zip <- downloadHandler(
   }
 )
 
-}
+
 
 
 

@@ -194,33 +194,10 @@ organism_table <- data.frame(
 
 write.csv(organism_table, file = "tests/testthat/test_data/test_organism.csv")
 
-sigs <- SigRepo::searchSignature(conn_handler = conn_handler)
-# 
-sig_obj <- SigRepo::getSignature(conn_handler = conn_handler,
-                      signature_name = "CYP181 knockdown in breast cancer cell line",
-                     signature_id = "1")
 
-SigRepo::deleteSignature(conn_handler = conn_handler,
-                         signature_id = 1)
-sig_add_id <- SigRepo::addSignature(conn_handler = conn_handler,
-                                    omic_signature = omic_signature_MDA_CYP)
+# adding the collection
 
+collection_id <- SigRepo::addCollection(conn_handler = conn_handler,
+                                        omic_collection = OmSC_example)
 
-omic_signature_1$metadata$platform[1] <- "genotyping by array"
-
-
-SigRepo::deleteSignature(conn_handler = conn_handler,
-                        signature_id = 28)
-
-
-SigRepo::addSignature(conn_handler = conn_handler,
-                      omic_signature = omic_signature_MDA_AhR_revised)
-
-
-
-
-sig_test <- SigRepo::getSignature(conn_handler = conn_handler,
-                                  signature_id = 29)
-
-SigRepo::searchSignature(conn_handler = conn_handler)
-
+collections <- SigRepo::searchCollection(conn_handler = conn_handler)

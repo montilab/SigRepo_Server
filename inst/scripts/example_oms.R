@@ -205,27 +205,27 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
 # Creating an OmicSignature Collection
 
 
-# colMeta <- list(
-#   'collection_name' = 'example',
-#   'description' = 'example of signature collection',
-#   'author' = 'me')
+colMeta <- list(
+  'collection_name' = 'example',
+  'description' = 'example of signature collection',
+  'author' = 'me')
 
-# OmSC <- OmicSignature::OmicSignatureCollection$new(
-#   OmicSigList = list(omic_signature_MDA_AhR,omic_signature_MDA_CYP, omic_signature_SUM_CYP, omic_signature_SUM_Ahr),
-#   metadata = colMeta
-# )
+OmSC <- OmicSignature::OmicSignatureCollection$new(
+  OmicSigList = list(omic_signature_MDA_AhR,omic_signature_MDA_CYP, omic_signature_SUM_CYP, omic_signature_SUM_Ahr),
+  metadata = colMeta
+)
 
 # saving the RDS objcts to the siganture folder
 
-# saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
+  saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
 
- saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR_revised.RDS"))
-
- saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP_revised.RDS"))
-
- saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR_revised.RDS"))
-
- saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP_revised.RDS"))
-
-
+ # saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_MDA_AhR_revised.RDS"))
+ # 
+ # saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_MDA_CYP_revised.RDS"))
+ # 
+ # saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_SUM_AhR_revised.RDS"))
+ # 
+ # saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_SUM_CYP_revised.RDS"))
+ # 
+ # 
 
