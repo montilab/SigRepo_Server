@@ -1644,16 +1644,23 @@ server <- function(input, output, session) {
     collections <- filtered_collection()
     all_collections <- signature_db()
     
-    # Make sure both are data frames; if not, replace with empty data frames
+    # Ensure data frames
     if (!is.data.frame(collections)) collections <- data.frame()
     if (!is.data.frame(all_collections)) all_collections <- data.frame()
     
-    # Choose which collections to show
+    # Choose collections to show
     collections_to_show <- if (nrow(collections) > 0) collections else all_collections
     
-    # Still check if we now have any collections to show
-    if (nrow(collections_to_show) == 0) {
+    # Check if we have any valid collections
+    if (nrow(collections_to_show) == 0 ||
+        !all(c("collection_id", "collection_name") %in% names(collections_to_show))) {
       updateSelectInput(session, "delete_collection", choices = c("No collections available" = ""), selected = NULL)
+      return()
+    }
+    
+    # Check lengths
+    if (length(collections_to_show$collection_id) != length(collections_to_show$collection_name)) {
+      updateSelectInput(session, "delete_collection", choices = c("Collection data invalid" = ""), selected = NULL)
       return()
     }
     
