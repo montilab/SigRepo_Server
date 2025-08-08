@@ -126,32 +126,32 @@ createSignatureMetadata <- function(
     phenotype_id <- phenotype_id_tbl$phenotype_id[1]
   }
   
-  # # Look up platform id ####
-  # lookup_platform <- metadata$platform[1]
-  # 
-  # 
-  # # Look up ID
-  # platform_id_tbl <- SigRepo::lookup_table_sql(
-  #   conn = conn,
-  #   db_table_name = "platforms",
-  #   return_var = "platform_name",
-  #   filter_coln_var = "platform_name",
-  #   filter_coln_val = list("platform_name" = lookup_platform),
-  #   check_db_table = TRUE
-  # )
-  # 
-  # # If ID not exists in database, throw an error message
-  # if(nrow(platform_id_tbl) == 0){
-  #   # Disconnect from database
-  #   base::suppressWarnings(DBI::dbDisconnect(conn))
-  #   # Show error message ####
-  #   SigRepo::showPlatformErrorMessage(
-  #     db_table_name = "platforms",
-  #     unknown_values = lookup_platform
-  #   )
-  # }else{
-  #   platform_id <- platform_id_tbl$platform_id[1]
-  # }
+  # Look up platform id ####
+  lookup_platform <- metadata$platform[1]
+
+
+  # Look up ID
+  platform_id_tbl <- SigRepo::lookup_table_sql(
+    conn = conn,
+    db_table_name = "platforms",
+    return_var = "platform_id",
+    filter_coln_var = "platform_id",
+    filter_coln_val = list("platform_id" = lookup_platform),
+    check_db_table = TRUE
+  )
+
+  # If ID not exists in database, throw an error message
+  if(nrow(platform_id_tbl) == 0){
+    # Disconnect from database
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    # Show error message ####
+    SigRepo::showPlatformErrorMessage(
+      db_table_name = "platforms",
+      unknown_values = lookup_platform
+    )
+  }else{
+    platform_id <- platform_id_tbl$platform_id[1]
+  }
 
  
   
