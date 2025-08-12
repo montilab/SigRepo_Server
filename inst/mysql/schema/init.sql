@@ -88,7 +88,7 @@ CREATE TABLE `signature_access` (
 -- Table structure for table `collection`
 --
 DROP TABLE IF EXISTS `collection`;
-CREATE TABLE `signature_collection` (
+CREATE TABLE `collection` (
   `collection_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `collection_name` VARCHAR(255) NOT NULL,
   `description` TEXT DEFAULT NULL,
@@ -105,7 +105,7 @@ CREATE TABLE `signature_collection` (
 -- Table structure for table `collection_access`
 --
 DROP TABLE IF EXISTS `collection_access`;
-CREATE TABLE `signature_collection_access` (
+CREATE TABLE `collection_access` (
   `collection_id` INT UNSIGNED NOT NULL,
   `user_name` VARCHAR(255) NOT NULL,
   `access_type` SET("owner", "editor", "viewer") NOT NULL,
@@ -175,11 +175,9 @@ CREATE TABLE `organisms` (
 --
 DROP TABLE IF EXISTS `platforms`;
 CREATE TABLE `platforms` (
-  `platform_id` INT UNISGNED NOT NULL AUTO_INCREMENT,
-  `platform_name` TEXT NOT NULL,
-  `seq_technology` TEXT DEFAULT NULL,
-  `organisms` TEXT DEFAULT NULL,
-  PRIMARY KEY (`platform_id`),
+  `platform_id_db` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `platform_id` VARCHAR(255) NOT NULL,
+  PRIMARY KEY (`platform_id_db`),
   UNIQUE (`platform_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
@@ -226,10 +224,12 @@ CREATE TABLE `users` (
   `user_affiliation` TEXT DEFAULT NULL,
   `user_role` SET("admin", "editor", "viewer") NOT NULL,
   `api_key` VARCHAR(32) NOT NULL,
+  `active` BOOL DEFAULT 0,
   `user_hashkey` VARCHAR(32) NOT NULL,                 
   PRIMARY KEY (`user_name`),
   UNIQUE (`user_name`),
-  CHECK (`user_email` REGEXP "^[a-zA-Z0-9][+a-zA-Z0-9._-]*@[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,4}$")
+  CHECK (`user_email` REGEXP "^[a-zA-Z0-9][+a-zA-Z0-9._-]*@[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,4}$"),
+  CHECK (`active` IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 --
 -- ADD DATA TO USERS TABLE

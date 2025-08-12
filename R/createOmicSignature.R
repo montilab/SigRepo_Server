@@ -104,6 +104,8 @@ createOmicSignature <- function(
     check_db_table = TRUE
   )
   
+  
+  
   # Look up feature_id ####
   lookup_feature_id <- signature$feature_id
   
@@ -116,6 +118,8 @@ createOmicSignature <- function(
     check_db_table = TRUE
   ) 
   
+
+  
   # Add variables to table
   signature <- signature %>% 
     dplyr::left_join(
@@ -123,12 +127,32 @@ createOmicSignature <- function(
       by = "feature_id"
     )
   
+
+  
   # Rename table with appropriate column names 
   coln_names <- base::colnames(signature) %>% 
     base::replace(., base::match(c("feature_id"), .), c("feature_name"))
 
   # Extract the table with appropriate column names ####
   signature <- signature %>% dplyr::select(all_of(coln_names))
+  
+  # debugging ####
+  
+  print("Signature columns:")
+  print(colnames(signature))
+  
+  print("First rows of signature:")
+  print(head(signature))
+  
+  print("Difexp columns:")
+  print(colnames(difexp))
+  
+  print("First rows of difexp:")
+  print(head(difexp))
+  
+  
+  print(setdiff(signature$probe_id, difexp$probe_id)
+)
   
   # Create the OmicSignature object
   OmS <- base::tryCatch({

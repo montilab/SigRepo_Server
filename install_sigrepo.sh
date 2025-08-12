@@ -10,7 +10,7 @@ SIGREPO_DIR="$SCRIPT_DIR"
 # Ensure install path is provided ####
 if [ -z "$1" ]; then
   echo "ERROR: Installation path not provided."
-  echo "Usage: ./setup_sigrepo.sh /installation/path"
+  echo "Usage: ./install_sigrepo.sh /installation/path"
   exit 1
 fi
 
@@ -24,7 +24,7 @@ if [[ "$BASE_INSTALL_DIR" == *" "* ]]; then
 fi
 
 # Prompt for MySQL username ####
-echo "Please create a username (this will be the super user for the installation):"
+echo "Please create a username (this will be the super user for the installation (admin)):"
 read MYSQL_USER
 
 # Prompt for MySQL user password (hidden input) ####
@@ -107,20 +107,21 @@ docker network create -d bridge db-net || echo "Docker network 'db-net' already 
 # Export env vars for Docker Compose ####
 export BASE_INSTALL_DIR
 export SIGREPO_DIR
+export MYSQL_PORT
 
 # Start Docker containers
 echo "Starting Docker containers..."
-docker compose -f "$SIGREPO_DIR/docker-compose-dockerhub.yml" up -d --build
+docker compose -f "$SIGREPO_DIR/docker-compose-local.yml" up -d --build
 
 # Create .Renviron file for R, and populate with user prompts ####
 echo "Creating .Renviron..."
 cat > "$SIGREPO_DIR/.Renviron" <<EOL
 DBNAME=sigrepo
-HOST=127.0.0.1
+HOST=172.18.0.2
 HOST_DB_NET=172.18.0.2
 PORT=$MYSQL_PORT
 API_PORT=8020
-USER=$MYSQL_USER
+DB_USER=$MYSQL_USER
 PASSWORD=$MYSQL_PASSWORD
 EOL
 
