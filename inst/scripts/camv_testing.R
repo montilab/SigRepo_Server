@@ -276,6 +276,28 @@ Sig_id <- SigRepo::addSignature(conn_handler = conn_handler,
 
 sig_test_get <- SigRepo::getSignature(conn_handler = conn_handler,
                       signature_id = 58)
-sig_obj <- SigRepo::getSignature( conn_handler = conn_handler,
-                                  signature_id = 66)
-sig_obj$difexp
+
+# error testing
+print(Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig)
+
+# adding signature 
+
+sig_id_test <- SigRepo::addSignature(conn_handler = conn_handler,
+                                     omic_signature = Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig)
+
+print(Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig)
+
+platforms_list <- SigRepo::searchPlatform(conn_handler = conn_handler)
+
+platform_in_sig <- Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig$metadata$platform
+
+platforms_bulk <- "transcriptomics by bulk RNA-seq"
+
+
+platform_exists <- platform_in_sig %in% platforms_bulk # or platforms_list$platform, depending on your schema
+
+
+SigRepo::addSignature(conn_handler = conn_handler,
+                      omic_signature = omic_signature_1_revised)
+
+print(omic_signature_1_revised)
