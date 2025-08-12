@@ -261,4 +261,21 @@ plot_data %>%
   labs(title = "Signature Visibility")
 
 
+id <- SigRepo::getSignature(conn_handler = conn_handler,
+                      signature_id = 46)
 
+sigs <- SigRepo::searchSignature(conn_handler = conn_handler)
+
+# testing addSignature with new platform
+
+SigRepo::deleteSignature(conn_handler = conn_handler,
+                         signature_id = 46)
+
+Sig_id <- SigRepo::addSignature(conn_handler = conn_handler, 
+                                omic_signature = omic_signature_1_revised)
+
+sig_test_get <- SigRepo::getSignature(conn_handler = conn_handler,
+                      signature_id = 58)
+sig_obj <- SigRepo::getSignature( conn_handler = conn_handler,
+                                  signature_id = 66)
+sig_obj$difexp

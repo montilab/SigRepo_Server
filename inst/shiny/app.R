@@ -253,8 +253,8 @@ tags$script(HTML("
       
       tabPanel("Signatures", value = "signatures",
                
-               div(class = "homepage-title", "Signature Management"),
-               div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
+               #div(class = "homepage-title", "Signature Management"),
+               #div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
                
                sidebarLayout(
                  sidebarPanel(width = 4,
@@ -323,11 +323,23 @@ tags$script(HTML("
                  
                  mainPanel(width = 8,
                            DTOutput("signature_tbl"),
-                           uiOutput("sig_tbl_error_msg"),
                            br(),
+                           
+                           # Conditional tab view for file tables
+                           conditionalPanel(
+                             condition = "output.signature_selected == true",
+                             tabsetPanel(
+                               id = "file_tabs",
+                               type = "tabs",
+                               tabPanel("Signature", DTOutput("signature_file_table")),
+                               tabPanel("Difexp", DTOutput("difexp_file_table"))
+                             )
+                           ),
+                           
                            downloadButton("download_oms_handler", "Download OmicSignature", class = "submit-button",
                                           onclick = "sig_tbl_select_rows();")
                  )
+                 
                )
       ),
       
@@ -377,12 +389,55 @@ tags$script(HTML("
                
       ),
       
-      tabPanel("Compare", value = "compare",
-               div(class = "container", h3("Compare tab"))
+      tabPanel("Annotate", value = "annotate",
+               sidebarLayout(
+                 sidebarPanel(
+                   width = 4,
+                   tabsetPanel(id = "sidebar_tabs",
+                               tabPanel("[1] Signature",
+                                        textInput("experiment_label", tags$b("Experiment Label"), placeholder = "E.g. Knockout Experiment"),
+                                        textInput("signature_label", tags$b("Signature Label"), placeholder = "E.g. Downregulated Genes"),
+                                        textAreaInput("signature", 
+                                                      label = tags$b("Signature"),
+                                                      rows = 8,
+                                                      cols = NULL,
+                                                      placeholder = "ACHE,ADGRG1,AMOT,CDK5R1,CRMP1,DPYSL2,ETS2,GLI1,HEY1,HEY2,UNC5C,VEGFA,VLDLR",
+                                                      resize = "both"),
+                                        actionButton("signature_add", "Add Signature")
+                               ),
+                               tabPanel("[2] Genesets",
+                                        
+                                        hypeR::genesets_UI("genesets")
+                               ),
+                               tabPanel("[3] Enrichment",
+                                        
+                                        numericInput("enrichment_thresh", "Threshold", 0.05),
+                                        numericInput("enrichment_bg", "Background", 36000),
+                                        actionButton("enrichment_do", "Do Enrichment")
+                               )
+                   )
+                 ),
+                 
+                 mainPanel(
+                   width = 8,
+                   conditionalPanel(
+                     condition = "input.sidebar_tabs === '[1] Signature'",
+                     htmlOutput("data_preview")
+                   ),
+                   conditionalPanel(
+                     condition = "input.sidebar_tabs === '[2] Genesets'",
+                     uiOutput("table")
+                   ),
+                   conditionalPanel(
+                     condition = "input.sidebar_tabs === '[3] Enrichment'",
+                     uiOutput("enrichment")
+                   )
+                 )
+               )
       ),
       
-      tabPanel("Annotate", value = "annotate",
-               div(class = "container", h3("Annotate tab"))
+      tabPanel("Compare", value = "compare",
+               div(class = "container", h3("Compare tab"))
       ),
       tabPanel("References", value = "references",
                
@@ -1545,12 +1600,46 @@ server <- function(input, output, session) {
           }
         }", owner_col_index, current_user))
       ),
+      selection = "single",
       rownames = FALSE,
       class = "nowrap"
     )
   })
   
-      
+  #### SIGNATURE AND DIFEXP TABLE LOGIC ####
+  
+  output$signature_selected <- reactive({
+    !is.null(input$signature_tbl_rows_selected) && length(input$signature_tbl_rows_selected) > 0
+  })
+  outputOptions(output, "signature_selected", suspendWhenHidden = FALSE)
+  
+  
+  selected_signature <- reactive({
+    selected <- input$signature_tbl_rows_selected
+    if(length(selected) == 0) return(NULL)
+    df <- filtered_signatures()
+    sig_name <- df[selected, "signature_name"]
+    sig_list <- SigRepo::getSignature(conn_handler = user_conn_handler(),
+                          signature_name = sig_name)
+    
+    sig_list[[1]]
+  })
+  
+  
+  output$signature_file_table <- DT::renderDataTable({
+    sig_obj <- selected_signature()
+    req(!is.null(sig_obj))
+    
+    signature <- sig_obj$signature
+    
+    datatable(signature, option = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
+  })
+  
+  output$difexp_file_table <- DT::renderDataTable({
+    sig_obj <- selected_signature()
+    req(!is.null(sig_obj))
+    datatable(sig_obj$difexp, option = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
+  })    
       #### UPLOAD BUTTON LOGIC ####
   
   
@@ -1775,6 +1864,26 @@ server <- function(input, output, session) {
     req(ref_features())
     datatable(ref_features(), options = list(pageLength = 10))
   })
+  
+  
+  
+  #### RENDER KNITR HTML LOGIC ####
+  
+  output$report_ui <- renderUI({
+    # Knit or render the Rmd to HTML
+    rmarkdown::render(
+      input = "report.Rmd",          # Your .Rmd file
+      output_file = "report.html",   # Output HTML file
+      output_dir = tempdir(),        # Place in a temporary directory
+      quiet = TRUE
+    )
+    
+    # Read and display the HTML
+    HTML(
+      paste(readLines(file.path(tempdir(), "report.html")), collapse = "\n")
+    )
+  })
+  
   
 } # server end bracket
 

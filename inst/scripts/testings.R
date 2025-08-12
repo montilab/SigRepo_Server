@@ -1,6 +1,5 @@
 # For DB connection
 library(RMySQL)
-library(RMariaDB)
 library(DBI)
 
 # For data cleaning, extraction and manipulation
@@ -21,7 +20,7 @@ conn <- DBI::dbConnect(
 )
 
 
-ENSG00000238266
+
 
 
 
