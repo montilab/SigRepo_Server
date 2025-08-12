@@ -49,7 +49,34 @@ ui <- fluidPage(
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_signature.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_collection.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/fontawesome-all.min.css"),
-      tags$script(src = "assets/js/app.js", type = "text/javascript")
+      tags$script(src = "assets/js/app.js", type = "text/javascript"),
+      tags$style(HTML("
+    .navbar {
+      background-color: #004080 !important;
+      border-bottom: 3px solid #003366;
+    }
+
+    .navbar-default .navbar-nav > li > a {
+      color: #ffffff !important;
+      font-weight: 500;
+      font-size: 15px;
+    }
+
+    .navbar-default .navbar-nav > li > a:hover,
+    .navbar-default .navbar-nav > .active > a {
+      background-color: #003366 !important;
+      color: #ffffff !important;
+    }
+
+    .navbar-brand {
+      display: flex;
+      align-items: center;
+    }
+
+    .navbar-brand img {
+      margin-right: 10px;
+    }
+  "))
     )
   ),
   
@@ -146,7 +173,10 @@ tags$script(HTML("
     ),
     
     navbarPage(
-      title = div(h2("SigRepo")),  # logo/branding
+      title = div(
+      tags$img(src ="images/logo.png", height = "60px", style = "margin-right:10px;"),
+      span("SigRepo", style = "font-weight: bold; font-size: 24px; vertical-align: middle;")
+      ),
       id = "main_navbar",
       
       tabPanel("Home", value = "home",
@@ -188,11 +218,33 @@ tags$script(HTML("
                    div(class = "homepage-section text-intro",
                        tabsetPanel(
                          tabPanel("Overview",
-                                  p("Overview of SigRepo Motivations")),
+                                  HTML("
+    <div style='padding: 10px; line-height: 1.6; font-size: 16px;'>
+      <p>
+        <strong>Welcome to the Signature Repository (SigRepo)!</strong>
+      </p>
+      <p>
+        The Signature Repository is a collaborative platform designed for storing and managing biological signatures and their associated data.
+      </p>
+      <p>
+        This R Shiny application provides a user-friendly interface to:
+      </p>
+      <ul>
+        <li>Browse, upload, and search for signatures</li>
+        <li>Manage access and permissions</li>
+        <li>Perform gene set enrichment and annotation</li>
+      </ul>
+      <p>
+        You can explore both public signatures and the ones you've contributed.
+      </p>
+    </div>
+  ")
+                                  ),
+                           
                          tabPanel("Database Schema",
                                   p("picture of database schema")),
                          tabPanel("Top Users",
-                                  p("horizontal bar chart with top 10 users and their # signatures added into the database"))
+                                 plotOutput("top_users_plot", height = "300px"))
                        )
                        )
                  ), 
@@ -317,31 +369,62 @@ tags$script(HTML("
                                          h4("Delete Signature"),
                                          selectInput("delete_sig", "Select Signature to Delete", choices = NULL, multiple = FALSE),
                                          actionButton("delete_btn_sig", "Delete")
-                                )
+                                ),
+                                
+                                # ---- Manage Tab ----
+                                tabPanel("Manage",
+                                         h4("Add users to your signatures"),
+                                         selectInput("sig_for_perms", "Select a signature that you uploaded", choices = NULL, multiple = FALSE),
+                                         selectInput("select_user", "Select a user, or multiple users", choices = NULL, multiple = TRUE),
+                                         selectInput("select_role_type", "Select a role type", choices = NULL, multiple = TRUE))
                               )
                  ),
                  
-                 mainPanel(width = 8,
-                           DTOutput("signature_tbl"),
-                           br(),
-                           
-                           # Conditional tab view for file tables
-                           conditionalPanel(
-                             condition = "output.signature_selected == true",
-                             tabsetPanel(
-                               id = "file_tabs",
-                               type = "tabs",
-                               tabPanel("Signature", DTOutput("signature_file_table")),
-                               tabPanel("Difexp", DTOutput("difexp_file_table"))
-                             )
-                           ),
-                           
-                           downloadButton("download_oms_handler", "Download OmicSignature", class = "submit-button",
-                                          onclick = "sig_tbl_select_rows();")
+                 mainPanel(
+                   width = 8,
+                   
+                   # Main signature table
+                   DTOutput("signature_tbl"),
+                   br(),
+                   
+                   # Conditional tab view for file tables
+                   conditionalPanel(
+                     condition = "output.signature_selected == true",
+                     tabsetPanel(
+                       id = "file_tabs",
+                       type = "tabs",
+                       
+                       # Signature tab
+                       tabPanel(
+                         "Signature",
+                         DTOutput("signature_file_table"),
+                         br(),
+                         downloadButton("export_table", "Write current table to CSV", class = "submit-button")
+                       ),
+                       
+                       # Difexp tab
+                       tabPanel(
+                         "Difexp",
+                         DTOutput("difexp_file_table"),
+                         br(),
+                         downloadButton("export_table", "Write current table to CSV", class = "submit-button")
+                       )
+                     )
+                   ),
+                   
+                   br(),
+                   
+                   # OmicSignature download
+                   downloadButton(
+                     "download_oms_handler",
+                     "Download OmicSignature",
+                     class = "submit-button",
+                     onclick = "sig_tbl_select_rows();"
+                   )
                  )
-                 
                )
-      ),
+                 ),
+                 
       
       
       
@@ -523,7 +606,7 @@ tags$script(HTML("
                    ),
                    div(class = "card",
                        div(class = "card-header",
-                           `data-toggle` = "colapse",
+                           `data-toggle` = "collapse",
                            `data-target` = "#collapseFour",
                            tags$h5("Omic Signature Object Overview")
                            ),
@@ -540,6 +623,7 @@ tags$script(HTML("
     
 )
 )
+
     # ### Tab Content #####
     # shiny::uiOutput(outputId = "tab_content"),
     
@@ -1301,6 +1385,28 @@ server <- function(input, output, session) {
   
   # homepage plot outputs #####
   
+  
+  # top ten users
+  
+  output$top_users_plot <- renderPlot({
+    df <- homepage_signatures()
+    
+    user_counts <- df %>%
+      dplyr::count(user_name, name = "num_signatures") %>%
+      dplyr::arrange(desc(num_signatures)) %>%
+      dplyr::slice_head(n = 10)
+    
+    ggplot(user_counts, aes( x = reorder(user_name, num_signatures), y = num_signatures)) +
+      geom_bar(stat = "identity", fill = "#2c7fb8") +
+      coord_flip() +
+      labs(
+        title = "Top 10 Most Active Users",
+        x = "User",
+        y = "Number of Signtures"
+      ) +
+      theme_minimal()
+  })
+  
   # organism plot
   
   output$organism_plot <- renderPlot({
@@ -1640,7 +1746,38 @@ server <- function(input, output, session) {
     req(!is.null(sig_obj))
     datatable(sig_obj$difexp, option = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
   })    
-      #### UPLOAD BUTTON LOGIC ####
+  
+  
+  #### DOWNLOAD HANDLER LOGIC ####
+  
+  output$export_table <- downloadHandler(
+    filename = function() {
+      tab <- input$file_tabs
+      prefix <- if (tab == "Difexp") "difexp_file_table" else "signature_file_table"
+      paste0(prefix, "_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      sig_obj <- selected_signature()
+      req(!is.null(sig_obj))
+      
+      if (input$file_tabs == "Difexp") {
+        df <- sig_obj$difexp
+      } else {
+        df <- sig_obj$signature
+      }
+      
+      # Handle case where data might be NULL
+      if (is.null(df)) {
+        write.csv(data.frame(Message = "No data available for this table"), file, row.names = FALSE)
+      } else {
+        write.csv(df, file, row.names = FALSE)
+      }
+    }
+  )
+  
+  
+  
+  #### UPLOAD BUTTON LOGIC ####
   
   
   output$upload_output <- renderText({ "" })  # Initialize output
