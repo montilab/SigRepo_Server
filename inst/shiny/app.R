@@ -14,7 +14,7 @@ load_all()
 
 # Loading omic signature package
 library(OmicSignature)
-library(hypeR)
+
 
 # Package for parallel processes
 library(promises)
@@ -491,7 +491,7 @@ tags$script(HTML("
                                ),
                                tabPanel("[2] Genesets",
                                         
-                                        hypeR::genesets_UI("genesets")
+                                       
                                ),
                                tabPanel("[3] Enrichment",
                                         
