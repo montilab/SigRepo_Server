@@ -3,6 +3,7 @@
 library(shinyjs)
 library(shiny)
 library(DT)
+library(knitr)
 
 # Package for data cleaning, extraction and manipulation
 library(tidyverse)
@@ -175,8 +176,8 @@ tags$script(HTML("
     
     navbarPage(
       title = div(
-      tags$img(src ="images/logo.png", height = "60px", style = "margin-right:10px;"),
-      span("SigRepo", style = "font-weight: bold; font-size: 24px; vertical-align: middle;")
+      tags$img(src ="images/logo.png", height = "40px", style = "margin-right:10px;"),
+      # span("SigRepo", style = "font-weight: bold; font-size: 24px; vertical-align: middle;")
       ),
       id = "main_navbar",
       
@@ -306,8 +307,8 @@ tags$script(HTML("
       
       tabPanel("Signatures", value = "signatures",
                
-               #div(class = "homepage-title", "Signature Management"),
-               #div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
+               div(class = "homepage-title", "Signature Management"),
+               div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
                
                sidebarLayout(
                  sidebarPanel(width = 4,
@@ -372,12 +373,12 @@ tags$script(HTML("
                                          actionButton("delete_btn_sig", "Delete")
                                 ),
                                 
-                                # ---- Manage Tab ----
-                                tabPanel("Manage",
-                                         h4("Add users to your signatures"),
-                                         selectInput("sig_for_perms", "Select a signature that you uploaded", choices = NULL, multiple = FALSE),
-                                         selectInput("select_user", "Select a user, or multiple users", choices = NULL, multiple = TRUE),
-                                         selectInput("select_role_type", "Select a role type", choices = NULL, multiple = TRUE))
+                                # # ---- Manage Tab ----
+                                # tabPanel("Manage",
+                                #          h4("Add users to your signatures"),
+                                #          selectInput("sig_for_perms", "Select a signature that you uploaded", choices = NULL, multiple = FALSE),
+                                #          selectInput("select_user", "Select a user, or multiple users", choices = NULL, multiple = TRUE),
+                                #          selectInput("select_role_type", "Select a role type", choices = NULL, multiple = TRUE))
                               )
                  ),
                  
@@ -474,6 +475,11 @@ tags$script(HTML("
       ),
       
       tabPanel("Annotate", value = "annotate",
+               
+               div(class = "homepage-title", "Annotate"),
+               div(class = "homepage-subtitle", "Conduct hypeR on signatures"),
+               
+               
                sidebarLayout(
                  sidebarPanel(
                    width = 4,
@@ -481,12 +487,7 @@ tags$script(HTML("
                                tabPanel("[1] Signature",
                                         textInput("experiment_label", tags$b("Experiment Label"), placeholder = "E.g. Knockout Experiment"),
                                         textInput("signature_label", tags$b("Signature Label"), placeholder = "E.g. Downregulated Genes"),
-                                        textAreaInput("signature", 
-                                                      label = tags$b("Signature"),
-                                                      rows = 8,
-                                                      cols = NULL,
-                                                      placeholder = "ACHE,ADGRG1,AMOT,CDK5R1,CRMP1,DPYSL2,ETS2,GLI1,HEY1,HEY2,UNC5C,VEGFA,VLDLR",
-                                                      resize = "both"),
+                                        selectInput("signature_hypeR", "Select a signature", choices = "", multiple = FALSE),
                                         actionButton("signature_add", "Add Signature")
                                ),
                                tabPanel("[2] Genesets",
@@ -524,6 +525,10 @@ tags$script(HTML("
                div(class = "container", h3("Compare tab"))
       ),
       tabPanel("References", value = "references",
+               
+               div(class = "homepage-title", "References"),
+               div(class = "homepage-subtitle", "Browse our reference feature dictionaries."),
+               
                
                
                
@@ -609,10 +614,10 @@ tags$script(HTML("
                        div(class = "card-header",
                            `data-toggle` = "collapse",
                            `data-target` = "#collapseFour",
-                           tags$h5("Omic Signature Object Overview")
+                           tags$h5("R-Client Tutorial")
                            ),
                        div(id = "CollapseFour", class = "collapse card-body",
-                           p("Omic Signature Object Overview")))
+                           ))
                )
       )
       
@@ -1513,8 +1518,7 @@ server <- function(input, output, session) {
   observeEvent(input$search_signature, {
     tryCatch({
       
-      conn_handler <- conn_handler
-      # Ensure connection is ready
+ 
       
       args <- list(conn_handler = user_conn_handler())
       
@@ -1585,6 +1589,7 @@ server <- function(input, output, session) {
     )
     
     updateSelectInput(session, "update_sig", choices = update_choices, selected = NULL)
+    
   })
   
   
@@ -1681,7 +1686,7 @@ server <- function(input, output, session) {
     
 
     # === Remove original name + id columns ===
-    df$signature_id <- NULL
+   
     # Get current user for row styling
     current_user <- user_conn_handler()$user
     owner_col_index <- which(names(df) == "user_name") - 1
@@ -1775,6 +1780,38 @@ server <- function(input, output, session) {
       }
     }
   )
+  
+  
+  #### Download Omic Signature Logic ####
+  
+  output$download_oms_handler <- downloadHandler(
+    filename = function() {
+      selected_row <- input$signature_tbl_rows_selected
+      req(length(selected_row) == 1)
+      
+      df <- filtered_signatures()
+      
+      # Extract the signature name from the selected row
+      sig_name <- df$signature_name[selected_row]
+      
+      # Sanitize the name to make it filename-safe
+      clean_name <- gsub("[^A-Za-z0-9_\\-]", "_", sig_name)
+      
+      paste0(clean_name, ".rds")
+    },
+    content = function(file) {
+      selected_row <- input$signature_tbl_rows_selected
+      req(length(selected_row) == 1)
+      
+      df <- filtered_signatures()
+      sig_id <- df$signature_id[selected_row]
+      
+      sig_obj <- getSignature(conn_handler = conn_handler, signature_id = sig_id)
+      
+      saveRDS(sig_obj, file)
+    }
+  )
+  
   
   
   
