@@ -48,5 +48,4 @@ install_cran_pkgs <- cran_pkgs[which(!cran_pkgs %in% utils::installed.packages()
 # And finally we install the required packages including their dependencies
 for(pkg in install_cran_pkgs) utils::install.packages(pkg, dependencies = TRUE, repos='http://cran.rstudio.com/')
 
-# need to add the R-shiny packages in here.
-devtools::install_github("montilab/hypeR")
+

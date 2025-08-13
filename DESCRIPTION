@@ -44,11 +44,9 @@ Imports:
   shinyjs,
   tidyverse,
   tools, 
-  utils,
-  hypeR
+  utils
 Remotes:
   montilab/OmicSignature
-  montilab/hypeR
 Suggests:
   BiocManager,
   BiocStyle,
