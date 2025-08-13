@@ -14,6 +14,7 @@ load_all()
 
 # Loading omic signature package
 library(OmicSignature)
+library(hypeR)
 
 # Package for parallel processes
 library(promises)
