@@ -28,13 +28,13 @@ addRefFeatureSet <- function(
   }else if(assay_type == "proteomics"){
     SigRepo::addProteomicsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }else if(assay_type == "metabolomics"){
-    SigRepo::addMetabolomicsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
+   # SigRepo::addMetabolomicsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }else if(assay_type == "methylomics"){
-    SigRepo::addMethylomicsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
+    #SigRepo::addMethylomicsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }else if(assay_type == "genetic_variations"){
-    SigRepo::addGeneticVariationsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
+    #SigRepo::addGeneticVariationsFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }else if(assay_type == "dna_binding_sites"){
-    SigRepo::addDNABindingSitesFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
+    #SigRepo::addDNABindingSitesFeatureSet(conn_handler = conn_handler, feature_set = feature_set, verbose = verbose)
   }
 
 }

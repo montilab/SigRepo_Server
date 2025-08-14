@@ -2,19 +2,19 @@
 x-sql-volume:
   &sql-volume
   type: bind
-  source: $HOME/mysql/database
+  source: $BASE_INSTALL_DIR/mysql/database
   target: /var/lib/mysql
   
 x-sql-schema-init:
   &sql-schema-init
   type: bind
-  source: $HOME/SigRepo/inst/mysql/schema/init.sql
+  source: $SIGREPO_DIR/SigRepo/inst/mysql/schema/init.sql
   target: /docker-entrypoint-initdb.d/init.sql
-  
+
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: $HOME/mysql/difexp
+  source: $BASE_INSTALL_DIR/mysql/difexp
   target: /difexp
   
 x-sigrepo-volume:
@@ -26,6 +26,7 @@ x-sigrepo-volume:
 services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
+    platform: linux/amd64
     image: montilab/sigrepo-mysql:latest
     env_file:
       - mysql.env
@@ -40,6 +41,7 @@ services:
 
   sigrepo-api:
     container_name: sigrepo-api
+    platform: linux/amd64
     image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql
@@ -55,6 +57,7 @@ services:
 
   sigrepo-shiny:
     container_name: sigrepo-shiny
+    platform: linux/amd64
     image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql

@@ -4,19 +4,22 @@
 
 library(devtools)
 library(dplyr)
-devtools::install_github(repo = "montilab/OmicSignature")
+devtools::install_github(repo = "montilab/OmicSignature") # installing the omic signature package 
 
 load_all()
 
 
 # Grabbing the data path
 
-data_path <- system.file("data", package="SigRepo")
+data_path <- system.file("extdata", package="SigRepo")
 
 
 # reading in the data 
 brca_diffanal<- base::readRDS(file.path(data_path, "signatures/ahr_cyp1b1_brca_diffanal.RDS"))
 
+# reading in example proteomics signature
+
+# adding the required columns to the signature
 
 
 
@@ -28,16 +31,35 @@ OmS_SUM_CYP <- brca_diffanal$SUM.CYP
 
 OmS_SUM_AhR <- brca_diffanal$SUM.AhR
 
-# Creating metadata for all 4, The xxxx is either AhR or CYP1B1. "MDA-MB-231 cell" or "SUM-149PT cell",
+
+
+# filtering out the depricated ids
+
+filter_list <- read.csv(file.path(data_path,"feature_tables/Transcriptomics_HomoSapiens.csv"))
+
+filter_list <- filter_list[1]
+
+
+OmS_MDA_CYP <- dplyr::filter(OmS_MDA_CYP, ensembl_gene_id %in% filter_list$feature_name)
+
+OmS_MDA_AhR <- dplyr::filter(OmS_MDA_AhR, ensembl_gene_id %in% filter_list$feature_name)
+
+OmS_SUM_CYP <- dplyr::filter(OmS_SUM_CYP, ensembl_gene_id %in% filter_list$feature_name)
+
+OmS_SUM_AhR <- dplyr::filter(OmS_SUM_AhR, ensembl_gene_id %in% filter_list$feature_name)
+
+
+
+# transcriptomics example metadata 
 
 metadata_MDA_CYP <- OmicSignature::createMetadata(
-  signature_name = "CYP181 knockdown in breast cancer cell line", 
+  signature_name = "test_sig_1", 
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "CYP181 knockdown",
   sample_type = "MDA-MB-231 cell",
   direction_type = "bi-directional", 
-  platform = "GPL17930", 
+  platform = "DNA assay by ChIP-seq", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "CYP181 knockdown"), 
@@ -45,13 +67,13 @@ metadata_MDA_CYP <- OmicSignature::createMetadata(
   adj_p_cutoff = "0.01")
 
 metadata_MDA_AhR <- OmicSignature::createMetadata( 
-  signature_name = "AhR knockdown in breast cancer cell line", 
+  signature_name = "test_sig_2", 
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "AhR knockdown",
-  sample_type = "MDA-MB-231 cell",
+  sample_type = "genotyping by array",
   direction_type = "bi-directional", 
-  platform = "GPL17930", 
+  platform = "transcriptomics by long-read sequencing", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "AhR knockdown"), 
@@ -59,33 +81,36 @@ metadata_MDA_AhR <- OmicSignature::createMetadata(
   adj_p_cutoff = "0.01")
 
 metadata_SUM_CYP <- OmicSignature::createMetadata(
-  signature_name = "CYP181 knockdown in breast cancer cell line", 
+  signature_name = "test_sig_3", 
   organism = "Homo sapiens",
   assay_type = "transcriptomics", 
   phenotype = "AhR knockdown",
   sample_type = "SUM-149PT cell",
   direction_type = "bi-directional", 
-  platform = "GPL17930", 
+  platform = "transcriptomics by array", 
   covariates = "none", 
   year = 2016, 
   keywords = c("breast cancer", "CYP181 knockdown"), 
   description = "Profiles of the transcriptional response of CYP181 knockdown in breast cancer cell ines", 
   adj_p_cutoff = "0.01")
 
-metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "AhR knockdown in breast cancer cell line", 
+metadata_SUM_AhR <- OmicSignature::createMetadata(signature_name = "test_sig_4", 
                                                   organism = "Homo sapiens",
                                                   assay_type = "transcriptomics", 
                                                   phenotype = "AhR knockdown",
                                                   sample_type = "SUM-149PT cell",
                                                   direction_type = "bi-directional", 
-                                                  platform = "GPL17930", 
+                                                  platform = "transcriptomics by array", 
                                                   covariates = "none", 
                                                   year = 2016, 
                                                   keywords = c("breast cancer", "AhR knockdown"), 
                                                   description = "Profiles of the transcriptional response of AhR knockdown in breast cancer cell ines", 
                                                   adj_p_cutoff = "0.01")
 
-# Creating difexp's
+
+
+
+# Transriptomics example difexp
 
 difexp_SUM_Ahr <- OmS_SUM_AhR %>%
   dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
@@ -110,12 +135,14 @@ difexp_MDA_CYP <- OmS_MDA_CYP %>%
   select(feature_name, adj_p, score )
 
 
+
 # creating fake probe_ids for now, still not working for me
 
 difexp_SUM_Ahr$probe_id <- paste0("SUM_AhR_", 1:nrow(difexp_SUM_Ahr))
 difexp_SUM_CYP$probe_id <- paste0("SUM_CYP_", 1:nrow(difexp_SUM_CYP))
 difexp_MDA_AhR$probe_id <- paste0("MDA_AhR_", 1:nrow(difexp_MDA_AhR))
 difexp_MDA_CYP$probe_id <- paste0("MDA_CYP_", 1:nrow(difexp_MDA_CYP))
+
 
 # Creating Signatures, 
 
@@ -133,6 +160,7 @@ sig_MDA_AhR <- difexp_MDA_AhR %>%
 
 sig_MDA_CYP <- difexp_MDA_CYP %>%
   select(feature_name, score, probe_id)
+
 
 
 # adding in the direction column
@@ -173,7 +201,9 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
   difexp = difexp_MDA_CYP
 )
 
+
 # Creating an OmicSignature Collection
+
 
 colMeta <- list(
   'collection_name' = 'example',
@@ -185,4 +215,22 @@ OmSC <- OmicSignature::OmicSignatureCollection$new(
   metadata = colMeta
 )
 
-colnames(OmS_SUM_AhR)
+# saving the RDS objcts to the siganture folder
+
+  #saveRDS(OmSC, file = file.path(data_path, "signatures/OmSC_example.RDS"))
+
+ saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_2_revised.RDS"))
+
+ saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_1_revised.RDS"))
+
+ saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_4_revised.RDS"))
+
+ saveRDS(omic_signature_SUM_CYP, file = file.path(data_path, "signatures/omic_signature_3_revised.RDS"))
+
+
+
+  # checking for probe id accuracy
+  
+  
+  #all(sig_SUM_AhR$probe_id %in% difexp_SUM_Ahr$probe_id)
+  

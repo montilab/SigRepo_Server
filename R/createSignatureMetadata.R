@@ -6,8 +6,7 @@
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{FALSE}. 
 #' 
-#' @noRd
-#' 
+#' @keywords internal
 #' @export
 createSignatureMetadata <- function(
     conn_handler,
@@ -57,6 +56,17 @@ createSignatureMetadata <- function(
   
   # Get assay_type ####
   assay_type <- metadata$assay_type[1]
+  
+  # check if assay type if valid
+  
+  # if(assay_type %in% c("metabolomics", "DNA_binding_sites", "methylomics", "genetic_variations"){
+  #   # If assay_type is not valid, throw an error message
+  #   base::suppressWarnings(DBI::dbDisconnect(conn)) 
+  #   SigRepo::showAssayTypeErrorMessage(
+  #     db_table_name = "assay_types",
+  #     unknown_values = assay_type
+  #   )
+  # }
   
   # Look up organism id (required) ####
   lookup_organism <- metadata$organism[1]
@@ -118,26 +128,22 @@ createSignatureMetadata <- function(
   
   # Look up platform id ####
   lookup_platform <- metadata$platform[1]
-  
-  # Check if variable has values 
-  if(length(lookup_platform) == 0 || lookup_platform %in% c("", NA)){
-    lookup_platform <- 'GPLXXXXX'
-  }
-  
+
+
   # Look up ID
   platform_id_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
-    db_table_name = "platforms", 
+    db_table_name = "platforms",
     return_var = "platform_id",
-    filter_coln_var = "platform_id", 
+    filter_coln_var = "platform_id",
     filter_coln_val = list("platform_id" = lookup_platform),
     check_db_table = TRUE
-  ) 
-  
+  )
+
   # If ID not exists in database, throw an error message
   if(nrow(platform_id_tbl) == 0){
     # Disconnect from database
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
+    base::suppressWarnings(DBI::dbDisconnect(conn))
     # Show error message ####
     SigRepo::showPlatformErrorMessage(
       db_table_name = "platforms",
@@ -145,7 +151,9 @@ createSignatureMetadata <- function(
     )
   }else{
     platform_id <- platform_id_tbl$platform_id[1]
-  }   
+  }
+
+ 
   
   # Look up sample_type id ####
   lookup_sample_type <- metadata$sample_type[1]
@@ -220,6 +228,19 @@ createSignatureMetadata <- function(
     }
   }else{
     logfc_cutoff <- 'NULL'
+  }
+  
+  
+  # platform_id ### 
+  
+  if("platform" %in% names(metadata)){
+    if(length(metadata$platform[1]) == 0){
+      platform_id <- 'NULL'
+    }else{
+      platform_id <- metadata$platform[1]
+    }
+  }else{
+    platform_id <- 'NULL'
   }
   
   # p_value_cutoff ####

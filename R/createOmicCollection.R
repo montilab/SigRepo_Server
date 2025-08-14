@@ -5,11 +5,12 @@
 #' @param db_collection_tbl A collection table in the database with associated 
 #' a list of signature ids to be made into an OmicSignatureCollection object (required)
 #' 
-#' @noRd
 #' 
-#' @export
-#' 
+#' @importFrom methods is
 #' @import OmicSignature
+#' 
+#' @keywords internal
+#' @export
 createOmicCollection <- function(
     conn_handler,
     db_collection_tbl

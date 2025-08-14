@@ -26,3 +26,4 @@ delete_table_sql(
 \description{
 delete an entry from database table
 }
+\keyword{internal}

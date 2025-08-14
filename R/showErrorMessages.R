@@ -4,7 +4,7 @@
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 showOrganismErrorMessage <- function(
@@ -13,7 +13,7 @@ showOrganismErrorMessage <- function(
 ){
   
   base::stop(
-    base::sprintf("\nThe following organisms do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\nThe following organisms do not exist in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
     base::sprintf("\nYou can use 'searchOrganism()' to see a list of available organisms in the database."),
     base::sprintf("\nTo add these organisms to our database, please contact our admin for support.\n")
   ) 
@@ -25,7 +25,7 @@ showOrganismErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 showPlatformErrorMessage <- function(
@@ -33,10 +33,10 @@ showPlatformErrorMessage <- function(
     unknown_values
 ){
   
-  base::stop(
-    base::sprintf("\nThe following platforms do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
-    base::sprintf("\nYou can use 'searchPlatform()' to see a list of available platforms in the database."),
-    base::sprintf("\nTo add these platforms to our database, please contact our admin for support.\n")
+  base::warning(
+    base::sprintf("\nWarning: Your platform %s is not included in the dictionary (you can list the available platforms using SigRepo::SearchPlatform()):\n", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\n If you think you can use one of the already available platforms, please update your signature accordingly"),
+    base::sprintf("\n Otherwise, please consider adding your newly defined platform to the dictionary using SigRepo::AddPlatform()")
   )
   
 }
@@ -46,7 +46,7 @@ showPlatformErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 showSampleTypeErrorMessage <- function(
@@ -67,7 +67,7 @@ showSampleTypeErrorMessage <- function(
 #' @param db_table_name The table name in database
 #' @param unknown_values The unknown values
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export 
 showTranscriptomicsErrorMessage <- function(
@@ -83,5 +83,38 @@ showTranscriptomicsErrorMessage <- function(
   
 }
 
+#' @title showProteomicsErrorMessage
+#' @description Error message for trying to add unknown Proteomics Features to the database
+#' @param db_table_name The table name in database
+#' @param unknown_values The unknown values
+#' 
+#' @keywords internal
+#' 
+#' @export 
+showProteomicsErrorMessage <- function(
+    db_table_name,
+    unknown_values
+){
+  
+  base::warning(
+    base::sprintf("\nThe following features do not existed in the '%s' table of the database:\n%s", db_table_name, base::paste0("'", unknown_values, "'", collapse = "\n")), 
+    base::sprintf("\nYou can use 'searchFeature()' to see a list of available features in the database."),
+    base::sprintf("\nTo add these features to our database, please contact our admin for support.\n")
+  )
+  
+}
 
+#' @title showAssayTypeErrorMessage
+#' @description Error message for trying to add unknown assay types to the database
+#' @param assay_type The unknown assay type
+#' @keywords internal
+#' @export
 
+showAssayErrorMessage <- function(
+    assay_type
+){
+  
+  base::stop(
+    base::sprintf("\nThe following assay does not currently exist in the database yet: '%s'", assay_type)
+  )
+}

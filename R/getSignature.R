@@ -172,7 +172,7 @@ getSignature <- function(
     
     # Add names to signatures
     names(omic_signature_list) <- signature_tbl$signature_name
-
+    
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))
     
@@ -181,10 +181,3 @@ getSignature <- function(
     
   }  
 }
-
-
-
-
-
-
-

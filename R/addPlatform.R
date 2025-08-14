@@ -1,11 +1,23 @@
 #' @title addPlatform
 #' @description Add platform to database
 #' @param conn_handler An established connection to database using newConnhandler() 
-#' @param platform_tbl An data frame containing appropriate column names: 
-#' platform_id, platform_name, seq_technology, organisms to be uploaded into 
+#' @param platform_tbl An data frame containing appropriate column names:  platform_id, 
 #' the database.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#' 
+#' # creating a dataframe
+#' 
+#' # platform_tbl <- data.frame(
+#' # platform_id = 'transcriptomics by array' )
+
+#' 
+#' # SigRepo::addPlatform(
+#' # conn_handler = conn,
+#' # platform_tbl = platform_tbl,
+#' # verbose = FALSE)
 #' 
 #' @export
 addPlatform <- function(
@@ -24,7 +36,7 @@ addPlatform <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "admin"
+    required_role = "editor"
   )
   
   # Create a list of variables to check database ####
@@ -53,8 +65,8 @@ addPlatform <- function(
     conn = conn, 
     db_table_name = db_table_name,
     table = table, 
-    exclude_coln_names = NULL,
-    check_db_table = TRUE
+    check_db_table = TRUE,
+    exclude_coln_names = 'platform_id_db'
   )
   
   # Remove duplicates from table before inserting into database ####

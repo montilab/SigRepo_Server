@@ -10,7 +10,6 @@
 ^\.github$ 
 ^docs$
 ^pkgdown$
-
 # Ignore extensions
 ^.*\.Rproj$
 
@@ -30,4 +29,5 @@
 ^_pkgdown\.yml$ 
 ^install_r_packages\.R$
 ^add-rstudio-users\.sh$
+
 

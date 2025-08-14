@@ -1,9 +1,20 @@
 #' @title deleteUser
-#' @description Delete user information in the database
-#' @param conn_handler An established database connection using SigRepo::newConnhandler() 
+#' @description Delete a user from the database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
 #' @param user_name Name of a user to be deleted (required).
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#'
+#' 
+#' # Establish a Connection Handler using newConnHnalder if not done so already.
+#' 
+#' # SigRepo::deleteUser(
+#' # conn_handler = conn,
+#' # user_name = "user1",
+#' # verbose = FALSE)
 #'
 #' @export
 deleteUser <- function(
@@ -54,19 +65,24 @@ deleteUser <- function(
     base::stop(base::sprintf("\nThere is no user = '%s' existed in the 'users' table of the SigRepo database.\n", user_name))
   }
   
-  # DROP USER FROM DATABASE
-  purrr::walk(
-    base::seq_len(nrow(table)),
-    function(u){
-      #u=1;
-      # CHECK IF USER EXIST IN DATABASE
-      check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
-      # CREATE USER IF NOT EXIST
-      if(nrow(check_user_tbl) == 0){
-        base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", table$user_name[u])))
-      }
-    }
+  # Delete user from users table ####
+  SigRepo::delete_table_sql(
+    conn = conn,
+    db_table_name =  db_table_name,
+    delete_coln_var = "user_name",
+    delete_coln_val = user_name
   )
+  
+  # Reset message options
+  SigRepo::print_messages(verbose = verbose)
+  
+  # CHECK IF USER EXIST IN DATABASE
+  check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", user_name)))
+  
+  # IF USER EXISTS, DROP USER FROM DATABASE
+  if(nrow(check_user_tbl) > 0){
+    base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", user_name)))
+  }
 
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn)) 

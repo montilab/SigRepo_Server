@@ -9,8 +9,7 @@ addPlatform(conn_handler, platform_tbl, verbose = TRUE)
 \arguments{
 \item{conn_handler}{An established connection to database using newConnhandler()}
 
-\item{platform_tbl}{An data frame containing appropriate column names: 
-platform_id, platform_name, seq_technology, organisms to be uploaded into 
+\item{platform_tbl}{An data frame containing appropriate column names:  platform_id, 
 the database.}
 
 \item{verbose}{a logical value indicates whether or not to print the
@@ -18,4 +17,17 @@ diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add platform to database
+}
+\examples{
+
+# creating a dataframe
+
+# platform_tbl <- data.frame(
+# platform_id = 'transcriptomics by array' )
+
+# SigRepo::addPlatform(
+# conn_handler = conn,
+# platform_tbl = platform_tbl,
+# verbose = FALSE)
+
 }

@@ -11,19 +11,19 @@
 #' @examples 
 #' 
 #' # Create a db connection
-#' conn_handler <- SigRepo::newConnHandler(
-#'  dbname = "sigrepo", 
-#'  host = "montilab.bu.edu", 
-#'  port = 3306, 
-#'  user = "guest", 
-#'  password = "guest"
-#' )
+#' # conn_handler <- SigRepo::newConnHandler(
+#'  # dbname = "sigrepo", 
+#'  # host = "montilab.bu.edu", 
+#'  # port = 3306, 
+#'  # user = "guest", 
+#'  # password = "guest"
+#' # )
 #' 
 #' # Get a list of signatures that belongs to user = 'guest'
-#' signature_tbl <- SigRepo::searchSignature(
-#'  conn_handler = conn_handler,
-#'  user_name = "guest"
-#' )
+#' # signature_tbl <- SigRepo::searchSignature(
+#'  # conn_handler = conn_handler,
+#'  # user_name = "guest"
+#' # )
 #' 
 #' # Update the desired signature (NOT RUN)
 #' # SigRepo::updateSignature(
@@ -62,7 +62,6 @@ updateSignature <- function(
   
   # Get unique signature id
   signature_id <- base::unique(signature_id) 
-
   # Get table name in database ####
   db_table_name <- "signatures"
   
@@ -353,4 +352,3 @@ updateSignature <- function(
     }
   }
 } 
-

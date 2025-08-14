@@ -2,8 +2,7 @@
 #' @description Get signatures to database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param platform_id a list of platform accession ids to search by. Default is NULL which
-#' includes all platforms in the database.
+#' @param platform_id a list of platfrom ids (platform names) in the database
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 

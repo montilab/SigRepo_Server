@@ -7,10 +7,23 @@
 #' @param user Name of user to establish the connection.
 #' @param password Password associated with the user.
 #' @return A list of user credentials to establish connection to the remote database.
+#' @examples
+#' 
+#' # Create a connection handler using Sys.getenv with the environment variables 
+#' # stored in your .Renviron
+#' 
+#' # conn_handler <- SigRepo::newConnHandler(
+#' #   dbname = "sigrepo",
+#' #   host = Sys.getenv("HOST"),  
+#' #   port = as.integer(Sys.getenv("PORT")), 
+#' #   user = Sys.getenv("USER"),
+#' #   password = Sys.getenv("PASSWORD") 
+#' # )
+#' 
 #' @export
 newConnHandler <- function(
     dbname = 'sigrepo', 
-    host = "montilab.bu.edu", 
+    host = "sigrepo.org", 
     port = 3306, 
     api_port = 8020,
     user = "guest", 
@@ -60,7 +73,7 @@ newConnHandler <- function(
 #' @param conn_handler A handler uses to establish connection to a remote database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @return a MySQL connection class object
 #' 
@@ -87,8 +100,6 @@ conn_init <- function(conn_handler){
     )
   }, error = function(e){
     base::stop(e, "\n")
-  }, warning = function(w){
-    base::message(w, "\n")
   })
   
   # If user is root, validate if root exists in the users table of the database
@@ -117,6 +128,7 @@ conn_init <- function(conn_handler){
         user_last = "root", 
         user_affiliation = "Boston University",
         user_role = "admin",
+        active = 1,
         stringsAsFactors = FALSE
       )
       

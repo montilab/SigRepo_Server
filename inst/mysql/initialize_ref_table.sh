@@ -14,4 +14,7 @@ mysql --user="root" --database="${MYSQL_DATABASE}" --password="${MYSQL_ROOT_PASS
 
 mysql --user="root" --database="${MYSQL_DATABASE}" --password="${MYSQL_ROOT_PASSWORD}" < /mysql/reference_tables/transcriptomics_features.sql
 
+# mysql --user="root" --database="${MYSQL_DATABASE}" --password="${MYSQL_ROOT_PASSWORD}" < /mysql/reference_tables/proteomics_features.sql
+
 mysql --user="root" --database="${MYSQL_DATABASE}" --password="${MYSQL_ROOT_PASSWORD}" < /mysql/reference_tables/users.sql
+

@@ -1,0 +1,83 @@
+
+x-sql-volume:
+  &sql-volume
+  type: bind
+  source: /mysql/database
+  target: /var/lib/mysql
+  
+x-sql-schema-init:
+  &sql-schema-init
+  type: bind
+  source: /SigRepo/inst/mysql/schema/init.sql
+  target: /docker-entrypoint-initdb.d/init.sql
+
+x-difexp-volume:
+  &difexp-volume
+  type: bind
+  source: /mysql/difexp
+  target: /difexp
+  
+x-signature-volume:
+  &signature-volume
+  type: bind
+  source: /mysql/signatures
+  target: /signatures
+  
+x-sigrepo-volume:
+  &sigrepo-volume
+  type: bind
+  source: /SigRepo
+  target: /SigRepo
+
+services:
+  sigrepo-mysql:
+    container_name: sigrepo-mysql
+    platform: linux/amd64
+    image: montilab/sigrepo-mysql:latest
+    env_file:
+      - mysql.env
+    networks:
+      - db-net
+    ports:
+      - 3306:3306
+    restart: always
+    volumes:
+      - *sql-volume
+      - *sql-schema-init
+
+  sigrepo-api:
+    container_name: sigrepo-api
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+    networks:
+      - db-net
+    ports:
+      - 8020:3838
+    restart: always
+    volumes:
+      - *sigrepo-volume
+      - *difexp-volume
+      - *signature-volume
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/api/shiny-server.sh"]
+
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo-api
+    networks:
+      - db-net
+    ports:
+      - 8050:3838
+    restart: always
+    volumes:
+      - *sigrepo-volume
+    entrypoint: ["/bin/bash", "-c", "/SigRepo/inst/shiny/shiny-server.sh"]
+      
+networks:
+  db-net:
+    external: true
