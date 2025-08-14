@@ -4,6 +4,19 @@
 #' @param phenotype_tbl An data frame containing appropriate column names: phenotype
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#' 
+#' 
+#' # creating a dataframe
+#' 
+#' # phenotype_tbl <- data.frame(
+#' # phenotype = "phenotype1")
+#' 
+#' # SigRepo::addPhenotype(
+#' # conn_handler = conn,
+#' # phenotype_tbl = phenotype_tbl,
+#' # verbose = FALSE)
 #'  
 #' @export
 addPhenotype <- function(

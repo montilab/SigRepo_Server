@@ -24,8 +24,18 @@ to view and access one's uploaded collection. Default is \code{FALSE}.}
 the ID of the uploaded collection. Default is \code{FALSE}.}
 
 \item{verbose}{a logical value indicates whether or not to print the
-diagnostic messages. Default is \code{TRUE}.}
+diagnostic messages. Default is \code{TRUE}. #test}
 }
 \description{
 Add signature collection to database
+}
+\examples{
+
+# SigRepo::addCollection(
+# conn_handler = conn,
+# omic_collection = omic_collection_test,
+# visibility = FALSE,
+# return_collection_id = TRUE,
+# verbose = TRUE)
+
 }

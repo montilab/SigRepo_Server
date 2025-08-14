@@ -7,6 +7,16 @@
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
+#' @examples
+#' 
+#' # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # SigRepo::searchUser(
+#' # conn_handler = conn,
+#' # user_name = c("user1", "user2"), # list of users.
+#' # verbose = FALSE)
+#' 
+#' 
 #' @export
 searchUser <- function(
     conn_handler,
@@ -33,7 +43,7 @@ searchUser <- function(
     user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "users", 
-      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_role", "user_email"), 
+      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_email", "user_role", "active"), 
       check_db_table = TRUE
     )  
     
@@ -42,7 +52,7 @@ searchUser <- function(
     user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
       db_table_name = "users", 
-      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_role", "user_email"), 
+      return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_email", "user_role", "active"), 
       filter_coln_var = "user_name", 
       filter_coln_val = list("user_name" = user_name),
       check_db_table = TRUE

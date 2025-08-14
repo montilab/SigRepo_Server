@@ -4,9 +4,9 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @noRd
 #' 
 #' @export
+#' @keywords internal
 print_messages <- function(verbose){
   
   base::options(warning.length = 2000L, show.error.messages	= TRUE, verbose = verbose)
@@ -16,7 +16,7 @@ print_messages <- function(verbose){
 #' @title verbose
 #' @description Function to whether print diagnostic messages or not
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 verbose <- function(...){
@@ -39,7 +39,9 @@ verbose <- function(...){
 #' @param action_type An established connection to database using SigRepo::newConnhandler() 
 #' @param required_role An established connection to database using SigRepo::newConnhandler() 
 #' 
-#' @noRd
+#' @keywords internal 
+#' 
+#' 
 #' 
 #' @export
 checkPermissions <- function(
@@ -61,7 +63,7 @@ checkPermissions <- function(
   user_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
     db_table_name = "users", 
-    return_var = c("user_name", "user_role", "api_key"), 
+    return_var = c("user_name", "user_role", "api_key", "active"), 
     filter_coln_var = "user_name", 
     filter_coln_val = list("user_name" = conn_info$user), 
     check_db_table = TRUE
@@ -121,7 +123,7 @@ checkPermissions <- function(
   }
   
   # Check if user has the specific role to perform the selected action in the database
-  if(!required_role %in% all_roles){
+  if(!required_role %in% all_roles || user_tbl$active %in% 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -141,7 +143,7 @@ checkPermissions <- function(
 #' @param db_table_name Name of table in the database
 #' @param check Check whether table exists in the database. Default = TRUE.
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 checkDBTable <- function(
@@ -174,7 +176,9 @@ checkDBTable <- function(
 #' @param exclude_coln_names A list of column names to be excluded from the check.
 #' @param check_db_table Check whether table exists in the database. Default = TRUE.
 #' 
-#' @noRd
+#' 
+#' @importFrom methods is
+#' @keywords internal
 #' 
 #' @export
 checkTableInput <- function(
@@ -189,7 +193,7 @@ checkTableInput <- function(
   db_col_names <- SigRepo::getDBColNames(
     conn = conn,
     db_table_name = db_table_name,
-    check_db_table = check_db_table
+    check_db_table = check_db_table,
   )
   
   # Check if table is a data frame object and not empty
@@ -216,6 +220,8 @@ checkTableInput <- function(
   # Clean up the table by converting all empty values as NULL 
   table <- base::data.frame(table, stringsAsFactors = FALSE) %>% 
     dplyr::mutate_if(is.character, ~base::trimws(base::gsub("'", "", ., perl = TRUE))) %>% 
+    base::replace(. == "NA", "'NULL'") %>% 
+    base::replace(. == "NULL", "'NULL'") %>% 
     base::replace(. == "", "'NULL'") %>% 
     base::replace(is.na(.), "'NULL'") %>% 
     base::replace(is.null(.), "'NULL'") %>% 
@@ -234,7 +240,7 @@ checkTableInput <- function(
 #' @param coln_var A list of column names to be excluded from the check.
 #' @param check_db_table Check whether table exists in the database. Default = TRUE.
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 checkDuplicatedEmails <- function( 
@@ -285,7 +291,7 @@ checkDuplicatedEmails <- function(
   }
   
   # Get number of observations 
-  n_obs <- SigRepo:::getNumOfObs(conn = conn, db_table_name = db_table_name)
+  n_obs <- SigRepo::getNumOfObs(conn = conn, db_table_name = db_table_name)
   
   ## Check if table has values, only return non-overlapping samples
   if(n_obs$count > 0){
@@ -331,7 +337,7 @@ checkDuplicatedEmails <- function(
 #' @description Check omic_signature is a valid R6 object
 #' @param omic_signature An R6 class object from OmicSignature package
 #' 
-#' @noRd
+#' @keywords internal 
 #' 
 #' @export
 checkOmicSignature <- function(
@@ -475,7 +481,9 @@ checkOmicSignature <- function(
 #' @description Check omic_signature is a valid R6 object
 #' @param omic_collection An OmicSignatureCollection object from OmicSignature package
 #' 
-#' @noRd
+#' @keywords internal
+#' 
+#' @importFrom methods is
 #' 
 #' @export
 checkOmicCollection <- function(
@@ -529,7 +537,7 @@ checkOmicCollection <- function(
 #' @param conn An established connection to database using SigRepo::newConnhandler() 
 #' @param db_table_name A table in the database
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 getNumOfObs <- function(
@@ -562,14 +570,15 @@ getNumOfObs <- function(
 #' @param conn An established connection to database using SigRepo::newConnhandler() 
 #' @param db_table_name Name of a table in the database
 #' @param check_db_table Check whether table exists in the database. Default = TRUE
-#' 
-#' @noRd
+#' @param exclude_coln_names optional flag to exclude column names from the Colnames list.
+#' @keywords internal
 #' 
 #' @export
 getDBColNames <- function(
     conn,
     db_table_name,
-    check_db_table = TRUE
+    check_db_table = TRUE,
+    exclude_coln_names = NULL
 ){
   
   # Check whether table exists in the database
@@ -594,8 +603,14 @@ getDBColNames <- function(
     base::message(w, "\n")
   })
   
+  col_names <- colnames(db_table)
+  
+  if(!is.null(exclude_coln_names)) {
+    col_names <- setdiff(col_names, exclude_coln_names)
+  }
+  
   # Return column names ####
-  return(colnames(db_table))
+  return(col_names)
   
 }
 
@@ -608,7 +623,7 @@ getDBColNames <- function(
 #' @param coln_var_id An api key uses to access the database
 #' @param check_db_table An api key uses to access the database
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 #' @import digest
@@ -707,7 +722,7 @@ getVariableID <- function(
 #' @param hash_columns An api key uses to access the database
 #' @param hash_method An api key uses to access the database
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 #' @import digest
@@ -784,7 +799,7 @@ createHashKey <- function(
 #' @param coln_var A column variable in the data table
 #' @param check_db_table whether to check database table. Default = TRUE
 #' 
-#' @noRd
+#' @keywords internal
 #' 
 #' @export
 #' @import digest
@@ -871,8 +886,3 @@ removeDuplicates <- function(
   return(table)
   
 }
-
-
-
-
-

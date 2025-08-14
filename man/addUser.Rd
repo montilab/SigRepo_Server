@@ -4,17 +4,44 @@
 \alias{addUser}
 \title{addUser}
 \usage{
-addUser(conn_handler, user_tbl, verbose = TRUE)
+addUser(conn_handler, user_tbl, active = FALSE, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established database connection using SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{user_tbl}{A data frame containing appropriate column names:
-user_name, user_password, user_email, user_first, user_last, user_affiliation, user_role}
+\item{user_tbl}{A data frame containing appropriate column names: user_name, 
+user_password, user_email, user_first, user_last, user_affiliation, user_role}
+
+\item{active}{Whether to make a user TRUE (active) or FALSE (inactive). 
+Default is \code{FALSE}.}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add user information to database
+Add a list of users to database
+}
+\examples{
+
+ # Create a user dataframe
+
+# user_tbl <- base::data.frame(
+#   user_name = "new_user",
+#   user_password = "password123",
+#   user_email = "test_email123@example.com",
+#   user_first = "First",
+#   user_last = "Last",
+#   user_affiliation = "University",
+#   user_role = "editor"
+#)
+
+ # Add a user in dataframe to database
+ 
+# SigRepo::addUser(
+#   conn_handler = conn_handler,
+#   user_tbl = user_tbl,
+#   verbose = FALSE
+# )
+
 }

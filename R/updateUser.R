@@ -1,14 +1,34 @@
 #' @title updateUser
-#' @description Update a user information in the database
-#' @param conn_handler An established database connection using SigRepo::newConnhandler() 
+#' @description Update a user in the database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
 #' @param user_name Name of a user to be updated (required).
 #' @param password Password of a user to be updated. Default is NULL.
 #' @param email Email of a user to be updated. Default is NULL.
-#' @param affiliation First name of a user to be updated. Default is NULL.
+#' @param affiliation Affiliation of the user. Default is NULL.
+#' @param first_name First name of a user to be updated. Default is NULL
 #' @param last_name Last name of a user to be updated. Default is NULL.
 #' @param role Role of a user to be updated. Choices are admin/editor/viewer.
+#' @param active Whether to make a user TRUE (active) or FALSE (inactive). 
+#' Default is NULL.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
+#' 
+#' @examples
+#' 
+#'  # Establish a Connection Handler using newConnHandler if not done so already.
+#' 
+#' # SigRepo::updateUser(
+#' # conn_handler = conn,
+#' # user_name = "test_user", # required
+#' # password = "new_password", 
+#' # email = "test_email",
+#' # affiliation = "test_affiliation",
+#' # last_name = "test_last_name",
+#' # role = "editor",
+#' # verbose = FALSE
+#' # )
+#' 
 #' 
 #' @export
 updateUser <- function(
@@ -20,6 +40,7 @@ updateUser <- function(
     last_name = NULL,
     affiliation = NULL,
     role = NULL,
+    active = NULL,
     verbose = TRUE
 ){
   
@@ -79,6 +100,14 @@ updateUser <- function(
     base::stop("\n'role' must have a length of 1 and can have one of the three roles: admin/editor/viewer.\n")
   }
   
+  # Check active status ####
+  if(length(active[1]) > 0 && all(!active[1] %in% c(0,1))){
+    # Disconnect from database ####
+    base::suppressWarnings(DBI::dbDisconnect(conn))     
+    # Show message
+    base::stop("\n'active' must have a length of 1 and should be set to TRUE (active) or FALSE (inactive).\n")
+  }
+  
   # Check email ####
   if(length(email[1]) > 0){
     # Check email format ####
@@ -128,7 +157,8 @@ updateUser <- function(
       user_first = ifelse(length(first_name[1]) == 0 || all(first_name[1] %in% c("", NA)), user_first, first_name[1]),
       user_last = ifelse(length(last_name[1]) == 0 || all(last_name[1] %in% c("", NA)), user_last, last_name[1]),
       user_affiliation = ifelse(length(affiliation[1]) == 0 || all(affiliation[1] %in% c("", NA)), user_affiliation, affiliation[1]),
-      user_role = ifelse(length(role[1]) == 0 || all(role[1] %in% c("", NA)), user_role, role[1])
+      user_role = ifelse(length(role[1]) == 0 || all(role[1] %in% c("", NA)), user_role, role[1]),
+      active = ifelse(length(!!active[1]) == 0 || all(!!active[1] %in% c("", NA)), active, as.numeric(!!active[1]))
     )
   
   # Create an api key 
@@ -156,40 +186,42 @@ updateUser <- function(
     check_db_table = FALSE
   )  
   
-  # IF USER IS NOT ROOT AND NOT EXIST IN DATABASE, CREATE USER AND GRANT USER PERMISSIONS TO DATABASE
-  purrr::walk(
-    base::seq_len(nrow(table)),
-    function(u){
-      #u=1;
-      # CHECK IF USER EXIST IN DATABASE
-      check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", table$user_name[u])))
-      # CREATE USER IF NOT EXIST
-      if(nrow(check_user_tbl) > 0){
-        # CHANGE PASSWORD IF A NEW PASSWORD IS GIVEN
-        if(length(password[1]) == 1 && all(!password[1] %in% c("", NA))){
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], password[1])))
-        }
-        # GRANT USER PERMISSIONS TO DATABASE BASED ON THEIR ROLES
-        if(table$user_role[u] == "admin"){
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT CREATE, ALTER, DROP, SELECT, INSERT, UPDATE, DELETE, SHOW DATABASES, CREATE USER ON *.* TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
-        }else if(table$user_role[u] == "editor"){
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON sigrepo.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
-        }else if(table$user_role[u] == "viewer"){
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT, SHOW DATABASES ON *.* TO '%s'@'%%';", table$user_name[u])))
-          base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
-        }
-      }
+  # CHECK IF USER EXISTS IN DATABASE
+  check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", user_name[1])))
+  
+  # MAKE SURE USER EXISTS
+  if(nrow(check_user_tbl) > 0){
+    # CHANGE PASSWORD IF A NEW PASSWORD IS GIVEN
+    if(length(password[1]) == 1 && all(!password[1] %in% c("", NA))){
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("ALTER USER '%s'@'%%' IDENTIFIED BY '%s';", user_name[1], password[1])))
     }
-  )
+    # GRANT USER PERMISSIONS TO DATABASE BASED ON THEIR ROLES
+    if(length(role[1]) == 1 && role[1] %in% "admin"){
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT ALL PRIVILEGES ON `sigrepo`.* TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))
+    }else if(length(role[1]) == 1 && role[1] %in% "editor"){
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`keywords` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`phenotypes` TO '%s'@'%%' WITH GRANT OPTION;", table$user_name[u])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT ON `sigrepo`.`platforms` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signatures` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_access` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_feature_set` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`signature_collection_access` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`collection` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT INSERT, UPDATE, DELETE ON `sigrepo`.`collection_access` TO '%s'@'%%' WITH GRANT OPTION;", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+    }else if(length(role[1]) == 1 && role[1] %in% "viewer"){
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("GRANT SELECT ON `sigrepo`.* TO '%s'@'%%';", user_name[1])))
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "FLUSH PRIVILEGES;"))        
+    }
+  }
   
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn)) 
   
   # Return message
-  SigRepo::verbose(base::sprintf("user_name = '%s' has been updated.", user_name))
+  SigRepo::verbose(base::sprintf("user_name = '%s' has been updated.", user_name[1]))
   
 }
 

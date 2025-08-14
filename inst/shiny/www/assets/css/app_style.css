@@ -12,3 +12,13 @@
   border: 1px solid #04AA6D;;
   cursor: pointer;
 }
+
+.primary-btn {
+  color: #fff;
+  font-weight: bold;
+  background-color: gray;  
+}
+
+.invisible {
+  display: none;
+}

@@ -2,15 +2,18 @@
 #' @description Add signature feature set to database
 #' @param conn_handler An established connection to database using newConnhandler() 
 #' @param signature_id A signature name
-#' @param organism_id A signature name
+#' @param organism_id An organism
 #' @param signature_set A data frame containing the appropriate column names:
 #' feature_name, probe_id, score, direction
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#'  
-#' @noRd
+#' 
+#' @importFrom methods is
+#' 
+#' @keywords internal
 #' 
 #' @export
+
 addTranscriptomicsSignatureSet <- function(
     conn_handler,
     signature_id,
