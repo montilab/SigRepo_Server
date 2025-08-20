@@ -114,7 +114,7 @@ conn_handler <- SigRepo::newConnHandler(
   dbname = "sigrepo", 
   host = "142.93.67.157", 
   port = 3306, 
-  user = "montilab", 
+  user = "montilab",  # placeholder, use your account user_name and password.
   password = "sigrepo"
 )
 ```
@@ -128,7 +128,7 @@ Here, we provide two signature objects that comes with the package for demonstra
 
 ```{r}
 # Getting the signature path
-signature_path <- base::system.file("inst/extdata/signatures", package = "SigRepo")
+signature_path <- base::system.file("extdata/signatures", package = "SigRepo")
 
 # Read in the signature object
 omic_signature_1 <- base::readRDS(base::file.path(signature_path, "omic_signature_1_revised.RDS"))
@@ -159,7 +159,7 @@ metadata <- base::list(
   # optional and recommended:
   covariates = "none",
   description = "mice MYC reduced expression",
-  platform = "GPL6246", # use GEO platform ID
+  platform = "", # use GEO platform ID
   sample_type = "liver", # use BRENDA ontology
   
   # optional cut-off attributes.
