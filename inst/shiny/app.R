@@ -22,6 +22,8 @@ library(promises)
 library(future)
 future::plan(multisession)
 
+library(reactable)
+
 
 
 # Create a default database handler 
@@ -42,14 +44,14 @@ ui <- fluidPage(
   ### CSS and JS ####
   shiny::tagList(
     tags$head(
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/main.css"),
+      #tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/main.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/app_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/home_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/sign_in_style.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_signature.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_collection.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_signature.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_collection.css"),
+      #tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_signature.css"),
+      #tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/search_collection.css"),
+      #tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_signature.css"),
+      #tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/upload_collection.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/fontawesome-all.min.css"),
       tags$script(src = "assets/js/app.js", type = "text/javascript"),
       tags$style(HTML("
@@ -77,6 +79,10 @@ ui <- fluidPage(
 
     .navbar-brand img {
       margin-right: 10px;
+    }
+    
+    body{
+    padding-top: 70px;
     }
   "))
     )
@@ -156,30 +162,30 @@ tags$script(HTML("
   shiny::div(
     class = "content-wrapper", id = "content-wrapper", style = "display: none;",
     
-    ### Header #####
-    shiny::div(
-      class = "banner-wrapper",
-      shiny::div(
-        class = "container",
-        shiny::fluidRow(
-          class = "banner-info",
-          shiny::column(
-            width = 12, 
-            class = "login-banner",
-            shiny::actionLink(inputId = "edit_profile", label = NULL, icon = shiny::icon("user-circle")),
-            shiny::uiOutput(outputId = "welcome_msg"),
-            shiny::actionLink(inputId = "log_out_btn", class="button-link", icon = tags$i(class="fa fa-sign-out"), label = strong("Log out"))
-          )
-        )
-      )
-    ),
+  
     
     navbarPage(
       title = div(
-      tags$img(src ="images/logo.png", height = "40px", style = "margin-right:10px;"),
+        
+      style = "width: 100%; display: flex; justify-content: space-between; align-items: center;",
+        
+      div(
+      tags$img(src ="images/logo.png", height = "50px", style = "margin-right:10px;")
       # span("SigRepo", style = "font-weight: bold; font-size: 24px; vertical-align: middle;")
       ),
+      
+      # right side for log out and banner
+      
+      div(
+        style = "display: flex; align-items: center; gap: 10px;",
+        shiny::actionLink(inputId = "edit_profile", label = NULL, icon = shiny::icon("user-circle")),
+        shiny::uiOutput(outputId = "welcoome_msg"),
+        shiny::actionLink(inputId = "log_out_btn", class = "button-link", icon = tags$i(class = " fa fa-sign-out"), label = strong("Log out"))
+      )
+    ), 
       id = "main_navbar",
+      position = "fixed-top",
+    
       
       tabPanel("Home", value = "home",
                tags$head(
@@ -210,18 +216,18 @@ tags$script(HTML("
       "))
                ),
                
-               div(class = "homepage-title", "Welcome to SigRepo"),
-               div(class = "homepage-subtitle", "A platform for managing and exploring genomic signatures and collections"),
+               #div(class = "homepage-title", "Welcome to SigRepo"),
+               #div(class = "homepage-subtitle", "A platform for managing and exploring genomic signatures and collections"),
                
                
                fluidRow(
                  column(
-                   width = 6,
+                   width = 4,
                    div(class = "homepage-section text-intro",
-                       tabsetPanel(
-                         tabPanel("Overview",
+                      
+                        
                                   HTML("
-    <div style='padding: 10px; line-height: 1.6; font-size: 16px;'>
+    <div style='padding: 10px; line-height: 1.6; font-size: 16px; height: 450px;'>
       <p>
         <strong>Welcome to the Signature Repository (SigRepo)!</strong>
       </p>
@@ -241,23 +247,22 @@ tags$script(HTML("
       </p>
     </div>
   ")
-                                  ),
+                                  
                            
-                         tabPanel("Database Schema",
-                                  p("picture of database schema")),
-                         tabPanel("Top Users",
-                                 plotOutput("top_users_plot", height = "300px"))
-                       )
+                         
+                        
+                       
                        )
                  ), 
-                 column(width = 6,
+                 column(width = 8,
                         div(class = "homepage-section",
                              h4("Signature Overview"),
                             tabsetPanel(
-                              tabPanel("By Organism", plotOutput("organism_plot", height = "300px")),
-                              tabPanel("Upload Over Time", plotOutput("upload_trend_plot", height = "300px")),
-                              tabPanel("Visibility", plotOutput("visiblity_plot", height = "300px")),
-                              tabPanel("By assay", plotOutput("assay_plot", height = "300px" ))
+                              tabPanel("By Organism", plotOutput("organism_plot", height = "450px")),
+                              tabPanel("By assay", plotOutput("assay_plot", height = "450px")),
+                              tabPanel("Upload Over Time", plotOutput("upload_trend_plot", height = "450px")),
+                              tabPanel("Visibility", plotOutput("visiblity_plot", height = "450px")),
+                              tabPanel("Top Users", plotOutput("top_users_plot", height = "450px"))
                             )
                              )
                         )
@@ -307,11 +312,15 @@ tags$script(HTML("
       
       tabPanel("Signatures", value = "signatures",
                
-               div(class = "homepage-title", "Signature Management"),
-               div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
+               #div(class = "homepage-title", "Signature Management"),
+               #div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
                
                sidebarLayout(
                  sidebarPanel(width = 4,
+                              
+                              
+                              
+                              
                               tabsetPanel(
                                 id = "main_tabs",
                                 type = "tabs",
@@ -379,14 +388,17 @@ tags$script(HTML("
                                 #          selectInput("sig_for_perms", "Select a signature that you uploaded", choices = NULL, multiple = FALSE),
                                 #          selectInput("select_user", "Select a user, or multiple users", choices = NULL, multiple = TRUE),
                                 #          selectInput("select_role_type", "Select a role type", choices = NULL, multiple = TRUE))
-                              )
+                              ),
+                              br(),
+                              br(),
+                              DTOutput("signature_tbl")
                  ),
                  
                  mainPanel(
                    width = 8,
                    
                    # Main signature table
-                   DTOutput("signature_tbl"),
+                   #DTOutput("signature_tbl"),
                    br(),
                    
                    # Conditional tab view for file tables
@@ -396,7 +408,71 @@ tags$script(HTML("
                        id = "file_tabs",
                        type = "tabs",
                        
+                       
+                       tabPanel(
+                         "Summary", value = "summary",
+                         
+                         tags$head(tags$style(HTML("
+           .signature-info {
+             background-color: #f8f9fa;
+             padding: 15px;
+             border: 1px solid #ddd;
+             border-radius: 5px;
+             margin-bottom: 20px;
+           }
+         "))),
+                         
+                         fluidPage(
+                           
+                           div(
+                             id = "oms_download_wrapper",  # Add an ID to control visibility
+                             downloadButton(
+                               "download_oms_handler",
+                               "Download OmicSignature",
+                               class = "submit-button",
+                               onclick = "sig_tbl_select_rows();"
+                             )
+                           ),
+                           
+                           
+                           uiOutput("signature_title"),
+                           uiOutput("signature_description"),
+                           
+                           br(),
+                           br(),
+                           
+                           # Top section with two columns
+                           fluidRow(
+                             # LEFT SIDE: Description
+                             column(
+                               width = 4,
+                               div(class = "signature-info",
+                                   h4("🧬 Signature Info"),
+                                   tags$hr(),
+                                   uiOutput("signature_metadata")
+                               )
+                             ),
+                             
+                             # RIGHT SIDE: Plots with nested tabs
+                             column(
+                               width = 8,
+                               tabsetPanel(
+                                 tabPanel("Top Features", plotOutput("top_features"))
+                                 
+                                 
+                               )
+                             )
+                           ),
+                           
+                           tags$hr(),
+                           
+                           # Bottom tab panels: Signature table and Differential Expression table
+                           
+                         )
+                       ),
+                       
                        # Signature tab
+                       
                        tabPanel(
                          "Signature",
                          DTOutput("signature_file_table"),
@@ -417,12 +493,7 @@ tags$script(HTML("
                    br(),
                    
                    # OmicSignature download
-                   downloadButton(
-                     "download_oms_handler",
-                     "Download OmicSignature",
-                     class = "submit-button",
-                     onclick = "sig_tbl_select_rows();"
-                   )
+                  
                  )
                )
                  ),
@@ -432,8 +503,8 @@ tags$script(HTML("
       
       tabPanel("Collections", value = "collections",
         
-               div(class = "homepage-title", "Collection Management"),
-               div(class = "homepage-subtitle", "Add Signature Collections or browse the curated list of Signature Collections"),
+               #div(class = "homepage-title", "Collection Management"),
+               #div(class = "homepage-subtitle", "Add Signature Collections or browse the curated list of Signature Collections"),
                
                
                sidebarLayout(
@@ -476,8 +547,8 @@ tags$script(HTML("
       
       tabPanel("Annotate", value = "annotate",
                
-               div(class = "homepage-title", "Annotate"),
-               div(class = "homepage-subtitle", "Conduct hypeR on signatures"),
+               #div(class = "homepage-title", "Annotate"),
+               #div(class = "homepage-subtitle", "Conduct hypeR on signatures"),
                
                
                sidebarLayout(
@@ -491,6 +562,14 @@ tags$script(HTML("
                                         actionButton("signature_add", "Add Signature")
                                ),
                                tabPanel("[2] Genesets",
+                                        fluidRow(
+                                          column(4,
+                                                 hypeR::genesets_UI("genesets")
+                                                 ),
+                                          column(8,
+                                                 uiOutput("geneset_table"),
+                                                 )
+                                        )
                                         
                                        
                                ),
@@ -511,7 +590,7 @@ tags$script(HTML("
                    ),
                    conditionalPanel(
                      condition = "input.sidebar_tabs === '[2] Genesets'",
-                     uiOutput("table")
+                     uiOutput("geneset_table")
                    ),
                    conditionalPanel(
                      condition = "input.sidebar_tabs === '[3] Enrichment'",
@@ -526,8 +605,8 @@ tags$script(HTML("
       ),
       tabPanel("References", value = "references",
                
-               div(class = "homepage-title", "References"),
-               div(class = "homepage-subtitle", "Browse our reference feature dictionaries."),
+              # div(class = "homepage-title", "References"),
+               #div(class = "homepage-subtitle", "Browse our reference feature dictionaries."),
                
                
                
@@ -562,63 +641,57 @@ tags$script(HTML("
     "))
                ),
                
-               div(class = "container",
-                   
-                   h3("Resources"),
-                   
-                   # First collapsing section
-                   div(class = "card",
-                       div(class = "card-header", 
-                           `data-toggle` = "collapse", 
-                           `data-target` = "#collapseOne",
-                           tags$h5("📘 Getting Started")
-                       ),
-                       div(id = "collapseOne", class = "collapse card-body",
-                           p("This section helps you understand the basics of SigRepo."),
-                           tags$ul(
-                             tags$li("How to upload a signature"),
-                             tags$li("How to search and filter"),
-                             tags$li("Basic usage")
-                           )
-                       )
-                   ),
-                   
-                   # Second collapsing section
-                   div(class = "card",
-                       div(class = "card-header", 
-                           `data-toggle` = "collapse", 
-                           `data-target` = "#collapseTwo",
-                           tags$h5("📂 File Formats")
-                       ),
-                       div(id = "collapseTwo", class = "collapse card-body",
-                           p("Supported file formats for upload:"),
-                           tags$ul(
-                             tags$li(".RDS - for omic_signature objects"),
-                             tags$li(".CSV - for batch metadata uploads")
-                           )
-                       )
-                   ),
-                   
-                   # Third collapsing section
-                   div(class = "card",
-                       div(class = "card-header", 
-                           `data-toggle` = "collapse", 
-                           `data-target` = "#collapseThree",
-                           tags$h5("🔒 Access & Permissions")
-                       ),
-                       div(id = "collapseThree", class = "collapse card-body",
-                           p("Learn how visibility and permissions work for users.")
-                       )
-                   ),
-                   div(class = "card",
-                       div(class = "card-header",
-                           `data-toggle` = "collapse",
-                           `data-target` = "#collapseFour",
-                           tags$h5("R-Client Tutorial")
-                           ),
-                       div(id = "CollapseFour", class = "collapse card-body",
-                           ))
+               tabPanel("Resources", value = "resources",
+                        tags$head(
+                          tags$style(HTML("
+             .resource-menu {
+               background-color: #f8f9fa;
+               padding: 20px 20px 20px 0px;
+               border-right: 1px solid #ddd;
+               margin-left: 0px; 
+               height: 100%;
+             }
+             .resource-content {
+               padding: 20px;
+             }
+             .resource-link {
+               display: block;
+               margin-bottom: 10px;
+               font-size: 16px;
+               color: #007bff;
+               cursor: pointer;
+             }
+             .resource-link:hover {
+               text-decoration: underline;
+             }
+           "))
+                        ),
+                        
+                        div(class = "container",
+                            h3("Resources"),
+                            
+                            fluidRow(
+                              column(
+                                width = 3,
+                                div(class = "resource-menu",
+                                    h4("Topics"),
+                                    actionLink("res_getting_started", "📘 Getting Started", class = "resource-link"),
+                                    actionLink("res_file_formats", "📂 File Formats", class = "resource-link"),
+                                    actionLink("res_permissions", "🔒 Access & Permissions", class = "resource-link"),
+                                    actionLink("res_rclient", "📦 R-Client Tutorial", class = "resource-link")
+                                )
+                              ),
+                              
+                              column(
+                                width = 9,
+                                div(class = "resource-content",
+                                    uiOutput("resource_content")
+                                )
+                              )
+                            )
+                        )
                )
+               
       )
       
       
@@ -663,6 +736,9 @@ server <- function(input, output, session) {
   # Create reactive values to store user login information
   user_conn_handler <- shiny::reactiveVal()
   user_login_info <- shiny::reactiveVal()
+  
+  shinyjs::hide("oms_download_wrapper")
+  
   
   
   # Print this when a session starts ####
@@ -1678,32 +1754,37 @@ server <- function(input, output, session) {
   
   #######
   
+  # MINI TABLE LOGIC ####
+  
+  
   # MAIN TABLE LOGIC ####
   
   output$signature_tbl <- DT::renderDataTable({
     df <- filtered_signatures()
     req(!is.null(df), nrow(df) > 0)
     
-
-    # === Remove original name + id columns ===
-   
-    # Get current user for row styling
     current_user <- user_conn_handler()$user
-    owner_col_index <- which(names(df) == "user_name") - 1
     
+    # Optional: Uncomment this line to filter by visibility/ownership
+    # df <- df[df$user_name == current_user | df$visibility == 1, ]
+    req(nrow(df) > 0)
+    
+    # Keep both signature_name and user_name for logic
+    df_display <- df[, c("signature_name", "user_name")]
+    
+    # Get index of user_name column
+    owner_col_index <- which(names(df_display) == "user_name") - 1
+    
+    # Render table, hiding user_name from view but keeping it in data
     DT::datatable(
-      df,
+      df_display,
       escape = FALSE,
       options = list(
         pageLength = 10,
-        scrollX = TRUE,
         scrollY = "300px",
         fixedHeader = TRUE,
         columnDefs = list(
-          list(
-            targets = which(names(df) %in% c("visibility", "others", "keywords", "cutoff_description")) - 1,
-            visible = FALSE
-          )
+          list(targets = owner_col_index, visible = FALSE)  # hide user_name
         ),
         rowCallback = DT::JS(sprintf("
         function(row, data, index) {
@@ -1714,11 +1795,63 @@ server <- function(input, output, session) {
       ),
       selection = "single",
       rownames = FALSE,
-      class = "nowrap"
+      class = "compact stripe hover"
     )
   })
   
-  #### SIGNATURE AND DIFEXP TABLE LOGIC ####
+  
+  #### SUMMARY, SIGNATURE, AND DIFEXP TABLE LOGIC ####
+  
+  
+  # SUMMARY SERVER LOGIC ####
+  
+  
+  
+  
+  
+  
+  # SUMMARY PLOTS #### 
+  
+  output$top_features <- renderPlot({
+    sig_obj <- selected_signature()
+    sig_tbl <- sig_obj$signature  # Signature table
+    
+    req(!is.null(sig_tbl), nrow(sig_tbl) > 0)
+  
+   top_features <- sig_tbl %>%
+     
+     arrange(desc(score)) %>%
+     slice_head(n = 10) %>%
+     bind_rows(
+       sig_tbl %>%
+         arrange(score) %>%
+         slice_head(n = 10)
+     ) %>%
+     mutate(feature_name = factor(feature_name, levels = feature_name[order(score)]))
+   
+   # generating plot
+   
+   ggplot(top_features, aes(x = feature_name, y = score, fill > 0)) +
+     geom_col()+
+     coord_flip()+
+     scale_fill_manual(values = c("TRUE" = "#1b9e77", "FALSE" = "#d95f02"),
+                       labels = c("Downregulated", "upregulated")) +
+     labs(
+       title= "Top 10 Positive and Negative Signature Features",
+       x = "Feature Name",
+       y = "Score",
+       fill = "Direction",
+     ) +
+     theme_minimal()
+   
+  })
+  
+
+  
+
+  
+  
+  # DIFEXP ###
   
   output$signature_selected <- reactive({
     !is.null(input$signature_tbl_rows_selected) && length(input$signature_tbl_rows_selected) > 0
@@ -1742,19 +1875,119 @@ server <- function(input, output, session) {
     sig_obj <- selected_signature()
     req(!is.null(sig_obj))
     
-    signature <- sig_obj$signature
-    
-    datatable(signature, option = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
+    datatable(
+      sig_obj$signature,
+      options = list(
+        pageLength = 100,
+        scrollY = "500px",
+        scrollX = TRUE,
+        scrollCollapse = TRUE,
+        paging = TRUE,
+        fixedHeader = TRUE
+      ),
+      rownames = FALSE,
+      class = "stripe hover compact nowrap"
+    )
   })
   
   output$difexp_file_table <- DT::renderDataTable({
     sig_obj <- selected_signature()
     req(!is.null(sig_obj))
-    datatable(sig_obj$difexp, option = list(pageLength = 5, scrollX = TRUE), rownames = FALSE)
-  })    
+    
+    datatable(
+      sig_obj$difexp,
+      options = list(
+        pageLength = 100,
+        scrollY = "500px",
+        scrollX = TRUE,
+        scrollCollapse = TRUE,
+        paging = TRUE,
+        fixedHeader = TRUE
+      ),
+      rownames = FALSE,
+      class = "stripe hover compact nowrap"
+    )
+  })
+  
+  
+  ### SUMMARY SERVER LOGIC ####
+  
+  ### SIGNATURE TITLE ####
+  
+  
+  output$signature_title <- renderUI({
+    sig_obj <- selected_signature()
+    metadata <- sig_obj$metadata
+    
+    h2(metadata$signature_name)
+  })
+  
+  
+  
+  output$signature_description <- renderText({
+    sig_obj <- selected_signature()
+    metadata <- sig_obj$metadata
+    
+    # Try to get description, or fallback
+    if (!is.null(metadata$description)) {
+      return(metadata$description)
+    } else {
+      return("No description provided for this signature.")
+    }
+  })
+  
+  
+  output$signature_metadata <- renderUI({
+    sig_obj <- selected_signature()
+    metadata <- sig_obj$metadata
+    
+    # Safely extract required fields (will throw if missing)
+    req_fields <- c( "organism", "direction_type", "assay_type", "phenotype")
+    
+    missing_fields <- setdiff(req_fields, names(metadata))
+    if (length(missing_fields) > 0) {
+      return(div(class = "alert alert-danger",
+                 paste("Missing required metadata fields:", paste(missing_fields, collapse = ", "))))
+    }
+    
+    # Optional fields
+    optional_fields <- c("platform", "sample_type", "covariates", "score_cutoff", "adj_p_cutoff")
+    
+    # Build UI output
+    output_tags <- tagList(
+      p(strong("Organism:"), metadata$organism),
+      p(strong("Assay Type:"), metadata$assay_type),
+      p(strong("Phenotype:"), metadata$phenotype),
+      p(strong("Direction Type:"), metadata$direction_type)
+    )
+    
+    # Conditionally add optional metadata fields
+    for (field in optional_fields) {
+      if (!is.null(metadata[[field]])) {
+        output_tags <- tagAppendChild(
+          output_tags,
+          p(strong(paste0(tools::toTitleCase(gsub("_", " ", field)), ":")), metadata[[field]])
+        )
+      }
+    }
+    
+    return(output_tags)
+  })
+  
+  
   
   
   #### DOWNLOAD HANDLER LOGIC ####
+  
+  observe({
+    selected <- input$signature_tbl_rows_selected
+    if (length(selected) > 0) {
+      shinyjs::show("oms_download_wrapper")
+    } else {
+      shinyjs::hide("oms_download_wrapper")
+    }
+  })
+  
   
   output$export_table <- downloadHandler(
     filename = function() {
@@ -2037,10 +2270,110 @@ server <- function(input, output, session) {
   
   output$ref_feature_tbl <- renderDT({
     req(ref_features())
-    datatable(ref_features(), options = list(pageLength = 10))
+    
+    datatable(
+      ref_features(),
+      options = list(
+        pageLength = 10,
+        scrollY = "600px",      # Set the scrollable height
+        scrollCollapse = TRUE,  # Collapse if fewer rows
+        paging = TRUE,         # Optional: remove paging
+        fixedHeader = TRUE      # Optional: keep header fixed
+      ),
+      class = "stripe hover compact nowrap"
+    )
   })
   
   
+  
+  #### HypeR SERVER LOGIC ####
+  
+  
+  # signature choices logic for hypeR
+  
+  observe({
+    df <- filtered_signatures()
+    req(!is.null(df), nrow(df) > 0)
+    
+    
+    sig_choices <- unique(df$signature_name)
+    
+    
+    updateSelectInput(
+      session,
+      inputId = "signature_add",
+      choices = sig_choices,
+      selected = NULL
+    )
+  })
+  
+  
+  #### HypeR SERVER LOGIC ####
+  
+  # signature tab #
+  
+  # observeEvent(input$signature_add, {
+  #   
+  #   signature_id <- filtered_signatures()
+  #   
+  #   signature <- SigRepo::getSignature(conn_handler = user_conn_handler(),
+  #                                 signature_id = signature_id)
+  #   
+  #   experiment_label <- input$experiment_label
+  #   
+  #   signature_label <- input$signature_label
+  #   
+  #   
+  #   if (!(experiment_label %in% names(data)))
+  # })
+  
+ 
+   genesets <- hypeR::genesets_Server("genesets", clean=FALSE)
+
+  output$geneset_table <- renderUI({
+    gsets <- genesets()
+
+    df <- data.frame(Geneset=names(gsets), Symbols=sapply(gsets, function(x) paste(head(x,5), collapse=",")))
+    tbl <- reactable(df,
+                     rownames=FALSE,
+                     compact=TRUE,
+                     fullWidth=TRUE,
+                     defaultPageSize=20,
+                     defaultColDef=colDef(headerClass="rctbl-header"),
+                     style=list(backgroundColor="#EFEFEF"),
+                     showPageSizeOptions=TRUE,
+                     rowStyle=list(cursor="pointer"))
+
+    dat <- htmltools::div(class="rctbl-obj-teeny", tbl)
+    return(dat)
+  })
+
+  # output$geneset_table <- DT::renderDataTable({
+  #   gsets <- genesets()
+  #   req(!is.null(gsets), length(gsets) > 0)
+  # 
+  #   df <- data.frame(
+  #     Geneset = names(gsets),
+  #     Symbols = sapply(gsets, function(x) paste(head(x, 5), collapse = ","))
+  #   )
+  # 
+  #   DT::datatable(
+  #     df,
+  #     rownames = FALSE,
+  #     options = list(
+  #       pageLength = 20,
+  #       lengthMenu = c(10, 20, 50, 100),
+  #       scrollX = TRUE,
+  #       autoWidth = TRUE,
+  #       dom = 'tip',
+  #       columnDefs = list(
+  #         list(className = 'dt-center', targets = "_all")
+  #       )
+  #     ),
+  #     class = "compact stripe hover nowrap"
+  #   )
+  # })
+
   
   #### RENDER KNITR HTML LOGIC ####
   
@@ -2058,6 +2391,55 @@ server <- function(input, output, session) {
       paste(readLines(file.path(tempdir(), "report.html")), collapse = "\n")
     )
   })
+  
+  ### RESOURCES SERVER LOGIC ####
+  selected_resource <- reactiveVal("getting_started")
+  
+  observeEvent(input$res_getting_started, selected_resource("getting_started"))
+  observeEvent(input$res_file_formats, selected_resource("file_formats"))
+  observeEvent(input$res_permissions, selected_resource("permissions"))
+  observeEvent(input$res_rclient, selected_resource("rclient"))
+  
+  output$resource_content <- renderUI({
+    switch(selected_resource(),
+           
+           "getting_started" = tagList(
+             h4("📘 Getting Started"),
+             p("This section helps you understand the basics of SigRepo."),
+             tags$ul(
+               tags$li("How to upload a signature"),
+               tags$li("How to search and filter"),
+               tags$li("Basic usage")
+             )
+           ),
+           
+           "file_formats" = tagList(
+             h4("📂 File Formats"),
+             p("Supported file formats for upload:"),
+             tags$ul(
+               tags$li(".RDS - for omic_signature objects"),
+               tags$li(".CSV - for batch metadata uploads")
+             )
+           ),
+           
+           "permissions" = tagList(
+             h4("🔒 Access & Permissions"),
+             p("Learn how visibility and permissions work for users."),
+             p("Users can share or restrict access to signatures using role-based permissions.")
+           ),
+           
+           "rclient" = tagList(
+             h4("📦 R-Client Tutorial"),
+             tags$iframe(
+               src = "knits/R_client.html",
+               width = "100%",
+               height = "600px",
+               style = "border: none;"
+             )
+           )
+    )
+  })
+  
   
   
 } # server end bracket
