@@ -10,11 +10,11 @@ library(tidyverse)
 
 # Package for loading and installing packages
 library(devtools)
-load_all()
 
 
 # Loading omic signature package
 library(OmicSignature)
+
 
 
 # Package for parallel processes
@@ -22,7 +22,7 @@ library(promises)
 library(future)
 future::plan(multisession)
 
-library(reactable)
+
 
 
 
@@ -89,9 +89,9 @@ ui <- fluidPage(
   ),
   
   
- 
-# JS TAGS ####
-tags$script(HTML("
+  
+  # JS TAGS ####
+  tags$script(HTML("
   $(document).on('click', '.sig-link', function(e) {
     e.preventDefault();
     const sig_id = $(this).data('sig_id');
@@ -103,8 +103,8 @@ tags$script(HTML("
     });
   });
 ")),
-
-
+  
+  
   
   
   shinyjs::useShinyjs(),
@@ -162,30 +162,30 @@ tags$script(HTML("
   shiny::div(
     class = "content-wrapper", id = "content-wrapper", style = "display: none;",
     
-  
+    
     
     navbarPage(
       title = div(
         
-      style = "width: 100%; display: flex; justify-content: space-between; align-items: center;",
+        style = "width: 100%; display: flex; justify-content: space-between; align-items: center;",
         
-      div(
-      tags$img(src ="images/logo.png", height = "50px", style = "margin-right:10px;")
-      # span("SigRepo", style = "font-weight: bold; font-size: 24px; vertical-align: middle;")
-      ),
-      
-      # right side for log out and banner
-      
-      div(
-        style = "display: flex; align-items: center; gap: 10px;",
-        shiny::actionLink(inputId = "edit_profile", label = NULL, icon = shiny::icon("user-circle")),
-        shiny::uiOutput(outputId = "welcoome_msg"),
-        shiny::actionLink(inputId = "log_out_btn", class = "button-link", icon = tags$i(class = " fa fa-sign-out"), label = strong("Log out"))
-      )
-    ), 
+        div(
+          tags$img(src ="images/logo.png", height = "50px", style = "margin-right:10px;")
+          # span("SigRepo", style = "font-weight: bold; font-size: 24px; vertical-align: middle;")
+        ),
+        
+        # right side for log out and banner
+        
+        div(
+          style = "display: flex; align-items: center; gap: 10px;",
+          shiny::actionLink(inputId = "edit_profile", label = NULL, icon = shiny::icon("user-circle")),
+          shiny::uiOutput(outputId = "welcoome_msg"),
+          shiny::actionLink(inputId = "log_out_btn", class = "button-link", icon = tags$i(class = " fa fa-sign-out"), label = strong("Log out"))
+        )
+      ), 
       id = "main_navbar",
       position = "fixed-top",
-    
+      
       
       tabPanel("Home", value = "home",
                tags$head(
@@ -224,9 +224,9 @@ tags$script(HTML("
                  column(
                    width = 4,
                    div(class = "homepage-section text-intro",
-                      
-                        
-                                  HTML("
+                       
+                       
+                       HTML("
     <div style='padding: 10px; line-height: 1.6; font-size: 16px; height: 450px;'>
       <p>
         <strong>Welcome to the Signature Repository (SigRepo)!</strong>
@@ -247,16 +247,16 @@ tags$script(HTML("
       </p>
     </div>
   ")
-                                  
-                           
-                         
-                        
                        
-                       )
+                       
+                       
+                       
+                       
+                   )
                  ), 
                  column(width = 8,
                         div(class = "homepage-section",
-                             h4("Signature Overview"),
+                            h4("Signature Overview"),
                             tabsetPanel(
                               tabPanel("By Organism", plotOutput("organism_plot", height = "450px")),
                               tabPanel("By assay", plotOutput("assay_plot", height = "450px")),
@@ -264,8 +264,8 @@ tags$script(HTML("
                               tabPanel("Visibility", plotOutput("visiblity_plot", height = "450px")),
                               tabPanel("Top Users", plotOutput("top_users_plot", height = "450px"))
                             )
-                             )
                         )
+                 )
                  
                ),
                fluidRow(
@@ -308,7 +308,7 @@ tags$script(HTML("
                  )
                )
       ),
-               
+      
       
       tabPanel("Signatures", value = "signatures",
                
@@ -335,36 +335,8 @@ tags$script(HTML("
                                          
                                 ),
                                 
-                                # ---- Filter Tab ----
-                                tabPanel("Filter",
-                                         h4("Filter Signatures"),
-                                         selectizeInput(
-                                           inputId = "search_options_signature",
-                                           label = "Search Options:",
-                                           choices = c(
-                                             "Choose from a list of options below" = "",
-                                             "signature_name", 
-                                             "organism", 
-                                             "phenotype",
-                                             "sample_type", 
-                                             "platform_id", 
-                                             "assay_type"
-                                           ),
-                                           multiple = TRUE,
-                                           width = "100%"
-                                         ),
-                                         shinyjs::hidden(selectizeInput("signature_name", "signature_name:", choices = "", multiple = TRUE)),
-                                         shinyjs::hidden(selectizeInput("organism", "organism:", choices = "", multiple = TRUE)),
-                                         shinyjs::hidden(selectizeInput("phenotype", "phenotype:", choices = "", multiple = TRUE)),
-                                         shinyjs::hidden(selectizeInput("sample_type", "sample_type:", choices = "", multiple = TRUE)),
-                                         shinyjs::hidden(selectizeInput("platform_id", "platform:", choices = "", multiple = TRUE)),
-                                         shinyjs::hidden(selectizeInput("assay_type", "assay_type:", choices = "", multiple = TRUE)),
-                                         br(),
-                                         actionButton("search_signature", "Search", class = "submit-button"),
-                                         actionButton("clear_filters", "Clear Filters"),
-                                         br(), br(),
-                                         uiOutput("search_sig_error_msg")
-                                ),
+          
+                                
                                 
                                 # ---- Update Tab ----
                                 tabPanel("Update",
@@ -382,127 +354,87 @@ tags$script(HTML("
                                          actionButton("delete_btn_sig", "Delete")
                                 ),
                                 
-                                # # ---- Manage Tab ----
-                                # tabPanel("Manage",
-                                #          h4("Add users to your signatures"),
-                                #          selectInput("sig_for_perms", "Select a signature that you uploaded", choices = NULL, multiple = FALSE),
-                                #          selectInput("select_user", "Select a user, or multiple users", choices = NULL, multiple = TRUE),
-                                #          selectInput("select_role_type", "Select a role type", choices = NULL, multiple = TRUE))
                               ),
                               br(),
                               br(),
-                              DTOutput("signature_tbl")
+                              # DTOutput("signature_tbl")
                  ),
                  
                  mainPanel(
                    width = 8,
                    
-                   # Main signature table
-                   #DTOutput("signature_tbl"),
-                   br(),
+                   DTOutput("signature_tbl")
                    
-                   # Conditional tab view for file tables
-                   conditionalPanel(
-                     condition = "output.signature_selected == true",
-                     tabsetPanel(
-                       id = "file_tabs",
-                       type = "tabs",
-                       
-                       
-                       tabPanel(
-                         "Summary", value = "summary",
-                         
-                         tags$head(tags$style(HTML("
-           .signature-info {
-             background-color: #f8f9fa;
-             padding: 15px;
-             border: 1px solid #ddd;
-             border-radius: 5px;
-             margin-bottom: 20px;
-           }
-         "))),
-                         
-                         fluidPage(
-                           
-                           div(
-                             id = "oms_download_wrapper",  # Add an ID to control visibility
-                             downloadButton(
-                               "download_oms_handler",
-                               "Download OmicSignature",
-                               class = "submit-button",
-                               onclick = "sig_tbl_select_rows();"
-                             )
-                           ),
-                           
-                           
-                           uiOutput("signature_title"),
-                           uiOutput("signature_description"),
-                           
-                           br(),
-                           br(),
-                           
-                           # Top section with two columns
-                           fluidRow(
-                             # LEFT SIDE: Description
-                             column(
-                               width = 4,
-                               div(class = "signature-info",
-                                   h4("🧬 Signature Info"),
-                                   tags$hr(),
-                                   uiOutput("signature_metadata")
-                               )
-                             ),
-                             
-                             # RIGHT SIDE: Plots with nested tabs
-                             column(
-                               width = 8,
-                               tabsetPanel(
-                                 tabPanel("Top Features", plotOutput("top_features"))
-                                 
-                                 
-                               )
-                             )
-                           ),
-                           
-                           tags$hr(),
-                           
-                           # Bottom tab panels: Signature table and Differential Expression table
-                           
-                         )
-                       ),
-                       
-                       # Signature tab
-                       
-                       tabPanel(
-                         "Signature",
-                         DTOutput("signature_file_table"),
-                         br(),
-                         downloadButton("export_table", "Write current table to CSV", class = "submit-button")
-                       ),
-                       
-                       # Difexp tab
-                       tabPanel(
-                         "Difexp",
-                         DTOutput("difexp_file_table"),
-                         br(),
-                         downloadButton("export_table", "Write current table to CSV", class = "submit-button")
-                       )
-                     )
-                   ),
-                   
-                   br(),
-                   
-                   # OmicSignature download
                   
                  )
-               )
+                 
+               ),absolutePanel(
+                 id = "details_panel",
+                 top = 100, right = 100, width = 800, draggable = TRUE,
+                 style = "z-index: 10; background-color: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); display: none;",
+                 
+                 # adding closeout button
+                 tags$div(
+                   style = "position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 20px;",
+                   actionLink("close_panel", label = HTML("&times;"))  # × symbol
                  ),
                  
+                 conditionalPanel(
+                   condition = "output.signature_selected === true",
+                   
+                   tabsetPanel(
+                     tabPanel("Summary",
+                              div(id = "oms_download_wrapper",
+                                  downloadButton(
+                                    "download_oms_handler",
+                                    "Download OmicSignature",
+                                    class = "submit-button",
+                                    onclick = "sig_tbl_select_rows();"
+                                  )
+                              ),
+                              uiOutput("signature_title"),
+                              uiOutput("signature_description"),
+                              br(), br(),
+                              fluidRow(
+                                column(
+                                  width = 4,
+                                  div(class = "signature-info",
+                                      h4("🧬 Signature Info"),
+                                      tags$hr(),
+                                      uiOutput("signature_metadata")
+                                  )
+                                ),
+                                column(
+                                  width = 8,
+                                  tabsetPanel(
+                                    tabPanel("Top Features", plotOutput("top_features"))
+                                  )
+                               )
+                              )
+                     ),
+                     
+                     tabPanel("Signature",
+                              DTOutput("signature_file_table"),
+                              br(),
+                              downloadButton("export_signature", "Download Signature Table", class = "submit-button")
+                     ),
+                     
+                     tabPanel("Difexp",
+                              DTOutput("difexp_file_table"),
+                              br(),
+                              downloadButton("export_difexp", "Download Difexp Table", class = "submit-button")
+                     )
+                   )
+                 )
+               )
+               
+      ),
+      
       
       
       
       tabPanel("Collections", value = "collections",
-        
+               
                #div(class = "homepage-title", "Collection Management"),
                #div(class = "homepage-subtitle", "Add Signature Collections or browse the curated list of Signature Collections"),
                
@@ -513,34 +445,34 @@ tags$script(HTML("
                                  id = "main_tabs",
                                  type = "tabs",
                                  
-                                  #upload tab for collections
+                                 #upload tab for collections
                                  
                                  tabPanel("Upload",
                                           h4("Upload Collection"),
                                           fileInput("upload_file_collection", "Choose a file to upload"),
                                           actionButton("upload_btn_collection","Upload"),
                                           uiOutput("upload_sig_error_msg")
-                                          ),
+                                 ),
                                  tabPanel("Update",
                                           h4("Update a Collection"),
                                           selectInput("update_collection","Select a Collection to Update", choices = "", multiple = FALSE),
                                           fileInput("update_collection_file", "Choose a collection file"),
                                           actionButton("update_btn_collection", "Update"),
                                           uiOutput("update_collection_error_msg")
-                                          ),
+                                 ),
                                  tabPanel("Delete",
                                           h4("Delete Collection"),
                                           selectInput("delete_collection", "Select a Collection to delete", choices = NULL, multiple = FALSE),
                                           actionButton("delete_btn_collection", "Delete")
-                                          )
+                                 )
                                )
-                            ), mainPanel(width = 8,
-                                         DTOutput("collection_tbl"),
-                                         uiOutput("collection_tbl_error_msg"),
-                                         br(),
-                                         downloadButton("download_collection","Download Collection", class = "submit-button",
-                                                        onclick = "collection_tbl_select_rows();")
-                                         )
+                 ), mainPanel(width = 8,
+                              DTOutput("collection_tbl"),
+                              uiOutput("collection_tbl_error_msg"),
+                              br(),
+                              downloadButton("download_collection","Download Collection", class = "submit-button",
+                                             onclick = "collection_tbl_select_rows();")
+                 )
                )
                
       ),
@@ -564,14 +496,14 @@ tags$script(HTML("
                                tabPanel("[2] Genesets",
                                         fluidRow(
                                           column(4,
-                                                 hypeR::genesets_UI("genesets")
-                                                 ),
+                                                 # hypeR::genesets_UI("genesets")
+                                          ),
                                           column(8,
-                                                 uiOutput("geneset_table"),
-                                                 )
+                                                 # uiOutput("geneset_table"),
+                                          )
                                         )
                                         
-                                       
+                                        
                                ),
                                tabPanel("[3] Enrichment",
                                         
@@ -605,7 +537,7 @@ tags$script(HTML("
       ),
       tabPanel("References", value = "references",
                
-              # div(class = "homepage-title", "References"),
+               # div(class = "homepage-title", "References"),
                #div(class = "homepage-subtitle", "Browse our reference feature dictionaries."),
                
                
@@ -622,7 +554,7 @@ tags$script(HTML("
                             selectInput("ref_organism", "select an organism", choices = c("Homo sapiens", "Mus musculus")),
                             selectInput("ref_assay", "select an assay type", choice = c("transcriptomics", "proteomics")),
                             actionButton("search_ref_btn", "Search")
-                            )
+                   )
                  ), 
                  mainPanel(width = 8,
                            DTOutput("ref_feature_tbl"))
@@ -700,31 +632,31 @@ tags$script(HTML("
       
     )
     
-)
+  )
 )
 
-    # ### Tab Content #####
-    # shiny::uiOutput(outputId = "tab_content"),
+# ### Tab Content #####
+# shiny::uiOutput(outputId = "tab_content"),
+
+### Footer ####
+shiny::div(
+  id="footer-wrapper",
+  
+  tags$footer(
+    class="container",
     
-    ### Footer ####
     shiny::div(
-      id="footer-wrapper",
+      class="row footer",
       
-      tags$footer(
-        class="container",
-        
-        shiny::div(
-          class="row footer",
-          
-          ### Copyright ####
-          shiny::div(
-            class="col-12 col-12-medium box copyright",
-            shiny::p(shiny::HTML('&copy; Montilab | Boston University | ', base::format(base::Sys.Date(), format = "%Y"), ' | All rights reserved | Design by <a href="http://html5up.net">HTML5 UP</a>'))
-          )
-        )
+      ### Copyright ####
+      shiny::div(
+        class="col-12 col-12-medium box copyright",
+        shiny::p(shiny::HTML('&copy; Montilab | Boston University | ', base::format(base::Sys.Date(), format = "%Y"), ' | All rights reserved | Design by <a href="http://html5up.net">HTML5 UP</a>'))
       )
     )
-  
+  )
+)
+
 
 
 ## Define server logic ####
@@ -893,7 +825,7 @@ server <- function(input, output, session) {
       user_login_info(user_tbl)
       
       
-    
+      
       # Hide login wrapper
       shinyjs::hide(id = "login-wrapper")
       
@@ -1531,7 +1463,7 @@ server <- function(input, output, session) {
   # observe event for github docs when it is done.
   
   
-
+  
   search_sig_error_msg <- reactiveVal("")
   # Reactive trigger for refreshing signature table
   signature_update_trigger <- reactiveVal(0)
@@ -1594,7 +1526,7 @@ server <- function(input, output, session) {
   observeEvent(input$search_signature, {
     tryCatch({
       
- 
+      
       
       args <- list(conn_handler = user_conn_handler())
       
@@ -1630,7 +1562,7 @@ server <- function(input, output, session) {
     req(search_sig_error_msg())
     p(class = "error-message", HTML(search_sig_error_msg()))
   })
-
+  
   
   
   observeEvent(input$clear_filters, {
@@ -1645,7 +1577,7 @@ server <- function(input, output, session) {
   })
   
   
- 
+  
   #### UPDATE SERVER LOGIC #### 
   
   # Populate the update dropdown (when filtered_signatures or signature_db changes)
@@ -1769,34 +1701,39 @@ server <- function(input, output, session) {
     # df <- df[df$user_name == current_user | df$visibility == 1, ]
     req(nrow(df) > 0)
     
-    # Keep both signature_name and user_name for logic
-    df_display <- df[, c("signature_name", "user_name")]
+    # # Keep both signature_name and user_name for logic
+    # df_display <- df[, c("signature_name", "user_name")]
     
     # Get index of user_name column
-    owner_col_index <- which(names(df_display) == "user_name") - 1
+    owner_col_index <- which(names(df) == "user_name") - 1
     
     # Render table, hiding user_name from view but keeping it in data
+    
     DT::datatable(
-      df_display,
-      escape = FALSE,
+      df,
+      extensions = "Buttons",
+      filter = "top",  # disable default filters
       options = list(
-        pageLength = 10,
-        scrollY = "300px",
+        pageLength = -1,
+        scrollY = "500px",
+        paging = FALSE,
+        scrollX = TRUE,
+        ordering = FALSE,
         fixedHeader = TRUE,
+        dom = 'Bfrtip',
+        buttons = c('copy', 'csv', 'excel'),
         columnDefs = list(
-          list(targets = owner_col_index, visible = FALSE)  # hide user_name
-        ),
-        rowCallback = DT::JS(sprintf("
-        function(row, data, index) {
-          if (data[%d] === '%s') {
-            $('td', row).css('background-color', '#d9edf7');
-          }
-        }", owner_col_index, current_user))
+          list(targets = c(0,6,7,8,11,14,15,16,19,24,25,26), visible = FALSE)  # Replace with the column indices you want to hide
+        )
+        
       ),
+      class = "compact stripe hover nowrap",
       selection = "single",
-      rownames = FALSE,
-      class = "compact stripe hover"
+      rownames = FALSE
     )
+    
+    
+    
   })
   
   
@@ -1817,38 +1754,38 @@ server <- function(input, output, session) {
     sig_tbl <- sig_obj$signature  # Signature table
     
     req(!is.null(sig_tbl), nrow(sig_tbl) > 0)
-  
-   top_features <- sig_tbl %>%
-     
-     arrange(desc(score)) %>%
-     slice_head(n = 10) %>%
-     bind_rows(
-       sig_tbl %>%
-         arrange(score) %>%
-         slice_head(n = 10)
-     ) %>%
-     mutate(feature_name = factor(feature_name, levels = feature_name[order(score)]))
-   
-   # generating plot
-   
-   ggplot(top_features, aes(x = feature_name, y = score, fill > 0)) +
-     geom_col()+
-     coord_flip()+
-     scale_fill_manual(values = c("TRUE" = "#1b9e77", "FALSE" = "#d95f02"),
-                       labels = c("Downregulated", "upregulated")) +
-     labs(
-       title= "Top 10 Positive and Negative Signature Features",
-       x = "Feature Name",
-       y = "Score",
-       fill = "Direction",
-     ) +
-     theme_minimal()
-   
+    
+    top_features <- sig_tbl %>%
+      
+      arrange(desc(score)) %>%
+      slice_head(n = 10) %>%
+      bind_rows(
+        sig_tbl %>%
+          arrange(score) %>%
+          slice_head(n = 10)
+      ) %>%
+      mutate(feature_name = factor(feature_name, levels = feature_name[order(score)]))
+    
+    # generating plot
+    
+    ggplot(top_features, aes(x = feature_name, y = score, fill > 0)) +
+      geom_col()+
+      coord_flip()+
+      scale_fill_manual(values = c("TRUE" = "#1b9e77", "FALSE" = "#d95f02"),
+                        labels = c("Downregulated", "upregulated")) +
+      labs(
+        title= "Top 10 Positive and Negative Signature Features",
+        x = "Feature Name",
+        y = "Score",
+        fill = "Direction",
+      ) +
+      theme_minimal()
+    
   })
   
-
   
-
+  
+  
   
   
   # DIFEXP ###
@@ -1865,10 +1802,21 @@ server <- function(input, output, session) {
     df <- filtered_signatures()
     sig_name <- df[selected, "signature_name"]
     sig_list <- SigRepo::getSignature(conn_handler = user_conn_handler(),
-                          signature_name = sig_name)
+                                      signature_name = sig_name)
     
     sig_list[[1]]
   })
+  
+  observeEvent(input$signature_tbl_rows_selected, {
+    if (!is.null(input$signature_tbl_rows_selected)) {
+      shinyjs::show("details_panel")
+    }
+  })
+  
+  observeEvent(input$close_panel, {
+    shinyjs::hide("details_panel")
+  })
+  
   
   
   output$signature_file_table <- DT::renderDataTable({
@@ -1877,7 +1825,10 @@ server <- function(input, output, session) {
     
     datatable(
       sig_obj$signature,
+      extensions = "Buttons",
       options = list(
+        dom = 'Bfrtip',
+        buttons = c('csv', 'excel'),
         pageLength = 100,
         scrollY = "500px",
         scrollX = TRUE,
@@ -1896,7 +1847,10 @@ server <- function(input, output, session) {
     
     datatable(
       sig_obj$difexp,
+      extensions  = "Buttons",
       options = list(
+        dom = 'Bfrtip',
+        buttons = c( 'csv', 'excel'),
         pageLength = 100,
         scrollY = "500px",
         scrollX = TRUE,
@@ -2125,17 +2079,17 @@ server <- function(input, output, session) {
       df
     },error = function(e){
       showNotification(paste("Error fetching Collections", e$message), type = "error")
-    data.frame()
+      data.frame()
     })
   })
-
+  
   observe({
     req(input$main_navbar == "collections")
     filtered_collection(collection_db())
   })
-      
   
-####Delete Collection Server Logic ####
+  
+  ####Delete Collection Server Logic ####
   
   observe({
     collections <- filtered_collection()
@@ -2170,8 +2124,8 @@ server <- function(input, output, session) {
     updateSelectInput(session, "delete_collection", choices = delete_choices, selected = NULL)
   })
   
-
-
+  
+  
   
   
   observeEvent(input$delete_btn_collection, {
@@ -2210,7 +2164,7 @@ server <- function(input, output, session) {
       )
     )
   })
- 
+  
   # Upload Collection Logic ####
   
   observeEvent(input$upload_btn_collection, {
@@ -2246,8 +2200,8 @@ server <- function(input, output, session) {
   
   ref_features <- eventReactive(input$search_ref_btn, {
     
-  
-
+    
+    
     
     tryCatch({
       features <- SigRepo::searchFeature(conn_handler = user_conn_handler(),
@@ -2327,27 +2281,10 @@ server <- function(input, output, session) {
   #   if (!(experiment_label %in% names(data)))
   # })
   
- 
-   genesets <- hypeR::genesets_Server("genesets", clean=FALSE)
-
-  output$geneset_table <- renderUI({
-    gsets <- genesets()
-
-    df <- data.frame(Geneset=names(gsets), Symbols=sapply(gsets, function(x) paste(head(x,5), collapse=",")))
-    tbl <- reactable(df,
-                     rownames=FALSE,
-                     compact=TRUE,
-                     fullWidth=TRUE,
-                     defaultPageSize=20,
-                     defaultColDef=colDef(headerClass="rctbl-header"),
-                     style=list(backgroundColor="#EFEFEF"),
-                     showPageSizeOptions=TRUE,
-                     rowStyle=list(cursor="pointer"))
-
-    dat <- htmltools::div(class="rctbl-obj-teeny", tbl)
-    return(dat)
-  })
-
+  
+  
+  
+  
   # output$geneset_table <- DT::renderDataTable({
   #   gsets <- genesets()
   #   req(!is.null(gsets), length(gsets) > 0)
@@ -2373,7 +2310,7 @@ server <- function(input, output, session) {
   #     class = "compact stripe hover nowrap"
   #   )
   # })
-
+  
   
   #### RENDER KNITR HTML LOGIC ####
   
