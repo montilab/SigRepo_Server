@@ -11,6 +11,10 @@ library(tidyverse)
 # Package for loading and installing packages
 library(devtools)
 
+devtools::load_all()
+
+
+
 
 # Loading omic signature package
 library(OmicSignature)
@@ -84,6 +88,31 @@ ui <- fluidPage(
     body{
     padding-top: 70px;
     }
+    
+     .dataTables_wrapper {
+    z-index: 0 !important;
+  }
+
+  #details_panel {
+    z-index: 1050 !important;
+  }
+
+  .dataTables_filter,
+  .dataTables_length,
+  .dataTables_info,
+  .dataTables_paginate {
+    z-index: 0 !important;
+  }
+
+  .absolute-panel {
+    position: fixed !important;
+  }
+  
+  $(document).on('click', '.delete-btn', function() {
+    var sigId = $(this).data('id');
+    Shiny.setInputValue('delete_signature_id', sigId, {priority: 'event'});
+  });
+    
   "))
     )
   ),
@@ -259,9 +288,7 @@ ui <- fluidPage(
                             h4("Signature Overview"),
                             tabsetPanel(
                               tabPanel("By Organism", plotOutput("organism_plot", height = "450px")),
-                              tabPanel("By assay", plotOutput("assay_plot", height = "450px")),
-                              tabPanel("Upload Over Time", plotOutput("upload_trend_plot", height = "450px")),
-                              tabPanel("Visibility", plotOutput("visiblity_plot", height = "450px")),
+                              tabPanel("By Assay", plotOutput("assay_plot", height = "450px")),
                               tabPanel("Top Users", plotOutput("top_users_plot", height = "450px"))
                             )
                         )
@@ -312,85 +339,72 @@ ui <- fluidPage(
       
       tabPanel("Signatures", value = "signatures",
                
-               #div(class = "homepage-title", "Signature Management"),
-               #div(class = "homepage-subtitle", "Browse, Upload, Update, or delete signatures Available to you."),
-               
-               sidebarLayout(
-                 sidebarPanel(width = 4,
-                              
-                              
-                              
-                              
-                              tabsetPanel(
-                                id = "main_tabs",
-                                type = "tabs",
-                                
-                                # ---- Upload Tab ----
-                                tabPanel("Upload",
-                                         h4("Upload Signature"),
-                                         fileInput("upload_file_signature", "Choose a file to upload"),
-                                         actionButton("upload_btn_signature", "Upload"),
-                                         uiOutput("upload_sig_error_msg"),
-                                         verbatimTextOutput("upload_output")
-                                         
-                                ),
-                                
-          
-                                
-                                
-                                # ---- Update Tab ----
-                                tabPanel("Update",
-                                         h4("Update a Signature"),
-                                         selectInput("update_sig", "Select Signature to Update", choices = "", multiple = FALSE),
-                                         fileInput("update_sig_file", "Choose a file to update"),
-                                         actionButton("update_btn", "Update"),
-                                         uiOutput("update_sig_error_msg")
-                                ),
-                                
-                                # ---- Delete Tab ----
-                                tabPanel("Delete",
-                                         h4("Delete Signature"),
-                                         selectInput("delete_sig", "Select Signature to Delete", choices = NULL, multiple = FALSE),
-                                         actionButton("delete_btn_sig", "Delete")
-                                ),
-                                
-                              ),
-                              br(),
-                              br(),
-                              # DTOutput("signature_tbl")
-                 ),
+               fluidPage(
                  
-                 mainPanel(
-                   width = 8,
-                   
-                   DTOutput("signature_tbl")
+                 actionButton("open_upload_modal", "Upload Signature", icon = icon("upload"), class = "btn-primary"),
+                 
+                 
+                 # Use fluidRow to create left and right layout
+                 fluidRow(
+                   column(
+                     width = 8 # Wider column for the tabset
+                     # tabsetPanel(
+                     #   id = "main_tabs",
+                     #   type = "tabs",
+                     #   
+                     #   tabPanel("Upload",
+                     #            h4("Upload Signature"),
+                     #            fileInput("upload_file_signature", "Choose a file to upload"),
+                     #            actionButton("upload_btn_signature", "Upload"),
+                     #            uiOutput("upload_sig_error_msg"),
+                     #            verbatimTextOutput("upload_output")
+                     #   ),
+                     #   
+                     #   tabPanel("Update",
+                     #            h4("Update a Signature"),
+                     #            selectInput("update_sig", "Select Signature to Update", choices = "", multiple = FALSE),
+                     #            fileInput("update_sig_file", "Choose a file to update"),
+                     #            actionButton("update_btn", "Update"),
+                     #            uiOutput("update_sig_error_msg")
+                     #   ),
+                     #   
+                     #   tabPanel("Delete",
+                     #            h4("Delete Signature"),
+                     #            selectInput("delete_sig", "Select Signature to Delete", choices = NULL, multiple = FALSE),
+                     #            actionButton("delete_btn_sig", "Delete")
+                     #   )
+                     # )
+                   )
                    
                   
-                 )
+                 ),
                  
-               ),absolutePanel(
+                 br(),
+                 
+                 # Signature table
+                 uiOutput("action_buttons"),
+                 DTOutput("signature_tbl")
+                 
+               ),
+               
+               # Absolute Panel (unchanged)
+               absolutePanel(
                  id = "details_panel",
                  top = 100, right = 100, width = 800, draggable = TRUE,
                  style = "z-index: 10; background-color: #fff; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); display: none;",
-                 
-                 # adding closeout button
+
+                 # Close button
                  tags$div(
                    style = "position: absolute; top: 10px; right: 10px; cursor: pointer; font-size: 20px;",
-                   actionLink("close_panel", label = HTML("&times;"))  # × symbol
+                   actionLink("close_panel", label = HTML("&times;"))
                  ),
-                 
+
                  conditionalPanel(
-                   condition = "output.signature_selected === true",
-                   
+                   condition = "output.view === 'true'",
                    tabsetPanel(
                      tabPanel("Summary",
                               div(id = "oms_download_wrapper",
-                                  downloadButton(
-                                    "download_oms_handler",
-                                    "Download OmicSignature",
-                                    class = "submit-button",
-                                    onclick = "sig_tbl_select_rows();"
-                                  )
+                                  downloadButton("download_oms_handler", "Download OmicSignature", class = "submit-button", onclick = "sig_tbl_select_rows();")
                               ),
                               uiOutput("signature_title"),
                               uiOutput("signature_description"),
@@ -409,26 +423,22 @@ ui <- fluidPage(
                                   tabsetPanel(
                                     tabPanel("Top Features", plotOutput("top_features"))
                                   )
-                               )
+                                )
                               )
                      ),
-                     
+
                      tabPanel("Signature",
-                              DTOutput("signature_file_table"),
-                              br(),
-                              downloadButton("export_signature", "Download Signature Table", class = "submit-button")
+                              DTOutput("signature_file_table")
                      ),
-                     
+
                      tabPanel("Difexp",
-                              DTOutput("difexp_file_table"),
-                              br(),
-                              downloadButton("export_difexp", "Download Difexp Table", class = "submit-button")
+                              DTOutput("difexp_file_table")
                      )
                    )
                  )
                )
-               
       ),
+      
       
       
       
@@ -1468,7 +1478,7 @@ server <- function(input, output, session) {
   # Reactive trigger for refreshing signature table
   signature_update_trigger <- reactiveVal(0)
   
-  filtered_signatures <- reactiveVal(data.frame())
+  
   
   # Signature DB reactive — scoped globally so it exists across your server
   signature_db <- reactive({
@@ -1486,95 +1496,14 @@ server <- function(input, output, session) {
     })
   })
   
-  observe({
-    req(input$main_navbar == "signatures")
-    filtered_signatures(signature_db())
-  })
+  # observe({
+  #   req(input$main_navbar == "signatures")
+  #   filtered_signatures(signature_db())
+  # })
   ######
-  observeEvent(input$search_options_signature, {
-    
-    
-    all_fields <- c("signature_name", "organism", "phenotype", "sample_type", "platform_id", "assay_type")
-    selected_fields <- input$search_options_signature
-    
-    for (f in all_fields) {
-      if (f %in% selected_fields) {
-        shinyjs::show(f)
-      } else {
-        shinyjs::hide(f)
-        updateSelectizeInput(session, f, choices = "", selected = NULL)
-      }
-    }
-    
-    sigs <- signature_db()
-    if (nrow(sigs) > 0) {
-      if ("signature_name" %in% selected_fields)
-        updateSelectizeInput(session, "signature_name", choices = unique(sigs$signature_name), server = TRUE)
-      if ("organism" %in% selected_fields)
-        updateSelectizeInput(session, "organism", choices = unique(sigs$organism), server = TRUE)
-      if ("phenotype" %in% selected_fields)
-        updateSelectizeInput(session, "phenotype", choices = unique(sigs$phenotype), server = TRUE)
-      if ("sample_type" %in% selected_fields)
-        updateSelectizeInput(session, "sample_type", choices = unique(sigs$sample_type), server = TRUE)
-      if ("platform_id" %in% selected_fields)
-        updateSelectizeInput(session, "platform_id", choices = unique(sigs$platform_id), server = TRUE)
-      if ("assay_type" %in% selected_fields)
-        updateSelectizeInput(session, "assay_type", choices = unique(sigs$assay_type), server = TRUE)
-    }
-  }, ignoreNULL = FALSE)
-  
-  observeEvent(input$search_signature, {
-    tryCatch({
-      
-      
-      
-      args <- list(conn_handler = user_conn_handler())
-      
-      if (!is.null(input$signature_name) && input$signature_name != "")
-        args$signature_name <- input$signature_name
-      if (!is.null(input$organism) && input$organism != "")
-        args$organism <- input$organism
-      if (!is.null(input$phenotype) && input$phenotype != "")
-        args$phenotype <- input$phenotype
-      if (!is.null(input$sample_type) && input$sample_type != "")
-        args$sample_type <- input$sample_type
-      if (!is.null(input$platform_id) && input$platform_id != "")
-        args$platform_id <- input$platform_id
-      if (!is.null(input$assay_type) && input$assay_type != "")
-        args$assay_type <- input$assay_type
-      
-      df <- do.call(SigRepo::searchSignature, args)
-      
-      if (nrow(df) == 0) {
-        search_sig_error_msg("No matching signatures found.")
-      } else {
-        search_sig_error_msg(NULL)
-      }
-      
-      filtered_signatures(df)
-    }, error = function(e) {
-      search_sig_error_msg(paste("Error searching signatures:", e$message))
-      filtered_signatures(data.frame())
-    })
-  })
-  
-  output$search_sig_error_msg <- renderUI({
-    req(search_sig_error_msg())
-    p(class = "error-message", HTML(search_sig_error_msg()))
-  })
   
   
   
-  observeEvent(input$clear_filters, {
-    updateSelectInput(session, "search_options_signature", selected = character(0))
-    all_fields <- c("signature_name", "organism", "phenotype", "sample_type", "platform_id", "assay_type")
-    for (f in all_fields) {
-      shinyjs::hide(f)
-      updateSelectizeInput(session, f, choices = "", selected = NULL)
-    }
-    filtered_signatures(signature_db())
-    search_sig_error_msg(NULL)
-  })
   
   
   
@@ -1582,7 +1511,7 @@ server <- function(input, output, session) {
   
   # Populate the update dropdown (when filtered_signatures or signature_db changes)
   observe({
-    sigs <- filtered_signatures()
+    sigs <- signature_db()
     all_sigs <- signature_db()
     sigs_to_show <- if (!is.null(sigs) && nrow(sigs) > 0) sigs else all_sigs
     
@@ -1642,77 +1571,105 @@ server <- function(input, output, session) {
   
   #### DELETE SERVER LOGIC ####
   
-  # Update delete dropdown whenever filtered_signatures or signature_db changes
-  observe({
-    sigs <- filtered_signatures()
-    all_sigs <- signature_db()
-    
-    sigs_to_show <- if (!is.null(sigs) && nrow(sigs) > 0) sigs else all_sigs
-    
-    if (is.null(sigs_to_show) || nrow(sigs_to_show) == 0) {
-      updateSelectInput(session, "delete_sig", choices = c("No signatures available" = ""), selected = NULL)
-      return()
-    }
-    
-    delete_choices <- setNames(
-      as.character(sigs_to_show$signature_id),
-      paste0(sigs_to_show$signature_name, " (ID: ", sigs_to_show$signature_id, ")")
-    )
-    
-    updateSelectInput(session, "delete_sig", choices = delete_choices, selected = NULL)
-  })
+  # # Update delete dropdown whenever filtered_signatures or signature_db changes
+  # observe({
+  #   sigs <- signature_db()
+  #   all_sigs <- signature_db()
+  #   
+  #   sigs_to_show <- if (!is.null(sigs) && nrow(sigs) > 0) sigs else all_sigs
+  #   
+  #   if (is.null(sigs_to_show) || nrow(sigs_to_show) == 0) {
+  #     updateSelectInput(session, "delete_sig", choices = c("No signatures available" = ""), selected = NULL)
+  #     return()
+  #   }
+  #   
+  #   delete_choices <- setNames(
+  #     as.character(sigs_to_show$signature_id),
+  #     paste0(sigs_to_show$signature_name, " (ID: ", sigs_to_show$signature_id, ")")
+  #   )
+  #   
+  #   updateSelectInput(session, "delete_sig", choices = delete_choices, selected = NULL)
+  # })
+  # 
+  # # delete logic
+  # observeEvent(input$delete_btn_sig, {
+  #   req(input$delete_sig)  # Ensure something is selected
+  #   
+  #   signature_id_to_delete <- input$delete_sig
+  #   
+  #   tryCatch({
+  #     # Call your delete function
+  #     SigRepo::deleteSignature(signature_id = signature_id_to_delete, conn_handler = user_conn_handler())
+  #     
+  #     showNotification("Signature deleted successfully.", type = "message")
+  #     
+  #     # Refresh signature table
+  #     signature_update_trigger(isolate(signature_update_trigger()) + 1)
+  #     
+  #   }, error = function(e) {
+  #     showNotification(paste("Error deleting signature:", e$message), type = "error")
+  #   })
+  # })
+  # 
   
-  # delete logic
-  observeEvent(input$delete_btn_sig, {
-    req(input$delete_sig)  # Ensure something is selected
-    
-    signature_id_to_delete <- input$delete_sig
-    
-    tryCatch({
-      # Call your delete function
-      SigRepo::deleteSignature(signature_id = signature_id_to_delete, conn_handler = user_conn_handler())
-      
-      showNotification("Signature deleted successfully.", type = "message")
-      
-      # Refresh signature table
-      signature_update_trigger(isolate(signature_update_trigger()) + 1)
-      
-    }, error = function(e) {
-      showNotification(paste("Error deleting signature:", e$message), type = "error")
-    })
-  })
   
-  
-  
-  #######
-  
-  # MINI TABLE LOGIC ####
+
   
   
   # MAIN TABLE LOGIC ####
   
-  output$signature_tbl <- DT::renderDataTable({
-    df <- filtered_signatures()
-    req(!is.null(df), nrow(df) > 0)
+  # output$signature_tbl <- renderDT({
+  #   df <- signature_db()
+  #   req(df, nrow(df) > 0)
+  #   
+  #  
+  #   
+  #   DT::datatable(
+  #     df,
+  #     extensions = "Buttons",
+  #     filter = "top",  # disable default filters
+  #     options = list(
+  #       pageLength = -1,
+  #       scrollY = "500px",
+  #       paging = FALSE,
+  #       scrollX = TRUE,
+  #       ordering = FALSE,
+  #       fixedHeader = TRUE,
+  #       dom = 'Bfrtip',
+  #       buttons = c('copy', 'csv', 'excel'),
+  #       columnDefs = list(
+  #         list(targets = c(0,6,7,8,11,14,15,16,19,24,25,26), visible = FALSE)  # Replace with the column indices you want to hide
+  #       )
+  #       
+  #     ),
+  #     class = "compact stripe hover nowrap",
+  #     selection = "single",
+  #     rownames = FALSE
+  #   )
+  #   
+  # })
+  # 
+  signature_data <- reactive({
+    user <- shiny::isolate({ input$username }) %>% base::trimws()
+    df <- signature_db()
     
-    current_user <- user_conn_handler()$user
+    if (user == "root") {
+      return(df)  # Admin sees everything
+    } else {
+      # Filter to only rows owned by user or visible (visibility == 1)
+      df_filtered <- df[df$user_name == user | df$visibility == 1, ]
+      return(df_filtered)
+    }
+  })
+  
+  
+  output$signature_tbl <- renderDT({
+    df <- signature_data()
     
-    # Optional: Uncomment this line to filter by visibility/ownership
-    # df <- df[df$user_name == current_user | df$visibility == 1, ]
-    req(nrow(df) > 0)
-    
-    # # Keep both signature_name and user_name for logic
-    # df_display <- df[, c("signature_name", "user_name")]
-    
-    # Get index of user_name column
-    owner_col_index <- which(names(df) == "user_name") - 1
-    
-    # Render table, hiding user_name from view but keeping it in data
-    
-    DT::datatable(
+    datatable(
       df,
       extensions = "Buttons",
-      filter = "top",  # disable default filters
+      filter = "top",
       options = list(
         pageLength = -1,
         scrollY = "500px",
@@ -1720,20 +1677,121 @@ server <- function(input, output, session) {
         scrollX = TRUE,
         ordering = FALSE,
         fixedHeader = TRUE,
-        dom = 'Bfrtip',
-        buttons = c('copy', 'csv', 'excel'),
-        columnDefs = list(
-          list(targets = c(0,6,7,8,11,14,15,16,19,24,25,26), visible = FALSE)  # Replace with the column indices you want to hide
-        )
-        
+        dom = 'frtipB',
+        buttons = c('copy', 'csv', 'excel')
       ),
       class = "compact stripe hover nowrap",
       selection = "single",
       rownames = FALSE
     )
+  })
+  
+  # UI with action buttons
+  output$action_buttons <- renderUI({
+    req(input$signature_tbl_rows_selected)  # Fix input ID
+    row <- input$signature_tbl_rows_selected
+    df <- signature_data()  # Access the full data
+    selected_sig <- df[row, ]
     
+    tagList(
+      h4(paste("Actions for Signature:", selected_sig$signature_name)),
+      actionButton("view_btn", "View"),
+      actionButton("update_btn", "Update"),
+      actionButton("delete_btn", "Delete")
+    )
+  })
+  
+  view_mode <- reactiveVal("false")
+  
+  observeEvent(input$signature_tbl_rows_selected, {
+    view_mode("false")
+  })
+  
+  
+  
+  observeEvent(input$view_btn, {
+    view_mode("true")
+  })
+  
+  output$view <- reactive({
+    view_mode()
+  })
+  outputOptions(output, "view", suspendWhenHidden = FALSE)
+  
+
+  
+  
+  observeEvent(input$edit_btn, {
+    df <- signature_data()
+    row <- input$signature_tbl_rows_selected
+    showModal(modalDialog(
+      title = "Edit Signature",
+      paste("Edit form for:", df[row, "Name"]),
+      easyClose = TRUE
+    ))
+  })
+  
+  observeEvent(input$delete_btn, {
+    df <- signature_data()
+    row <- input$signature_tbl_rows_selected
+    req(row)
     
+    selected_sig <- df[row, ]
     
+    showModal(modalDialog(
+      title = "Delete Signature",
+      size = "m",
+      tagList(
+        p("Are you sure you want to delete this signature?"),
+        tags$ul(
+          tags$li(strong("Name: "), selected_sig$signature_name),
+          tags$li(strong("ID: "), selected_sig$signature_id)
+        ),
+        br(),
+        actionButton("confirm_delete_btn", "Delete", class = "btn-danger"),
+        modalButton("Cancel")
+      ),
+      easyClose = TRUE
+    ))
+  })
+  
+  observeEvent(input$confirm_delete_btn, {
+    df <- signature_data()
+    row <- input$signature_tbl_rows_selected
+    req(row)
+    
+    signature_id_to_delete <- df[row, "signature_id"]
+    
+    tryCatch({
+      # Your deletion call
+      SigRepo::deleteSignature(signature_id = signature_id_to_delete, conn_handler = user_conn_handler())
+      
+      showNotification("Signature deleted successfully.", type = "message")
+      
+      # Refresh your data
+      signature_update_trigger(isolate(signature_update_trigger()) + 1)
+      
+      # Close the modal
+      removeModal()
+      
+    }, error = function(e) {
+      showNotification(paste("Error deleting signature:", e$message), type = "error")
+    })
+  })
+  
+  
+  observeEvent(input$open_upload_modal, {
+    showModal(modalDialog(
+      title = "Upload Omic Signature",
+      fileInput("upload_file_signature", "Choose a .RDS File",
+                accept = ".rds"),
+      verbatimTextOutput("upload_output"),
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("upload_btn_signature", "Upload", class = "btn-success")
+      ),
+      easyClose = TRUE
+    ))
   })
   
   
@@ -1799,7 +1857,7 @@ server <- function(input, output, session) {
   selected_signature <- reactive({
     selected <- input$signature_tbl_rows_selected
     if(length(selected) == 0) return(NULL)
-    df <- filtered_signatures()
+    df <- signature_db()
     sig_name <- df[selected, "signature_name"]
     sig_list <- SigRepo::getSignature(conn_handler = user_conn_handler(),
                                       signature_name = sig_name)
@@ -1822,7 +1880,7 @@ server <- function(input, output, session) {
   output$signature_file_table <- DT::renderDataTable({
     sig_obj <- selected_signature()
     req(!is.null(sig_obj))
-    
+
     datatable(
       sig_obj$signature,
       extensions = "Buttons",
@@ -1834,17 +1892,20 @@ server <- function(input, output, session) {
         scrollX = TRUE,
         scrollCollapse = TRUE,
         paging = TRUE,
-        fixedHeader = TRUE
+        fixedHeader = TRUE,
+        columnDefs = list(
+          list(targets = c(6), visible = FALSE)
+        )
       ),
       rownames = FALSE,
       class = "stripe hover compact nowrap"
     )
   })
-  
+
   output$difexp_file_table <- DT::renderDataTable({
     sig_obj <- selected_signature()
     req(!is.null(sig_obj))
-    
+
     datatable(
       sig_obj$difexp,
       extensions  = "Buttons",
@@ -1857,12 +1918,13 @@ server <- function(input, output, session) {
         scrollCollapse = TRUE,
         paging = TRUE,
         fixedHeader = TRUE
+
       ),
       rownames = FALSE,
       class = "stripe hover compact nowrap"
     )
   })
-  
+
   
   ### SUMMARY SERVER LOGIC ####
   
@@ -1872,16 +1934,16 @@ server <- function(input, output, session) {
   output$signature_title <- renderUI({
     sig_obj <- selected_signature()
     metadata <- sig_obj$metadata
-    
+
     h2(metadata$signature_name)
   })
-  
-  
-  
+
+
+
   output$signature_description <- renderText({
     sig_obj <- selected_signature()
     metadata <- sig_obj$metadata
-    
+
     # Try to get description, or fallback
     if (!is.null(metadata$description)) {
       return(metadata$description)
@@ -1889,24 +1951,24 @@ server <- function(input, output, session) {
       return("No description provided for this signature.")
     }
   })
-  
-  
+
+
   output$signature_metadata <- renderUI({
     sig_obj <- selected_signature()
     metadata <- sig_obj$metadata
-    
+
     # Safely extract required fields (will throw if missing)
     req_fields <- c( "organism", "direction_type", "assay_type", "phenotype")
-    
+
     missing_fields <- setdiff(req_fields, names(metadata))
     if (length(missing_fields) > 0) {
       return(div(class = "alert alert-danger",
                  paste("Missing required metadata fields:", paste(missing_fields, collapse = ", "))))
     }
-    
+
     # Optional fields
     optional_fields <- c("platform", "sample_type", "covariates", "score_cutoff", "adj_p_cutoff")
-    
+
     # Build UI output
     output_tags <- tagList(
       p(strong("Organism:"), metadata$organism),
@@ -1914,7 +1976,7 @@ server <- function(input, output, session) {
       p(strong("Phenotype:"), metadata$phenotype),
       p(strong("Direction Type:"), metadata$direction_type)
     )
-    
+
     # Conditionally add optional metadata fields
     for (field in optional_fields) {
       if (!is.null(metadata[[field]])) {
@@ -1924,7 +1986,7 @@ server <- function(input, output, session) {
         )
       }
     }
-    
+
     return(output_tags)
   })
   
@@ -1976,7 +2038,7 @@ server <- function(input, output, session) {
       selected_row <- input$signature_tbl_rows_selected
       req(length(selected_row) == 1)
       
-      df <- filtered_signatures()
+      df <- signature_db()
       
       # Extract the signature name from the selected row
       sig_name <- df$signature_name[selected_row]
@@ -1990,7 +2052,7 @@ server <- function(input, output, session) {
       selected_row <- input$signature_tbl_rows_selected
       req(length(selected_row) == 1)
       
-      df <- filtered_signatures()
+      df <- signature_db()
       sig_id <- df$signature_id[selected_row]
       
       sig_obj <- getSignature(conn_handler = conn_handler, signature_id = sig_id)
@@ -2005,11 +2067,10 @@ server <- function(input, output, session) {
   #### UPLOAD BUTTON LOGIC ####
   
   
-  output$upload_output <- renderText({ "" })  # Initialize output
+  output$upload_output <- renderText({ "" })  # Initialize
   
   observeEvent(input$upload_btn_signature, {
     file <- input$upload_file_signature
-    
     if (is.null(file)) return()
     
     new_signatures <- tryCatch({
@@ -2021,7 +2082,6 @@ server <- function(input, output, session) {
     
     req(!is.null(new_signatures))
     
-    # Initialize log collector
     log_output <- character()
     
     success <- tryCatch({
@@ -2052,10 +2112,11 @@ server <- function(input, output, session) {
     if (success) {
       showNotification("Signature uploaded successfully!", type = "message")
       signature_update_trigger(isolate(signature_update_trigger()) + 1)
+      removeModal()
     }
   })
   
-  
+
   #### COLLECTION SERVER LOGIC #####
   
   search_collection_error_msg <- reactiveVal("")
@@ -2151,19 +2212,32 @@ server <- function(input, output, session) {
   
   output$collection_tbl <- DT::renderDataTable({
     df <- filtered_collection()
-    req(!is.null(df), nrow(df) >0)
+    req(!is.null(df), nrow(df) > 0)
     
+    # Summarize by collection, collapsing signature names
+    df_grouped <- df %>%
+      group_by(collection_id, collection_name, description, user_name, date_created, visibility) %>%
+      summarise(
+        signatures = paste(signature_name, collapse = ", "),
+        .groups = "drop"
+      )
     
     DT::datatable(
-      df,
+      df_grouped,
+      extensions = "Buttons",
       options = list(
         pageLength = 10,
+        dom = "Bfrtip",
+        buttons = c('copy', 'csv', 'excel'),
         scrollX = TRUE,
         scrollY = "300px",
         fixedHeader = TRUE
-      )
+      ),
+      class = "stripe hover compact nowrap",
+      rownames = FALSE
     )
   })
+  
   
   # Upload Collection Logic ####
   
@@ -2227,14 +2301,21 @@ server <- function(input, output, session) {
     
     datatable(
       ref_features(),
+      filter = "top",
+      extensions = "Buttons",
       options = list(
         pageLength = 10,
+        buttons = ('csv'),
         scrollY = "600px",      # Set the scrollable height
         scrollCollapse = TRUE,  # Collapse if fewer rows
         paging = TRUE,         # Optional: remove paging
-        fixedHeader = TRUE      # Optional: keep header fixed
+        fixedHeader = TRUE,
+        columnDefs = list(
+          list(targets = c(5), visible = FALSE)
+        )
       ),
-      class = "stripe hover compact nowrap"
+      class = "stripe hover compact nowrap",
+      rownames = FALSE
     )
   })
   
@@ -2246,7 +2327,7 @@ server <- function(input, output, session) {
   # signature choices logic for hypeR
   
   observe({
-    df <- filtered_signatures()
+    df <- signature_db()
     req(!is.null(df), nrow(df) > 0)
     
     
@@ -2377,6 +2458,41 @@ server <- function(input, output, session) {
     )
   })
   
+  observeEvent(input$delete_signature_id, {
+    sig_id <- input$delete_signature_id
+    showModal(
+      modalDialog(
+        title = "Confirm Delete",
+        paste("Are you sure you want to delete signature ID", sig_id, "?"),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton("confirm_delete_signature", "Delete", class = "btn-danger")
+        )
+      )
+    )
+    
+    # Store ID in a reactiveVal so we can access it in confirm observer
+    selected_sig_id_to_delete(sig_id)
+  })
+  
+  # Store the selected ID in a reactiveVal
+  selected_sig_id_to_delete <- reactiveVal(NULL)
+  
+  observeEvent(input$confirm_delete_signature, {
+    sig_id <- selected_sig_id_to_delete()
+    req(sig_id)
+    
+    tryCatch({
+      SigRepo::deleteSignature(signature_id = sig_id, conn_handler = user_conn_handler())
+      
+      showNotification("Signature deleted successfully.", type = "message")
+      signature_update_trigger(isolate(signature_update_trigger()) + 1)
+    }, error = function(e) {
+      showNotification(paste("Error deleting signature:", e$message), type = "error")
+    })
+    
+    removeModal()
+  })
   
   
 } # server end bracket
