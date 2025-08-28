@@ -93,3 +93,13 @@ function get_down_regulated_id(id) {
   Shiny.onInputChange('sig_down_regulated_id', id);
 }  
 
+$(document).on("click", ".edit-btn", function() {
+  var id = $(this).data("id");
+  Shiny.setInputValue("signature_id_to_edit", id, { priority: "event" });
+});
+$(document).on("click", ".delete-btn", function() {
+  var id = $(this).data("id");
+  Shiny.setInputValue("signature_id_to_delete", id, { priority: "event" });
+});
+
+
