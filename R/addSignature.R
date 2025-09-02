@@ -217,11 +217,28 @@ addSignature <- function(
     
     ###TEMPORTARY FIX###
     # throw error using the showAssayType error message if the assay type is metabolomics, methylomics, genetic_variations, or dna_binding_sites
+    ### TEMPORARY FIX ###
     assay_stop <- c("methylomics", "metabolomics", "genetic_variations", "dna_binding_sites")
     
-    if(assay_type %in% assay_stop){
+    # If the assay type is not supported, show error, delete signature, disconnect, and stop
+    if (assay_type %in% assay_stop) {
+      # Show the error message
       SigRepo::showAssayErrorMessage(assay_type = assay_type)
+      
+      # Delete the signature (clean-up)
+      SigRepo::deleteSignature(
+        conn_handler = conn_handler, 
+        signature_id = signature_tbl$signature_id[1], 
+        verbose = FALSE
+      )
+      
+      # Disconnect from database
+      base::suppressWarnings(DBI::dbDisconnect(conn))
+      
+      # Stop with custom message
+      base::stop(paste0("Assay type '", assay_type, "' is not supported for signature import. Signature has been removed.\n"))
     }
+    
     
     # Add signature set to database based on its assay type
     if(assay_type == "transcriptomics"){
@@ -287,117 +304,19 @@ addSignature <- function(
   
       
     }else if(assay_type == "metabolomics"){
-      # # If there is a error during the process, remove the signature and output the message
-      # warn_tbl <- base::tryCatch({
-      #   SigRepo::addMetabolomicsSignatureSet(
-      #     conn_handler = conn_handler,
-      #     signature_id = signature_tbl$signature_id[1],
-      #     organism_id = signature_tbl$organism_id[1],
-      #     signature_set = omic_signature$signature,
-      #     verbose = verbose
-      #   )
-      # }, error = function(e){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Disconnect from database ####
-      #   base::suppressWarnings(DBI::dbDisconnect(conn))  
-      #   # Return error message
-      #   base::stop(e, "\n")
-      # }) 
-      # 
-      # # Check if warning table is returned
-      # if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Return warning table
-      #   return(warn_tbl)
-      # }
+   
       
     }else if(assay_type == "methylomics"){
-      
-      # # If there is a error during the process, remove the signature and output the message
-      # warn_tbl <- base::tryCatch({
-      #   SigRepo::addMethylomicsSignatureSet(
-      #     conn_handler = conn_handler,
-      #     signature_id = signature_tbl$signature_id[1],
-      #     organism_id = signature_tbl$organism_id[1],
-      #     signature_set = omic_signature$signature,
-      #     verbose = verbose
-      #   )
-      # }, error = function(e){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Disconnect from database ####
-      #   base::suppressWarnings(DBI::dbDisconnect(conn))  
-      #   # Return error message
-      #   base::stop(e, "\n")
-      # }) 
-      # 
-      # # Check if warning table is returned
-      # if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Return warning table
-      #   return(warn_tbl)
-      # }
+    
       
       
     }else if(assay_type == "genetic_variations"){
       
-      # # If there is a error during the process, remove the signature and output the message
-      # warn_tbl <- base::tryCatch({
-      #   SigRepo::addGeneticVariationsSignatureSet(
-      #     conn_handler = conn_handler,
-      #     signature_id = signature_tbl$signature_id[1],
-      #     organism_id = signature_tbl$organism_id[1],
-      #     signature_set = omic_signature$signature,
-      #     verbose = verbose
-      #   )
-      # }, error = function(e){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Disconnect from database ####
-      #   base::suppressWarnings(DBI::dbDisconnect(conn))  
-      #   # Return error message
-      #   base::stop(e, "\n")
-      # }) 
-      # 
-      # # Check if warning table is returned
-      # if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Return warning table
-      #   return(warn_tbl)
-      # }
+     
       
     }else if(assay_type == "dna_binding_sites"){
       
       
-      # # If there is a error during the process, remove the signature and output the message
-      # warn_tbl <- base::tryCatch({
-      #   SigRepo::addDNABindingSitesSignatureSet(
-      #     conn_handler = conn_handler,
-      #     signature_id = signature_tbl$signature_id[1],
-      #     organism_id = signature_tbl$organism_id[1],
-      #     signature_set = omic_signature$signature,
-      #     verbose = verbose
-      #   )
-      # }, error = function(e){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Disconnect from database ####
-      #   base::suppressWarnings(DBI::dbDisconnect(conn))  
-      #   # Return error message
-      #   base::stop(e, "\n")
-      # }) 
-      # 
-      # # Check if warning table is returned
-      # if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
-      #   # Delete signature
-      #   SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
-      #   # Return warning table
-      #   return(warn_tbl)
-      # }
       
     }
     

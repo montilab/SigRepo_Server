@@ -285,7 +285,7 @@ print(Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig)
 sig_id_test <- SigRepo::addSignature(conn_handler = conn_handler,
                                      omic_signature = Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig)
 
-print(Aging_Mm_Liver_HighFat_vs_Control_Newman2017_oSig)
+
 
 platforms_list <- SigRepo::searchPlatform(conn_handler = conn_handler)
 
@@ -297,7 +297,34 @@ platforms_bulk <- "transcriptomics by bulk RNA-seq"
 platform_exists <- platform_in_sig %in% platforms_bulk # or platforms_list$platform, depending on your schema
 
 
-SigRepo::addSignature(conn_handler = conn_handler,
-                      omic_signature = omic_signature_1_revised)
+parse_and_render_rmd <- function(
+    rmd_input,
+    is_file = FALSE,
+    output_dir = tempdir(),
+    output_file = "report.html"
+) {
+  # Load required package
+  requireNamespace("rmarkdown", quietly = TRUE)
+  
+  # Determine the Rmd file path
+  if (is_file) {
+    if (!file.exists(rmd_input)) stop("The specified .Rmd file does not exist.")
+    rmd_path <- rmd_input
+  } else {
+    # Write the raw text to a temporary .Rmd file
+    rmd_path <- file.path(output_dir, paste0(tools::file_path_sans_ext(output_file), ".Rmd"))
+    writeLines(rmd_input, con = rmd_path)
+  }
+  
+  # Knit the Rmd file to HTML
+  html_path <- rmarkdown::render(
+    input = rmd_path,
+    output_file = output_file,
+    output_dir = output_dir,
+    quiet = TRUE
+  )
+  
+  return(html_path)
+}
 
-print(omic_signature_1_revised)
+
