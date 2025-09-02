@@ -37,13 +37,18 @@ createSignatureMetadata <- function(
   }
   
   # Extract signature table from omic_signature ####
-  signature <- omic_signature$signature 
+  signature <- omic_signature$signature
+  
+  # Ensure 'score' column is integer
+  signature$score <- as.integer(signature$score)
   
   # Count number of up-regulated features (positive scores)
   num_up_regulated <- sum(signature$score > 0)
   
   # Count number of down-regulated features (negative scores)
   num_down_regulated <- sum(signature$score < 0)
+  
+  
   # Extract metadata from omic_signature ####
   metadata <- omic_signature$metadata
   

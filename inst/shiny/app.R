@@ -507,7 +507,7 @@ ui <- fluidPage(
                                tabPanel("[2] Genesets",
                                         fluidRow(
                                           column(4,
-                                                  hypeR::genesets_UI_dev("genesets")
+                                                  hypeR::genesets_UI("genesets")
                                           ),
                                           column(8,
                                                   uiOutput("geneset_table"),
@@ -2366,7 +2366,7 @@ server <- function(input, output, session) {
   
   ## HYPER GENESETS TAB ####
   
-  genesets <- hypeR::genesets_Server_dev("genesets", clean=TRUE)
+  genesets <- hypeR::genesets_Server("genesets", clean=TRUE)
   
   output$table <- renderUI({
     gsets <- genesets()
