@@ -13,6 +13,7 @@ library(devtools)
 
 devtools::load_all()
 
+source("modules/dev_hyper_modules.R")
 
 
 
@@ -506,10 +507,10 @@ ui <- fluidPage(
                                tabPanel("[2] Genesets",
                                         fluidRow(
                                           column(4,
-                                                 # hypeR::genesets_UI("genesets")
+                                                  hypeR::genesets_UI_dev("genesets")
                                           ),
                                           column(8,
-                                                 # uiOutput("geneset_table"),
+                                                  uiOutput("geneset_table"),
                                           )
                                         )
                                         
@@ -2363,7 +2364,27 @@ server <- function(input, output, session) {
   # })
   
   
+  ## HYPER GENESETS TAB ####
   
+  genesets <- hypeR::genesets_Server_dev("genesets", clean=TRUE)
+  
+  output$table <- renderUI({
+    gsets <- genesets()
+    
+    df <- data.frame(Geneset=names(gsets), Symbols=sapply(gsets, function(x) paste(head(x,5), collapse=",")))
+    tbl <- reactable(df,
+                     rownames=FALSE,
+                     compact=TRUE, 
+                     fullWidth=TRUE,
+                     defaultPageSize=20,
+                     defaultColDef=colDef(headerClass="rctbl-header"),
+                     style=list(backgroundColor="#EFEFEF"),
+                     showPageSizeOptions=TRUE,
+                     rowStyle=list(cursor="pointer"))
+    
+    dat <- htmltools::div(class="rctbl-obj-teeny", tbl)
+    return(dat)
+  })
   
   
   # output$geneset_table <- DT::renderDataTable({

@@ -114,7 +114,7 @@ table_name <- "signature_feature_set"
 drop_table_sql <- base::sprintf('DROP TABLE IF EXISTS `%s`;', table_name)
 base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 
-# Create table
+# Create table # getting rid
 create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
@@ -122,7 +122,7 @@ CREATE TABLE `%s` (
   `feature_id` INT UNSIGNED NOT NULL,
   `probe_id` VARCHAR(255) DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
-  `direction` SET("+", "-") NOT NULL,
+  `group_label` VARCHAR(255) DEFAULT NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `feature_id`),

@@ -67,7 +67,7 @@ addProteomicsSignatureSet <- function(
   }
   
   # Check required signature fields ####
-  signature_fields <- c('feature_name', 'probe_id', 'score', 'direction')
+  signature_fields <- c('feature_name', 'probe_id', 'group_label', 'score')
   
   if(any(!signature_fields %in% colnames(signature_set))){
     # Disconnect from database ####
