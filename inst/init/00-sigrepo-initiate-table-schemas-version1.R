@@ -61,7 +61,7 @@ CREATE TABLE `%s` (
   `direction_type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `phenotype_id` INT UNSIGNED NOT NULL,
-  `platform_id` VARCHAR(255) NOT NULL,
+  `platform_id` INT UNSIGNED NOT NULL,
   `sample_type_id` INT UNSIGNED NOT NULL,
   `covariates` TEXT DEFAULT NULL,
   `description` TEXT DEFAULT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE `%s` (
   `feature_id` INT UNSIGNED NOT NULL,
   `probe_id` VARCHAR(255) DEFAULT NULL,
   `score` NUMERIC(10, 8) DEFAULT NULL,
-  `group_label` VARCHAR(255) DEFAULT NOT NULL,
+  `group_label` VARCHAR(255) DEFAULT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `feature_id`),
@@ -323,7 +323,7 @@ CREATE TABLE `%s` (
   `gene_symbol` TEXT DEFAULT NULL,
   `is_current` BOOL DEFAULT 1,
   `feature_hashkey` VARCHAR(32) NOT NULL,
-  `version` INT NOT NULL,
+  `version` DATETIME DEFAULT CURRENT_TIMESTAMP, 
   PRIMARY KEY (`feature_id`), 
   UNIQUE (`feature_name`, `organism_id`),
   FOREIGN KEY (`organism_id`) REFERENCES `organisms` (`organism_id`),
@@ -438,10 +438,10 @@ base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
 create_table_sql <- base::sprintf(
 '
 CREATE TABLE `%s` (
-  `platform_id_db` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `platform_id` VARCHAR(255) NOT NULL,
-  PRIMARY KEY (`platform_id_db`),
-  UNIQUE (`platform_id`)
+  `platform_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `platform_name` VARCHAR(255) NOT NULL,
+  PRIMARY KEY (`platform_id`),
+  UNIQUE (`platform_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 ', table_name)
 
@@ -555,6 +555,7 @@ CREATE TABLE `%s` (
   `user_affiliation` TEXT DEFAULT NULL,
   `user_role` SET("admin", "editor", "viewer") NOT NULL,
   `api_key` VARCHAR(32) NOT NULL,
+  `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP, 
   `active` BOOL DEFAULT 0,
   `user_hashkey` VARCHAR(32) NOT NULL,                 
   PRIMARY KEY (`user_name`),

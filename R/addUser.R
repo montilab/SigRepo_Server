@@ -138,7 +138,7 @@ addUser <- function(
     conn = conn,
     db_table_name = db_table_name,
     table = table, 
-    exclude_coln_names = NULL,
+    exclude_coln_names = "date_created",
     check_db_table = FALSE
   )
   

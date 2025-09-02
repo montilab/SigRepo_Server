@@ -84,13 +84,7 @@ addProteomicsSignatureSet <- function(
     base::stop(base::sprintf("\nAll required column names in 'signature_set': %s cannot contain any empty values.\n", base::paste0(signature_fields, collapse = ", ")))
   }
   
-  # Check the direction symbols in signature table
-  if(any(!signature_set$direction %in% c("+", "-"))){
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    # Show error message
-    base::stop("\nThe 'direction' variable in 'signature_set' must contain +/- symbols only.\n")
-  }
+  
   
   # Define table in database ####
   db_table_name <- "signature_feature_set"

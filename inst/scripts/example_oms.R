@@ -1,9 +1,10 @@
 # Script to create 4 different example omic signature objects
 # 
 # 
-# 
-# library(devtools)
-# library(dplyr)
+
+library(devtools)
+library(dplyr)
+library(OmicSignature)
 # devtools::install_github(repo = "montilab/OmicSignature") # installing the omic signature package 
 # 
 # load_all()
@@ -35,12 +36,12 @@ OmS_MDA_CYP <- brca_diffanal$MDA.CYP
 
 # filtering out the depricated ids
 
-filter_list <- read.csv(file.path(data_path,"feature_tables/Transcriptomics_HomoSapiens.csv"))
-
-filter_list <- filter_list[1]
-
-
-OmS_MDA_CYP <- dplyr::filter(OmS_MDA_CYP, ensembl_gene_id %in% filter_list$feature_name)
+filter_list <- ids
+# 
+ filter_list <- filter_list[2]
+# 
+# 
+ OmS_MDA_CYP <- dplyr::filter(OmS_MDA_CYP, !ensembl_gene_id %in% filter_list$unknown_values)
 
 # OmS_MDA_AhR <- dplyr::filter(OmS_MDA_AhR, ensembl_gene_id %in% filter_list$feature_name)
 # 
@@ -130,9 +131,9 @@ metadata_MDA_CYP <- OmicSignature::createMetadata(
 
 
 difexp_MDA_CYP <- OmS_MDA_CYP %>%
-  dplyr::rename( score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
+  dplyr::rename(score = t, feature_name = ensembl_gene_id, adj_p = adj.P.Val
   ) %>%
-  select(feature_name, adj_p, score ) %>%
+  dplyr::select(feature_name, adj_p, score ) %>%
   mutate(
     group_label = factor(
       ifelse(score < 0, "WT", "DIF"),
@@ -166,7 +167,7 @@ difexp_MDA_CYP <- OmS_MDA_CYP %>%
 
 
 sig_MDA_CYP <- difexp_MDA_CYP %>%
-  select(feature_name, score, group_label) 
+  dplyr::select(feature_name, score, group_label) 
  
 
 
@@ -229,7 +230,7 @@ omic_signature_MDA_CYP <- OmicSignature::OmicSignature$new(
 
  # saveRDS(omic_signature_MDA_AhR, file = file.path(data_path, "signatures/omic_signature_2_revised.RDS"))
 
- # saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_1_revised.RDS"))
+  saveRDS(omic_signature_MDA_CYP, file = file.path(data_path, "signatures/omic_signature_1_rev_2.RDS"))
 
  # saveRDS(omic_signature_SUM_Ahr, file = file.path(data_path, "signatures/omic_signature_4_revised.RDS"))
 

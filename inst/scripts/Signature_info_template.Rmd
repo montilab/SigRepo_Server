@@ -1,5 +1,0 @@
----
-title: "Signature_info_template"
-output: html_document
----
-

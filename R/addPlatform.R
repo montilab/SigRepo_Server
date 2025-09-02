@@ -40,7 +40,7 @@ addPlatform <- function(
   )
   
   # Create a list of variables to check database ####
-  required_column_fields <- "platform_id"
+  required_column_fields <- "platform_name"
   db_table_name <- "platforms"
   table <- platform_tbl
   
@@ -66,7 +66,7 @@ addPlatform <- function(
     db_table_name = db_table_name,
     table = table, 
     check_db_table = TRUE,
-    exclude_coln_names = 'platform_id_db'
+    exclude_coln_names = 'platform_id'
   )
   
   # Remove duplicates from table before inserting into database ####

@@ -327,4 +327,47 @@ parse_and_render_rmd <- function(
   return(html_path)
 }
 
+ids <- SigRepo::addSignature(conn_handler = conn_handler, omic_signature = omic_signature_MDA_CYP, verbose = TRUE, return_missing_features = TRUE)
+
+# filte
+
+# Create a vector of platform names
+platform_name <- c(
+  "DNA assay by ChIP-seq",
+  "DNA assay by ATAC-seq",
+  "genotyping by array",
+  "genotyping by whole-genome-sequencing",
+  "transcriptomics by array",
+  "transcriptomics by bulk RNA-seq",
+  "transcriptomics by long-read sequencing",
+  "transcriptomics by single-cell RNA-seq",
+  "ribosome transcriptomics",
+  "spatial transcriptomics",
+  "single-cell spatial transcriptomics",
+  "proteomics by array",
+  "proteomics by mass spectrometry",
+  "proteomics by NMR",
+  "proteomics by antibody or aptamer",
+  "proteomics by fluorescence",
+  "single-cell proteomics by mass spectrometry",
+  "metabolomics by mass spectrometry",
+  "metabolomics by gas chromatography",
+  "metabolomics by liquid chromatography HPLC",
+  "metabolomics by NMR",
+  "metabolomics by fluorescence",
+  "methylation by array",
+  "methylation by bisulfite sequencing",
+  "methylation by immunoprecipitation",
+  "single-cell CITE-seq",
+  "cell flow cytometry"
+)
+
+# Create the dataframe with platform_id
+platform_df <- data.frame(
+  platform_id = seq_along(platform_name),
+  platform_name = platform_name
+)
+
+# View the dataframe
+print(platform_df)
 
