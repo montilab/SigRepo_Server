@@ -51,10 +51,10 @@ ensembl_ids_human_latest <- ensembl_ids_human_latest %>%
 
 # dropping refs from the our database and importing the current ids
 
-DBI::dbGetQuery(conn = conn, statement = "
-  DELETE FROM transcriptomics_features
-  WHERE organism_id = 1
-")
+# DBI::dbGetQuery(conn = conn, statement = "
+#   DELETE FROM transcriptomics_features
+#   WHERE organism_id = 1
+# ")
 
 # add in the new data 
 
@@ -77,11 +77,11 @@ ensembl_ids_mouse_latest <- ensembl_ids_mouse_latest %>%
     'gene_symbol' = 'hgnc_symbol'
   )
 
-# dropping reference data in our database 
-DBI::dbGetQuery(conn = conn, statement = "
-               DELETE FROM transcriptomics_features
-               WHERE organism_id = 2
-               ")
+# # dropping reference data in our database 
+# DBI::dbGetQuery(conn = conn, statement = "
+#                DELETE FROM transcriptomics_features
+#                WHERE organism_id = 2
+#                ")
 
 # add in the new data
 

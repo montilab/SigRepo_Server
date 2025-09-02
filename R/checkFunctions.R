@@ -402,18 +402,22 @@ checkOmicSignature <- function(
     base::stop("'signature' in OmicSignature must be a data frame and cannot be empty.")
   
   # Check required signature fields ####
-  signature_fields <- c('feature_name', 'probe_id', 'score', 'direction')
+  signature_fields <- c('feature_name', 'probe_id', 'score')
   
   if(any(!signature_fields %in% colnames(signature)))
     base::stop("'signature' in OmicSignature must have the following column names:", paste0(signature_fields, collapse = ", "))
+  
+  if(metadata$direction_type %in% c("bi-directional", "categorical") && !"group_label" %in% colnames(signature)) {
+    base::stop("if the direction of the signature is bi-directional or categorical it must have the group_label column in the signature object")
+  }else{
+    signature <- signature %>% mutate(group_label = NULL)
+  }
   
   # Make sure required column fields do not have any empty values ####
   if(any(is.na(signature[,signature_fields]) == TRUE))
     base::stop(sprintf("All required column names in 'signature' of OmicSignature: %s cannot contain any empty values.", paste0(signature_fields, collapse = ", ")))
   
-  # Check the direction symbols in signature table
-  if(any(!signature$direction %in% c("+", "-")))
-    base::stop("The 'direction' variable in 'signature' table of OmicSignature must contain +/- symbols only.")
+  
   
   # Check difexp is provided ####
   if("difexp" %in% names(omic_signature)){
@@ -434,6 +438,13 @@ checkOmicSignature <- function(
   
   if(!is.null(difexp) && any(!difexp_req_fields %in% colnames(difexp)) && all(!difexp_opt_fields %in% colnames(difexp)))
     base::stop("'difexp' in OmicSignature must have the following required column names: ", paste0("'", difexp_req_fields, "'", collapse = ", "), " and one of the following fields: ", paste0("'", difexp_opt_fields, "'", collapse = " or "))
+  
+  
+  if(!is.null(difexp) && metadata$direction_type %in% c("bi-directional", "categorical") && !"group_label" %in% colnames(difexp)) {
+    base::stop("if the direction of the signature is bi-directional or categorical it must have the group_label column in the signature object")
+  }else{
+    difexp <- difexp %>% mutate(group_label = NULL)
+  }
   
   # Make sure required column fields do not have any empty values ####
   if(!is.null(difexp) && any(is.na(difexp[,difexp_req_fields]) == TRUE))

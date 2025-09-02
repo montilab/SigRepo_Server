@@ -39,12 +39,11 @@ createSignatureMetadata <- function(
   # Extract signature table from omic_signature ####
   signature <- omic_signature$signature 
   
-  # Create number of up regulated features
-  num_up_regulated <- length(which(signature$direction %in% "+"))
-
-  # Create number of up regulated features
-  num_down_regulated <- length(which(signature$direction %in% "-"))
+  # Count number of up-regulated features (positive scores)
+  num_up_regulated <- sum(signature$score > 0)
   
+  # Count number of down-regulated features (negative scores)
+  num_down_regulated <- sum(signature$score < 0)
   # Extract metadata from omic_signature ####
   metadata <- omic_signature$metadata
   
@@ -59,14 +58,14 @@ createSignatureMetadata <- function(
   
   # check if assay type if valid
   
-  # if(assay_type %in% c("metabolomics", "DNA_binding_sites", "methylomics", "genetic_variations"){
-  #   # If assay_type is not valid, throw an error message
-  #   base::suppressWarnings(DBI::dbDisconnect(conn)) 
-  #   SigRepo::showAssayTypeErrorMessage(
-  #     db_table_name = "assay_types",
-  #     unknown_values = assay_type
-  #   )
-  # }
+  if(assay_type %in% c("metabolomics", "DNA_binding_sites", "methylomics", "genetic_variations")){
+    # If assay_type is not valid, throw an error message
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    SigRepo::showAssayTypeErrorMessage(
+      db_table_name = "assay_types",
+      unknown_values = assay_type
+    )
+  }
   
   # Look up organism id (required) ####
   lookup_organism <- metadata$organism[1]
@@ -134,9 +133,9 @@ createSignatureMetadata <- function(
   platform_id_tbl <- SigRepo::lookup_table_sql(
     conn = conn,
     db_table_name = "platforms",
-    return_var = "platform_id",
-    filter_coln_var = "platform_id",
-    filter_coln_val = list("platform_id" = lookup_platform),
+    return_var = c("platform_name", "platform_id"),
+    filter_coln_var = "platform_name",
+    filter_coln_val = list("platform_name" = lookup_platform),
     check_db_table = TRUE
   )
 
@@ -233,16 +232,7 @@ createSignatureMetadata <- function(
   
   # platform_id ### 
   
-  if("platform" %in% names(metadata)){
-    if(length(metadata$platform[1]) == 0){
-      platform_id <- 'NULL'
-    }else{
-      platform_id <- metadata$platform[1]
-    }
-  }else{
-    platform_id <- 'NULL'
-  }
-  
+
   # p_value_cutoff ####
   if("p_value_cutoff" %in% names(metadata)){
     if(length(metadata$p_value_cutoff[1]) == 0){
