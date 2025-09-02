@@ -104,7 +104,16 @@ createOmicSignature <- function(
     check_db_table = TRUE
   )
   
+  # Check if direction_type is bi-directional or categorical, then convert group_label to factor
+  if (any(metadata$direction_type %in% c("bi-directional", "categorical"))) {
+    signature$group_label <- as.factor(signature$group_label)
+  }
   
+  
+  # Check if direction_type is bi-directional or categorical, then convert group_label to factor
+  if (any(metadata$direction_type %in% c("bi-directional", "categorical"))) {
+    difexp$group_label <- as.factor(difexp$group_label)
+  }
   
   # Look up feature_id ####
   lookup_feature_id <- signature$feature_id
@@ -136,23 +145,7 @@ createOmicSignature <- function(
   # Extract the table with appropriate column names ####
   signature <- signature %>% dplyr::select(all_of(coln_names))
   
-  # debugging ####
-  
-  print("Signature columns:")
-  print(colnames(signature))
-  
-  print("First rows of signature:")
-  print(head(signature))
-  
-  print("Difexp columns:")
-  print(colnames(difexp))
-  
-  print("First rows of difexp:")
-  print(head(difexp))
-  
-  
-  print(setdiff(signature$probe_id, difexp$probe_id)
-)
+
   
   # Create the OmicSignature object
   OmS <- base::tryCatch({
