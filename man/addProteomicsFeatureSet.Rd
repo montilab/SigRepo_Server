@@ -7,17 +7,16 @@
 addProteomicsFeatureSet(conn_handler, feature_set, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
 \item{feature_set}{A data frame containing appropriate column names: 
-feature_name, organism, description, synonyms, n_synonyms, ensemble_ids, 
-n_ensemble_ids, transcript_biotypes, chromosome_name, start_position, 
-end_position}
+feature_name, organism, gene_symbol, is_current, version (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add Proteomics Feature Set into database
+Add proteomics feature set to database
 }
 \keyword{internal}

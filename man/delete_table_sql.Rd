@@ -13,7 +13,7 @@ delete_table_sql(
 )
 }
 \arguments{
-\item{conn}{An established database connection using newConnhandler()}
+\item{conn}{An established database connection}
 
 \item{db_table_name}{Name of a table in the database}
 

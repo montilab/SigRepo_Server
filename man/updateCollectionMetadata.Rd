@@ -14,10 +14,10 @@ updateCollectionMetadata(
 )
 }
 \arguments{
-\item{conn_handler}{A handler uses to establish connection to
-a remote database obtained from SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_id}{ID of collection in the database to be updated.}
+\item{collection_id}{ID of collection in the database to be updated (required)}
 
 \item{collection_name}{Name of the collection to be changed.}
 

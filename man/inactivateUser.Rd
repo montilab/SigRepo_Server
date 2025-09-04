@@ -10,23 +10,11 @@ inactivateUser(conn_handler, user_name, verbose = TRUE)
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{user_name}{Name of a user to be deleted (required).}
+\item{user_name}{Name of the user to be inactivated (required).}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Inactivate a user in the database
-}
-\examples{
-
-
-# Establish a Connection Handler using newConnHnalder if not done so already.
-
-# SigRepo::inactivateUser(
-#   conn_handler = conn,
-#   user_name = "user1",
-#   verbose = FALSE
-#)
-
 }

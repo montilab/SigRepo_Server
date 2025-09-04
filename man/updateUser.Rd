@@ -44,20 +44,3 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Update a user in the database
 }
-\examples{
-
- # Establish a Connection Handler using newConnHandler if not done so already.
-
-# SigRepo::updateUser(
-# conn_handler = conn,
-# user_name = "test_user", # required
-# password = "new_password", 
-# email = "test_email",
-# affiliation = "test_affiliation",
-# last_name = "test_last_name",
-# role = "editor",
-# verbose = FALSE
-# )
-
-
-}

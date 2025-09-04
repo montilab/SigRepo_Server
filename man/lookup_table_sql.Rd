@@ -15,7 +15,7 @@ lookup_table_sql(
 )
 }
 \arguments{
-\item{conn}{An established connection to database using SigRepo::newConnhandler()}
+\item{conn}{An established database connection}
 
 \item{db_table_name}{A table in the database}
 
@@ -32,10 +32,10 @@ Default NULL.}
 provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 Default NULL.}
 
-\item{check_db_table}{Check whether table exists in the database. Default = TRUE.
-docuem @keywords internal}
+\item{check_db_table}{Check whether table exists in the database. Default = TRUE.}
 }
 \description{
 Look up a list of variables based on a particular variable 
 and its associated values in the database
 }
+\keyword{internal}

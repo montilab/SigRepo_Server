@@ -7,9 +7,11 @@
 createCollectionMetadata(conn_handler, omic_collection)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using SigRepo::conn_init()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{omic_collection}{An R6 class object from OmicSignature package}
+\item{omic_collection}{A collection of OmicSignature objects from 
+OmicSignature package (required)}
 }
 \description{
 Create a metadata object for a signature

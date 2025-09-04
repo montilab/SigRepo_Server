@@ -13,15 +13,15 @@ addUserToSignature(
 )
 }
 \arguments{
-\item{conn_handler}{A handler uses to establish connection to
-a remote database obtained from SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{signature_id}{An ID of signature in the database}
+\item{signature_id}{An ID of signature in the database (required)}
 
-\item{user_name}{A list of users to be added to a signature}
+\item{user_name}{A list of users to be added to a signature (required)}
 
 \item{access_type}{A list of permissions to be given to users in order for 
-them to view or manage the signature in the database. 
+them to view or manage the signature in the database (required). 
 
 There are three types of permissions:
 
@@ -37,15 +37,4 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add a list of users with specific access to a signature 
 in the database
-}
-\examples{
-
-# SigRepo::addUserToSignature(
-# conn_handler = conn,
-# signature_id = 74, 
-# user_name = c("user1", "user2"),
-# access_type = c("owner", "editor"),
-# verbose = FALSE
-# )
-
 }

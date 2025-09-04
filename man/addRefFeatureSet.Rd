@@ -13,16 +13,19 @@ addRefFeatureSet(
 )
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
 \item{assay_type}{Type of assays: transcriptomics, proteomics, metabolomics, 
-methylomics, genetic_variations, dna_binding_sites}
+methylomics, genetic_variations, dna_binding_sites (required)}
 
-\item{feature_set}{A data frame containing appropriate column names}
+\item{feature_set}{A data frame containing appropriate column names (required):
+transcriptomics: feature_name, organism, gene_symbol, is_current, version
+proteomics: feature_name, organism, gene_symbol, is_current, version}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add reference feature set into database
+Add reference feature set to database
 }
