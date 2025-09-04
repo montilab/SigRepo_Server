@@ -1,18 +1,15 @@
 #' @title addTranscriptomicsFeatureSet
-#' @description Add Transcriptomics Feature Set into database
-#' @param conn_handler An established connection to database using newConnhandler() 
+#' @description Add Transcriptomics Feature Set to database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
 #' @param feature_set A data frame containing appropriate column names: 
-#' feature_name, organism, description, synonyms, n_synonyms, ensemble_ids, 
-#' n_ensemble_ids, transcript_biotypes, chromosome_name, start_position, 
-#' end_position
+#' feature_name, organism, gene_symbol, is_current, version (required)
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @importFrom dplyr syms
-#' 
 #' @keywords internal
+#' 
 #' @export
-
 addTranscriptomicsFeatureSet <- function(
     conn_handler,
     feature_set,
@@ -33,24 +30,24 @@ addTranscriptomicsFeatureSet <- function(
   )
   
   # Create a list of variables to check database ####
-  required_column_fields <- c("feature_name", "organism")
+  required_column_fields <- c("feature_name", "organism", "is_current", "version")
   db_table_name <- "transcriptomics_features"
   table <- feature_set
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\'Transcriptomics features' table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names in 'Transcriptomics features' table: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Get organism id ####
@@ -68,20 +65,19 @@ addTranscriptomicsFeatureSet <- function(
   )
   
   ## Add ID to table
-  table <- table %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% 
+  table <- table |> 
+    dplyr::mutate(id = base::trimws(base::tolower(!!!rlang::syms(coln_var)))) |> 
     dplyr::left_join(
-      lookup_id_tbl %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% dplyr::select("id", "organism_id"), 
+      lookup_id_tbl |> dplyr::mutate(id = base::trimws(base::tolower(!!!rlang::syms(coln_var)))) |> dplyr::select(c("id", "organism_id")), 
       by = "id"
     )
   
   # If any ID is missing, produce an error message
-  if(any(table$organism_id %in% c("", NA))){
+  if(base::any(table$organism_id %in% c("", NA))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
-    
     # Get the unknown values
-    unknown_values <- table$organism[which(table$organism_id %in% c("", NA))]
-    
+    unknown_values <- table$organism[base::which(table$organism_id %in% c("", NA))]
     # Return error message
     SigRepo::showOrganismErrorMessage(
       db_table_name = 'organisms',

@@ -1,15 +1,16 @@
-#' @title searchPlatform
-#' @description Get signatures to database
+#' @title searchPlatforms
+#' @description Search for a list of platforms in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param platform_id a list of platfrom ids (platform names) in the database
-#' @param verbose a logical value indicates whether or not to print the
+#' @param platform_name A list of platform names to be looked up. Default is 
+#' NULL which will return all of the platforms in the database.
+#' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
 #' @export
-searchPlatform <- function(
+searchPlatforms <- function(
     conn_handler,
-    platform_id = NULL,
+    platform_name = NULL,
     verbose = TRUE
 ){
   
@@ -27,7 +28,7 @@ searchPlatform <- function(
   )
   
   # Look up signatures
-  if(length(platform_id) == 0 || all(platform_id %in% c("", NA))){
+  if(base::length(platform_name) == 0 || base::all(platform_name %in% c("", NA))){
     
     platform_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
@@ -42,8 +43,8 @@ searchPlatform <- function(
       conn = conn, 
       db_table_name = "platforms", 
       return_var = "*", 
-      filter_coln_var = "platform_id", 
-      filter_coln_val = list("platform_id" = platform_id),
+      filter_coln_var = "platform_name", 
+      filter_coln_val = list("platform_name" = base::unique(platform_name)),
       check_db_table = TRUE
     ) 
     

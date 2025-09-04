@@ -2,23 +2,11 @@
 #' @description Get a list of collection uploaded by a specified user in the database.
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param collection_name Name of collection to be returned
-#' @param collection_id ID of collection to be returned
+#' @param collection_name Name of collection to be returned (required)
+#' @param collection_id ID of collection to be returned (required)
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#' # Establish a Connection Handler using newConnHandler if not done so already.
-#' 
-#' # search for available collections
-#' 
-#' # collection_tbl <- SigRepo::getCollection(
-#' # conn_handler = conn,
-#' # collection_name = "test_collection",
-#' # colection_id = 170,
-#' # verbose = FALSE)
-#' 
+#'  
 #' @export
 getCollection <- function(
     conn_handler,
@@ -55,7 +43,7 @@ getCollection <- function(
   ) 
   
   # Get a list of filtered variables
-  filter_var_list <- list(
+  filter_var_list <- base::list(
     "collection_id" = base::unique(collection_id),
     "collection_name" = base::unique(collection_name)
   )
@@ -63,11 +51,11 @@ getCollection <- function(
   # Filter table with given search variables
   for(r in base::seq_along(filter_var_list)){
     #r=1;
-    filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
+    filter_status <- base::ifelse(base::length(filter_var_list[[r]]) == 0 || base::all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
     if(filter_status == TRUE){
       filter_var <- base::names(filter_var_list)[r]
-      filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
-      collection_tbl <- collection_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
+      filter_val <- filter_var_list[[r]][base::which(!filter_var_list[[r]] %in% c(NA, ""))]
+      collection_tbl <- collection_tbl |> dplyr::filter(base::trimws(base::tolower(!!!rlang::syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
     }
   }
   
@@ -75,10 +63,10 @@ getCollection <- function(
   if(user_role != "admin"){
     
     # Get a list of collection with visibility = FALSE
-    collection_visibility <- collection_tbl %>% dplyr::filter(visibility == FALSE) %>% dplyr::distinct(collection_id, visibility) 
+    collection_visibility <- collection_tbl |> dplyr::filter(.data$visibility == FALSE) |> dplyr::distinct(.data$collection_id, .data$visibility) 
     
     # Check if user has the permission to view the signatures ####
-    for(w in 1:nrow(collection_visibility)){
+    for(w in 1:base::nrow(collection_visibility)){
       #w=1;
       # Check user access ####
       collection_access_tbl <- SigRepo::lookup_table_sql(
@@ -86,21 +74,20 @@ getCollection <- function(
         db_table_name = "collection_access", 
         return_var = "*", 
         filter_coln_var = c("collection_id", "user_name", "access_type"),
-        filter_coln_val = list("collection_id" = collection_visibility$collection_id[w], "user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
+        filter_coln_val = base::list("collection_id" = collection_visibility$collection_id[w], "user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
         filter_var_by = c("AND", "AND"),
         check_db_table = TRUE
       ) 
-      
-      # If user does not have owner or editor permission, throw an error message
-      if(nrow(collection_access_tbl) == 0){
-        collection_tbl <- collection_tbl %>% dplyr::filter(!collection_id %in% collection_visibility$collection_id[w])
+      # If user does not have owner or editor permission, remove from the returned list
+      if(base::nrow(collection_access_tbl) == 0){
+        collection_tbl <- collection_tbl |> dplyr::filter(!.data$collection_id %in% collection_visibility$collection_id[w])
       }
     }
     
   }
   
   # Check if signature exists
-  if(nrow(collection_tbl) == 0){
+  if(base::nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -116,7 +103,7 @@ getCollection <- function(
     # Create an omic signature object for each signature id ####
     for(r in 1:nrow(collection_tbl)){
       #r=1;
-      db_collection_tbl <- collection_tbl %>% dplyr::slice(r)
+      db_collection_tbl <- collection_tbl |> dplyr::slice(r)
       
       # Create an OmicSignature object
       omic_signature_collection <- SigRepo::createOmicCollection(

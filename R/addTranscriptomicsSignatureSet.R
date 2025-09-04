@@ -1,19 +1,17 @@
 #' @title addTranscriptomicsSignatureSet
 #' @description Add signature feature set to database
-#' @param conn_handler An established connection to database using newConnhandler() 
-#' @param signature_id A signature name
-#' @param organism_id An organism
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
+#' @param signature_id ID of the signature (required) 
+#' @param organism_id ID of the organism (required) 
 #' @param signature_set A data frame containing the appropriate column names:
-#' feature_name, probe_id, score, direction
+#' feature_name, probe_id, score, group_label (required) 
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @importFrom methods is
 #' 
 #' @keywords internal
 #' 
 #' @export
-
 addTranscriptomicsSignatureSet <- function(
     conn_handler,
     signature_id,
@@ -42,7 +40,7 @@ addTranscriptomicsSignatureSet <- function(
   user_name <- conn_info$user[1]
   
   # Check signature_id ####
-  if(!length(signature_id) == 1 || signature_id %in% c(NA, "")){
+  if(!base::length(signature_id) == 1 || signature_id %in% c(NA, "")){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
@@ -50,7 +48,7 @@ addTranscriptomicsSignatureSet <- function(
   }
   
   # Check organism_id ####
-  if(!length(organism_id) == 1 || organism_id %in% c(NA, "")){
+  if(!base::length(organism_id) == 1 || organism_id %in% c(NA, "")){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
@@ -58,7 +56,7 @@ addTranscriptomicsSignatureSet <- function(
   }
   
   # Check if signature is a data frame ####
-  if(!is(signature_set, "data.frame") || length(signature_set) == 0){
+  if(!methods::is(signature_set, "data.frame") || base::length(signature_set) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
@@ -66,29 +64,21 @@ addTranscriptomicsSignatureSet <- function(
   }
   
   # Check required signature fields ####
-  signature_fields <- c('feature_name', 'probe_id', 'score', 'direction')
+  signature_fields <- c('feature_name', 'probe_id', 'score', 'group_label')
   
-  if(any(!signature_fields %in% colnames(signature_set))){
+  if(base::any(!signature_fields %in% base::colnames(signature_set))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
-    base::stop(base::sprintf("\n'signature_set' must have the following column names: %s.\n", paste0(signature_fields, collapse = ", ")))
+    base::stop(base::sprintf("\n'signature_set' must have the following column names: %s.\n", base::paste0(signature_fields, collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(signature_set[,signature_fields]) == TRUE)){
+  if(base::any(base::is.na(signature_set[,signature_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show error message
     base::stop(base::sprintf("\nAll required column names in 'signature_set': %s cannot contain any empty values.\n", base::paste0(signature_fields, collapse = ", ")))
-  }
-  
-  # Check the direction symbols in signature table
-  if(any(!signature_set$direction %in% c("+", "-"))){
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    # Show error message
-    base::stop("\nThe 'direction' variable in 'signature_set' must contain +/- symbols only.\n")
   }
   
   # Define table in database ####
@@ -124,18 +114,18 @@ addTranscriptomicsSignatureSet <- function(
   }
   
   # If signature exists, return the signature table else throw an error message
-  if(nrow(signature_tbl) == 0){
+  if(base::nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     
     # Show error message
-    base::stop(base::sprintf("\nThere is no signature_id = '%s' belong to user = '%s' existed in the 'signatures' table of the SigRepo database.\n", signature_id, user_name))
+    base::stop(base::sprintf("\nThere is no signature_id = '%s' belonged to user = '%s' existed in the 'signatures' table of the SigRepo database.\n", signature_id, user_name))
     
   }else{
 
     # Create signature set table to look up feature id
-    table <- signature_set %>% 
+    table <- signature_set |> 
       dplyr::mutate(
         signature_id = signature_id,
         organism_id = organism_id,
@@ -151,25 +141,25 @@ addTranscriptomicsSignatureSet <- function(
     )
     
     # Look up feature id by its hash key
-    lookup_hashkey <- unique(table$feature_hashkey)
+    lookup_hashkey <- base::unique(table$feature_hashkey)
     
     lookup_feature_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = ref_table, 
       return_var = c("feature_id", "feature_name", "organism_id", "feature_hashkey"),
       filter_coln_var = "feature_hashkey",
-      filter_coln_val = list("feature_hashkey" = lookup_hashkey),
+      filter_coln_val = base::list("feature_hashkey" = lookup_hashkey),
       check_db_table = TRUE
     )
     
     # If any ID is missing, produce an error message
-    if(nrow(lookup_feature_id_tbl) != length(lookup_hashkey)){
+    if(base::nrow(lookup_feature_id_tbl) != base::length(lookup_hashkey)){
       
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       
       # Get the unknown values
-      unknown_values <- table$feature_name[which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
+      unknown_values <- table$feature_name[base::which(!table$feature_hashkey %in% lookup_feature_id_tbl$feature_hashkey)]
       
       # Show error message 
       SigRepo::showTranscriptomicsErrorMessage(
@@ -183,10 +173,11 @@ addTranscriptomicsSignatureSet <- function(
     }
     
     # Add feature id to table
-    table <- table %>% dplyr::left_join(
-      lookup_feature_id_tbl %>% dplyr::select(feature_hashkey, feature_id),
-      by = "feature_hashkey"
-    )
+    table <- table |> 
+      dplyr::left_join(
+        lookup_feature_id_tbl |> dplyr::select(c("feature_hashkey", "feature_id")),
+        by = "feature_hashkey"
+      )
     
     # Create a hash key to look up signature feature set in database ####
     table <- SigRepo::createHashKey(

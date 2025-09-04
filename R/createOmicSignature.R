@@ -2,12 +2,13 @@
 #' @description Get the signature set uploaded by a specific user in the database.
 #' @param conn_handler A handler uses to establish connection to the database
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param db_signature_tbl The name of a signature that belongs to a specific user 
-#' (\code{user_name}) who previously uploaded the signature into the database (required. 
+#' @param db_signature_tbl A data frame contains a list of signatures
+#' to be made into an OmicSignature object (required)
 #' 
 #' @import OmicSignature
 #' 
 #' @keywords internal
+#' 
 #' @export
 createOmicSignature <- function(
     conn_handler,
@@ -25,7 +26,7 @@ createOmicSignature <- function(
   )
   
   # Check if table is a data frame object and not empty
-  if(!is(db_signature_tbl, "data.frame") || nrow(db_signature_tbl) != 1){
+  if(!methods::is(db_signature_tbl, "data.frame") || base::nrow(db_signature_tbl) != 1){
     # Disconnect from database ####
     DBI::dbDisconnect(conn)    
     # Show message
@@ -41,36 +42,40 @@ createOmicSignature <- function(
   }else if(assay_type == "proteomics"){
     ref_table <- "proteomics_features"
   }else if(assay_type == "metabolomics"){
-    ref_table <- "metabolomics_features"
+    SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+    #ref_table <- "metabolomics_features"
   }else if(assay_type == "methylomics"){
-    ref_table <- "methylomics_features"
+    SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+    #ref_table <- "methylomics_features"
   }else if(assay_type == "genetic_variations"){
-    ref_table <- "genetic_variations_features"
+    SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+    #ref_table <- "genetic_variations_features"
   }else if(assay_type == "dna_binding_sites"){
-    ref_table <- "dna_binding_sites_features"
+    SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+    #ref_table <- "dna_binding_sites_features"
   }
   
   # Create metadata
-  metadata <- db_signature_tbl %>% base::as.list()
+  metadata <- db_signature_tbl |> base::as.list()
   
   # Clean-up covariates ###
-  if(length(metadata$covariates) > 0 & all(!metadata$covariates %in% c("", NA))){
-    metadata$covariates <- base::strsplit(metadata$covariates, split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
+  if(base::length(metadata$covariates) > 0 & base::all(!metadata$covariates %in% c("", NA))){
+    metadata$covariates <- base::strsplit(metadata$covariates, split = ",", fixed = TRUE) |> base::unlist() |> base::trimws()
   }
   
   # Clean-up keywords ###
-  if(length(metadata$keywords) > 0 & all(!metadata$keywords %in% c("", NA))){
-    metadata$keywords <- base::strsplit(metadata$keywords, split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
+  if(base::length(metadata$keywords) > 0 & base::all(!metadata$keywords %in% c("", NA))){
+    metadata$keywords <- base::strsplit(metadata$keywords, split = ",", fixed = TRUE) |> base::unlist() |> base::trimws()
   }
   
   # Clean-up others ###
-  if(length(metadata$others) > 0 & all(!metadata$others %in% c("", NA))){
-    metadata$others <- base::strsplit(metadata$others, split = ";", perl = TRUE) %>% base::unlist() %>% base::trimws() %>% 
-      purrr::lmap(., function(x){ 
-        list_name <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\1", x, perl = TRUE) %>% base::trimws()
-        list_value <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\3", x, perl = TRUE) %>% base::strsplit(., split = ",", fixed = TRUE) %>% base::unlist() %>% base::trimws()
-        list_obj <- list(object = list_value)
-        names(list_obj) <- list_name
+  if(base::length(metadata$others) > 0 & base::all(!metadata$others %in% c("", NA))){
+    metadata$others <- base::strsplit(metadata$others, split = ";", perl = TRUE) |> base::unlist() |> base::trimws() |> 
+      purrr::lmap(function(x){ 
+        list_name <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\1", x, perl = TRUE) |> base::trimws()
+        list_value <- base::gsub(pattern = "(.*?):(.*?)<(.*?)>", "\\3", x, perl = TRUE) |> base::strsplit(split = ",", fixed = TRUE) |> base::unlist() |> base::trimws()
+        list_obj <- base::list(object = list_value)
+        base::names(list_obj) <- list_name
         return(list_obj)
       }) 
   }
@@ -100,14 +105,12 @@ createOmicSignature <- function(
     db_table_name = "signature_feature_set", 
     return_var = "*", 
     filter_coln_var = "signature_id", 
-    filter_coln_val = list("signature_id" = db_signature_tbl$signature_id[1]),
+    filter_coln_val = base::list("signature_id" = db_signature_tbl$signature_id[1]),
     check_db_table = TRUE
   )
   
-  
-  
   # Look up feature_id ####
-  lookup_feature_id <- signature$feature_id
+  lookup_feature_id <- base::unique(signature$feature_id)
   
   feature_id_tbl <- SigRepo::lookup_table_sql(
     conn = conn, 
@@ -118,41 +121,27 @@ createOmicSignature <- function(
     check_db_table = TRUE
   ) 
   
-
-  
   # Add variables to table
-  signature <- signature %>% 
+  signature <- signature |> 
     dplyr::left_join(
       feature_id_tbl,
       by = "feature_id"
     )
   
-
-  
   # Rename table with appropriate column names 
-  coln_names <- base::colnames(signature) %>% 
-    base::replace(., base::match(c("feature_id"), .), c("feature_name"))
-
+  coln_names <- base::colnames(signature) |> 
+    base::replace(base::match("feature_id", base::colnames(signature)), "feature_name")
+  
   # Extract the table with appropriate column names ####
-  signature <- signature %>% dplyr::select(all_of(coln_names))
+  signature <- signature |> 
+    dplyr::select(dplyr::all_of(coln_names)) |>
+    dplyr::mutate(group_label = if(metadata$direction_type[1] %in% c("bi-directional", "categorical")){ base::factor(.data$group_label, levels=base::unique(.data$group_label), labels=base::unique(.data$group_label)) }else{ .data$group_label })
   
-  # debugging ####
-  
-  print("Signature columns:")
-  print(colnames(signature))
-  
-  print("First rows of signature:")
-  print(head(signature))
-  
-  print("Difexp columns:")
-  print(colnames(difexp))
-  
-  print("First rows of difexp:")
-  print(head(difexp))
-  
-  
-  print(setdiff(signature$probe_id, difexp$probe_id)
-)
+  # Extract difexp with appropriate column names ####
+  if(db_signature_tbl$has_difexp[1] == TRUE){
+    difexp <- difexp |> 
+      dplyr::mutate(group_label = if(metadata$direction_type[1] %in% c("bi-directional", "categorical")){ base::factor(.data$group_label, levels=base::unique(.data$group_label), labels=base::unique(.data$group_label)) }else{ .data$group_label })
+  }
   
   # Create the OmicSignature object
   OmS <- base::tryCatch({

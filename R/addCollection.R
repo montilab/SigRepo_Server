@@ -1,22 +1,15 @@
 #' @title addCollection
-#' @description Add signature collection to database
-#' @param conn_handler An established connection to database using newConnhandler() 
-#' @param omic_collection A collection of OmicSignature objects from OmicSignature package
+#' @description Add signature collections to database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
+#' @param omic_collection A collection of OmicSignature objects from 
+#' OmicSignature package (required) 
 #' @param visibility A logical value indicates whether or not to allow others 
 #' to view and access one's uploaded collection. Default is \code{FALSE}.
 #' @param return_collection_id a logical value indicates whether or not to return
 #' the ID of the uploaded collection. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}. #test
-#' 
-#' @examples
-#' 
-#' # SigRepo::addCollection(
-#' # conn_handler = conn,
-#' # omic_collection = omic_collection_test,
-#' # visibility = FALSE,
-#' # return_collection_id = TRUE,
-#' # verbose = TRUE)
 #' 
 #' @export
 addCollection <- function(
@@ -50,7 +43,7 @@ addCollection <- function(
   db_table_name <- "collection"
   
   # Get visibility ####
-  visibility <- ifelse(visibility == TRUE, 1, 0)
+  visibility <- base::ifelse(visibility == TRUE, 1, 0)
   
   # Create collection metadata table ####
   metadata_tbl <- SigRepo::createCollectionMetadata(
@@ -59,7 +52,7 @@ addCollection <- function(
   ) 
   
   # Add additional variables in collection metadata table ####
-  metadata_tbl <- metadata_tbl %>% 
+  metadata_tbl <- metadata_tbl |> 
     dplyr::mutate(
       user_name = user_name,
       visibility = visibility
@@ -79,12 +72,12 @@ addCollection <- function(
     db_table_name = db_table_name, 
     return_var = "*", 
     filter_coln_var = "collection_hashkey",
-    filter_coln_val = list("collection_hashkey" = metadata_tbl$collection_hashkey),
+    filter_coln_val = base::list("collection_hashkey" = metadata_tbl$collection_hashkey),
     check_db_table = TRUE
   ) 
   
   # If the signature exists, throw an error message ####
-  if(nrow(collection_tbl) > 0){
+  if(base::nrow(collection_tbl) > 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))
@@ -128,7 +121,7 @@ addCollection <- function(
         base::stop(e, "\n")
       }) 
       # Check if warning table is returned
-      if(length(signature_id) == 0){
+      if(base::length(signature_id) == 0){
         # Disconnect from database ####
         base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return error message
@@ -140,7 +133,7 @@ addCollection <- function(
     }
     
     # Check signature_id_list
-    if(length(signature_id_list) != length(omic_sig_list)){ return(base::invisible()) }
+    if(base::length(signature_id_list) != base::length(omic_sig_list)){ return(base::invisible()) }
     
     # Reset options
     SigRepo::print_messages(verbose = verbose)
@@ -171,7 +164,7 @@ addCollection <- function(
       db_table_name = db_table_name, 
       return_var = "*", 
       filter_coln_var = "collection_hashkey",
-      filter_coln_val = list("collection_hashkey" = metadata_tbl$collection_hashkey),
+      filter_coln_val = base::list("collection_hashkey" = metadata_tbl$collection_hashkey),
       check_db_table = FALSE
     ) 
     

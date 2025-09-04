@@ -1,14 +1,14 @@
-#' @title searchOrganism
-#' @description Get organisms in the database
+#' @title searchOrganisms
+#' @description Search for a list of organisms in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param organism a list of organisms to search by. Default is NULL which
-#' includes all organisms in the database.
+#' will return all of the organisms in the database.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #'
 #' @export
-searchOrganism <- function(
+searchOrganisms <- function(
     conn_handler,
     organism = NULL,
     verbose = TRUE
@@ -28,7 +28,7 @@ searchOrganism <- function(
   )
   
   # Look up signatures
-  if(length(organism) == 0 || all(organism %in% c("", NA))){
+  if(base::length(organism) == 0 || base::all(organism %in% c("", NA))){
     
     organism_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
@@ -44,7 +44,7 @@ searchOrganism <- function(
       db_table_name = "organisms", 
       return_var = "organism", 
       filter_coln_var = "organism", 
-      filter_coln_val = list("organism" = organism),
+      filter_coln_val = base::list("organism" = base::unique(organism)),
       check_db_table = TRUE
     ) 
     

@@ -2,17 +2,17 @@
 #' @description Add signature to database with an assigned ID
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param omic_signature An R6 class object from OmicSignature package
-#' @param assign_signature_id Assign an unique ID to the uploaded signature. 
-#' @param assign_user_name Assign an unique user name to the uploaded signature. 
+#' @param omic_signature An R6 class object from OmicSignature package (required)
+#' @param assign_signature_id Assign an unique ID to the uploaded signature (required)
+#' @param assign_user_name Assign an unique user name to the uploaded signature (required) 
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{FALSE}.
 #'
 #' @keywords internal
+#' 
 #' @export
-
 addSignatureWithID <- function(
     conn_handler,
     omic_signature,
@@ -42,7 +42,7 @@ addSignatureWithID <- function(
   visibility <- ifelse(visibility == TRUE, 1, 0)
   
   # Check assign_signature_id
-  if(!length(assign_signature_id) == 1 || all(assign_signature_id %in% c(NA, ""))){
+  if(!base::length(assign_signature_id) == 1 || base::all(assign_signature_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -52,7 +52,7 @@ addSignatureWithID <- function(
   }
   
   # Check assign_user_name
-  if(!length(assign_user_name) == 1 || all(assign_user_name %in% c(NA, ""))){
+  if(!base::length(assign_user_name) == 1 || base::all(assign_user_name %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -69,7 +69,7 @@ addSignatureWithID <- function(
   
   # Add additional variables in signature metadata table ####
   # Keep its original id and name of the user who owned the signature
-  metadata_tbl <- metadata_tbl %>% 
+  metadata_tbl <- metadata_tbl |> 
     dplyr::mutate(
       signature_id = signature_id[1],
       user_name = user_name[1],
@@ -110,14 +110,14 @@ addSignatureWithID <- function(
     if(!base::dir.exists(data_path)){
       base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
     }
-    base::saveRDS(difexp, file = base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
+    base::saveRDS(difexp, file = base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
     # Get API URL
     api_url <- base::sprintf("http://%s:%s/store_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], metadata_tbl$signature_hashkey[1])
     # Store difexp in database
     res <- 
       httr::POST(
         url = api_url,
-        body = list(
+        body = base::list(
           difexp = httr::upload_file(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")), "application/rds")
         )
       )

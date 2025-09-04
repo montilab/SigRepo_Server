@@ -2,7 +2,7 @@
 #' @description Add signature to database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param omic_signature An R6 class object from OmicSignature package
+#' @param omic_signature An R6 class object from OmicSignature package (required)
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param return_signature_id A logical value indicates whether or not to return
@@ -12,15 +12,6 @@
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @importFrom methods is
-#' 
-#' @examples
-#' 
-#' 
-#' # Adding a signature into the database
-#' 
-#' # SigReo::addSignature(conn, test_transcriptomics_signature)
-#'
 #' @export
 addSignature <- function(
     conn_handler,
@@ -54,7 +45,7 @@ addSignature <- function(
   db_table_name <- "signatures"
   
   # Get visibility ####
-  visibility <- ifelse(visibility == TRUE, 1, 0)
+  visibility <- base::ifelse(visibility == TRUE, 1, 0)
   
   # Create signature metadata table ####
   metadata_tbl <- SigRepo::createSignatureMetadata(
@@ -67,7 +58,7 @@ addSignature <- function(
   SigRepo::print_messages(verbose = verbose)
   
   # Add additional variables in signature metadata table ####
-  metadata_tbl <- metadata_tbl %>% 
+  metadata_tbl <- metadata_tbl |> 
     dplyr::mutate(
       user_name = user_name,
       visibility = visibility
@@ -92,7 +83,7 @@ addSignature <- function(
   ) 
   
   # If the signature exists, throw an error message ####
-  if(nrow(signature_tbl) > 0){
+  if(base::nrow(signature_tbl) > 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))
@@ -161,7 +152,7 @@ addSignature <- function(
       res <-
         httr::POST(
           url = api_url,
-          body = list(
+          body = base::list(
             difexp = httr::upload_file(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")), "application/rds")
           )
         )
@@ -178,10 +169,6 @@ addSignature <- function(
         base::unlink(base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
       }
     }
-
-    
-    
-    
     
     # 2. Adding user to signature access table after signature
     # was imported successfully in step (1)
@@ -215,14 +202,6 @@ addSignature <- function(
     # Get the signature assay type
     assay_type <- signature_tbl$assay_type[1]
     
-    ###TEMPORTARY FIX###
-    # throw error using the showAssayType error message if the assay type is metabolomics, methylomics, genetic_variations, or dna_binding_sites
-    assay_stop <- c("methylomics", "metabolomics", "genetic_variations", "dna_binding_sites")
-    
-    if(assay_type %in% assay_stop){
-      SigRepo::showAssayErrorMessage(assay_type = assay_type)
-    }
-    
     # Add signature set to database based on its assay type
     if(assay_type == "transcriptomics"){
       
@@ -245,9 +224,11 @@ addSignature <- function(
       }) 
       
       # Check if warning table is returned
-      if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+      if(methods::is(warn_tbl, "data.frame") && base::nrow(warn_tbl) > 0){
         # Delete signature
         SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return warning table
         if(return_missing_features == TRUE){
           return(warn_tbl)
@@ -277,16 +258,23 @@ addSignature <- function(
       }) 
       
       # Check if warning table is returned
-      if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+      if(methods::is(warn_tbl, "data.frame") && base::nrow(warn_tbl) > 0){
         # Delete signature
         SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+        # Disconnect from database ####
+        base::suppressWarnings(DBI::dbDisconnect(conn))  
         # Return warning table
-        return(warn_tbl)
+        if(return_missing_features == TRUE){
+          return(warn_tbl)
+        }else{
+          return(base::invisible())
+        }
       }
-      
-  
-      
+
     }else if(assay_type == "metabolomics"){
+      
+      SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+      
       # # If there is a error during the process, remove the signature and output the message
       # warn_tbl <- base::tryCatch({
       #   SigRepo::addMetabolomicsSignatureSet(
@@ -314,6 +302,8 @@ addSignature <- function(
       # }
       
     }else if(assay_type == "methylomics"){
+      
+      SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
       
       # # If there is a error during the process, remove the signature and output the message
       # warn_tbl <- base::tryCatch({
@@ -344,6 +334,8 @@ addSignature <- function(
       
     }else if(assay_type == "genetic_variations"){
       
+      SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+      
       # # If there is a error during the process, remove the signature and output the message
       # warn_tbl <- base::tryCatch({
       #   SigRepo::addGeneticVariationsSignatureSet(
@@ -372,6 +364,7 @@ addSignature <- function(
       
     }else if(assay_type == "dna_binding_sites"){
       
+      SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
       
       # # If there is a error during the process, remove the signature and output the message
       # warn_tbl <- base::tryCatch({
