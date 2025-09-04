@@ -235,7 +235,7 @@ if(nrow(collection_tbl) > 0){
 
 # Add signatures to an existing collection in the database
 
-The `updateCollectionMetadata()` function allows users to add a set of signatures to an existing collection in the database. 
+The `addSignatureToCollection()` function allows users to add a set of signatures to an existing collection in the database. 
 
 __IMPORTANT NOTE:__ 
 
@@ -372,11 +372,4 @@ collection_tbl <- SigRepo::searchCollection(
   conn_handler = conn_handler, 
   collection_name = "my_collection"
 )
-
-if(nrow(collection_tbl) > 0){
-  knitr::kable(
-    collection_tbl,
-    row.names = FALSE
-  )
-}
 ```
