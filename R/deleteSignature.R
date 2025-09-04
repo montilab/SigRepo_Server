@@ -1,7 +1,8 @@
 #' @title deleteSignature
-#' @description Delete a signature from the signature table of the database
-#' @param conn_handler An established connection to the database using newConnhandler() 
-#' @param signature_id ID of signature to be removed from the database 
+#' @description Delete a signature from the signatures table of the database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' @param signature_id ID of signature to be removed from the database (required)
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
@@ -21,7 +22,7 @@ deleteSignature <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = c("SELECT", "DELETE"),
+    action_type = "DELETE",
     required_role = "editor"
   )
   
@@ -35,7 +36,7 @@ deleteSignature <- function(
   signature_id <- base::unique(signature_id) 
   
   # Check signature_id
-  if(length(signature_id) != 1 || all(signature_id %in% c(NA, ""))){
+  if(base::length(signature_id) != 1 || base::all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -53,7 +54,7 @@ deleteSignature <- function(
   )
   
   # If signature exists, return the signature table else throw an error message
-  if(nrow(signature_tbl) == 0){
+  if(base::nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -78,14 +79,14 @@ deleteSignature <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(signature_user_tbl) == 0){
+      if(base::nrow(signature_user_tbl) == 0){
         
         signature_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "signature_access",
           return_var = "*",
           filter_coln_var = c("signature_id", "user_name", "access_type"),
-          filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
+          filter_coln_val = base::list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )

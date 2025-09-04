@@ -1,15 +1,14 @@
 #' @title updateCollectionMetadata
 #' @description Update metadata of a collection in the database
-#' @param conn_handler A handler uses to establish connection to  
-#' a remote database obtained from SigRepo::newConnhandler()
-#' @param collection_id ID of collection in the database to be updated.
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' @param collection_id ID of collection in the database to be updated (required)
 #' @param collection_name Name of the collection to be changed.
 #' @param description Description of the collection to be changed.
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded collection. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
 #' 
 #' @export
 updateCollectionMetadata <- function(
@@ -30,7 +29,7 @@ updateCollectionMetadata <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = c("SELECT", "INSERT", "DELETE"),
+    action_type = "INSERT",
     required_role = "editor"
   )
 
@@ -44,12 +43,12 @@ updateCollectionMetadata <- function(
   collection_id <- base::unique(collection_id) 
   
   # Get visibility ####
-  if(length(visibility) > 0 && all(!visibility %in% c("", NA))){
-    visibility <- ifelse(visibility[1] == TRUE, 1, 0)
+  if(base::length(visibility) > 0 && base::all(!visibility %in% c("", NA))){
+    visibility <- base::ifelse(visibility[1] == TRUE, 1, 0)
   }
   
   # Check collection_id
-  if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
+  if(!base::length(collection_id) == 1 || base::all(collection_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -67,7 +66,7 @@ updateCollectionMetadata <- function(
   )
   
   # If collection exists, return the collection table else throw an error message
-  if(nrow(collection_tbl) == 0){
+  if(base::nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -86,13 +85,13 @@ updateCollectionMetadata <- function(
         db_table_name = "collection",
         return_var = "*",
         filter_coln_var = c("collection_id", "user_name"), 
-        filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name),
+        filter_coln_val = base::list("collection_id" = collection_id, "user_name" = user_name),
         filter_var_by = "AND",
         check_db_table = FALSE
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(collection_user_tbl) == 0){
+      if(base::nrow(collection_user_tbl) == 0){
         
         # Get access collection table
         collection_access_tbl <- SigRepo::lookup_table_sql(
@@ -100,13 +99,13 @@ updateCollectionMetadata <- function(
           db_table_name = "collection_access",
           return_var = "*",
           filter_coln_var = c("collection_id", "user_name", "access_type"),
-          filter_coln_val = list("collection_id" = collection_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
+          filter_coln_val = base::list("collection_id" = collection_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
         
         # If user does not have permission, throw an error message
-        if(nrow(collection_access_tbl) == 0){
+        if(base::nrow(collection_access_tbl) == 0){
           
           # Disconnect from database ####
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -119,7 +118,7 @@ updateCollectionMetadata <- function(
     }
     
     # Check if both collection_name and description are empty ####
-    if((length(collection_name[1]) == 0 || all(collection_name[1] %in% c("", NA))) && (length(description[1]) == 0 || all(description[1] %in% c("", NA)))){
+    if((base::length(collection_name[1]) == 0 || base::all(collection_name[1] %in% c("", NA))) && (base::length(description[1]) == 0 || base::all(description[1] %in% c("", NA)))){
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn)) 
       # Show message
@@ -136,13 +135,13 @@ updateCollectionMetadata <- function(
     )
     
     # Add updated variables
-    metadata_tbl <- collection_tbl %>% 
+    metadata_tbl <- collection_tbl |> 
       dplyr::mutate(
-        collection_id = collection_tbl$collection_id,
-        user_name = collection_tbl$user_name,
-        collection_name = ifelse(length(!!collection_name[1]) == 0 || all(!!collection_name[1] %in% c("", NA)), collection_name, !!collection_name[1]),
-        description = ifelse(length(!!description[1]) == 0 || all(!!description[1] %in% c("", NA)), description, !!description[1]),
-        visibility = ifelse(length(!!visibility[1]) == 0 || all(!!visibility[1] %in% c("", NA)), visibility, !!visibility[1])
+        collection_id = .data$collection_id,
+        user_name = .data$user_name,
+        collection_name = ifelse(base::length(!!collection_name[1]) == 0 || all(!!collection_name[1] %in% c("", NA)), .data$collection_name, !!collection_name[1]),
+        description = ifelse(base::length(!!description[1]) == 0 || base::all(!!description[1] %in% c("", NA)), .data$description, !!description[1]),
+        visibility = ifelse(base::length(!!visibility[1]) == 0 || base::all(!!visibility[1] %in% c("", NA)), .data$visibility, !!visibility[1])
       )
     
     # Create a new hash key for the collection ####

@@ -1,12 +1,12 @@
 #' @title addUserToCollection
 #' @description Add a list of users with specific access to a collection 
 #' in the database
-#' @param conn_handler A handler uses to establish connection to  
-#' a remote database obtained from SigRepo::newConnhandler() 
-#' @param collection_id An ID of collection in the database
-#' @param user_name A list of users to be added to a collection
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
+#' @param collection_id An ID of collection in the database (required) 
+#' @param user_name A list of users to be added to a collection (required) 
 #' @param access_type A list of permissions to be given to users in order for 
-#' them to view or manage the collection in the database. 
+#' them to view or manage the collection in the database (required) . 
 #' 
 #' There are three types of permissions:
 #' 
@@ -18,16 +18,6 @@
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @examples
-#' 
-#' # SigRepo::addUserToCollection(
-#' # conn_handler = conn,
-#' # collection_id = 75,
-#' # user_name = c("user1", "user2"),
-#' # access_type = c("owner", "editor")
-#' # )
-#' 
-#'  
 #' @export
 addUserToCollection <- function(
     conn_handler,
@@ -66,7 +56,7 @@ addUserToCollection <- function(
   collection_id <- base::unique(collection_id)     
   
   # Check collection_id
-  if(!length(collection_id) == 1 || all(collection_id %in% c(NA, ""))){
+  if(!base::length(collection_id) == 1 || base::all(collection_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -74,7 +64,7 @@ addUserToCollection <- function(
   }
   
   # Check user_name
-  if(length(user_name) == 0 || all(user_name %in% c(NA, ""))){
+  if(base::length(user_name) == 0 || base::all(user_name %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -82,7 +72,7 @@ addUserToCollection <- function(
   }
   
   # Make sure length of user_name equal to length of its access_type
-  if(length(user_name) != length(access_type)){
+  if(base::length(user_name) != base::length(access_type)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -100,11 +90,11 @@ addUserToCollection <- function(
   )
   
   # If any user does not exit in the database, throw an error message
-  if(nrow(user_tbl) != length(unique(user_name))){
+  if(base::nrow(user_tbl) != base::length(base::unique(user_name))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("\nUser = %s do(es) not exist in the users table of the SigRepo database.\n", base::paste0("'", username[which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
+    base::stop(base::sprintf("\nUser = %s do(es) not exist in the users table of the SigRepo database.\n", base::paste0("'", user_name[base::which(!user_name %in% user_tbl$user_name)], "'", collapse = ", ")))
   }
   
   # Check if signature exists ####
@@ -118,7 +108,7 @@ addUserToCollection <- function(
   )
   
   # If signature exists, return the signature table else throw an error message
-  if(nrow(collection_tbl) == 0){
+  if(base::nrow(collection_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -143,20 +133,20 @@ addUserToCollection <- function(
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(collection_user_tbl) == 0){
+      if(base::nrow(collection_user_tbl) == 0){
         
         signature_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "collection_access",
           return_var = "*",
           filter_coln_var = c("collection_id", "user_name", "access_type"),
-          filter_coln_val = list("collection_id" = collection_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
+          filter_coln_val = base::list("collection_id" = collection_id, "user_name" = orig_user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
         
         # If user does not have permission, throw an error message
-        if(nrow(signature_access_tbl) == 0){
+        if(base::nrow(signature_access_tbl) == 0){
           # Disconnect from database ####
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
           # Show message
