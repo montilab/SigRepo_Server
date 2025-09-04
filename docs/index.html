@@ -20,6 +20,7 @@
 <meta name="description" content="As high-throughput technology evolves, a large number of omics-signatures are being derived. This package helps to store signatures efficiently and retrieve them conveniently.">
 <meta property="og:description" content="As high-throughput technology evolves, a large number of omics-signatures are being derived. This package helps to store signatures efficiently and retrieve them conveniently.">
 <meta property="og:image" content="https://montilab.github.io/SigRepo/logo.png">
+<link rel="stylesheet" type="text/css" href="https://...">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -63,7 +64,8 @@
   </div>
 </nav><div class="container template-home">
 <div class="row">
-  <main id="main" class="col-md-9"><div class="section level1">
+  <main id="main" class="col-md-9"><p><br></p>
+<div class="section level1">
 <div class="page-header">
 <img src="logo.png" class="logo" alt=""><h1 id="id_-sigrepo-an-r-package-for-storing-and-processing-omic-signatures">
  SigRepo: An R package for storing and processing omic signatures<a class="anchor" aria-label="anchor" href="#id_-sigrepo-an-r-package-for-storing-and-processing-omic-signatures"></a>
@@ -109,15 +111,14 @@
 <p>We adopt a MySQL database structure for efficiently storing, searching, and retrieving the biological signatures and its constituents. To access the signatures stored in our database, <a href="https://sigrepo.org/" class="external-link">VISIT OUR WEBSITE</a> to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to be added.</p>
 <p>There are three types of user accounts:<br> - <code>admin</code> has <b>READ</b> and <b>WRITE</b> access to all signatures in the database.<br> - <code>editor</code> has <b>READ</b> and <b>WRITE</b> access to ONLY their own uploaded signatures in the database.<br> - <code>viewer</code> has <b>ONLY READ</b> access to see a list of signatures that are publicly available in the database but <b>DO NOT HAVE WRITE</b> access to the database.<br></p>
 <p>Once you have a valid account, to connect to our SigRepo database, one can use the <code><a href="reference/newConnHandler.html">newConnHandler()</a></code> function to create a handler which contains user credentials to establish connection to our database.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Create a connection handler</span></span>
-<span><span class="va">conn_handler</span> <span class="op">&lt;-</span> <span class="fu">SigRepo</span><span class="fu">::</span><span class="fu"><a href="reference/newConnHandler.html">newConnHandler</a></span><span class="op">(</span></span>
-<span>  dbname <span class="op">=</span> <span class="st">"sigrepo"</span>, </span>
-<span>  host <span class="op">=</span> <span class="st">"sigrepo.org"</span>, </span>
-<span>  port <span class="op">=</span> <span class="fl">3306</span>, </span>
-<span>  user <span class="op">=</span> <span class="st">"montilab"</span>, </span>
-<span>  password <span class="op">=</span> <span class="st">"sigrepo"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="co"># Create a connection handler</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>conn_handler <span class="ot">&lt;-</span> SigRepo<span class="sc">::</span><span class="fu">newConnHandler</span>(</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="at">dbname =</span> <span class="st">"sigrepo"</span>, </span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="at">host =</span> <span class="st">"sigrepo.org"</span>, </span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  <span class="at">port =</span> <span class="dv">3306</span>, </span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="at">user =</span> <span class="sc">&lt;</span>your_username<span class="sc">&gt;</span>, </span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="at">password =</span> <span class="sc">&lt;</span>your_password<span class="sc">&gt;</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div class="section level1">
 <h1 id="load-signatures">Load Signatures<a class="anchor" aria-label="anchor" href="#load-signatures"></a>
@@ -216,7 +217,7 @@
 <span><span class="co">#&gt; Adding user to the signature access table of the database...</span></span>
 <span><span class="co">#&gt; Adding signature feature set to the database...</span></span>
 <span><span class="co">#&gt; Finished uploading.</span></span>
-<span><span class="co">#&gt; ID of the uploaded signature: 95</span></span></code></pre></div>
+<span><span class="co">#&gt; ID of the uploaded signature: 104</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="example-2-upload-llfs_aging_gene_2023-signature">
@@ -232,7 +233,7 @@
 <span><span class="co">#&gt; Adding user to the signature access table of the database...</span></span>
 <span><span class="co">#&gt; Adding signature feature set to the database...</span></span>
 <span><span class="co">#&gt; Finished uploading.</span></span>
-<span><span class="co">#&gt; ID of the uploaded signature: 96</span></span></code></pre></div>
+<span><span class="co">#&gt; ID of the uploaded signature: 105</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="example-3-upload-myc_reduce_mice_liver_24m-signature">
@@ -586,7 +587,7 @@
 <td align="left">f08919100db811a8b117ce6602dd31e4</td>
 </tr>
 <tr class="even">
-<td align="right">95</td>
+<td align="right">104</td>
 <td align="left">Myc_reduce_mice_liver_24m_readme</td>
 <td align="left">Mus musculus</td>
 <td align="left">bi-directional</td>
@@ -610,12 +611,12 @@
 <td align="right">5</td>
 <td align="right">10</td>
 <td align="left">montilab</td>
-<td align="left">2025-09-04 06:04:30</td>
+<td align="left">2025-09-04 12:42:21</td>
 <td align="right">0</td>
 <td align="left">a10176ce6e727366cf740e2bfb56e2bc</td>
 </tr>
 <tr class="odd">
-<td align="right">96</td>
+<td align="right">105</td>
 <td align="left">LLFS_Aging_Gene_2023</td>
 <td align="left">Homo sapiens</td>
 <td align="left">bi-directional</td>
@@ -639,7 +640,7 @@
 <td align="right">82</td>
 <td align="right">87</td>
 <td align="left">montilab</td>
-<td align="left">2025-09-04 06:04:33</td>
+<td align="left">2025-09-04 12:42:24</td>
 <td align="right">0</td>
 <td align="left">b35b7c1d387440d474bfcb3cb162c9a6</td>
 </tr>
@@ -722,7 +723,7 @@
 <th align="left">signature_hashkey</th>
 </tr></thead>
 <tbody><tr class="odd">
-<td align="right">96</td>
+<td align="right">105</td>
 <td align="left">LLFS_Aging_Gene_2023</td>
 <td align="left">Homo sapiens</td>
 <td align="left">bi-directional</td>
@@ -746,7 +747,7 @@
 <td align="right">82</td>
 <td align="right">87</td>
 <td align="left">montilab</td>
-<td align="left">2025-09-04 06:04:33</td>
+<td align="left">2025-09-04 12:42:24</td>
 <td align="right">0</td>
 <td align="left">b35b7c1d387440d474bfcb3cb162c9a6</td>
 </tr></tbody>
@@ -811,11 +812,11 @@
 <span>    signature_id <span class="op">=</span> <span class="va">signature_tbl</span><span class="op">$</span><span class="va">signature_id</span>  </span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt; Remove signature_id = '96' from 'signatures' table of the database.</span></span>
-<span><span class="co">#&gt; Remove features belongs to signature_id = '96' from 'signature_feature_set' table of the database.</span></span>
-<span><span class="co">#&gt; Remove user access to signature_id = '96' from 'signature_access' table of the database.</span></span>
-<span><span class="co">#&gt; Remove signature_id = '96' from 'signature_collection_access' table of the database.</span></span>
-<span><span class="co">#&gt; signature_id = '96' has been removed.</span></span></code></pre></div>
+<span><span class="co">#&gt; Remove signature_id = '105' from 'signatures' table of the database.</span></span>
+<span><span class="co">#&gt; Remove features belongs to signature_id = '105' from 'signature_feature_set' table of the database.</span></span>
+<span><span class="co">#&gt; Remove user access to signature_id = '105' from 'signature_access' table of the database.</span></span>
+<span><span class="co">#&gt; Remove signature_id = '105' from 'signature_collection_access' table of the database.</span></span>
+<span><span class="co">#&gt; signature_id = '105' has been removed.</span></span></code></pre></div>
 </div>
 <div class="section level1">
 <h1 id="update-a-signature">Update a signature<a class="anchor" aria-label="anchor" href="#update-a-signature"></a>
@@ -904,7 +905,7 @@
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="co">#&gt;   [Success] OmicSignature object Myc_reduce_mice_liver_24m_readme created.</span></span>
-<span><span class="co">#&gt;  signature_id = '95' has been updated.</span></span></code></pre></div>
+<span><span class="co">#&gt;  signature_id = '104' has been updated.</span></span></code></pre></div>
 <p>Let’s look up <strong>signature_name = “Myc_reduce_mice_liver_24m_readme”</strong> and see if the value of <code>platform</code> has been changed.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">signature_tbl</span> <span class="op">&lt;-</span> <span class="fu">SigRepo</span><span class="fu">::</span><span class="fu"><a href="reference/searchSignature.html">searchSignature</a></span><span class="op">(</span></span>
@@ -978,7 +979,7 @@
 <th align="left">signature_hashkey</th>
 </tr></thead>
 <tbody><tr class="odd">
-<td align="right">95</td>
+<td align="right">104</td>
 <td align="left">Myc_reduce_mice_liver_24m_readme</td>
 <td align="left">Mus musculus</td>
 <td align="left">bi-directional</td>
@@ -1002,7 +1003,7 @@
 <td align="right">5</td>
 <td align="right">10</td>
 <td align="left">montilab</td>
-<td align="left">2025-09-04 06:04:51</td>
+<td align="left">2025-09-04 12:42:42</td>
 <td align="right">0</td>
 <td align="left">a10176ce6e727366cf740e2bfb56e2bc</td>
 </tr></tbody>
@@ -1022,11 +1023,11 @@
 <span>    signature_id <span class="op">=</span> <span class="va">signature_tbl</span><span class="op">$</span><span class="va">signature_id</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt; Remove signature_id = '95' from 'signatures' table of the database.</span></span>
-<span><span class="co">#&gt; Remove features belongs to signature_id = '95' from 'signature_feature_set' table of the database.</span></span>
-<span><span class="co">#&gt; Remove user access to signature_id = '95' from 'signature_access' table of the database.</span></span>
-<span><span class="co">#&gt; Remove signature_id = '95' from 'signature_collection_access' table of the database.</span></span>
-<span><span class="co">#&gt; signature_id = '95' has been removed.</span></span></code></pre></div>
+<span><span class="co">#&gt; Remove signature_id = '104' from 'signatures' table of the database.</span></span>
+<span><span class="co">#&gt; Remove features belongs to signature_id = '104' from 'signature_feature_set' table of the database.</span></span>
+<span><span class="co">#&gt; Remove user access to signature_id = '104' from 'signature_access' table of the database.</span></span>
+<span><span class="co">#&gt; Remove signature_id = '104' from 'signature_collection_access' table of the database.</span></span>
+<span><span class="co">#&gt; signature_id = '104' has been removed.</span></span></code></pre></div>
 </div>
 <div class="section level1">
 <h1 id="additional-guides">Additional Guides<a class="anchor" aria-label="anchor" href="#additional-guides"></a>

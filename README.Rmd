@@ -29,6 +29,8 @@ library(OmicSignature)
 
 ```
 
+<br>
+
 # <img src="man/figures/logo.png" align="left" width="190" /> SigRepo: An R package for storing and processing omic signatures
 
 The `SigRepo` package includes a suite of functions for easily storing and managing biological signatures and its constituents. Currently, `Sigrepo` is capable of storing, searching, and retrieving signatures and its signature collections from a MySQL database of choice. Interest in setting-up your own `SigRepo` database? See <a href="">here</a> on how to initiate a MySQL database with the appropriate schema.
@@ -78,16 +80,26 @@ There are three types of user accounts:<br>
 
 Once you have a valid account, to connect to our SigRepo database, one can use the `newConnHandler()` function to create a handler which contains user credentials to establish connection to our database. 
 
-```{r}
+```{r, include=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+conn_handler <- SigRepo::newConnHandler(
+  dbname = Sys.getenv("DBNAME"), 
+  host = Sys.getenv("HOST"), 
+  port = as.integer(Sys.getenv("PORT")), 
+  user = Sys.getenv("USER"), 
+  password = Sys.getenv("PASSWORD")
+)
+```
+
+```
 # Create a connection handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = "sigrepo", 
   host = "sigrepo.org", 
   port = 3306, 
-  user = "montilab", 
-  password = "sigrepo"
+  user = <your_username>, 
+  password = <your_password>
 )
-```
+``` 
 
 # Load Signatures
 

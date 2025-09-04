@@ -5,8 +5,10 @@ development:
 
 template:
   bootstrap: 5
-  bootswatch: yeti
+  bootswatch: lux
   light-switch: true
+  includes:
+    in_header: <link rel="stylesheet" type="text/css" href="https://..." />
 
 authors:
   Reina Chau:
