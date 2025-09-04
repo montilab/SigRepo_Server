@@ -16,6 +16,7 @@
 # Ignore file extensions
 *.env
 *.RData
+*.Rproj
 
 # Ignore folders
 .Rproj.user
