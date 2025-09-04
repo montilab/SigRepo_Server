@@ -13,15 +13,15 @@ addUserToCollection(
 )
 }
 \arguments{
-\item{conn_handler}{A handler uses to establish connection to
-a remote database obtained from SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_id}{An ID of collection in the database}
+\item{collection_id}{An ID of collection in the database (required)}
 
-\item{user_name}{A list of users to be added to a collection}
+\item{user_name}{A list of users to be added to a collection (required)}
 
 \item{access_type}{A list of permissions to be given to users in order for 
-them to view or manage the collection in the database. 
+them to view or manage the collection in the database (required) . 
 
 There are three types of permissions:
 
@@ -37,15 +37,4 @@ diagnostic messages. Default is \code{TRUE}.}
 \description{
 Add a list of users with specific access to a collection 
 in the database
-}
-\examples{
-
-# SigRepo::addUserToCollection(
-# conn_handler = conn,
-# collection_id = 75,
-# user_name = c("user1", "user2"),
-# access_type = c("owner", "editor")
-# )
-
- 
 }

@@ -12,6 +12,7 @@ searchSignature(
   organism = NULL,
   phenotype = NULL,
   sample_type = NULL,
+  platform_name = NULL,
   verbose = TRUE
 )
 }
@@ -31,18 +32,11 @@ obtained from SigRepo::newConnhandler() (required)}
 
 \item{sample_type}{The sample type to be looked up by.}
 
+\item{platform_name}{The platform name to be looked up by.}
+
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Get a list of signatures available in the database
-}
-\examples{
-
-
-# Get a list of signatures available in the database
-# signature_tbl <- sigRepo::searchSignature(
-  # conn_handler = conn
-# )
-
+Search for a list of signatures in the database
 }

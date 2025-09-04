@@ -4,16 +4,17 @@
 \alias{createHashKey}
 \title{createHashKey}
 \usage{
-createHashKey(table, hash_var, hash_columns, hash_method = c("md5", "sodium"))
+createHashKey(table, hash_var, hash_columns, hash_method = "md5")
 }
 \arguments{
-\item{hash_var}{An api key uses to access the database}
+\item{table}{A data frame with specific columns to be used to create 
+the hash key}
 
-\item{hash_columns}{An api key uses to access the database}
+\item{hash_var}{The hash variable to be created}
 
-\item{hash_method}{An api key uses to access the database}
+\item{hash_columns}{The specific columns to be used to create the hash key}
 
-\item{conn}{An established connection to database using newConnhandler()}
+\item{hash_method}{The hashing method to create the key. Default \code{md5}.}
 }
 \description{
 Check api key whether it is valid to access the database

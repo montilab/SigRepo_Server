@@ -7,31 +7,14 @@
 deleteCollection(conn_handler, collection_id, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established connection to the database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_id}{The name of the signature being deleted from the database}
+\item{collection_id}{ID of the collection being removed from the database (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Delete a signature from the signature table of the database
-}
-\examples{
-
-# establish a connection handler using newConnHanlder if not done so already.
-
-# Get a list of signatures available in the database
-
-# collection_tbl <- SigRepo::searchCollection(
-  # conn_handler = conn,
-  # user_name = "guest"
-# )
-
-# Delete signature from database (NOT RUN)
-# SigRepo::deleteCollection(
-#   conn_handler = conn,
-#   collection_id = collection_tbl$collection_id[1]
-# )
-
+Delete a collection from the collection table of the database
 }

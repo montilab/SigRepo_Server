@@ -15,9 +15,9 @@ getSignature(
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{signature_name}{Name of signatures to be returned}
+\item{signature_name}{Name of signature to be returned (required)}
 
-\item{signature_id}{ID of signatures to be returned}
+\item{signature_id}{ID of signature to be returned (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}

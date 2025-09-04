@@ -14,47 +14,35 @@ Authors@R:
 Description: As high-throughput technology evolves, a large number of omics-signatures are being derived. 
   This package helps to store signatures efficiently and retrieve them conveniently. 
 Depends: R (>= 4.4.0)
-LazyData: false
 License: GPL-3 + file LICENSE
 URL: https://github.com/montilab/SigRepo/
 Encoding: UTF-8
 RoxygenNote: 7.3.2
+LazyData: true 
 Imports:
-  data.table,
   DBI,
   digest,
   dplyr,
   httr,
   jsonlite,
-  magrittr,
   methods,
   OmicSignature,
   purrr,
+  readr,
   rlang,
   RMySQL,
-  sodium,
-  stringr,
-  DT,
-  future,
-  htmltools,
-  odbc,
-  plumber,
-  promises,
-  shiny,
-  shinyjs,
-  tidyverse,
-  tools, 
+  tidyr,
   utils
 Remotes:
   montilab/OmicSignature
 Suggests:
   BiocManager,
-  BiocStyle,
   devtools,
   knitr,
   pkgdown,
   rmarkdown,
-  testthat (>= 3.0.0)
+  testthat (>= 3.0.0),
+  tidyverse
 Config/testthat/edition: 3
 biocViews: Software, FeatureExtraction
 VignetteBuilder: knitr

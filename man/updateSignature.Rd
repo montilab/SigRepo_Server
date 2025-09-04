@@ -13,11 +13,12 @@ updateSignature(
 )
 }
 \arguments{
-\item{conn_handler}{An established connection handler using SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{signature_id}{a unique signature id in the database that needs to be updated}
+\item{signature_id}{ID of signature to be updated (required)}
 
-\item{omic_signature}{An R6 class object from the OmicSignature package}
+\item{omic_signature}{An R6 class object from the OmicSignature package (required)}
 
 \item{visibility}{A logical value indicates whether or not to allow others
 to view and access one's uploaded signature. Default is \code{FALSE}.}
@@ -27,29 +28,4 @@ diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Update a signature in the database
-}
-\examples{
-
-# Create a db connection
-# conn_handler <- SigRepo::newConnHandler(
- # dbname = "sigrepo", 
- # host = "montilab.bu.edu", 
- # port = 3306, 
- # user = "guest", 
- # password = "guest"
-# )
-
-# Get a list of signatures that belongs to user = 'guest'
-# signature_tbl <- SigRepo::searchSignature(
- # conn_handler = conn_handler,
- # user_name = "guest"
-# )
-
-# Update the desired signature (NOT RUN)
-# SigRepo::updateSignature(
-#  conn_handler = conn_handler,
-#  signature_id = signature_tbl$signature_id,
-#  omic_signature = omic_signature 
-# )
-
 }

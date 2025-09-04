@@ -10,8 +10,8 @@ createOmicCollection(conn_handler, db_collection_tbl)
 \item{conn_handler}{A handler uses to establish connection to the database
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{db_collection_tbl}{A collection table in the database with associated 
-a list of signature ids to be made into an OmicSignatureCollection object (required)}
+\item{db_collection_tbl}{A collection table with a list of signature ids 
+to be made into an OmicSignatureCollection object (required)}
 }
 \description{
 Get the collection set uploaded by a specific user in the database.

@@ -1,16 +1,9 @@
-pandoc: '3.2'
-pkgdown: 2.0.9
+pandoc: 3.1.11
+pkgdown: 2.1.1
 pkgdown_sha: ~
 articles:
   collection-tutorials: collection-tutorials.html
-  docker: docker.html
-  install-sigrepo-externally: install-sigrepo-externally.html
-  install-sigrepo-locally: install-sigrepo-locally.html
-  retrieveSignatures: retrieveSignatures.html
-  signature-tutorials: signature-tutorials.html
-  uploadSignatures: uploadSignatures.html
-last_built: 2025-03-17T17:59Z
+last_built: 2025-09-04T06:08Z
 urls:
   reference: https://montilab.github.io/SigRepo/reference
   article: https://montilab.github.io/SigRepo/articles
-

@@ -7,13 +7,14 @@
 deleteSignature(conn_handler, signature_id, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established connection to the database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{signature_id}{ID of signature to be removed from the database}
+\item{signature_id}{ID of signature to be removed from the database (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Delete a signature from the signature table of the database
+Delete a signature from the signatures table of the database
 }

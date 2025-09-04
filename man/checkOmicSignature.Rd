@@ -8,6 +8,9 @@ checkOmicSignature(omic_signature, check = TRUE)
 }
 \arguments{
 \item{omic_signature}{An R6 class object from OmicSignature package}
+
+\item{check}{A logical value determines whether the OmicSignature object 
+needs to be validated. Default TRUE.}
 }
 \description{
 Check omic_signature is a valid R6 object
