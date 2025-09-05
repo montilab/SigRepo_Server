@@ -1,23 +1,11 @@
 #' @title addSampleType
-#' @description Add sample_type to database
-#' @param conn_handler An established connection to database using newConnhandler() 
+#' @description Add sample types to database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
 #' @param sample_type_tbl An data frame containing appropriate column names:
-#' sample_type, brenda_accession
+#' sample_type, brenda_accession (required)
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#' # creating a sample type dataframe
-#' # sample_tbl <- data.frame(
-#' # sample_type = "liver",
-#' # brenda_accession = "BTO:0000759")
-#'
-#' # SigRepo::addSampleType(
-#' # conn_handler = conn,
-#' # sample_type_tbl = sample_tbl,
-#' # verbose = FALSE)
-#' 
 #' 
 #' @export
 addSampleType <- function(
@@ -45,19 +33,19 @@ addSampleType <- function(
   table <- sample_type_tbl
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("Table is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("'Sample types' table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
-    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("All required column names in 'sample types' table: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####

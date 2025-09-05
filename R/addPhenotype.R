@@ -1,23 +1,12 @@
 #' @title addPhenotype
-#' @description Add phenotype to database
-#' @param conn_handler An established connection to database using newConnhandler() 
-#' @param phenotype_tbl An data frame containing appropriate column names: phenotype
+#' @description Add phenotypes to database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
+#' @param phenotype_tbl An data frame containing appropriate column names: 
+#' phenotype (required) 
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @examples
-#' 
-#' 
-#' # creating a dataframe
-#' 
-#' # phenotype_tbl <- data.frame(
-#' # phenotype = "phenotype1")
-#' 
-#' # SigRepo::addPhenotype(
-#' # conn_handler = conn,
-#' # phenotype_tbl = phenotype_tbl,
-#' # verbose = FALSE)
-#'  
 #' @export
 addPhenotype <- function(
     conn_handler,
@@ -44,19 +33,19 @@ addPhenotype <- function(
   table <- phenotype_tbl
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\n'Phenotypes' table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names 'phenotypes' table: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####

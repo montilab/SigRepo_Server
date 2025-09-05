@@ -3,19 +3,9 @@
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param user_name A list of user names to search by. Default is NULL which
-#' includes all users in the database
+#' will return all of the users in the database
 #' @param verbose A logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#' # Establish a Connection Handler using newConnHandler if not done so already.
-#' 
-#' # SigRepo::searchUser(
-#' # conn_handler = conn,
-#' # user_name = c("user1", "user2"), # list of users.
-#' # verbose = FALSE)
-#' 
 #' 
 #' @export
 searchUser <- function(
@@ -38,7 +28,7 @@ searchUser <- function(
   )
   
   # Look up signatures
-  if(length(user_name) == 0 || all(user_name %in% c("", NA))){
+  if(base::length(user_name) == 0 || base::all(user_name %in% c("", NA))){
     
     user_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
@@ -54,7 +44,7 @@ searchUser <- function(
       db_table_name = "users", 
       return_var = c("user_name", "user_first", "user_last", "user_affiliation", "user_email", "user_role", "active"), 
       filter_coln_var = "user_name", 
-      filter_coln_val = list("user_name" = user_name),
+      filter_coln_val = base::list("user_name" = base::unique(user_name)),
       check_db_table = TRUE
     ) 
     

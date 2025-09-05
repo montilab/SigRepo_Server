@@ -26,7 +26,7 @@ validateUser <- function(
     db_table_name = "users", 
     return_var = "*",
     filter_coln_var = "user_name",
-    filter_coln_val = list("user_name" = user_name),
+    filter_coln_val = base::list("user_name" = user_name),
     check_db_table = TRUE
   )
   

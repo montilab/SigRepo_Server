@@ -1,21 +1,11 @@
 #' @title addOrganism
-#' @description Add organism to database
-#' @param conn_handler An established connection to database using newConnhandler() 
-#' @param organism_tbl A data frame object contains appropriate column names: organism
+#' @description Add organisms to database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
+#' @param organism_tbl A data frame object contains appropriate column names: 
+#' organism (required) 
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#' 
-#' # Creating an dataframe with the approrpiate columns
-#' # organism_tbl <- data.frame(
-#' # organism = "test_organism")
-#' 
-#' # SigRepo:: addOrganism(
-#' # conn_hanler = conn,
-#' # organism_tbl = organism_tbl,
-#' # verbose = FALSE)
 #' 
 #' @export
 addOrganism <- function(
@@ -34,7 +24,7 @@ addOrganism <- function(
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
     action_type = "INSERT",
-    required_role = "editor"
+    required_role = "admin"
   )
   
   # Create a list of variables to check database ####
@@ -43,19 +33,19 @@ addOrganism <- function(
   table <- organism_tbl
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\n'Organisms' table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names in 'organisms' table: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####

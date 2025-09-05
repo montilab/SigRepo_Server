@@ -1,6 +1,7 @@
 #' @title getAPIKey
-#' @description Add an API Key for one or more users in the database
-#' @param conn_handler An established database connection using newConnhandler() 
+#' @description Get API Key of a specific user in the database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
 #' @export
 getAPIKey <- function(
     conn_handler
@@ -22,7 +23,7 @@ getAPIKey <- function(
     db_table_name = "users", 
     return_var = c("user_name", "api_key"), 
     filter_coln_var = "user_name", 
-    filter_coln_val = list("user_name" = conn_info$user), 
+    filter_coln_val = base::list("user_name" = conn_info$user), 
     check_db_table = TRUE
   )
   

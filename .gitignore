@@ -11,18 +11,20 @@
 .Renviron
 .DS_Store
 .Rapp.history
+.dockerignore
 
 # Ignore file extensions
 *.env
+*.RData
+*.Rproj
 
 # Ignore folders
 .Rproj.user
 archive
 schemas
 OmicSignature
-docs
 
-
+# Ignore extdata
 inst/extdata/signatures/omic_signature_MDA_AhR_revised.RDS
 inst/extdata/signatures/ahr_cyp1b1_brca_diffanal.RDS
 inst/extdata/signatures/omic_signature_MDA_CYP_revised.RDS

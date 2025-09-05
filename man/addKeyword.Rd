@@ -7,26 +7,15 @@
 addKeyword(conn_handler, keyword_tbl, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{keyword_tbl}{A data frame containing appropriate column names: keyword}
+\item{keyword_tbl}{A data frame containing appropriate column names: 
+keyword (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add keywords to database
-}
-\examples{
-
-# creating a dataframe
-
-# keyword_tbl <- data.frame(
-# keyword = "keyword1")
-
-# SigRepo::addKeyword(
-# conn_handler = conn,
-# keyword_tbl = keyword_tbl,
-# verbose = FALSE)
-
 }

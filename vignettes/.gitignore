@@ -1,2 +1,12 @@
+
+# Ignore specific files 
+.Rhistory
+.DS_Store
+.Rapp.history
+
+# Ignore folders
+_snaps
+
+# Ignore extensions
 *.html
 *.R

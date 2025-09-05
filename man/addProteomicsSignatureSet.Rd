@@ -13,14 +13,15 @@ addProteomicsSignatureSet(
 )
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{signature_id}{A signature name}
+\item{signature_id}{ID of the signature (required)}
 
-\item{organism_id}{An organism}
+\item{organism_id}{ID of the organism (required)}
 
 \item{signature_set}{A data frame containing the appropriate column names:
-feature_name, probe_id, score, direction}
+feature_name, probe_id, score, group_label (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}

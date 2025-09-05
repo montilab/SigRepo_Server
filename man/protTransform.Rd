@@ -7,7 +7,7 @@
 protTransform(
   organism_code = "HUMAN",
   tax_id = "9606",
-  version = format(Sys.Date(), "\%m\%d\%Y"),
+  version = base::format(base::Sys.Date(), "\%m\%d\%Y"),
   is_current = 1
 )
 }

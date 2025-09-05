@@ -1,5 +1,5 @@
 #' @title searchSignature
-#' @description Get a list of signatures available in the database
+#' @description Search for a list of signatures in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
 #' @param signature_id ID of the signatures to be looked up by.
@@ -8,16 +8,9 @@
 #' @param organism The organism to be looked up by.
 #' @param phenotype The phenotype to be looked up by.
 #' @param sample_type The sample type to be looked up by.
+#' @param platform_name The platform name to be looked up by.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples 
-#' 
-#' 
-#' # Get a list of signatures available in the database
-#' # signature_tbl <- sigRepo::searchSignature(
-#'   # conn_handler = conn
-#' # )
 #' 
 #' @export
 searchSignature <- function(
@@ -28,6 +21,7 @@ searchSignature <- function(
     organism = NULL,    
     phenotype = NULL,
     sample_type = NULL,
+    platform_name = NULL,
     verbose = TRUE
 ){
   
@@ -44,67 +38,16 @@ searchSignature <- function(
     required_role = "viewer"
   )
   
-  # If user_role is not admin, check user access to the signature ####
-  if(length(user_name) > 0 && all(!user_name %in% c("", NA))){
-    
-    # Check user access ####
-    signature_access_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "signature_access", 
-      return_var = "*", 
-      filter_coln_var = c("user_name", "access_type"),
-      filter_coln_val = list("user_name" = user_name, "access_type" = c("owner", "editor", "viewer")),
-      filter_var_by = "AND",
-      check_db_table = TRUE
-    ) 
-    
-    # If user does not have owner or editor permission, throw an error message
-    if(nrow(signature_access_tbl) == 0){
-  
-      # Look up signatures
-      signature_tbl <- SigRepo::lookup_table_sql(
-        conn = conn, 
-        db_table_name = "signatures", 
-        return_var = "*", 
-        filter_coln_var = "signature_id", 
-        filter_coln_val = list("signature_id" = ""),
-        check_db_table = TRUE
-      )
-      
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn))     
-      
-      # Show message
-      SigRepo::verbose(base::sprintf("There are no signatures returned from the search parameters.\n"))
-      
-      # Return table
-      return(signature_tbl)
-      
-    }
-    
-    # Look up signatures
-    signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "signatures", 
-      return_var = "*", 
-      filter_coln_var = "signature_id", 
-      filter_coln_val = list("signature_id" = unique(signature_access_tbl$signature_id)),
-      check_db_table = TRUE
-    ) 
-    
-  }else{
-    
-    signature_tbl <- SigRepo::lookup_table_sql(
-      conn = conn, 
-      db_table_name = "signatures", 
-      return_var = "*", 
-      check_db_table = TRUE
-    ) 
-    
-  }
-  
+  # Look up signature
+  signature_tbl <- SigRepo::lookup_table_sql(
+    conn = conn, 
+    db_table_name = "signatures", 
+    return_var = "*", 
+    check_db_table = TRUE
+  ) 
+
   # Check if signature exists
-  if(nrow(signature_tbl) == 0){
+  if(base::nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
@@ -118,7 +61,7 @@ searchSignature <- function(
   }else{
     
     # Look up organism id ####
-    lookup_organism_id <- signature_tbl$organism_id
+    lookup_organism_id <- base::unique(signature_tbl$organism_id)
     
     organism_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
@@ -130,7 +73,7 @@ searchSignature <- function(
     ) 
     
     # Look up phenotype id ####
-    lookup_phenotype_id <- signature_tbl$phenotype_id
+    lookup_phenotype_id <- base::unique(signature_tbl$phenotype_id)
     
     phenotype_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
@@ -142,7 +85,7 @@ searchSignature <- function(
     ) 
     
     # Look up sample_type_id ####
-    lookup_sample_type_id <- signature_tbl$sample_type_id
+    lookup_sample_type_id <- base::unique(signature_tbl$sample_type_id)
     
     sample_type_id_tbl <- SigRepo::lookup_table_sql(
       conn = conn, 
@@ -153,53 +96,54 @@ searchSignature <- function(
       check_db_table = TRUE
     ) 
     
+    # Look up platform_id ####
+    lookup_platform_id <- base::unique(signature_tbl$platform_id)
+    
+    platform_id_tbl <- SigRepo::lookup_table_sql(
+      conn = conn, 
+      db_table_name = "platforms", 
+      return_var = c("platform_id", "platform_name"), 
+      filter_coln_var = "platform_id", 
+      filter_coln_val = base::list("platform_id" = lookup_platform_id),
+      check_db_table = TRUE
+    ) 
+    
     # Add variables to table
-    signature_tbl <- signature_tbl %>% 
-      dplyr::left_join(organism_id_tbl, by = "organism_id") %>% 
-      dplyr::left_join(phenotype_id_tbl, by = "phenotype_id") %>% 
-      dplyr::left_join(sample_type_id_tbl, by = "sample_type_id")
+    signature_tbl <- signature_tbl |> 
+      dplyr::left_join(organism_id_tbl, by = "organism_id") |> 
+      dplyr::left_join(phenotype_id_tbl, by = "phenotype_id") |> 
+      dplyr::left_join(sample_type_id_tbl, by = "sample_type_id") |>
+      dplyr::left_join(platform_id_tbl, by = "platform_id")
     
     # Rename table with appropriate column names 
-    coln_names <- base::colnames(signature_tbl) %>% 
-      base::replace(., base::match(c("organism_id", "phenotype_id", "sample_type_id"), .), c("organism", "phenotype", "sample_type"))
+    coln_names <- base::colnames(signature_tbl) |> 
+      base::replace(base::match(c("organism_id", "phenotype_id", "sample_type_id", "platform_id"), base::colnames(signature_tbl)), c("organism", "phenotype", "sample_type", "platform_name"))
+
+    # Extract the table with appropriate column names ####
+    signature_tbl <- signature_tbl |> dplyr::select(dplyr::all_of(coln_names))
     
     # Get a list of filtered variables
-    filter_var_list <- list(
+    filter_var_list <- base::list(
       "signature_id" = base::unique(signature_id),
       "signature_name" = base::unique(signature_name), 
+      "user_name" = base::unique(user_name),
       "organism" = base::unique(organism), 
       "phenotype" = base::unique(phenotype), 
-      "sample_type" = base::unique(sample_type)
+      "sample_type" = base::unique(sample_type),
+      "platform_name" = base::unique(platform_name)
     )
     
     # Filter table with given search variables
     for(r in base::seq_along(filter_var_list)){
       #r=1;
-      filter_status <- ifelse(length(filter_var_list[[r]]) == 0 || all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
+      filter_status <- base::ifelse(base::length(filter_var_list[[r]]) == 0 || base::all(filter_var_list[[r]] %in% c("", NA)), FALSE, TRUE)
       if(filter_status == TRUE){
         filter_var <- base::names(filter_var_list)[r]
-        filter_val <- filter_var_list[[r]][which(!filter_var_list[[r]] %in% c(NA, ""))]
-        signature_tbl <- signature_tbl %>% dplyr::filter(base::trimws(base::tolower(!!!syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
+        filter_val <- filter_var_list[[r]][base::which(!filter_var_list[[r]] %in% c(NA, ""))]
+        signature_tbl <- signature_tbl |> dplyr::filter(base::trimws(base::tolower(!!!rlang::syms(filter_var))) %in% base::trimws(base::tolower(filter_val)))
       }
     }
-    
-    # Check if signature is empty, throw an error message
-    if(nrow(signature_tbl) == 0){
-      
-      # Disconnect from database ####
-      base::suppressWarnings(DBI::dbDisconnect(conn))     
-      
-      # Show message
-      SigRepo::verbose(base::sprintf("There are no signatures returned from the search parameters.\n"))
-      
-      # Return table
-      return(signature_tbl)
-      
-    }
-    
-    # Extract the table with appropriate column names ####
-    signature_tbl <- signature_tbl %>% dplyr::select(all_of(coln_names))
-    
+
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))
     

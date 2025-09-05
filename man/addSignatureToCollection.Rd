@@ -12,28 +12,17 @@ addSignatureToCollection(
 )
 }
 \arguments{
-\item{conn_handler}{A handler uses to establish connection to
-a remote database obtained from SigRepo::newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_id}{ID of collection in the database}
+\item{collection_id}{ID of collection in the database (required)}
 
 \item{signature_id}{A list of signature IDs to be added to a collection 
-in the database}
+in the database (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add a list of signatures to a collection in the database
-}
-\examples{
-
- # Create a connection handler if not done so alrweady.
-
-# SigRepo::addSignatureToCollection(
-# conn_handler = conn,
-# collection_id = "COLL0001",
-# signature_id = c('170','150','140'),
-# verbose = FALSE)
-
 }

@@ -7,27 +7,15 @@
 addPhenotype(conn_handler, phenotype_tbl, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{phenotype_tbl}{An data frame containing appropriate column names: phenotype}
+\item{phenotype_tbl}{An data frame containing appropriate column names: 
+phenotype (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add phenotype to database
-}
-\examples{
-
-
-# creating a dataframe
-
-# phenotype_tbl <- data.frame(
-# phenotype = "phenotype1")
-
-# SigRepo::addPhenotype(
-# conn_handler = conn,
-# phenotype_tbl = phenotype_tbl,
-# verbose = FALSE)
- 
+Add phenotypes to database
 }

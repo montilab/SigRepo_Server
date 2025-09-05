@@ -2,40 +2,16 @@
 #' @description Add a list of users to database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param user_tbl A data frame containing appropriate column names: user_name, 
-#' user_password, user_email, user_first, user_last, user_affiliation, user_role
-#' @param active Whether to make a user TRUE (active) or FALSE (inactive). 
-#' Default is \code{FALSE}.
+#' @param user_tbl A data frame containing the appropriate column names: 
+#' user_name, user_password, user_email, user_first, user_last, user_affiliation, 
+#' user_role, active (required)
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#'  # Create a user dataframe
-#' 
-#' # user_tbl <- base::data.frame(
-#' #   user_name = "new_user",
-#' #   user_password = "password123",
-#' #   user_email = "test_email123@example.com",
-#' #   user_first = "First",
-#' #   user_last = "Last",
-#' #   user_affiliation = "University",
-#' #   user_role = "editor"
-#' #)
-#' 
-#'  # Add a user in dataframe to database
-#'  
-#' # SigRepo::addUser(
-#' #   conn_handler = conn_handler,
-#' #   user_tbl = user_tbl,
-#' #   verbose = FALSE
-#' # )
 #' 
 #' @export
 addUser <- function(
     conn_handler,
     user_tbl,
-    active = FALSE,
     verbose = TRUE
 ){
   
@@ -59,15 +35,15 @@ addUser <- function(
   table <- user_tbl
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(base::sprintf("\nThe table is missing the following required column names: %s.\n", base::paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\nThe table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -75,7 +51,7 @@ addUser <- function(
   }
   
   # Check user roles ####
-  if(any(!table$user_role %in% user_role_options)){
+  if(base::any(!table$user_role %in% user_role_options)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -83,17 +59,17 @@ addUser <- function(
   }
   
   # Check user active status
-  if(!"active" %in% colnames(table)){
-    table <- table %>% dplyr::mutate(active = 0)
+  if(!"active" %in% base::colnames(table)){
+    table <- table |> dplyr::mutate(active = 0)
   }else{
-    table <- table %>% dplyr::mutate(active = base::sapply(base::seq_along(active), function(s){ ifelse(active[s] == 1, 1, 0) }))
+    table <- table |> dplyr::mutate(active = base::sapply(base::seq_along(.data$active), function(s){ base::ifelse(.data$active[s] == 1, 1, 0) }))
   }
   
   # Check user emails ####
-  check_emails <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", as.character(table$user_email), ignore.case = TRUE)
+  check_emails <- base::grepl("\\<[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\>", base::as.character(table$user_email), ignore.case = TRUE)
  
   # If any emails do not have correct format, throw an error message
-  if(any(check_emails == FALSE)){
+  if(base::any(check_emails == FALSE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -114,7 +90,7 @@ addUser <- function(
     table = table,
     hash_var = "user_password_hashkey",
     hash_columns = "user_password",
-    hash_method = "sodium"
+    hash_method = "md5"
   )
   
   # Create an api key for each user
@@ -149,7 +125,7 @@ addUser <- function(
   ) 
   
   # Extract inactive users and re-activate them
-  inactive_user_tbl <- table %>% dplyr::filter(!user_name %in% db_user_tbl$user)
+  inactive_user_tbl <- table |> dplyr::filter(!.data$user_name %in% db_user_tbl$user)
   
   # Remove duplicated hash keys ####
   table <- SigRepo::removeDuplicates(
@@ -169,11 +145,11 @@ addUser <- function(
   )  
   
   # Add inactive users to user table to be recreated again
-  table <- table %>% base::rbind(inactive_user_tbl) %>% dplyr::distinct_all()
+  table <- table |> base::rbind(inactive_user_tbl) |> dplyr::distinct_all()
   
   # IF USER IS NOT ROOT AND NOT EXIST IN DATABASE, CREATE USER AND GRANT USER PERMISSIONS TO DATABASE
   purrr::walk(
-    base::seq_len(nrow(table)),
+    base::seq_len(base::nrow(table)),
     function(u){
       #u=1;
       # CHECK IF USER EXIST IN DATABASE
@@ -182,7 +158,7 @@ addUser <- function(
       )
       
       # CREATE USER IF NOT EXIST
-      if(nrow(check_user_tbl) == 0){
+      if(base::nrow(check_user_tbl) == 0){
         base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("CREATE USER '%s'@'%%' IDENTIFIED BY '%s';", table$user_name[u], table$user_password[u])))
       }
       

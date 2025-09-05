@@ -1,36 +1,13 @@
 #' @title updateSignature
 #' @description Update a signature in the database
-#' @param conn_handler An established connection handler using SigRepo::newConnhandler()
-#' @param signature_id a unique signature id in the database that needs to be updated
-#' @param omic_signature An R6 class object from the OmicSignature package
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' @param signature_id ID of signature to be updated (required)
+#' @param omic_signature An R6 class object from the OmicSignature package (required)
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#'  
-#' @examples 
-#' 
-#' # Create a db connection
-#' # conn_handler <- SigRepo::newConnHandler(
-#'  # dbname = "sigrepo", 
-#'  # host = "montilab.bu.edu", 
-#'  # port = 3306, 
-#'  # user = "guest", 
-#'  # password = "guest"
-#' # )
-#' 
-#' # Get a list of signatures that belongs to user = 'guest'
-#' # signature_tbl <- SigRepo::searchSignature(
-#'  # conn_handler = conn_handler,
-#'  # user_name = "guest"
-#' # )
-#' 
-#' # Update the desired signature (NOT RUN)
-#' # SigRepo::updateSignature(
-#' #  conn_handler = conn_handler,
-#' #  signature_id = signature_tbl$signature_id,
-#' #  omic_signature = omic_signature 
-#' # )
 #' 
 #' @export
 updateSignature <- function(
@@ -50,7 +27,7 @@ updateSignature <- function(
   # Check user connection and permission ####
   conn_info <- SigRepo::checkPermissions(
     conn = conn, 
-    action_type = c("SELECT", "INSERT", "DELETE"),
+    action_type = "INSERT",
     required_role = "editor"
   )
   
@@ -62,11 +39,12 @@ updateSignature <- function(
   
   # Get unique signature id
   signature_id <- base::unique(signature_id) 
+  
   # Get table name in database ####
   db_table_name <- "signatures"
   
   # Check signature_id
-  if(!length(signature_id) == 1 || all(signature_id %in% c(NA, ""))){
+  if(!base::length(signature_id) == 1 || base::all(signature_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -79,12 +57,12 @@ updateSignature <- function(
     db_table_name = db_table_name,
     return_var = "*",
     filter_coln_var = "signature_id",
-    filter_coln_val = list("signature_id" = signature_id),
+    filter_coln_val = base::list("signature_id" = signature_id),
     check_db_table = TRUE
   )
   
   # If signature exists, return the signature table else throw an error message
-  if(nrow(signature_tbl) == 0){
+  if(base::nrow(signature_tbl) == 0){
     
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -103,13 +81,13 @@ updateSignature <- function(
         db_table_name = db_table_name,
         return_var = "*",
         filter_coln_var = c("signature_id", "user_name"), 
-        filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name),
+        filter_coln_val = base::list("signature_id" = signature_id, "user_name" = user_name),
         filter_var_by = "AND",
         check_db_table = FALSE
       )
       
       # If not, check if user was added as an owner or editor
-      if(nrow(signature_user_tbl) == 0){
+      if(base::nrow(signature_user_tbl) == 0){
         
         # Get access signature table
         signature_access_tbl <- SigRepo::lookup_table_sql(
@@ -117,13 +95,13 @@ updateSignature <- function(
           db_table_name = "signature_access",
           return_var = "*",
           filter_coln_var = c("signature_id", "user_name", "access_type"),
-          filter_coln_val = list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
+          filter_coln_val = base::list("signature_id" = signature_id, "user_name" = user_name, "access_type" = c("owner", "editor")),
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
         
         # If user does not have permission, throw an error message
-        if(nrow(signature_access_tbl) == 0){
+        if(base::nrow(signature_access_tbl) == 0){
           
           # Disconnect from database ####
           base::suppressWarnings(DBI::dbDisconnect(conn)) 
@@ -155,15 +133,15 @@ updateSignature <- function(
     SigRepo::print_messages(verbose = verbose)
     
     # If visibility is given, update to new value ####
-    if(length(visibility) > 0 && all(!visibility %in% c("", NA))){
-      visibility <- ifelse(visibility[1] == TRUE, 1, 0)
+    if(base::length(visibility) > 0 && base::all(!visibility %in% c("", NA))){
+      visibility <- base::ifelse(visibility[1] == TRUE, 1, 0)
     }else{
       visibility <- signature_tbl$visibility[1]
     }
     
     # Add additional variables in signature metadata table ####
     # Keep its original id and name of the user who owned the signature
-    metadata_tbl <- metadata_tbl %>% 
+    metadata_tbl <- metadata_tbl |> 
       dplyr::mutate(
         signature_id = signature_tbl$signature_id[1],
         user_name = signature_tbl$user_name[1],
@@ -193,12 +171,12 @@ updateSignature <- function(
       db_table_name = db_table_name, 
       return_var = "*", 
       filter_coln_var = "signature_hashkey",
-      filter_coln_val = list("signature_hashkey" = metadata_tbl$signature_hashkey[1]),
+      filter_coln_val = base::list("signature_hashkey" = metadata_tbl$signature_hashkey[1]),
       check_db_table = FALSE
     ) 
     
     # If the signature exists, throw an error message ####
-    if(nrow(check_signature_tbl) > 0 && check_signature_tbl$signature_hashkey[1] != signature_tbl$signature_hashkey[1]){
+    if(base::nrow(check_signature_tbl) > 0 && check_signature_tbl$signature_hashkey[1] != signature_tbl$signature_hashkey[1]){
     
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))
@@ -279,7 +257,7 @@ updateSignature <- function(
         }) 
         
         # Check if warning table is returned
-        if(is(warn_tbl, "data.frame") && nrow(warn_tbl) > 0){
+        if(methods::is(warn_tbl, "data.frame") && base::nrow(warn_tbl) > 0){
           # Delete signature
           SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
           # Put signature back to its original form
@@ -292,13 +270,53 @@ updateSignature <- function(
         
       }else if(assay_type == "proteomics"){
         
+        # If there is a error during the process, restore the signature to its origin structure and output the messages
+        warn_tbl <- base::tryCatch({
+          SigRepo::addProteomicsSignatureSet(
+            conn_handler = conn_handler,
+            signature_id = metadata_tbl$signature_id[1],
+            organism_id = metadata_tbl$organism_id[1],
+            signature_set = omic_signature$signature,
+            verbose = FALSE
+          )
+        }, error = function(e){
+          # Delete signature
+          SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+          # Put signature back to its original form
+          SigRepo::addSignatureWithID(conn_handler = conn_handler, omic_signature = orig_omic_signature, assign_signature_id = signature_tbl$signature_id[1], assign_user_name = signature_tbl$user_name, visibility = signature_tbl$visibility[1])
+          # Disconnect from database ####
+          base::suppressWarnings(DBI::dbDisconnect(conn))  
+          # Return error message
+          base::stop(base::paste0(e, "\n"))
+        }) 
+        
+        # Check if warning table is returned
+        if(methods::is(warn_tbl, "data.frame") && base::nrow(warn_tbl) > 0){
+          # Delete signature
+          SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
+          # Put signature back to its original form
+          SigRepo::addSignatureWithID(conn_handler = conn_handler, omic_signature = orig_omic_signature, assign_signature_id = signature_tbl$signature_id[1], assign_user_name = signature_tbl$user_name, visibility = signature_tbl$visibility[1])
+          # Disconnect from database ####
+          base::suppressWarnings(DBI::dbDisconnect(conn))  
+          # Return warning table
+          return(warn_tbl)
+        }
+        
       }else if(assay_type == "metabolomics"){
+        
+        SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
         
       }else if(assay_type == "methylomics"){
         
+        SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+        
       }else if(assay_type == "genetic_variations"){
         
+        SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
+        
       }else if(assay_type == "dna_binding_sites"){
+        
+        SigRepo::showAssayTypeErrorMessage(unknown_values = assay_type)
         
       }
       
@@ -316,7 +334,7 @@ updateSignature <- function(
         if(!base::dir.exists(data_path)){
           base::dir.create(path = data_path, showWarnings = FALSE, recursive = TRUE, mode = "0777")
         }
-        base::saveRDS(difexp, file = base::file.path(data_path, paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
+        base::saveRDS(difexp, file = base::file.path(data_path, base::paste0(metadata_tbl$signature_hashkey[1], ".RDS")))
         # Get API URL
         api_url <- base::sprintf("http://%s:%s/store_difexp?api_key=%s&signature_hashkey=%s", conn_handler$host[1], conn_handler$api_port[1], conn_info$api_key[1], metadata_tbl$signature_hashkey[1])
         # Store difexp in database

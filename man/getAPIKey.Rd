@@ -7,8 +7,9 @@
 getAPIKey(conn_handler)
 }
 \arguments{
-\item{conn_handler}{An established database connection using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 }
 \description{
-Add an API Key for one or more users in the database
+Get API Key of a specific user in the database
 }

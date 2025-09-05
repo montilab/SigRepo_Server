@@ -7,26 +7,15 @@
 addOrganism(conn_handler, organism_tbl, verbose = TRUE)
 }
 \arguments{
-\item{conn_handler}{An established connection to database using newConnhandler()}
+\item{conn_handler}{A handler uses to establish connection to the database 
+obtained from SigRepo::newConnhandler() (required)}
 
-\item{organism_tbl}{A data frame object contains appropriate column names: organism}
+\item{organism_tbl}{A data frame object contains appropriate column names: 
+organism (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Add organism to database
-}
-\examples{
-
-
-# Creating an dataframe with the approrpiate columns
-# organism_tbl <- data.frame(
-# organism = "test_organism")
-
-# SigRepo:: addOrganism(
-# conn_hanler = conn,
-# organism_tbl = organism_tbl,
-# verbose = FALSE)
-
+Add organisms to database
 }

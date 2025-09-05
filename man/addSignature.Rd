@@ -17,7 +17,7 @@ addSignature(
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{omic_signature}{An R6 class object from OmicSignature package}
+\item{omic_signature}{An R6 class object from OmicSignature package (required)}
 
 \item{visibility}{A logical value indicates whether or not to allow others
 to view and access one's uploaded signature. Default is \code{FALSE}.}
@@ -33,12 +33,4 @@ diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Add signature to database
-}
-\examples{
-
-
-# Adding a signature into the database
-
-# SigReo::addSignature(conn, test_transcriptomics_signature)
-
 }
