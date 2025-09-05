@@ -1,11 +1,13 @@
 #' @title createCollectionMetadata
 #' @description Create a metadata object for a signature
-#' @param conn_handler An established connection to database using SigRepo::conn_init() 
-#' @param omic_collection An R6 class object from OmicSignature package
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required) 
+#' @param omic_collection A collection of OmicSignature objects from 
+#' OmicSignature package (required) 
 #' 
 #' @keywords internal
+#' 
 #' @export
-
 createCollectionMetadata <- function(
     conn_handler,
     omic_collection

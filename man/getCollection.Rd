@@ -15,26 +15,13 @@ getCollection(
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_name}{Name of collection to be returned}
+\item{collection_name}{Name of collection to be returned (required)}
 
-\item{collection_id}{ID of collection to be returned}
+\item{collection_id}{ID of collection to be returned (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
 Get a list of collection uploaded by a specified user in the database.
-}
-\examples{
-
-# Establish a Connection Handler using newConnHandler if not done so already.
-
-# search for available collections
-
-# collection_tbl <- SigRepo::getCollection(
-# conn_handler = conn,
-# collection_name = "test_collection",
-# colection_id = 170,
-# verbose = FALSE)
-
 }

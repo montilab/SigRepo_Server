@@ -13,12 +13,12 @@ removeSignatureFromCollection(
 }
 \arguments{
 \item{conn_handler}{A handler uses to establish connection to
-a remote database obtained from SigRepo::newConnhandler()}
+a remote database obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_id}{ID of collection in the database}
+\item{collection_id}{ID of collection in the database (required)}
 
 \item{signature_id}{A list of signature IDs to be removed from a collection 
-in the database}
+in the database (required)}
 
 \item{verbose}{a logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}

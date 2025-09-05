@@ -14,35 +14,21 @@ newConnHandler(
 )
 }
 \arguments{
-\item{dbname}{Name of MySQL database to point to.}
+\item{dbname}{Name of MySQL database to point to (required)}
 
-\item{host}{Name of the server where MySQL database is hosted on.}
+\item{host}{Name of the server where MySQL database is hosted on (required)}
 
-\item{port}{Port on the server to connect to MySQL database.}
+\item{port}{Port on the server to connect to MySQL database (required)}
 
-\item{api_port}{Port on the server to access database API.}
+\item{api_port}{Port on the server to access database API (required)}
 
-\item{user}{Name of user to establish the connection.}
+\item{user}{Name of user to establish the connection (required)}
 
-\item{password}{Password associated with the user.}
+\item{password}{Password associated with the user (required)}
 }
 \value{
 A list of user credentials to establish connection to the remote database.
 }
 \description{
 Create a handler to connect to a remote database.
-}
-\examples{
-
-# Create a connection handler using Sys.getenv with the environment variables 
-# stored in your .Renviron
-
-# conn_handler <- SigRepo::newConnHandler(
-#   dbname = "sigrepo",
-#   host = Sys.getenv("HOST"),  
-#   port = as.integer(Sys.getenv("PORT")), 
-#   user = Sys.getenv("USER"),
-#   password = Sys.getenv("PASSWORD") 
-# )
-
 }

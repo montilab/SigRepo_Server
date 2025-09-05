@@ -1,23 +1,11 @@
 #' @title addPlatform
-#' @description Add platform to database
-#' @param conn_handler An established connection to database using newConnhandler() 
-#' @param platform_tbl An data frame containing appropriate column names:  platform_id, 
-#' the database.
+#' @description Add platforms to database
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' @param platform_tbl An data frame containing appropriate column names: 
+#' platform_name (required)
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#' # creating a dataframe
-#' 
-#' # platform_tbl <- data.frame(
-#' # platform_id = 'transcriptomics by array' )
-
-#' 
-#' # SigRepo::addPlatform(
-#' # conn_handler = conn,
-#' # platform_tbl = platform_tbl,
-#' # verbose = FALSE)
 #' 
 #' @export
 addPlatform <- function(
@@ -45,19 +33,19 @@ addPlatform <- function(
   table <- platform_tbl
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\n'Platforms' table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("All required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("All required column names in 'platforms' table: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####
@@ -74,7 +62,7 @@ addPlatform <- function(
     conn = conn, 
     db_table_name = db_table_name,
     table = table,
-    coln_var = "platform_id",
+    coln_var = "platform_name",
     check_db_table = FALSE
   )
   

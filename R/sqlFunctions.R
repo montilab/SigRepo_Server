@@ -1,7 +1,7 @@
 
 #' @title insert_table_sql
 #' @description Insert a table into the database
-#' @param conn An established database connection using newConnhandler() 
+#' @param conn An established database connection
 #' @param db_table_name Name of a table in the database
 #' @param table A table in the database
 #' @param check_db_table whether to check database table. Default = TRUE.
@@ -24,7 +24,7 @@ insert_table_sql <- function(
   )
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0){
+  if(!methods::is(table, "data.frame") || base::length(table) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -32,27 +32,27 @@ insert_table_sql <- function(
   }
   
   # If table is not empty, import table into database
-  if(nrow(table) > 0){
+  if(base::nrow(table) > 0){
     
     # Get overlapping column names
-    tbl_col_names <- base::colnames(table)[which(colnames(table) %in% db_col_names)]
+    tbl_col_names <- base::colnames(table)[base::which(base::colnames(table) %in% db_col_names)]
     
     # Join column variables
     coln_var <- paste0("(", base::paste0(tbl_col_names, collapse = ", "), ")")    
     
     # Get values of each row
-    coln_val <- base::seq_len(nrow(table)) %>% 
+    coln_val <- base::seq_len(base::nrow(table)) |> 
       purrr::map_chr(
         function(r){
           #r=1;
           values <- base::paste0("'", table[r, tbl_col_names], "'", collapse = ", ")
-          if(r < nrow(table)){
+          if(r < base::nrow(table)){
             values <- base::paste0("(", values, "),\n")
           }else{
             values <- base::paste0("(", values, ");\n")
           }
         }
-      ) %>% base::paste0(., collapse = "") %>% base::gsub("'NULL'", "NULL", .)
+      ) |> base::paste0(collapse = "") |> purrr::map_chr(function(x){ base::gsub("'NULL'", "NULL", x) })
     
     # Create a SQL query to insert table into database
     statement <- base::sprintf(
@@ -60,7 +60,8 @@ insert_table_sql <- function(
       INSERT INTO %s %s
       VALUES %s
       ", db_table_name, coln_var, coln_val
-    ) %>% base::gsub("'NULL'", "NULL", .)
+    ) |> 
+      purrr::map_chr(function(x){ base::gsub("'NULL'", "NULL", x) })
     
     # Export the sql statement to a sql file
     #base::writeLines(statement, base::file.path("~/SigRepo/inst/data/sql_schemas", base::paste0(db_table_name, ".sql")))
@@ -80,7 +81,7 @@ insert_table_sql <- function(
 
 #' @title delete_table_sql
 #' @description delete an entry from database table
-#' @param conn An established database connection using newConnhandler() 
+#' @param conn An established database connection
 #' @param db_table_name Name of a table in the database
 #' @param delete_coln_var A column variable in the table for removing rows
 #' @param delete_coln_val A list of values associated with delete_coln_var to be removed.
@@ -103,7 +104,7 @@ delete_table_sql <- function(
   )
   
   # Check delete_coln_var
-  if(!length(delete_coln_var) == 1 || any(delete_coln_var %in% c(NA, ""))){
+  if(!base::length(delete_coln_var) == 1 || base::any(delete_coln_var %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -111,15 +112,15 @@ delete_table_sql <- function(
   }
   
   # Check column fields
-  if(any(!delete_coln_var %in% db_col_names)){
+  if(base::any(!delete_coln_var %in% db_col_names)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(base::sprintf("\n'%s' table does not have the following column names: %s.\n", db_table_name, base::paste0(delete_coln_var[which(!delete_coln_var %in% db_col_names)], collapse = ", ")))
+    base::stop(base::sprintf("\n'%s' table does not have the following column names: %s.\n", db_table_name, base::paste0(delete_coln_var[base::which(!delete_coln_var %in% db_col_names)], collapse = ", ")))
   }
   
   # Check delete_coln_val
-  if(length(delete_coln_val) == 0 || any(delete_coln_val %in% c(NA, ""))){
+  if(base::length(delete_coln_val) == 0 || base::any(delete_coln_val %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -155,7 +156,7 @@ delete_table_sql <- function(
 #' @title lookup_table_sql
 #' @description Look up a list of variables based on a particular variable 
 #' and its associated values in the database
-#' @param conn An established connection to database using SigRepo::newConnhandler() 
+#' @param conn An established database connection
 #' @param db_table_name A table in the database
 #' @param return_var a list of column variables to be returned from the given table. 
 #' Default '*' (means everything).
@@ -167,7 +168,7 @@ delete_table_sql <- function(
 #' provided as a vector of logical operators (e.g., OR/AND) with n = length(filter_coln_var) - 1. 
 #' Default NULL.
 #' @param check_db_table Check whether table exists in the database. Default = TRUE.
-#'docuem @keywords internal
+#' @keywords internal
 #' @export
 lookup_table_sql <- function(
     conn, 
@@ -187,7 +188,7 @@ lookup_table_sql <- function(
   )
   
   # Check return_var
-  if(length(return_var) == 0 || any(return_var %in% c(NA, ""))){
+  if(base::length(return_var) == 0 || base::any(return_var %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -195,13 +196,13 @@ lookup_table_sql <- function(
   }
   
   # Check filter_coln_var and filter_coln_val
-  if(length(filter_coln_var) == 0 && length(filter_coln_val) == 0){
+  if(base::length(filter_coln_var) == 0 && base::length(filter_coln_val) == 0){
     
     where_clause <- ""
     
   }else{  
     
-    if(length(filter_coln_var) != length(filter_coln_val) || !all(names(filter_coln_val) %in% filter_coln_var)){
+    if(base::length(filter_coln_var) != base::length(filter_coln_val) || !base::all(base::names(filter_coln_val) %in% filter_coln_var)){
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
@@ -211,7 +212,7 @@ lookup_table_sql <- function(
       )
     }
     
-    if((length(filter_coln_var) > 1) && (length(filter_var_by) != (length(filter_coln_var)-1)) && (!any(toupper(filter_var_by) %in% c("OR", "AND")))){
+    if((base::length(filter_coln_var) > 1) && (base::length(filter_var_by) != (base::length(filter_coln_var)-1)) && (!base::any(toupper(filter_var_by) %in% c("OR", "AND")))){
       # Disconnect from database ####
       base::suppressWarnings(DBI::dbDisconnect(conn))  
       # Return error message
@@ -219,17 +220,19 @@ lookup_table_sql <- function(
     }
     
     # Create a where clause to look up values
-    where_clause <- base::seq_along(filter_coln_var) %>% 
+    sql_clause <- base::seq_along(filter_coln_var) |> 
       purrr::map_chr(
         function(s){
           #s=1;
           clause <- base::sprintf("trim(lower(%s)) IN (%s)", filter_coln_var[s], base::paste0(paste0("'", base::trimws(base::tolower(filter_coln_val[[filter_coln_var[s]]])), "'"), collapse = ", "))
-          if(s < length(filter_coln_var)){
+          if(s < base::length(filter_coln_var)){
             clause <- base::paste0(clause, " ", filter_var_by[s], " ")
           }
           return(clause)
         }
-      ) %>% base::paste0(., collapse="") %>% base::paste0("WHERE ", .)
+      ) |> base::paste0(collapse="")
+
+    where_clause <- base::paste0("WHERE ", sql_clause)
     
   }
   

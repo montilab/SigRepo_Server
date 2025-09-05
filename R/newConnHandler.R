@@ -1,24 +1,12 @@
 #' @title newConnHandler
 #' @description Create a handler to connect to a remote database.
-#' @param dbname Name of MySQL database to point to.
-#' @param host Name of the server where MySQL database is hosted on.
-#' @param port Port on the server to connect to MySQL database.
-#' @param api_port Port on the server to access database API.
-#' @param user Name of user to establish the connection.
-#' @param password Password associated with the user.
+#' @param dbname Name of MySQL database to point to (required)
+#' @param host Name of the server where MySQL database is hosted on (required)
+#' @param port Port on the server to connect to MySQL database (required)
+#' @param api_port Port on the server to access database API (required)
+#' @param user Name of user to establish the connection (required)
+#' @param password Password associated with the user (required)
 #' @return A list of user credentials to establish connection to the remote database.
-#' @examples
-#' 
-#' # Create a connection handler using Sys.getenv with the environment variables 
-#' # stored in your .Renviron
-#' 
-#' # conn_handler <- SigRepo::newConnHandler(
-#' #   dbname = "sigrepo",
-#' #   host = Sys.getenv("HOST"),  
-#' #   port = as.integer(Sys.getenv("PORT")), 
-#' #   user = Sys.getenv("USER"),
-#' #   password = Sys.getenv("PASSWORD") 
-#' # )
 #' 
 #' @export
 newConnHandler <- function(
@@ -29,30 +17,30 @@ newConnHandler <- function(
     user = "guest", 
     password = "guest"
 ){
-
+  
   # Check dbname ####
   base::stopifnot("'dbname' must have a length of 1 and cannot be empty." = 
-              (length(dbname) == 1 && !dbname %in% c(NA, "")))
+                    (base::length(dbname) == 1 && !dbname %in% c(NA, "")))
   
   # Check host ####
   base::stopifnot("'host' must have a length of 1 and cannot be empty." = 
-              (length(host) == 1 && !host %in% c(NA, "")))
+                    (base::length(host) == 1 && !host %in% c(NA, "")))
   
   # Check port ####
   base::stopifnot("'port' must have a length of 1 and cannot be empty and must be a numeric value." = 
-              (length(port) == 1 && !port %in% c(NA, "")))
+                    (base::length(port) == 1 && !port %in% c(NA, "")))
   
   # Check api_port ####
   base::stopifnot("'api_port' must have a length of 1 and cannot be empty and must be a numeric value." = 
-                    (length(api_port) == 1 && !api_port %in% c(NA, ""))) 
+                    (base::length(api_port) == 1 && !api_port %in% c(NA, ""))) 
   
   # Check user ####
   base::stopifnot("'user' must have a length of 1 and cannot be empty." = 
-              (length(user) == 1 && !user %in% c(NA, "")))
+                    (base::length(user) == 1 && !user %in% c(NA, "")))
   
   # Check password ####
   base::stopifnot("'password' must have a length of 1 and cannot be empty." = 
-              (length(password) == 1 && !password %in% c(NA, "")))
+                    (base::length(password) == 1 && !password %in% c(NA, "")))
   
   # Return connection handler ###
   return(
@@ -117,7 +105,7 @@ conn_init <- function(conn_handler){
     
     # If user has a root access but does not exist in users table of the database
     # Then add root to users table with the default settings below
-    if(nrow(user_tbl) == 0){
+    if(base::nrow(user_tbl) == 0){
       
       # Default settings for root ####
       table <- base::data.frame(
@@ -146,7 +134,7 @@ conn_init <- function(conn_handler){
         table = table,
         hash_var = "user_password_hashkey",
         hash_columns = "user_password",
-        hash_method = "sodium"
+        hash_method = "md5"
       )
       
       # Create api keys ####

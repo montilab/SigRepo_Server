@@ -65,12 +65,12 @@ checkPermissions <- function(
     db_table_name = "users", 
     return_var = c("user_name", "user_role", "api_key", "active"), 
     filter_coln_var = "user_name", 
-    filter_coln_val = list("user_name" = conn_info$user), 
+    filter_coln_val = base::list("user_name" = conn_info$user), 
     check_db_table = TRUE
   )
   
   # Check if user existed in the users table in the database
-  if(nrow(user_tbl) == 0){
+  if(base::nrow(user_tbl) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -93,20 +93,20 @@ checkPermissions <- function(
   user_privileges <- NULL
   
   # Loop through each grant and extract list of actions that user can perform in the database
-  for(s in 1:nrow(grant_tbl)){ 
+  for(s in 1:base::nrow(grant_tbl)){ 
     #s=1;
-    privs <- grant_tbl %>% 
-      dplyr::slice(s) %>% 
-      purrr::flatten_chr() %>% 
-      base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", ., perl = TRUE) %>% 
-      stringr::str_split(., ",") %>% 
-      purrr::flatten_chr() %>% 
+    privs <- grant_tbl |> 
+      dplyr::slice(s) |> 
+      purrr::flatten_chr() |> 
+      base::sapply(FUN = function(x){ base::gsub("GRANT(.*)ON(.*)TO(.*)", "\\1", x, perl = TRUE) }) |> 
+      base::strsplit(",") |> 
+      purrr::flatten_chr() |> 
       base::trimws()
     user_privileges <- c(user_privileges, privs)
   }
   
   # Check if user has the permission to perform the selected actions in the database
-  if(any(!action_type %in% user_privileges)){
+  if(base::any(!action_type %in% user_privileges)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -176,10 +176,10 @@ checkDBTable <- function(
 #' @param exclude_coln_names A list of column names to be excluded from the check.
 #' @param check_db_table Check whether table exists in the database. Default = TRUE.
 #' 
-#' 
-#' @importFrom methods is
 #' @keywords internal
 #' 
+#' @import tidyr
+#'
 #' @export
 checkTableInput <- function(
     conn, 
@@ -197,34 +197,34 @@ checkTableInput <- function(
   )
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0){
+  if(!methods::is(table, "data.frame") || base::length(table) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("'table' must be a data frame object and cannot be empty.\n"))
+    base::stop(base::sprintf("'table' must be a data frame object and cannot be empty.\n"))
   }
   
   # Whether to exclude selected column names from the checklist
-  if(length(exclude_coln_names) > 0){
-    db_col_names <- db_col_names[which(!db_col_names %in% exclude_coln_names)]
+  if(base::length(exclude_coln_names) > 0){
+    db_col_names <- db_col_names[base::which(!db_col_names %in% exclude_coln_names)]
   }
   
   # Check column fields
-  if(any(!db_col_names %in% colnames(table))){
+  if(base::any(!db_col_names %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("the table is missing the following column names: %s.\n", paste0(db_col_names[which(!db_col_names %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("the table is missing the following column names: %s.\n", base::paste0(db_col_names[base::which(!db_col_names %in% colnames(table))], collapse = ", ")))
   }
   
   # Clean up the table by converting all empty values as NULL 
-  table <- base::data.frame(table, stringsAsFactors = FALSE) %>% 
-    dplyr::mutate_if(is.character, ~base::trimws(base::gsub("'", "", ., perl = TRUE))) %>% 
-    base::replace(. == "NA", "'NULL'") %>% 
-    base::replace(. == "NULL", "'NULL'") %>% 
-    base::replace(. == "", "'NULL'") %>% 
-    base::replace(is.na(.), "'NULL'") %>% 
-    base::replace(is.null(.), "'NULL'") %>% 
+  table <- base::data.frame(table, stringsAsFactors = FALSE) |> 
+    dplyr::mutate_all(function(x){ base::as.character(x) }) |>
+    dplyr::mutate_if(base::is.character, function(x){ base::trimws(base::gsub("'", "", x, perl = TRUE)) }) |> 
+    dplyr::mutate_if(base::is.character, function(x){ base::replace(x, base::match("NA", x), "'NULL'") }) |> 
+    dplyr::mutate_if(base::is.character, function(x){ base::replace(x, base::match("NULL", x), "'NULL'") }) |> 
+    dplyr::mutate_if(base::is.character, function(x){ base::replace(x, base::match("", x), "'NULL'") }) |> 
+    dplyr::mutate_all(function(x){ base::replace(x, base::is.na(x), "'NULL'") }) |> 
     dplyr::distinct_all()
   
   # Return a unique and cleanup table
@@ -259,7 +259,7 @@ checkDuplicatedEmails <- function(
   )
   
   # Check coln_var
-  if(!length(coln_var) == 1 || any(coln_var %in% c(NA, ""))){
+  if(!base::length(coln_var) == 1 || base::any(coln_var %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -267,7 +267,7 @@ checkDuplicatedEmails <- function(
   }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0){
+  if(!methods::is(table, "data.frame") || base::length(table) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -275,11 +275,11 @@ checkDuplicatedEmails <- function(
   }
   
   ## Check if column variable existed in the table
-  if(!coln_var %in% colnames(table)){
+  if(!coln_var %in% base::colnames(table)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("Column '%s' does not existed in the table.", coln_var))
+    base::stop(base::sprintf("Column '%s' does not existed in the table.", coln_var))
   }
   
   ## Check if column variable existed in the database
@@ -287,7 +287,7 @@ checkDuplicatedEmails <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("Columns: %s does not exist in the '%s' table of the database.", paste0("'", coln_var, "'", collapse = ", "), db_table_name))
+    base::stop(base::sprintf("Columns: %s does not exist in the '%s' table of the database.", base::paste0("'", coln_var, "'", collapse = ", "), db_table_name))
   }
   
   # Get number of observations 
@@ -298,7 +298,7 @@ checkDuplicatedEmails <- function(
     
     return_var <- "*"
     filter_coln_var <- coln_var
-    filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
+    filter_coln_val <- table |> dplyr::distinct(!!!rlang::syms(coln_var)) |> base::as.list()
     
     existing_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
@@ -309,19 +309,19 @@ checkDuplicatedEmails <- function(
       check_db_table = check_db_table
     )
     
-    if(nrow(existing_tbl) > 0){
+    if(base::nrow(existing_tbl) > 0){
       purrr::walk(
-        1:nrow(table),
+        1:base::nrow(table),
         function(s){
           #s=1;
-          check_email <- existing_tbl %>% dplyr::filter(user_email %in% table$user_email[s])
+          check_email <- existing_tbl |> dplyr::filter(.data$user_email %in% table$user_email[s])
           if(nrow(check_email) > 0 && !base::trimws(base::tolower(table$user_name[s])) %in% base::trimws(base::tolower(check_email$user_name))){
             # Disconnect from database ####
             base::suppressWarnings(DBI::dbDisconnect(conn))  
             # Return error message
             base::stop(
               base::sprintf("\tThe following email address:\n"),
-              base::sprintf("\t%s\n", base::paste0(unique(existing_tbl[,return_var]), collapse = ",\n")),
+              base::sprintf("\t%s\n", base::paste0(base::unique(existing_tbl[,return_var]), collapse = ",\n")),
               base::sprintf("\talready existed in the '%s' table of the database.\n", db_table_name),
               base::sprintf("\tEmail address must be unique for each user. Please provide a different email for user = '%s'.\n", table$user_name[s])
             )
@@ -336,6 +336,8 @@ checkDuplicatedEmails <- function(
 #' @title checkOmicSignature
 #' @description Check omic_signature is a valid R6 object
 #' @param omic_signature An R6 class object from OmicSignature package
+#' @param check A logical value determines whether the OmicSignature object 
+#' needs to be validated. Default TRUE.
 #' 
 #' @keywords internal 
 #' 
@@ -349,13 +351,13 @@ checkOmicSignature <- function(
   if(check == FALSE){
     
     # Check difexp is provided ####
-    if("difexp" %in% names(omic_signature)){
+    if("difexp" %in% base::names(omic_signature)){
       difexp <- omic_signature$difexp
-      if(is.null(difexp)){
+      if(base::is.null(difexp)){
         difexp <- NULL
       }else{
         # Check if difexp is a data frame 
-        if(!is(difexp, "data.frame") || length(difexp) == 0) 
+        if(!methods::is(difexp, "data.frame") || base::length(difexp) == 0) 
           base::stop("'difexp' in OmicSignature must be a data frame object and cannot be empty.")
       }
     }else{
@@ -363,7 +365,7 @@ checkOmicSignature <- function(
     }
     
     # Create has_difexp variable to store whether omic_signature has difexp included 
-    has_difexp <- ifelse(!is.null(difexp), 1, 0) 
+    has_difexp <- base::ifelse(!base::is.null(difexp), 1, 0) 
     
     # Return difexp status
     return(has_difexp)
@@ -371,63 +373,85 @@ checkOmicSignature <- function(
   }
   
   # Check if omic_signature is an OmicSignature class object ####
-  if(!is(omic_signature, "OmicSignature"))
+  if(!methods::is(omic_signature, "OmicSignature"))
     base::stop("'omic_signature' must be an R6 class object from OmicSignature package.") 
   
   # Check metadata and signature
-  if(!"metadata" %in% names(omic_signature))
+  if(!"metadata" %in% base::names(omic_signature))
     base::stop("'omic_signature' must contain a metadata object.\n")
   
-  if(!"signature" %in% names(omic_signature))
+  if(!"signature" %in% base::names(omic_signature))
     base::stop("'omic_signature' must contain a signature object.\n")
   
   # Extract metadata from omic_signature ####
   metadata <- omic_signature$metadata
   
   # Check if metadata is a list ####
-  if(!is(metadata, "list"))
-    base::stop("'metadata' in OmicSignature must be a list.")
+  if(!methods::is(metadata, "list"))
+    base::stop("'metadata' in OmicSignature object must be a list.")
   
   # Check required metadata fields ####
   metadata_fields <- c('signature_name', 'organism', 'direction_type', 'assay_type', 'phenotype')
   
-  if(any(!metadata_fields %in% names(metadata)))
-    base::stop("'metadata' in OmicSignature must have the following names:", paste0(metadata_fields, collapse = ", "))
+  if(base::any(!metadata_fields %in% base::names(metadata)))
+    base::stop(base::sprintf("'metadata' in OmicSignature object must have the following column names: %s", base::paste0(metadata_fields, collapse = ", ")))
+  
+  # Check signature name (required) ####
+  if(base::length(metadata$signature_name[1]) == 0 || metadata$signature_name[1] %in% c(NA, ""))
+    base::stop("'signature_name' in OmicSignature's metadata object is required and cannot be empty.")
+
+  # Check organism (required) #####
+  if(base::length(metadata$organism[1]) == 0 || metadata$organism[1] %in% c(NA, ""))
+    base::stop("'organism' in OmicSignature's metadata object is required and cannot be empty.")
+  
+  # Check direction_type (required) ####
+  direction_type_options <- c("uni-directional", "bi-directional", "categorical")
+  
+  if(!metadata$direction_type[1] %in% direction_type_options)
+    base::stop(base::sprintf("'direction_type' in OmicSignature's metadata object must be one of the following options: %s", base::paste0(direction_type_options, collapse = "/")))
+  
+  # Check assay_type (required) ####
+  assay_type_options <- c("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites")
+  
+  if(!metadata$assay_type[1] %in% assay_type_options)
+    base::stop(base::sprintf("'assay_type' in OmicSignature's metadata object must be one of the following options: %s", base::paste0(assay_type_options, collapse = "/")))
+  
+  # Check phenotype (required) #####
+  if(base::length(metadata$phenotype[1]) == 0 || metadata$phenotype[1] %in% c(NA, ""))
+    base::stop("'phenotype' in OmicSignature's metadata object is required and cannot be empty.")
   
   # Extract signature table from omic_signature ####
   signature <- omic_signature$signature  
   
   # Check if signature is a data frame ####
-  if(!is(signature, "data.frame") || length(signature) == 0)
-    base::stop("'signature' in OmicSignature must be a data frame and cannot be empty.")
+  if(!methods::is(signature, "data.frame") || base::length(signature) == 0)
+    base::stop("'signature' in OmicSignature object must be a data frame and cannot be empty.")
   
   # Check required signature fields ####
   signature_fields <- c('feature_name', 'probe_id', 'score')
   
-  if(any(!signature_fields %in% colnames(signature)))
-    base::stop("'signature' in OmicSignature must have the following column names:", paste0(signature_fields, collapse = ", "))
+  if(any(!signature_fields %in% base::colnames(signature)))
+    base::stop(base::sprintf("'signature' in OmicSignature object must have the following column names: %s", base::paste0(signature_fields, collapse = ", ")))
   
-  if(metadata$direction_type %in% c("bi-directional", "categorical") && !"group_label" %in% colnames(signature)) {
-    base::stop("if the direction of the signature is bi-directional or categorical it must have the group_label column in the signature object")
+  if(metadata$direction_type[1] %in% c("bi-directional", "categorical") && !"group_label" %in% base::colnames(signature)){
+    base::stop(base::sprintf("'signature' in OmicSignature object requires a 'group_label' variable as the direction of the signature is 'bi-directional' or 'categorical'"))
   }else{
-    signature <- signature %>% mutate(group_label = NULL)
+    signature <- signature %>% dplyr::mutate(group_label = NULL)
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(signature[,signature_fields]) == TRUE))
-    base::stop(sprintf("All required column names in 'signature' of OmicSignature: %s cannot contain any empty values.", paste0(signature_fields, collapse = ", ")))
-  
-  
+  if(base::any(base::is.na(signature[,signature_fields]) == TRUE))
+    base::stop(base::sprintf("All required column names in 'signature' of OmicSignature object: %s cannot contain any empty values.", base::paste0(signature_fields, collapse = ", ")))
   
   # Check difexp is provided ####
-  if("difexp" %in% names(omic_signature)){
+  if("difexp" %in% base::names(omic_signature)){
     difexp <- omic_signature$difexp
-    if(is.null(difexp)){
+    if(base::is.null(difexp)){
       difexp <- NULL
     }else{
       # Check if difexp is a data frame 
-      if(!is(difexp, "data.frame") || nrow(difexp) == 0) 
-        base::stop("'difexp' in OmicSignature must be a data frame object and cannot be empty.")
+      if(!methods::is(difexp, "data.frame") || base::nrow(difexp) == 0) 
+        base::stop("'difexp' in OmicSignature object must be a data frame and cannot be empty.")
     }
   }else{
     difexp <- NULL
@@ -436,50 +460,25 @@ checkOmicSignature <- function(
   # If difexp is provided, check required difexp fields ####
   difexp_req_fields <- c('feature_name', 'probe_id', 'score'); difexp_opt_fields <- c('p_value', 'q_value','adj_p')
   
-  if(!is.null(difexp) && any(!difexp_req_fields %in% colnames(difexp)) && all(!difexp_opt_fields %in% colnames(difexp)))
-    base::stop("'difexp' in OmicSignature must have the following required column names: ", paste0("'", difexp_req_fields, "'", collapse = ", "), " and one of the following fields: ", paste0("'", difexp_opt_fields, "'", collapse = " or "))
-  
-  
-  if(!is.null(difexp) && metadata$direction_type %in% c("bi-directional", "categorical") && !"group_label" %in% colnames(difexp)) {
-    base::stop("if the direction of the signature is bi-directional or categorical it must have the group_label column in the signature object")
+  if(!base::is.null(difexp) && base::any(!difexp_req_fields %in% base::colnames(difexp)) && base::all(!difexp_opt_fields %in% base::colnames(difexp)))
+    base::stop(base::sprintf("'difexp' in OmicSignature object must have the following required column names: %s, and as least one of the following fields: %s", base::paste0("'", difexp_req_fields, "'", collapse = ", "), base::paste0("'", difexp_opt_fields, "'", collapse = "/")))
+
+  if(!base::is.null(difexp) && metadata$direction_type[1] %in% c("bi-directional", "categorical") && !"group_label" %in% base::colnames(difexp)){
+    base::stop(base::sprintf("When the direction of the signature is bi-directional or categorical, 'difexp' in OmicSignature requires a 'group_label' variable."))
   }else{
-    difexp <- difexp %>% mutate(group_label = NULL)
+    difexp <- difexp %>% dplyr::mutate(group_label = NULL)
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(!is.null(difexp) && any(is.na(difexp[,difexp_req_fields]) == TRUE))
-    base::stop(sprintf("% are required column names in 'difexp' of OmicSignature, and they cannot contain any empty values.\n", paste0(difexp_req_fields, collapse = ", ")))
-  
-  # Check signature name (required) ####
-  if(length(metadata$signature_name[1]) == 0 || metadata$signature_name[1] %in% c(NA, ""))
-    base::stop("'signature_name' in OmicSignature's metadata cannot be empty.")
-  
-  # Check direction_type (required) ####
-  direction_type_options <- c("uni-directional", "bi-directional", "categorical")
-  
-  if(!metadata$direction_type[1] %in% direction_type_options)
-    base::stop("'direction_type' in OmicSignature's metadata object must be: \n", paste0(direction_type_options, collapse = "/"))
-  
-  # Check assay_type (required) ####
-  assay_type_options <- c("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites")
-  
-  if(!metadata$assay_type[1] %in% assay_type_options)
-    base::stop("'assay_type' in OmicSignature's metadata object must be: ", paste0(assay_type_options, collapse = "/"))
-  
-  # Check organism (required) #####
-  if(length(metadata$organism[1]) == 0 || metadata$organism[1] %in% c(NA, ""))
-    base::stop("'organism' in OmicSignature's metadata is required and cannot be empty.")
-  
-  # Check phenotype (required) #####
-  if(length(metadata$phenotype[1]) == 0 || metadata$phenotype[1] %in% c(NA, ""))
-    base::stop("'phenotype' in OmicSignature's metadata is required and cannot be empty.")
+  if(!base::is.null(difexp) && base::any(base::is.na(difexp[,difexp_req_fields]) == TRUE))
+    base::stop(base::sprintf("All required column names in 'difexp' of OmicSignature object: %s cannot contain any empty values.", base::paste0(difexp_req_fields, collapse = ", ")))
   
   # Create has_difexp variable to store whether omic_signature has difexp included ####
-  has_difexp <- ifelse(!is.null(difexp), 1, 0) 
+  has_difexp <- base::ifelse(!base::is.null(difexp), 1, 0) 
   
-  # Check probe_id in signature are in difexp table if difexp is provided
-  if(has_difexp == 1 && any(!signature$probe_id %in% difexp$probe_id)){
-    base::stop("Some probe_id in the signature are not included in the probe_id in the difexp.")
+  # Check if probe_ids in signature are in the difexp table if difexp is provided
+  if(has_difexp == 1 && base::any(!signature$probe_id %in% difexp$probe_id)){
+    base::stop("Some probe_ids in the `signature` object are not included in the probe_ids of the `difexp` object.")
   }
   
   # Return difexp status
@@ -494,39 +493,37 @@ checkOmicSignature <- function(
 #' 
 #' @keywords internal
 #' 
-#' @importFrom methods is
-#' 
 #' @export
 checkOmicCollection <- function(
     omic_collection
 ){
   
   # Check if metadata exists in the collection
-  if(!"metadata" %in% names(omic_collection))
+  if(!"metadata" %in% base::names(omic_collection))
     base::stop("'OmicSignatureCollection' must contain a metadata object.\n")
   
   # Check if OmicSigList exists in the collection
-  if(!"OmicSigList" %in% names(omic_collection))
+  if(!"OmicSigList" %in% base::names(omic_collection))
     base::stop("'OmicSignatureCollection' must contain a OmicSigList object.\n")
   
   # Extract metadata from omic_collection ####
   metadata <- omic_collection$metadata
   
   # Check if metadata is a list ####
-  if(!is(metadata, "list"))
+  if(!methods::is(metadata, "list"))
     base::stop("'metadata' in OmicSignatureCollection must be a list.")
   
   # Check required metadata fields ####
   metadata_fields <- c('collection_name', 'description')
   
-  if(any(!metadata_fields %in% names(metadata)))
-    base::stop("'metadata' in OmicSignatureCollection must have the following names:", paste0(metadata_fields, collapse = ", "))
+  if(any(!metadata_fields %in% base::names(metadata)))
+    base::stop("'metadata' in OmicSignatureCollection must have the following names:", base::paste0(metadata_fields, collapse = ", "))
   
   # Extract OmicSigList from omic_collection ####
   omic_sig_list <- omic_collection$OmicSigList  
   
   # Check if OmicSigList is a list ####
-  if(!is(omic_sig_list, "list"))
+  if(!methods::is(omic_sig_list, "list"))
     base::stop("'OmicSigList' in OmicSignatureCollection must be a list containning a list of signature objects.")
   
   # Check required signature fields ####
@@ -614,10 +611,10 @@ getDBColNames <- function(
     base::message(w, "\n")
   })
   
-  col_names <- colnames(db_table)
+  col_names <- base::colnames(db_table)
   
-  if(!is.null(exclude_coln_names)) {
-    col_names <- setdiff(col_names, exclude_coln_names)
+  if(!base::is.null(exclude_coln_names)) {
+    col_names <- base::setdiff(col_names, exclude_coln_names)
   }
   
   # Return column names ####
@@ -637,7 +634,6 @@ getDBColNames <- function(
 #' @keywords internal
 #' 
 #' @export
-#' @import digest
 getVariableID <- function(
     conn,
     db_table_name,
@@ -655,7 +651,7 @@ getVariableID <- function(
   )
   
   # Check coln_var
-  if(!length(coln_var) == 1 || any(coln_var %in% c(NA, ""))){
+  if(!base::length(coln_var) == 1 || base::any(coln_var %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -663,7 +659,7 @@ getVariableID <- function(
   }
   
   # Check coln_var_id
-  if(!length(coln_var_id) == 1 || any(coln_var_id %in% c(NA, ""))){
+  if(!base::length(coln_var_id) == 1 || base::any(coln_var_id %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -671,7 +667,7 @@ getVariableID <- function(
   }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0){
+  if(!methods::is(table, "data.frame") || base::length(table) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -679,36 +675,36 @@ getVariableID <- function(
   }
   
   ## Check if column variable existed in the table
-  if(!coln_var %in% colnames(table)){
+  if(!coln_var %in% base::colnames(table)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("Column '%s' does not existed in the table.", coln_var))
+    base::stop(base::sprintf("Column '%s' does not existed in the table.", coln_var))
   }
   
   # Make sure column variable is not empty
-  if(any(table[, coln_var] %in% c(NA, ""))){
+  if(base::any(table[, coln_var] %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("'%s' is a required field and cannot contain any empty values.", coln_var))
+    base::stop(base::sprintf("'%s' is a required field and cannot contain any empty values.", coln_var))
   }
   
   # Check if columns existed in the database
   check_db_var <- c(coln_var, coln_var_id)
   
   ## Check if column variable existed in the database
-  if(any(!check_db_var %in% db_col_names)){
+  if(base::any(!check_db_var %in% db_col_names)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("Columns: %s does not exist in the '%s' table of the database.", paste0("'", check_db_var[which(!check_db_var %in% db_col_names)], "'", collapse = ", "), db_table_name))
+    base::stop(base::sprintf("Columns: %s does not exist in the '%s' table of the database.", base::paste0("'", check_db_var[base::which(!check_db_var %in% db_col_names)], "'", collapse = ", "), db_table_name))
   }
   
   # Look up ID in database
   return_var <- check_db_var
   filter_coln_var <- coln_var
-  filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
+  filter_coln_val <- table |> dplyr::distinct(!!!rlang::syms(coln_var)) |> base::as.list()
   
   tbl <- SigRepo::lookup_table_sql(
     conn = conn,
@@ -728,10 +724,11 @@ getVariableID <- function(
 
 #' @title createHashKey
 #' @description Check api key whether it is valid to access the database
-#' @param conn An established connection to database using newConnhandler() 
-#' @param hash_var An api key uses to access the database
-#' @param hash_columns An api key uses to access the database
-#' @param hash_method An api key uses to access the database
+#' @param table A data frame with specific columns to be used to create 
+#' the hash key  
+#' @param hash_var The hash variable to be created
+#' @param hash_columns The specific columns to be used to create the hash key
+#' @param hash_method The hashing method to create the key. Default \code{md5}.
 #' 
 #' @keywords internal
 #' 
@@ -741,60 +738,58 @@ createHashKey <- function(
     table,
     hash_var,
     hash_columns,
-    hash_method = c("md5", "sodium")
+    hash_method = "md5"
 ){
   
   # check hash_method
   hash_method <- base::match.arg(hash_method)
   
   # Check hash_var
-  if(!length(hash_var) == 1 || any(hash_var %in% c(NA, ""))){
+  if(!base::length(hash_var) == 1 || base::any(hash_var %in% c(NA, ""))){
     base::stop("'hash_var' must have a length of 1 and cannot be empty.")
   }
   
   # Check hash_columns
-  if(length(hash_columns) == 0 || any(hash_columns %in% c(NA, ""))){  
+  if(base::length(hash_columns) == 0 || base::any(hash_columns %in% c(NA, ""))){  
     base::stop("'hash_columns' cannot be empty.")
   }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0){
+  if(!methods::is(table, "data.frame") || base::length(table) == 0){
     base::stop("'table' must be a data frame object and cannot be empty.")
   }
   
   # Make sure hash columns exist in table and are not empty
   purrr::walk(
-    seq_along(hash_columns),
+    base::seq_along(hash_columns),
     function(r){
       #r=1;
       ## Check if the hash column exists in the table
-      if(!hash_columns[r] %in% colnames(table)){
-        base::stop(sprintf("'%s' is required and does not existed in the table.\n", hash_columns[r]))
+      if(!hash_columns[r] %in% base::colnames(table)){
+        base::stop(base::sprintf("'%s' is required and does not existed in the table.\n", hash_columns[r]))
       }      
       ## Make sure hash column is not empty
-      if(any(table[, hash_columns[r]] %in% c(NA, ""))){
-        base::stop(sprintf("'%s' is required and cannot contain any empty values.\n", hash_columns[r]))
+      if(base::any(table[, hash_columns[r]] %in% c(NA, ""))){
+        base::stop(base::sprintf("'%s' is required and cannot contain any empty values.\n", hash_columns[r]))
       }      
     }
   )
   
   # Get column names without the creating harh_var
-  tbl_colnames <- colnames(table)[which(!colnames(table) %in% hash_var)]
+  tbl_colnames <- base::colnames(table)[base::which(!base::colnames(table) %in% hash_var)]
+  
+  # Rename hash key
+  renamed_key_var <- c("hash_key")
+  base::names(renamed_key_var) <- hash_var
   
   # Create the hash variable
-  table <- table %>% 
-    dplyr::select(all_of(tbl_colnames)) %>% 
-    dplyr::rowwise() %>% 
+  table <- table |> 
+    dplyr::select(dplyr::all_of(tbl_colnames)) |> 
+    dplyr::rowwise() |> 
     dplyr::mutate(
-      hash_key = ifelse(
-        hash_method == "md5", 
-        paste0(!!!syms(hash_columns)) %>% tolower(.) %>% digest::digest(., algo = "md5", serialize = FALSE), 
-        paste0(!!!syms(hash_columns)) %>% sodium::password_store(.)
-      )
-    ) %>% 
-    dplyr::rename(
-      !! paste0(hash_var) := hash_key
-    ) %>% 
+      hash_key = base::paste0(!!!rlang::syms(hash_columns)) |> base::tolower() |> digest::digest(algo = "md5", serialize = FALSE)
+    ) |> 
+    dplyr::rename(all_of(renamed_key_var)) |> 
     dplyr::ungroup()
   
   # Return table
@@ -813,7 +808,6 @@ createHashKey <- function(
 #' @keywords internal
 #' 
 #' @export
-#' @import digest
 removeDuplicates <- function( 
     conn,
     db_table_name,
@@ -830,7 +824,7 @@ removeDuplicates <- function(
   )
   
   # Check coln_var
-  if(!length(coln_var) == 1 || any(coln_var %in% c(NA, ""))){
+  if(!base::length(coln_var) == 1 || base::any(coln_var %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -838,7 +832,7 @@ removeDuplicates <- function(
   }
   
   # Check if table is a data frame object and not empty
-  if(!is(table, "data.frame") || length(table) == 0){
+  if(!methods::is(table, "data.frame") || base::length(table) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
@@ -846,11 +840,11 @@ removeDuplicates <- function(
   }
   
   ## Check if column variable existed in the table
-  if(!coln_var %in% colnames(table)){
+  if(!coln_var %in% base::colnames(table)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("Column '%s' does not existed in the table.", coln_var))
+    base::stop(base::sprintf("Column '%s' does not existed in the table.", coln_var))
   }
   
   ## Check if column variable existed in the database
@@ -858,7 +852,7 @@ removeDuplicates <- function(
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))  
     # Return error message
-    base::stop(sprintf("Columns: %s does not exist in the '%s' table of the database.", paste0("'", coln_var, "'", collapse = ", "), db_table_name))
+    base::stop(base::sprintf("Columns: %s does not exist in the '%s' table of the database.", base::paste0("'", coln_var, "'", collapse = ", "), db_table_name))
   }
   
   # Get number of observations
@@ -869,7 +863,7 @@ removeDuplicates <- function(
     
     return_var <- coln_var
     filter_coln_var <- coln_var
-    filter_coln_val <- table %>% dplyr::distinct(!!!syms(coln_var)) %>% as.list()
+    filter_coln_val <- table |> dplyr::distinct(!!!rlang::syms(coln_var)) |> base::as.list()
     
     existing_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
@@ -880,13 +874,14 @@ removeDuplicates <- function(
       check_db_table = check_db_table
     )
     
-    if(nrow(existing_tbl) > 0){
-      table <- table %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% 
+    if(base::nrow(existing_tbl) > 0){
+      table <- table |> dplyr::mutate(id = base::trimws(base::tolower(!!!rlang::syms(coln_var)))) |> 
         dplyr::anti_join(
-          existing_tbl %>% dplyr::mutate(id = trimws(tolower(!!!syms(coln_var)))) %>% dplyr::select(-all_of(coln_var)), 
+          existing_tbl |> dplyr::mutate(id = base::trimws(base::tolower(!!!rlang::syms(coln_var)))) |> dplyr::select(-dplyr::all_of(coln_var)), 
           by = "id"
         )
-      if(nrow(table) == 0){
+      
+      if(base::nrow(table) == 0){
         base::warnings(base::sprintf("All records of this dataset already existed in the '%s' table of the database.\n", db_table_name))
       }
     }

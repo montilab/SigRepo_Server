@@ -10,6 +10,8 @@
 ^\.github$ 
 ^docs$
 ^pkgdown$
+tests/testthat/_snaps
+
 # Ignore extensions
 ^.*\.Rproj$
 
@@ -19,15 +21,15 @@
 ^\.DS_Store$
 ^\.Rhistory$
 ^\.Renviron$
-^Dockerfile$
-^Dockerfile-.*$
-^docker-compose\.yml$
-^docker-compose-.*\.yml$
-^mysql\.env$
-^rstudio-server\.env$
-^README\.Rmd$ 
-^_pkgdown\.yml$ 
-^install_r_packages\.R$
-^add-rstudio-users\.sh$
-
-
+Dockerfile$
+Dockerfile-.*$
+docker-compose.yml$
+docker-compose-.*.yml$
+mysql.env
+rstudio-server.env
+install_r_packages.R
+add-rstudio-users.sh
+install_sigrepo.sh
+uninstall_sigrepo.sh
+README.Rmd
+_pkgdown.yml

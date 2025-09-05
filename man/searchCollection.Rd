@@ -6,8 +6,8 @@
 \usage{
 searchCollection(
   conn_handler,
-  collection_name = NULL,
   collection_id = NULL,
+  collection_name = NULL,
   signature_name = NULL,
   signature_id = NULL,
   user_name = NULL,
@@ -18,9 +18,9 @@ searchCollection(
 \item{conn_handler}{A handler uses to establish connection to the database 
 obtained from SigRepo::newConnhandler() (required)}
 
-\item{collection_name}{Name of collection to be looked up by.}
-
 \item{collection_id}{ID of collection to be looked up by.}
+
+\item{collection_name}{Name of collection to be looked up by.}
 
 \item{signature_name}{Name of the signatures to be looked up by.}
 
@@ -32,22 +32,5 @@ obtained from SigRepo::newConnhandler() (required)}
 diagnostic messages. Default is \code{TRUE}.}
 }
 \description{
-Get a list of collection available in the database
-}
-\examples{
-
-# Establish a Connection Handler using newConnHandler if not done so already.
-
- # SigRepo::searchCollection(
-# conn_handler = conn,
-# collection_name = "test_collection",
-# collection_id = 101,
-# signature_name = "test_signature",
-# signature_id = 170,
-# user_name = "test_user",
-# verbose = FALSE
-# )
-
-
-
+Search for a list of collection in the database
 }

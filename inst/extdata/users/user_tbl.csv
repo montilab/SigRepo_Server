@@ -1,3 +1,0 @@
-user_name,user_password,user_email,user_first,user_last,user_affiliation,user_role
-guest,guest,guest@montilab.bu.edu,guest,guest,Boston University,viewer
-montilab,sigrepo,editor@montilab.bu.edu,montilab,montilab,Boston University,editor

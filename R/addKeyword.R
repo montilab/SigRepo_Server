@@ -1,21 +1,11 @@
 #' @title addKeyword
 #' @description Add keywords to database
-#' @param conn_handler An established connection to database using newConnhandler() 
-#' @param keyword_tbl A data frame containing appropriate column names: keyword
+#' @param conn_handler A handler uses to establish connection to the database 
+#' obtained from SigRepo::newConnhandler() (required)
+#' @param keyword_tbl A data frame containing appropriate column names: 
+#' keyword (required) 
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
-#' 
-#' @examples
-#' 
-#' # creating a dataframe
-#' 
-#' # keyword_tbl <- data.frame(
-#' # keyword = "keyword1")
-#' 
-#' # SigRepo::addKeyword(
-#' # conn_handler = conn,
-#' # keyword_tbl = keyword_tbl,
-#' # verbose = FALSE)
 #' 
 #' @export
 addKeyword <- function(
@@ -43,19 +33,19 @@ addKeyword <- function(
   table <- keyword_tbl
   
   # Check required column fields
-  if(any(!required_column_fields %in% colnames(table))){
+  if(base::any(!required_column_fields %in% base::colnames(table))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nTable is missing the following required column names: %s.\n", paste0(required_column_fields[which(!required_column_fields %in% colnames(table))], collapse = ", ")))
+    base::stop(base::sprintf("\n'Keywords' table is missing the following required column names: %s.\n", base::paste0(required_column_fields[base::which(!required_column_fields %in% base::colnames(table))], collapse = ", ")))
   }
   
   # Make sure required column fields do not have any empty values ####
-  if(any(is.na(table[,required_column_fields]) == TRUE)){
+  if(base::any(base::is.na(table[,required_column_fields]) == TRUE)){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
-    base::stop(base::sprintf("\nAll required column names: %s cannot contain any empty values.\n", paste0(required_column_fields, collapse = ", ")))
+    base::stop(base::sprintf("\nAll required column names in 'keywords' table: %s cannot contain any empty values.\n", base::paste0(required_column_fields, collapse = ", ")))
   }
   
   # Check table against database table ####

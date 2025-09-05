@@ -2,21 +2,10 @@
 #' @description Inactivate a user in the database
 #' @param conn_handler A handler uses to establish connection to the database 
 #' obtained from SigRepo::newConnhandler() (required)
-#' @param user_name Name of a user to be deleted (required).
+#' @param user_name Name of the user to be inactivated (required).
 #' @param verbose a logical value indicates whether or not to print the
 #' diagnostic messages. Default is \code{TRUE}.
 #' 
-#' @examples
-#'
-#' 
-#' # Establish a Connection Handler using newConnHnalder if not done so already.
-#' 
-#' # SigRepo::inactivateUser(
-#' #   conn_handler = conn,
-#' #   user_name = "user1",
-#' #   verbose = FALSE
-#' #)
-#'
 #' @export
 inactivateUser <- function(
     conn_handler,
@@ -38,7 +27,7 @@ inactivateUser <- function(
   )
   
   # Check user_name ####
-  if(!length(user_name) == 1 || all(user_name %in% c(NA, ""))){
+  if(!base::length(user_name) == 1 || base::all(user_name %in% c(NA, ""))){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn))     
     # Show message
@@ -59,7 +48,7 @@ inactivateUser <- function(
   )
 
   # Check if user exists in the database
-  if(nrow(table) == 0){
+  if(base::nrow(table) == 0){
     # Disconnect from database ####
     base::suppressWarnings(DBI::dbDisconnect(conn)) 
     # Show message
@@ -81,7 +70,7 @@ inactivateUser <- function(
   check_user_tbl <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("SELECT host, user FROM mysql.user WHERE user = '%s' AND host = '%%';", user_name)))
   
   # IF USER EXISTS, DROP USER FROM DATABASE
-  if(nrow(check_user_tbl) > 0){
+  if(base::nrow(check_user_tbl) > 0){
     base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = base::sprintf("DROP USER '%s'@'%%';", user_name)))
   }
 
