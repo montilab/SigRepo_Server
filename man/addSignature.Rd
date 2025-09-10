@@ -32,7 +32,7 @@ a list of features that does not exist in the database. Default is \code{FALSE}.
 \item{verbose}{A logical value indicates whether or not to print the
 diagnostic messages. Default is \code{TRUE}.}
 
-\item{add_users}{if visibility is set to 0, then the user can use this parameter to add a dataframe of users and their corresponding access types to the signature.}
+\item{add_users}{if visibility is set to FALSE, then the user can use this parameter to add a dataframe of users and their corresponding access types to the signature.}
 }
 \description{
 Add signature to database
