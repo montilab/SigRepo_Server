@@ -5,7 +5,7 @@
 #' @param omic_signature An R6 class object from OmicSignature package (required)
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
-#' @param add_users if visibility is set to 0, then the user can use this parameter to add a dataframe of users and their corresponding access types to the signature.
+#' @param add_users if visibility is set to FALSE, then the user can use this parameter to add a dataframe of users and their corresponding access types to the signature.
 #' @param return_signature_id A logical value indicates whether or not to return
 #' the ID of the uploaded signature. Default is \code{FALSE}.
 #' @param return_missing_features A logical value indicates whether or not to return
