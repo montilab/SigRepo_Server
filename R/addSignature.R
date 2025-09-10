@@ -5,6 +5,7 @@
 #' @param omic_signature An R6 class object from OmicSignature package (required)
 #' @param visibility A logical value indicates whether or not to allow others  
 #' to view and access one's uploaded signature. Default is \code{FALSE}.
+#' @param add_users if visibility is set to 0, then the user can use this parameter to add a dataframe of users and their corresponding access types to the signature.
 #' @param return_signature_id A logical value indicates whether or not to return
 #' the ID of the uploaded signature. Default is \code{FALSE}.
 #' @param return_missing_features A logical value indicates whether or not to return
@@ -19,7 +20,8 @@ addSignature <- function(
     visibility = FALSE,
     return_signature_id = FALSE,
     return_missing_features = FALSE,
-    verbose = TRUE
+    verbose = TRUE,
+    add_users = NULL
 ){
   
   # Whether to print the diagnostic messages
@@ -46,6 +48,48 @@ addSignature <- function(
   
   # Get visibility ####
   visibility <- base::ifelse(visibility == TRUE, 1, 0)
+  
+  # Get add_users if conditions are met
+
+  # Coerce visibility to numeric (0 or 1)
+  visibility <- base::ifelse(visibility == TRUE, 1, 0)
+  
+  
+  # Add users logic
+  if (!is.null(add_users)) {
+    
+    # visibility is public (1) but add_users was provided
+    if (visibility == 1) {
+      base::stop("Cannot add users to a public signature (visibility = 1).")
+    }
+    
+    # Validate structure of add_users
+    if (!is.data.frame(add_users) || 
+        !all(c("user_name", "access") %in% colnames(add_users))) {
+      base::stop("<add_users> must be a data frame with 'user_name' and 'access' columns.")
+    }
+    
+    # Validate user_name values exist in the database
+    valid_users <- SigRepo::searchUser(
+      conn_handler = conn_handler,
+      user_name = add_users$user_name
+    )
+    
+    # Get list of user names not found
+    missing_users <- setdiff(add_users$user_name, valid_users$user_name)
+    
+    if (length(missing_users) > 0) {
+      base::stop(base::sprintf(
+        "The following users do not exist in the database: %s",
+        paste(missing_users, collapse = ", ")
+      ))
+    }
+    
+    # If everything is valid, store add_users
+    add_users <- add_users
+  }
+  
+  
   
   # Create signature metadata table ####
   metadata_tbl <- SigRepo::createSignatureMetadata(
@@ -172,7 +216,7 @@ addSignature <- function(
     
     # 2. Adding user to signature access table after signature
     # was imported successfully in step (1)
-    SigRepo::verbose("Adding user to the signature access table of the database...\n")
+    SigRepo::verbose("Adding signature owner to the signature access table of the database...\n")
     
     # If there is a error during the process, remove the signature and output the message
     base::tryCatch({
@@ -183,6 +227,19 @@ addSignature <- function(
         access_type = "owner",
         verbose = FALSE
       )
+      
+      if (exists("add_users") && !is.null(add_users)) {
+        SigRepo::addUserToSignature(
+          conn_handler = conn_handler,
+          signature_id = signature_tbl$signature_id[1],
+          user_name = add_users$user_name,
+          access_type = add_users$access,
+          verbose = TRUE
+        )
+        
+        SigRepo::verbose(base::sprintf("Added %s to the signature.", paste(add_users$user_name, collapse = ", ")))
+      }
+      
     }, error = function(e){
       # Delete signature
       SigRepo::deleteSignature(conn_handler = conn_handler, signature_id = signature_tbl$signature_id[1], verbose = FALSE)
@@ -394,6 +451,10 @@ addSignature <- function(
       
     }
     
+  
+
+    
+    
     # Reset options
     SigRepo::print_messages(verbose = verbose)
     
@@ -403,6 +464,10 @@ addSignature <- function(
     # Return message
     SigRepo::verbose("Finished uploading.\n")
     SigRepo::verbose(base::sprintf("ID of the uploaded signature: %s\n", signature_tbl$signature_id[1]))
+    
+    
+   
+    
     
     # Return signature id
     if(return_signature_id == TRUE){
