@@ -119,7 +119,6 @@ addUserToSignature <- function(
     
     # If user is not admin, check if it has access to the signature
     if(orig_user_role != "admin"){
-      
       # Check if user is the one who uploaded the signature
       signature_user_tbl <- SigRepo::lookup_table_sql(
         conn = conn,
@@ -130,10 +129,8 @@ addUserToSignature <- function(
         filter_var_by = "AND",
         check_db_table = FALSE
       )
-      
       # If not, check if user was added as an owner or editor
       if(base::nrow(signature_user_tbl) == 0){
-        
         signature_access_tbl <- SigRepo::lookup_table_sql(
           conn = conn,
           db_table_name = "signature_access",
@@ -143,7 +140,6 @@ addUserToSignature <- function(
           filter_var_by = c("AND", "AND"),
           check_db_table = TRUE
         )
-        
         # If user does not have permission, throw an error message
         if(base::nrow(signature_access_tbl) == 0){
           # Disconnect from database ####
