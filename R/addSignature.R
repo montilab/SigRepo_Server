@@ -52,22 +52,22 @@ addSignature <- function(
   # Get visibility ####
   visibility <- base::ifelse(visibility == TRUE, 1, 0)
     
-  # visibility is public (1) but add_users will be ignored
+  # visibility is public (1) so add_users will be ignored
   if (visibility == 1){ 
     
-    if (!is.null(add_users))
-      base::warning("By setting visibility = 1, the signature will be set as public and will be available to all users, thus 'add_users' will be ignored.")
+    if (!base::is.null(add_users))
+      base::warning("By setting visibility = 1, the signature will be set as public and visible to all users, thus 'add_users' will be ignored.")
     
     add_users <- base::data.frame(NULL)
     
   }else if (visibility == 0){
     
-    if (is.null(add_users)) {
+    if (base::is.null(add_users)) {
       add_users <- base::data.frame(NULL)
-    }else if (!base::is.data.frame(add_users) || !base::all(c("user_name", "access") %in% base::colnames(add_users))){
+    }else if (!base::is.data.frame(add_users) || !base::all(c("user_name", "access") %in% base::colnames(add_users))) {
       base::stop("<add_users> must be a data frame with the required column names: 'user_name' and 'access'")
     }else{
-      # Validate user_name values exist in the database
+      # Validate user_name exists in the database
       valid_users <- SigRepo::searchUser(
         conn_handler = conn_handler,
         user_name = add_users$user_name
