@@ -7,6 +7,15 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIGREPO_DIR="$SCRIPT_DIR"
 
+
+
+if [ "$(realpath "$path1")" = "$(realpath "$path2")" ]; then
+  echo "The directories are the same."
+else
+  echo "The directories are different."
+fi
+
+
 # Ensure install path is provided ####
 if [ -z "$1" ]; then
   echo "ERROR: Installation path not provided."
