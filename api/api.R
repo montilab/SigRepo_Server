@@ -327,7 +327,7 @@ generate_db_tables <- function(conn_handler){
 }
 
 
-#* Initiate database
+#* Initiate database with schemas and reference tables
 #* @param admin_key
 #' @post /init_db
 init_db <- function(res, admin_key){
@@ -390,7 +390,147 @@ init_db <- function(res, admin_key){
     print(err)
     
     ## Initialize the serializers
-    MESSAGES <- base::sprintf("Cannot initialize the database. Something went wrong. Contact admin for support.")
+    MESSAGES <- base::sprintf("ERROR: %s", err)
+    res$serializer <- serializers[["json"]]
+    res$status <- 500
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  })
+  
+}
+
+#* Initiate schema for the database
+#* @param admin_key
+#' @post /init_db_schema
+init_db_schema <- function(res, admin_key){
+  
+  # parameters
+  variables <- c('admin_key')
+  
+  # Check parameters
+  if(base::missing(admin_key)){
+    
+    missing_variables <- c(base::missing(admin_key))
+    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # CHECK ADMIN KEY ####
+  if(admin_key == ""){
+    
+    error_message <- "admin_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
+    
+    error_message <- "Invalid admin key."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  ## Init database
+  base::tryCatch({
+    
+    print("Initiate schema for the database...")
+    generate_db_schema(conn_handler = conn_handler)
+    
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("Finish initialized schema for the database.")
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }, error = function(err){
+    
+    # print the error message
+    print(err)
+    
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("ERROR: %s", err)
+    res$serializer <- serializers[["json"]]
+    res$status <- 500
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  })
+  
+}
+
+#* Initiate reference tables in the database
+#* @param admin_key
+#' @post /init_db_tables
+init_db_tables <- function(res, admin_key){
+  
+  # parameters
+  variables <- c('admin_key')
+  
+  # Check parameters
+  if(base::missing(admin_key)){
+    
+    missing_variables <- c(base::missing(admin_key))
+    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # CHECK ADMIN KEY ####
+  if(admin_key == ""){
+    
+    error_message <- "admin_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
+    
+    error_message <- "Invalid admin key."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  ## Init database
+  base::tryCatch({
+    
+    print("Upload reference tables to the database...")
+    generate_db_tables(conn_handler = conn_handler)
+    
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("Finish initialized reference tables for the database.")
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }, error = function(err){
+    
+    # print the error message
+    print(err)
+    
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("ERROR: %s", err)
     res$serializer <- serializers[["json"]]
     res$status <- 500
     warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
@@ -919,9 +1059,9 @@ activate_user <- function(res, user_name, api_key){
     warn_tbl <- base::data.frame(MESSAGES = error_message)
     return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
     
-  }else if(!api_key %in% base::Sys.getenv("API_KEY")){
+  }else if(!api_key %in% base::Sys.getenv("SENDMAIL_KEY")){
     
-    error_message <- "Invalid API Key."
+    error_message <- "Invalid Sendmail API Key."
     res$serializer <- serializers[["json"]]
     res$status <- 404
     warn_tbl <- base::data.frame(MESSAGES = error_message)
