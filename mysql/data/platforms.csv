@@ -1,0 +1,30 @@
+platform_name
+cell flow cytometry
+DNA assay by ATAC-seq
+DNA assay by ChIP-seq
+genotyping by array
+genotyping by whole-genome-sequencing
+metabolomics by fluorescence
+metabolomics by gas chromatography
+metabolomics by liquid chromatography HPLC
+metabolomics by mass spectrometry
+metabolomics by NMR
+methylation by array
+methylation by bisulfite sequencing
+methylation by immunoprecipitation
+proteomics by antibody or aptamer
+proteomics by array
+proteomics by fluorescence
+proteomics by mass spectrometry
+proteomics by NMR
+ribosome transcriptomics
+single-cell CITE-seq
+single-cell proteomics by mass spectrometry
+single-cell spatial transcriptomics
+spatial transcriptomics
+test_platform
+transcriptomics by array
+transcriptomics by bulk RNA-seq
+transcriptomics by long-read sequencing
+transcriptomics by single-cell RNA-seq
+Unknown
