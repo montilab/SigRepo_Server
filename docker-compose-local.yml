@@ -15,6 +15,12 @@ x-omic-signature-volume:
   type: bind
   source: ~/OmicSignature
   target: /OmicSignature
+ 
+x-hyper-volume:
+  &hyper-volume
+  type: bind
+  source: ~/hypeR
+  target: /hypeR
   
 x-sigrepo-volume:
   &sigrepo-volume

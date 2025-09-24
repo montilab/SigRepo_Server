@@ -101,7 +101,7 @@ RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies
 RUN R -e "devtools::install_github(repo = 'montilab/hypeR', dependencies = TRUE)"
 
 # Install hypeR 
-RUN R -e "sigrepo_branch <- base::Sys.getenv('sigrepo_branch'); devtools::install_github(repo = 'montilab/SigRepo', ref = sigrepo_branch, dependencies = TRUE)"
+RUN R -e "devtools::install_github(repo = 'montilab/SigRepo', dependencies = TRUE)"
 
 # Expose app at port 3838
 EXPOSE 3838
