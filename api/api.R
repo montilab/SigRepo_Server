@@ -75,6 +75,46 @@ serializers <- base::list(
   "htmlwidget" = plumber::serializer_htmlwidget()
 )
 
+# Reset database ####
+reset_db_tables <- function(conn_handler){
+  
+  ## Establish database connection
+  conn <- DBI::dbConnect(
+    drv = RMySQL::MySQL(),
+    dbname = base::Sys.getenv("DB_NAME"), 
+    host = base::Sys.getenv("DB_LOCAL_HOST"), 
+    port = base::as.integer(base::Sys.getenv("DB_PORT")),
+    user = base::Sys.getenv("DB_USER"), 
+    password = base::Sys.getenv("DB_PASSWORD")
+  )
+  
+  # Set foreign key checks to false when dropping tables
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
+  
+  # Show all tables in DB
+  table_result <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SHOW TABLES;"))
+  
+  ###################
+  #
+  # DROP ALL TABLES
+  #
+  ##################  
+  purrr::walk(
+    base::seq_len(base::nrow(table_result)),
+    function(t){
+      #t=1;
+      table_name <- table_result$Tables_in_sigrepo[t]
+      drop_table_sql <- base::sprintf("DROP TABLE IF EXISTS `%s`;", table_name)
+      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
+    }
+  )
+  
+  # Disconnect from database ####
+  base::suppressWarnings(DBI::dbDisconnect(conn))   
+  
+}
+
+
 # Function to generate schema for the database ####
 generate_db_schema <- function(conn_handler){
   
@@ -300,11 +340,11 @@ generate_db_tables <- function(conn_handler){
   ############# 
   print("Upload human transcriptomics features to the database...")
   transcriptomics_human_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Transcriptomics_Homo_Sapiens.csv"), header = TRUE) 
-  SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = transcriptomics_human_gene_tbl)
+  SigRepo::addTranscriptomicsFeatureSet(conn_handler = conn_handler, feature_set = transcriptomics_human_gene_tbl)
   
   print("Upload mouse transcriptomics features to the database...")
   transcriptomics_mouse_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Transcriptomics_Mus_Musculus.csv"), header = TRUE) 
-  SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "transcriptomics", feature_set = transcriptomics_mouse_gene_tbl)
+  SigRepo::addTranscriptomicsFeatureSet(conn_handler = conn_handler, feature_set = transcriptomics_mouse_gene_tbl)
   
   ############# 
   #
@@ -313,7 +353,7 @@ generate_db_tables <- function(conn_handler){
   ############# 
   print("Upload human proteomics features to the database...")
   proteomics_human_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Proteomics_Homo_Sapiens.csv"), header = TRUE) 
-  SigRepo::addRefFeatureSet(conn_handler = conn_handler, assay_type = "proteomics", feature_set = proteomics_human_gene_tbl)
+  SigRepo::addProteomicsFeatureSet(conn_handler = conn_handler, feature_set = proteomics_human_gene_tbl)
   
   ############# 
   #
@@ -379,6 +419,76 @@ init_db <- function(res, admin_key){
     
     ## Initialize the serializers
     MESSAGES <- base::sprintf("Finish initialized the database.")
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }, error = function(err){
+    
+    # print the error message
+    print(err)
+    
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("ERROR: %s", err)
+    res$serializer <- serializers[["json"]]
+    res$status <- 500
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  })
+  
+}
+
+#* Reset schemas and reference tables in the database
+#* @param admin_key
+#' @post /reset_db
+reset_db <- function(res, admin_key){
+  
+  # parameters
+  variables <- c('admin_key')
+  
+  # Check parameters
+  if(base::missing(admin_key)){
+    
+    missing_variables <- c(base::missing(admin_key))
+    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # CHECK ADMIN KEY ####
+  if(admin_key == ""){
+    
+    error_message <- "admin_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
+    
+    error_message <- "Invalid admin key."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  ## Reset database
+  base::tryCatch({
+    
+    print("Reset tables in the database...")
+    reset_db_tables(conn_handler = conn_handler)
+    
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("Finish reset the database.")
     res$serializer <- serializers[["json"]]
     res$status <- 200
     warn_tbl <- base::data.frame(MESSAGES = MESSAGES)

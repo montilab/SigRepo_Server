@@ -26,7 +26,9 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   liblzma-dev \
   tcl8.6-dev \
   tk8.6-dev \
+  libabsl-dev \
   ca-certificates \
+  cmake \
   git \
   vim \
   curl \

@@ -77,6 +77,7 @@ services:
     restart: always
     volumes:
       - *difexp-volume
+      - *sigrepo-volume
       - *sigrepo-server-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
