@@ -64,15 +64,6 @@ ENV SIGREPO_DIR=/SigRepo
 # Clone SigRepo repo
 RUN git clone https://github.com/montilab/SigRepo.git
 
-# Set ssw/src as pwd
-WORKDIR /SigRepo
-
-# Get a specific branch of sigrepo. Default is sigrepo_client.
-ENV sigrepo_branch=${sigrepo_branch:-sigrepo_client}
-
-# Check out the branch and install ssw
-RUN git checkout ${sigrepo_branch}
-
 # Create server directory 
 ENV SIGREPO_SERVER_DIR=/SigRepo_Server 
 
