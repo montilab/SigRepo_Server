@@ -53,7 +53,7 @@ source("modules/reference_module.R")
 source("modules/resource_module.R")
 
 # testing module
-source("modules/test_module.r")
+source("modules/test_module.R")
 # utils
 source("utils/utils.R")
 
