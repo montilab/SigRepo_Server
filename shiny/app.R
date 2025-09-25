@@ -411,7 +411,7 @@ server <- function(input, output, session) {
     
     # Validate user
     user_tbl <- base::tryCatch({
-      SigRepo::validateUser(conn_handler = user_conn_handler())
+      SigRepo::searchUser(conn_handler = user_conn_handler(), user_name = user_name)
     }, error = function(e) {
       base::print(e, "\n")
       return(base::data.frame(NULL))
