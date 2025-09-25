@@ -8,33 +8,38 @@
 
 
 
+# R packages for building shiny dashboard
 library(shinyjs)
 library(shiny)
 library(DT)
-library(knitr)
-library(tidyverse)
-library(devtools)
-library(SigRepo) # using the sigrepo_client version
 
-# loading devtools pkgs
-library(hypeR)
-library(OmicSignature)
+# Package for knitting PDF
+library(rmarkdown)
 
 # Packages for API
 library(httr)
 library(jsonlite)
 
-# package for data cleaning 
+# Package for data cleaning, extraction and manipulation
 library(dplyr)
 
-# package for plotting
+# Package for plotting
+library(ggplot2)
 
-libraray(ggplot2)
+# For loading and installing packages
+library(devtools)
 
+# Load SigRepo package
+devtools::load_all(base::Sys.getenv("SIGREPO_DIR"))
 
+# Loading OmicSignature package
+devtools::load_all(base::Sys.getenv("OMICSIG_DIR"))
+
+# Package for parallel processes
 library(promises)
 library(future)
 future::plan(multisession)
+
 
 
 # sourcing modules
@@ -58,7 +63,7 @@ source("utils/utils.R")
 
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DB_NAME"),
-  host = Sys.getenv("DB_HOST"),
+  host = Sys.getenv("DB_LOCAL_HOST"),
   port = as.integer(Sys.getenv("DB_PORT")),
   user = Sys.getenv("DB_USER"),
   password = Sys.getenv("DB_PASSWORD")
