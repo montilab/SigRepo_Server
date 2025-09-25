@@ -64,8 +64,6 @@ services:
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.5.0
-    expose:
-      - 3838
     restart: always
     command: tail -f /dev/null
 
@@ -82,6 +80,8 @@ services:
       - 8020:3838
     restart: always
     volumes:
+      - .Renviron:/SigRepo/.Renviron
+      - .Renviron:/SigRepo_Server/.Renviron
       - *difexp-volume
       - *sigrepo-volume
       - *sigrepo-server-volume
@@ -101,9 +101,12 @@ services:
       - 8050:3838
     restart: always
     volumes:
+      - .Renviron:/SigRepo/.Renviron
+      - .Renviron:/SigRepo_Server/.Renviron    
       - *sigrepo-volume
       - *sigrepo-server-volume   
       - *omic-signature-volume
+      - *hyper-volume   
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
 networks:
