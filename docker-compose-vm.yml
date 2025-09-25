@@ -62,6 +62,8 @@ services:
       - 8020:3838
     restart: always
     volumes:
+      - .Renviron:/SigRepo/.Renviron
+      - .Renviron:/SigRepo_Server/.Renviron
       - *difexp-volume
       - *sigrepo-volume
       - *sigrepo-server-volume
@@ -80,6 +82,8 @@ services:
       - 8050:3838
     restart: always
     volumes:
+      - .Renviron:/SigRepo/.Renviron
+      - .Renviron:/SigRepo_Server/.Renviron
       - *hyper-volume
       - *sigrepo-volume
       - *sigrepo-server-volume   
