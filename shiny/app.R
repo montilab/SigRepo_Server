@@ -52,6 +52,11 @@ source("modules/compare_module.R")
 source("modules/reference_module.R")
 source("modules/resource_module.R")
 
+# sourcing modals 
+
+source("modals/manage_users_modal.R")
+
+
 # testing module
 source("modules/test_module.R")
 # utils
@@ -63,7 +68,7 @@ source("utils/utils.R")
 
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DB_NAME"),
-  host = Sys.getenv("DB_LOCAL_HOST"),
+  host = Sys.getenv("DB_HOST"),
   port = as.integer(Sys.getenv("DB_PORT")),
   user = Sys.getenv("DB_USER"),
   password = Sys.getenv("DB_PASSWORD")
@@ -1220,13 +1225,20 @@ server <- function(input, output, session) {
   ### signature db ###
   
   signature_db <- reactive({
+    # only runs when user_conn_handler is available
     req(user_conn_handler())
     signature_trigger()
+   
     
     tryCatch({
       df <- SigRepo::searchSignature(conn_handler = user_conn_handler())
-      validate(need(nrow(df) > 0, "No Signatures found."))
+      
+      if(nrow(df) == 0){
+        showNotification("No Signatures Found.", type = "warning")
+        return(data.frame())
+      }
       df
+      
     }, error = function(e) {
       showNotification(paste("Error fetching signatures:", e$message), type = "error")
       data.frame()
@@ -1240,11 +1252,16 @@ server <- function(input, output, session) {
   collection_db <- reactive({
     req(user_conn_handler())
     collection_trigger()
-    
+      # Avoid calling reactive multiple times
     
     tryCatch({
       df <- SigRepo::searchCollection(conn_handler = user_conn_handler())
-      validate(need(nrow(df) > 0, "No Collections Found."))
+      
+      if (nrow(df) == 0) {
+        showNotification("No collections found.", type = "warning")
+        return(data.frame())  # Or return(NULL), depending on your downstream logic
+      }
+      
       df
     }, error = function(e) {
       showNotification(paste("Error fetching Collections:", e$message), type = "error")
@@ -1253,15 +1270,24 @@ server <- function(input, output, session) {
   })
   
   
+  
   ### SERVER MODULES ####
   
+  # testing module
   test_module_server("test1", signature_db = signature_db)
-  home_module_server("home", signature_db = signature_db)
+  
   
   observe({
+    
     req(user_conn_handler())
     
-    # Now that user_conn_handler is available, initialize the modules
+    # Now that user_conn_handler() is available, initialize the modules
+    
+    home_module_server(
+      "home", 
+      signature_db = signature_db)
+    
+    
     signature_module_server(
       "signatures",
       signature_db = signature_db,
@@ -1275,13 +1301,18 @@ server <- function(input, output, session) {
       user_conn_handler = user_conn_handler,
       collection_trigger = collection_trigger
     )
-    annotate_module_server("annotate",
-                           signature_db = signature_db,
-                           user_conn_handler = user_conn_handler)
-    # compareServer("compare")
-    reference_module_server("references", user_conn_handler = user_conn_handler)
-    # resourcesServer("resources")
+    annotate_module_server(
+      "annotate",
+      signature_db = signature_db,
+      user_conn_handler = user_conn_handler)
     
+   
+    reference_module_server("references", user_conn_handler = user_conn_handler)
+    
+    
+    # in progress modules
+    #resourcesServer("resources")
+    # compareServer("compare") 
   })
   
 } # end bracket, dont touch !!!
