@@ -4,34 +4,54 @@
 # Signatures UI
 signature_module_ui <- function(id) {
   ns <- NS(id)
+  
+
   tagList(
+    
     div(
       style = "margin-top: 70px;",
-      actionButton(
+      shiny::actionButton(
         ns("open_upload_modal"),
         "Upload Signature",
         icon = icon("upload"),
         class = "btn-primary"
       ),
       br(),
+      h4(shiny::textOutput(ns("selected_signature_label"))),
       
-      uiOutput(ns("action_buttons")),
-      DTOutput(ns("signature_tbl")),
+
+      shiny::div(
+        id = ns("action_buttons_group_toggle"),
+        style = "display: block;",  # Initial state is hidden
+        shiny::actionButton(ns("view_btn"), "View"),
+        shiny::actionButton(ns("update_btn"), "Update"),
+        shiny::actionButton(ns("delete_btn"), "Delete"),
+        shiny::actionButton(ns("access_btn"), "Access"),
+        shiny::downloadButton(ns("download_btn"), "Download")
+      ),
       
-    
+      DT::DTOutput(ns("signature_tbl"))
     )
   )
 }
+
+
 
 signature_module_server <- function(id, signature_db, user_conn_handler, signature_trigger) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
-    # Reactive Vals
+    # Reactive Vals for signature 
     
     selected_sig <- reactiveVal(NULL)
     sig_object <- reactiveVal(NULL)
     signature_update_trigger <- reactiveVal(NULL)
+    
+    # reactive vales for user acces and perms
+    
+    users_to_add <- reactiveVal(NULL)
+    user_perms <- reactiveVal(NULL)
+    
    
     current_sig <- reactive({
       req(sig_object())
@@ -74,33 +94,35 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
                   paging = TRUE)
     })
     
-    
-    # Action Buttons UI ####
-    output$action_buttons <- renderUI({
-      req(input$signature_tbl_rows_selected)
-      row <- input$signature_tbl_rows_selected
-      df <- signature_db()
-      signature_selected <- df[row, ]
+    # deugging
+    observeEvent(input$signature_tbl_rows_selected, {
+      print("Row selected")
       
-      # updating the reactive val
-      selected_sig(signature_selected)
-      
-      
-      # action buttons
-      tagList(
-        h4(
-          paste("Actions for Signature:", selected_sig()$signature_name)
-        ),
-        actionButton(ns("view_btn"), "View"),
-        actionButton(ns("update_btn"), "Update"),
-        actionButton(ns("delete_btn"), "Delete"),
-        actionButton(ns("access_btn"), "Access"),
-        downloadButton(ns("download_btn"), "Download")
-      )
     })
     
-   
+  # using _rows_selected in shiny DT package
+    observeEvent(input$signature_tbl_rows_selected, {
+      shinyjs::show(ns(id = "action_buttons_group_toggle"))
+      print("toggle block")
+    })
     
+  observeEvent(input$signature_tbl_rows_selected, {
+  
+    
+    df <- signature_db()
+    row <- input$signature_tbl_rows_selected
+    sig <- df[row,]
+    selected_sig(sig)
+    
+    # shinyjs::toggle(ns("action_buttons_group"))
+    
+    output$selected_signature_label <- renderText({
+      sprintf("Actions for: %s", sig$signature_name)
+    })
+    
+  })
+    
+
     # === View Button Clicked ===
     observeEvent(input$view_btn, {
       req(selected_sig())
@@ -151,23 +173,25 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     output$signature_metadata <- renderUI({
       req(selected_sig())
       
-      tagList(
-        p(strong("Description"), selected_sig()$description),
-        p(strong("Organism:"), selected_sig()$organism),
-        p(strong("Direction Type:"), selected_sig()$direction_type),
-        p(strong("Assay Type:"), selected_sig()$assay_type),
-        p(strong("Phenotype:"), selected_sig()$phenotype),
-        p(strong("Platform:"), selected_sig()$platform_name),
-        p(strong("Sample Type:"), selected_sig()$sample_type),
-        p(strong("Covariates:"), selected_sig()$covariates),
-        p(strong("Score Cutoff:"), selected_sig()$score_cutoff),
-        p(strong("LogFC Cutoff:"), selected_sig()$logfc_cutoff),
-        p(strong("Date Created:"), selected_sig()$date_created),
-        p(strong("User:"), selected_sig()$user_name),
-        p(strong("Number of diff. expressed"))
-        
+      
+      sig <- selected_sig()
+      
+      # transpose row
+      df <- data.frame(
+        Field = names(sig),
+        Value = unlist(sig[1,], use.names = FALSE),
+        stringsAsFactors = FALSE
       )
+      
+      
+      
+      
+      # rendering to a datatable
+      
+      DatatableFX(df)
+     
     })
+    
     
     
   
@@ -211,15 +235,9 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       
       sig_id <- selected_sig()$signature_id
       
-      showModal(modalDialog(
-        title = "Confirm Delete",
-        paste("Are you sure you want to delete signature ID", sig_id, "?"),
-        footer = tagList(
-          modalButton("Cancel"),
-          actionButton(ns("confirm_delete_signature"), "Delete", class = "btn-danger")
-          
-        )
-      ))
+      # delete signature modal
+      
+      delete_modal_ui()
       
       
     })
@@ -278,41 +296,28 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       ))
     })
     
-    # add user logic
+    # manage user modal
     
     observeEvent(input$access_btn, {
       
       sig_id <- selected_sig()$signature_id
       sig_name <- selected_sig()$signature_name
-      
       user_tbl <- SigRepo::searchUser(conn_handler = user_conn_handler())
       
-      showModal(modalDialog(
-        title = paste("Manage Users for Signature:", sig_name),
-        tabsetPanel(
-          tabPanel("Add to Signature",
-                   fluidRow(
-                     column(6,
-                            selectInput(
-                              inputId = "user_selector",
-                              label = "Select users to add:",
-                              choices = user_tbl$user_name ,     # Replace with your actual function or vector
-                              multiple = TRUE
-                            )
-                     )
-                   ),
-                   uiOutput("access_type_ui"), # Dynamic access dropdowns
-                   actionButton("add_users_confirm", "Add Users", class = "btn-primary")
-          ),
-          tabPanel("Delete from Signature",
-                   # Placeholder for delete logic
-                   p("Delete user functionality goes here.")
-          )
-        ),
-        easyClose = TRUE,
-        footer = modalButton("Close")
-      ))
+      # manage user modal for signature
+      showModal(manage_users_modal_ui(ns, name = sig_name, user_tbl = user_tbl))
+      
     })
+    
+    # add users to signature with their perms
+    
+    observeEvent(input$confirm_add_users, {
+      
+      # name, user_tbl, type, selected, user_conn_handler
+      
+      manage_users_modal_server(ns, input, output, session, name = sig_name, type = "Signature", user_tbl = user_tbl, user_conn_handler = user_conn_handler )
+    })
+  
     
  # download omic signature object 
     
