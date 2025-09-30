@@ -420,16 +420,16 @@ server <- function(input, output, session) {
     
     # Check if conn is a MySQLConnection class object
     if (nrow(user_tbl) == 0) {
+      
       # Update message
       login_error_message(base::sprintf("Invalid username or password!"))
       user_conn_handler(NULL)
       user_login_info(NULL)
-      user_signature_tbl(NULL)
-      user_collection_tbl(NULL)
       shinyjs::show(id = "login-wrapper")
       shinyjs::hide(id = "content-wrapper")
       
     } else{
+      
       # Update message ####
       login_error_message(NULL)
       
@@ -449,8 +449,6 @@ server <- function(input, output, session) {
       
       # Get user login info ####
       user_login_info(user_tbl)
-      
-      
       
       # Hide login wrapper
       shinyjs::hide(id = "login-wrapper")
