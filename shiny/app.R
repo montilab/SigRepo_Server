@@ -234,8 +234,8 @@ ui <- fluidPage(
         )
       )
     )
-    
   ),
+  
   shiny::div(
     id = "content-wrapper",
     style = "display:none;",
@@ -635,8 +635,7 @@ server <- function(input, output, session) {
           )
         )
         return(NULL)
-      } else if (nrow(check_user_tbl) > 0 &&
-                 check_user_tbl$active[1] == 1) {
+      } else if (nrow(check_user_tbl) > 0 && check_user_tbl$active[1] == 1) {
         register_message(
           base::sprintf(
             "User = '%s' is already existed in our database. Please choose a different name.",
@@ -680,7 +679,7 @@ server <- function(input, output, session) {
       if (base::tolower(user_email) %in% base::tolower(check_email_tbl$user_email)) {
         register_message(
           base::sprintf(
-            "Email = '%s' already existed in our database. Please choose a different email.",
+            "Email = '%s' already been used for another account in our database. Please choose a different email.",
             user_email
           )
         )
@@ -714,7 +713,7 @@ server <- function(input, output, session) {
     api_url <- base::sprintf(
       "https://montilab.bu.edu/SigRepo/send_notifications/register_user?user_name=%s&api_key=%s",
       user_tbl$user_name[1],
-      base::Sys.getenv("API_KEY")
+      base::Sys.getenv("SENDMAIL_KEY")
     )
     
     # Send email to users through montilab server API
@@ -906,7 +905,7 @@ server <- function(input, output, session) {
     api_url <- base::sprintf(
       "https://montilab.bu.edu/SigRepo/send_notifications/send_tmp_password?user_name=%s&api_key=%s",
       user_tbl$user_name[1],
-      base::Sys.getenv("API_KEY")
+      base::Sys.getenv("SENDMAIL_KEY")
     )
     
     # Send email to users through montilab server API
