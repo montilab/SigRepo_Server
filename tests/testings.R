@@ -26,7 +26,6 @@ devtools::load_all(base::Sys.getenv("OMICSIG_DIR"))
 # Loading hypeR package
 devtools::load_all(base::Sys.getenv("HYPER_DIR"))
 
-
 conn_handler <- SigRepo::newConnHandler(
   dbname = "sigrepo", 
   host = "sigrepo.org", 
@@ -37,3 +36,4 @@ conn_handler <- SigRepo::newConnHandler(
 
 SigRepo::searchUser(conn_handler = conn_handler)
 SigRepo::deleteUser(conn_handler = conn_handler, user_name = "reinac")
+
