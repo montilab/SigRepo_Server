@@ -6,6 +6,7 @@
 *.Rbuildignore
 *.Rproj
 *.log
+*.Renviron
 
 # Ignore folders
 **.git
