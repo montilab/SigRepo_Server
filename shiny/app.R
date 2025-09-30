@@ -35,12 +35,13 @@ devtools::load_all(base::Sys.getenv("SIGREPO_DIR"))
 # Loading OmicSignature package
 devtools::load_all(base::Sys.getenv("OMICSIG_DIR"))
 
+# Loading hypeR package
+devtools::load_all(base::Sys.getenv("HYPER_DIR"))
+
 # Package for parallel processes
 library(promises)
 library(future)
 future::plan(multisession)
-
-
 
 # sourcing modules
 
@@ -177,12 +178,15 @@ ui <- fluidPage(
   
   
   shiny::div(
-    class = "login-wrapper",
-    id = "login-wrapper",
+    class = "login-wrapper", id = "login-wrapper",
+    
     shiny::div(
       class = "login-container",
       
-      shiny::div(class = "login-title", shiny::h2("Sign In")),
+      shiny::div(
+        class = "login-form-title",
+        shiny::span(class = "login-title", shiny::h1("Sign In"))
+      ),
       
       tags$form(
         class = "login-form",
@@ -190,12 +194,7 @@ ui <- fluidPage(
         shiny::div(
           class = "validate-input",
           shiny::HTML("<span class='login-label'><b>Username</b></span>"),
-          shiny::div(
-            class = "username-container",
-            shiny::HTML(
-              "<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username'>"
-            )
-          )
+          shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter Username'>")
         ),
         
         shiny::div(
@@ -203,16 +202,15 @@ ui <- fluidPage(
           shiny::HTML("<span class='login-label'><b>Password</b></span>"),
           shiny::div(
             class = "password-container",
-            shiny::HTML(
-              "<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password'>"
-            ),
-            shiny::HTML(
-              "<span class='toggle-password' onclick='toggle_password()'>👁️</span>"
-            )
+            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter Password'>"),
+            shiny::HTML("<span class='toggle-password' onclick='toggle_password()'>👁️</span>")
           )
         ),
         
-        shiny::div(class = "validate-message", shiny::uiOutput(outputId = "login_error_message")),
+        shiny::div(
+          class = "validate-message", 
+          shiny::uiOutput(outputId = "login_error_message")
+        ),
         
         shiny::div(
           class = "validate-button",
@@ -230,12 +228,10 @@ ui <- fluidPage(
           ),
         ),
         
-        shiny::div(class = "register", shiny::span(
-          "Don't have an acount.",
-          shiny::HTML(
-            "<a href='#' id='register' class='action-button'>Register here!</a>"
-          )
-        ))
+        shiny::div(
+          class = "register", 
+          shiny::span("Don't have an acount.", shiny::HTML("<a href='#' id='register' class='action-button'>Register here!</a>"))
+        )
       )
     )
     
@@ -1228,7 +1224,7 @@ server <- function(input, output, session) {
     # only runs when user_conn_handler is available
     req(user_conn_handler())
     signature_trigger()
-   
+    
     
     tryCatch({
       df <- SigRepo::searchSignature(conn_handler = user_conn_handler())
@@ -1252,7 +1248,7 @@ server <- function(input, output, session) {
   collection_db <- reactive({
     req(user_conn_handler())
     collection_trigger()
-      # Avoid calling reactive multiple times
+    # Avoid calling reactive multiple times
     
     tryCatch({
       df <- SigRepo::searchCollection(conn_handler = user_conn_handler())
@@ -1306,7 +1302,7 @@ server <- function(input, output, session) {
       signature_db = signature_db,
       user_conn_handler = user_conn_handler)
     
-   
+    
     reference_module_server("references", user_conn_handler = user_conn_handler)
     
     
