@@ -54,7 +54,16 @@
 }
 
 .validate-input {
+  width: 100%;
   margin-bottom: 10px;
+}
+
+.login-input {
+  height: 45px;
+  outline: none;
+  color: #808080;
+  text-align: right;
+  font-weight: bold;
 }
 
 .username-container, .password-container {

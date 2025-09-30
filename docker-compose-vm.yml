@@ -65,8 +65,7 @@ services:
       - *difexp-volume
       - *sigrepo-volume
       - *sigrepo-server-volume
-      - .Renviron:/SigRepo/.Renviron
-      - .Renviron:/SigRepo_Server/.Renviron
+      - .Renviron:/SigRepo_Server/api/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
   sigrepo-shiny:
@@ -86,8 +85,7 @@ services:
       - *sigrepo-volume
       - *sigrepo-server-volume   
       - *omic-signature-volume
-      - .Renviron:/SigRepo/.Renviron
-      - .Renviron:/SigRepo_Server/.Renviron
+      - .Renviron:/SigRepo_Server/shiny/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
 networks:

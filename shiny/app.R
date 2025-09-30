@@ -61,7 +61,7 @@ source("modals/manage_users_modal.R")
 source("modules/test_module.R")
 # utils
 source("utils/utils.R")
-
+source("utils/validateUser.R")
 
 
 # default connection handler for root, DONT USE IN MAIN APP
@@ -416,7 +416,7 @@ server <- function(input, output, session) {
     
     # Validate user
     user_tbl <- base::tryCatch({
-      SigRepo::searchUser(conn_handler = user_conn_handler(), user_name = user_name)
+      validateUser(conn_handler = user_conn_handler())
     }, error = function(e) {
       base::print(e, "\n")
       return(base::data.frame(NULL))
