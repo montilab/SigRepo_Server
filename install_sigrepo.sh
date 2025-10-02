@@ -189,8 +189,7 @@ services:
       - ${DB_API_PORT}:3838
     restart: always
     volumes:
-      - .Renviron:/SigRepo/.Renviron
-      - .Renviron:/SigRepo_Server/.Renviron
+      - .Renviron:/SigRepo_Server/api/.Renviron
       - *difexp-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
@@ -207,8 +206,7 @@ services:
       - ${DB_SHINY_PORT}:3838
     restart: always
     volumes:
-      - .Renviron:/SigRepo/.Renviron
-      - .Renviron:/SigRepo_Server/.Renviron
+      - .Renviron:/SigRepo_Server/shiny/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
 networks:
