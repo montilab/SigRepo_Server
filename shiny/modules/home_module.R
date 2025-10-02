@@ -4,7 +4,7 @@ home_module_ui <- function(id) {
   ns <- NS(id)
   
   tagList(
-    div(style = "margin-top: 70px;",
+    div(style = "margin-top: 15px;",
     tags$head(tags$style(HTML("
       .homepage-title {
         text-align: center;
@@ -113,10 +113,21 @@ home_module_ui <- function(id) {
     fluidRow(
       column(
         12,
-        div(class = "text-center text-muted",
-            p("Created by SigRepo Team  · Version 1.0 · © 2025"))
+        div(
+          class = "text-center text-muted",
+          
+          # Add logo image
+          img(
+            src = "images/LC_logo.png",
+            style = "height: 30px; vertical-align: middle; margin-right: 10px;"
+          ),
+          
+          # Footer text
+          span("Created by SigRepo Team · Version 1.0 · © 2025")
+        )
       )
     )
+    
     )
   )
 }

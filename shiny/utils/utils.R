@@ -18,7 +18,8 @@ DatatableFX <- function(df,
                         hidden_columns = c(0, 6, 7, 8, 11, 14, 15, 16, 19, 24, 25, 26),
                         scrollY = "500px",
                         paging = FALSE,
-                        row_selection = "single") {
+                        row_selection = "single",
+                        rownames = FALSE) {
   
   # Check if df is valid
   if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
@@ -54,7 +55,7 @@ DatatableFX <- function(df,
     ),
     class = "compact stripe hover nowrap",
     selection = row_selection,
-    rownames = FALSE
+    rownames = rownames
   )
 }
 
@@ -95,56 +96,6 @@ DatatableFX <- function(df,
 
 # modals 
 
-upload_modal_ui <- function(ns, type = "Collection") {
-  modalDialog(
-    title = paste("Upload", type),
-    fileInput(ns("upload_file"), paste("Choose", type, "RDS file"), accept = ".rds"),
-    footer = tagList(
-      modalButton("Cancel"),
-      actionButton(ns("upload_btn"), paste("Upload", type), class = "btn-primary")
-    )
-  )
-}
 
 
-
-upload_modal_server_function <- function(input, output, session, type = c("Collection", "Signature"),
-                                         update_trigger, conn_handler) {
-  type <- match.arg(type)
-  
-  observeEvent(input$upload_btn, {
-    req(input$upload_file)
-    
-    tryCatch({
-      rds_object <- readRDS(input$upload_file$datapath)
-      
-      if (type == "Collection") {
-        SigRepo::addCollection(conn_handler = conn_handler, omic_collection = rds_object)
-        showNotification("Collection uploaded and added successfully!", type = "message")
-      } else if (type == "Signature") {
-        SigRepo::addSignature(conn_handler = conn_handler, signature = rds_object)
-        showNotification("Signature uploaded and added successfully!", type = "message")
-      }
-      
-      # Trigger reactive update after upload
-      update_trigger(isolate(update_trigger()) + 1)
-      
-    }, error = function(e) {
-      showNotification(paste("Error reading or uploading", tolower(type), ":", e$message), type = "error")
-    })
-    
-    removeModal()
-  })
-}
-
-delete_modal_server_function <- function(input, output, session, type = c("Collection", "Signature"),
-                                         update_trigger, conn_handler) {
-  
-  type <- match.arg(type)
-  
-  obseveEvent(input$confirm_delete_btn, {
-    
-    
-  })
-}
 

@@ -35,7 +35,7 @@ devtools::load_all(base::Sys.getenv("SIGREPO_DIR"))
 # Loading OmicSignature package
 devtools::load_all(base::Sys.getenv("OMICSIG_DIR"))
 
-# Loading hypeR package
+# # Loading hypeR package
 devtools::load_all(base::Sys.getenv("HYPER_DIR"))
 
 # Package for parallel processes
@@ -45,24 +45,27 @@ future::plan(multisession)
 
 # sourcing modules
 
-source("modules/home_module.R")
-source("modules/signature_module.R")
-source("modules/collection_module.R")
-source("modules/annotate_module.R")
-source("modules/compare_module.R")
-source("modules/reference_module.R")
-source("modules/resource_module.R")
+source("modules/home_module.R", echo = FALSE)
+source("modules/signature_module.R", echo = FALSE)
+source("modules/collection_module.R", echo = FALSE)
+source("modules/annotate_module.R", echo = FALSE)
+source("modules/compare_module.R", echo = FALSE)
+source("modules/reference_module.R", echo = FALSE)
+source("modules/resource_module.R", echo = FALSE)
 
 # sourcing modals 
 
-source("modals/manage_users_modal.R")
+source("modals/manage_users_modal.R", echo = FALSE)
+source("modals/delete_modal.R", echo = FALSE)
+source("modals/upload_modal.R", echo = FALSE)
+source("modals/view_modal.R", echo = FALSE)
 
 
 # testing module
-source("modules/test_module.R")
+source("modules/test_module.R", echo = FALSE)
 # utils
-source("utils/utils.R")
-source("utils/validateUser.R")
+source("utils/utils.R", echo = FALSE)
+source("utils/validateUser.R", echo = FALSE)
 
 
 # default connection handler for root, DONT USE IN MAIN APP
@@ -280,7 +283,7 @@ ui <- fluidPage(
       tabPanel("Resources", resource_module_ui("resources")),
       
       
-      # custom logo for longevity consortium 
+      # custom logo for longevity consortium, need to add it still ###
       
       
       header = tagList(
@@ -299,7 +302,7 @@ ui <- fluidPage(
       # inject image to navbar
       
       tags$img(
-        src = "images/longevityconsortiumlogo.svg",
+        src = "images/LC_logo.png ",
         class = "navbar-custom-logo"
       )
       
