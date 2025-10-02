@@ -33,7 +33,7 @@ Need more help? Click on the links below for additional guides:
 - [Register an account to access the SigRepo
   database](https://montilab.github.io/SigRepo_Server/articles/create_user_account.html)
 - [Connect and interact with the SigRepo database through the SigRepo R
-  client](https://montilab.github.io/SigRepo/home.html)
+  client](https://montilab.github.io/SigRepo/index.html)
 - [Initialize a SigRepo database instance on your local
   machine](https://montilab.github.io/SigRepo_Server/articles/install_sigrepo_locally.html)
 
