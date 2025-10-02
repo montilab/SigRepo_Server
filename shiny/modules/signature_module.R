@@ -188,7 +188,8 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       
       # rendering to a datatable
       
-      DatatableFX(df)
+      DatatableFX(df,
+                  rownames = TRUE)
      
     })
     
@@ -199,7 +200,7 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
 
     ### upload signature logic
     observeEvent(input$open_upload_modal, {
-      showModal(upload_modal_ui(ns, "Signature"))
+      showModal(upload_modal_ui(ns, type = "Signature"))
     })
     
     
@@ -230,20 +231,18 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     })
     
     # delete signature logic ####
-    
     observeEvent(input$delete_btn,{
       
-      sig_id <- selected_sig()$signature_id
+      sig_name <- selected_sig()$signature_name
       
       # delete signature modal
-      
-      delete_modal_ui()
-      
+      showModal(
+      delete_modal_ui(ns, type = "Signature", name = sig_name)
+      )
       
     })
     
     # delete signature logic 
-    
     observeEvent(input$confirm_delete_signature, {
       req(selected_sig())  # ensure selection exists
       
