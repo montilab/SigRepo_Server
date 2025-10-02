@@ -18,8 +18,8 @@ database**, **RESTful APIs**, and a **Shiny application**.
 - Finally, the **Shiny application** offers an interactive interface
   that integrates with the MySQL database and APIs, allowing users to
   perform operations through a set of functions provided by our R client
-  package,
-  [**SigRepo**](https://github.com/montilab/SigRepo%7Btarget=_blank%7D).
+  package, <a href="https://github.com/montilab/SigRepo"
+  target="_blank"><strong>SigRepo</strong></a>.
 
 # Web Interface
 
@@ -32,12 +32,17 @@ be added.
 
 Need more help? Click on the links below for additional guides:
 
-- [Register an account to access the SigRepo
-  database](https://montilab.github.io/SigRepo_Server/articles/create_user_account.html%7Btarget=_blank%7D)
-- [Connect and interact with the SigRepo database through the SigRepo R
-  client](https://montilab.github.io/SigRepo/index.html%7Btarget=_blank%7D)
-- [Initialize a SigRepo database instance on your local
-  machine](https://montilab.github.io/SigRepo_Server/articles/install_sigrepo_locally.html%7Btarget=_blank%7D)
+- <a
+  href="https://montilab.github.io/SigRepo_Server/articles/create_user_account.html"
+  target="_blank">Register an account to access the SigRepo database</a>
+- <a href="https://montilab.github.io/SigRepo/index.html"
+  target="_blank">Connect and interact with the SigRepo database through
+  the SigRepo R client</a>
+- <a
+  href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo_locally.html"
+  target="_blank">Initialize a SigRepo database instance on your local
+  machine</a>
 
-Any questions or issues? Please report them on our [github
-issues](https://github.com/montilab/SigRepo_Server/issues%7Btarget=_blank%7D).
+Any questions or issues? Please report them on our
+<a href="https://github.com/montilab/SigRepo_Server/issues"
+target="_blank">github issues</a>.
