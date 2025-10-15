@@ -39,17 +39,20 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
     })
     
     
-    output$collection_tbl <- renderDT({
+    # grouped collection DF
+    
+    df_grouped <- reactive({
+      
+      req(user_conn_handler())
       
       df <- collection_db()
       
-      # grouping collections for easier viewing 
-      df_grouped <- df %>%
+      df %>%
         group_by(
           collection_id,
           collection_name,
           description,
-          user_name,
+          user_name, 
           date_created,
           visibility
         ) %>%
@@ -64,6 +67,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
     })
     
     
+    
   
     
 
@@ -72,7 +76,8 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
     output$action_buttons <- renderUI({
       req(input$collection_tbl_rows_selected)
       row <- input$collection_tbl_rows_selected
-      df <- collection_db()
+      df <- df_grouped()
+      
       collection_selected <- df[row, ]
       
       # updating the reactive val
