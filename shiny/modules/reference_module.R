@@ -6,7 +6,7 @@ reference_module_ui <- function(id) {
     value = "references",
     
     div(
-      style = "padding-top: 70px;",  # 👈 Add your top padding here
+      style = "padding-top: 70px;", 
       
       sidebarLayout(
         sidebarPanel(

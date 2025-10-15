@@ -60,7 +60,6 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       
       DatatableFX(df = df_grouped,
                   scrollY = "500px",
-                  paging = FALSE,
                   row_selection = "single")
     })
     
