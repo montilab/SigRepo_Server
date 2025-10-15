@@ -1,0 +1,10 @@
+pandoc: 3.6.3
+pkgdown: 2.1.3
+pkgdown_sha: ~
+articles:
+  FAQs: FAQs.html
+  install_sigrepo: install_sigrepo.html
+last_built: 2025-10-15T16:55Z
+urls:
+  reference: https://montilab.github.io/SigRepo_Server/reference
+  article: https://montilab.github.io/SigRepo_Server/articles

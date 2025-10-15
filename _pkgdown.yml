@@ -1,0 +1,54 @@
+url: https://montilab.github.io/SigRepo_Server/
+
+development:
+  mode: auto
+
+template:
+  bootstrap: 5
+  bootswatch: lux
+  light-switch: true
+  includes:
+    in_header: <link rel="stylesheet" type="text/css" href="https://..." />
+
+authors:
+  Reina Chau:
+    href: https://github.com/RC-88
+  Cameron Vicnaire:
+    href: https://github.com/Cvicnaire
+  Vanessa Li:
+    href: https://github.com/katgit
+  Stefano Monti:
+    href: https://github.com/tetomonti
+
+news:
+  one_page: true
+
+navbar:
+  title: SigRepo_Server
+  structure:
+    left: [home, installation, FAQs, change_log]
+    right: [search, github, lightswitch]
+  components:
+    home:
+      text: "Home"
+      href: index.html
+    installation:
+      text: "Installation"
+      href: articles/install_sigrepo.html   
+    FAQs:
+      text: "FAQs"
+      href: articles/FAQs.html      
+    change_log:
+      text: "Change Log"
+      href: news/index.html
+    github:
+      icon: fa-github
+      aria-label: "GitHub Icon"
+      href: https://github.com/montilab/SigRepo_Server  
+
+footer:
+  structure: 
+    left: developed_by
+    right: built_with
+    
+    
