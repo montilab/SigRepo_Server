@@ -72,27 +72,28 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
         df = df,
         hidden_columns = c(0, 6, 7, 8, 9, 11,12, 14, 15, 16,18, 19,21,22, 24, 25, 26),
         scrollY = "500px",
-        paging = TRUE,
         row_selection = "single"
+     
       )
-    })
+    }, server = TRUE)
     
   # signature_tbl
     
     output$signature_file_table <- DT::renderDataTable({
       
       DatatableFX(current_sig()$signature,
-                  scrollY = "500px", paging = TRUE)
-    })
+                  scrollY = "500px")
+    }, server = TRUE)
   
   # difexp_tbl
     
     output$difexp_file_table <- DT::renderDataTable({
       
       DatatableFX(current_sig()$difexp,
-                  scrollY = "500px",
-                  paging = TRUE)
-    })
+                  scrollY = "500px"
+                  
+                  )
+    }, server = TRUE)
     
     # deugging
     observeEvent(input$signature_tbl_rows_selected, {
