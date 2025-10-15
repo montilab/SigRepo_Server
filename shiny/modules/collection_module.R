@@ -59,16 +59,21 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         summarise(signatures = paste(signature_name, collapse = ", "),
                   .groups = "drop")
       
-      # util function for datatable
       
-      DatatableFX(df = df_grouped,
-                  scrollY = "500px",
-                  row_selection = "single")
+      
+    
     })
     
     
+    # collection_tbl output
+    output$collection_tbl <- renderDT({
+      DatatableFX(
+        df = df_grouped(),
+        scrollY = "500px",
+        row_selection = "single"
+      )
+    }, server = TRUE)  
     
-  
     
 
     
