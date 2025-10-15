@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 ```
 
-<br><br>
+<br>
 
 **SigRepo_Server** is a reproducible framework that enables users to deploy a **SigRepo** database server either locally or or on any Linux-based cloud platform, and interact with it through a set of API endpoints and a user-friendly web interface built with R Shiny.
 
