@@ -17,7 +17,6 @@ library(DT)
 DatatableFX <- function(df,
                         hidden_columns = c(0, 6, 7, 8, 11, 14, 15, 16, 19, 24, 25, 26),
                         scrollY = "500px",
-                        paging = FALSE,
                         row_selection = "single",
                         rownames = FALSE) {
   
@@ -41,10 +40,11 @@ DatatableFX <- function(df,
     extensions = "Buttons",
     filter = "top",
     options = list(
-      pageLength = -1,
+      pageLength = 50,
+      lengthMenu = c(10,25, 50, 100, 500, -1),
       scrollY = scrollY,
       scrollX = TRUE,
-      paging = paging,
+      paging = TRUE,
       ordering = FALSE,
       fixedHeader = TRUE,
       dom = 'frtipB',
