@@ -1,5 +1,5 @@
 
-<br><br>
+<br>
 
 **SigRepo_Server** is a reproducible framework that enables users to
 deploy a **SigRepo** database server either locally or or on any
