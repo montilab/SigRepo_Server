@@ -39,7 +39,7 @@ case $choice in
     ;;
   2)
     while true; do
-      read -p "Please enter the domain of your server (e.g., sigrepo.org) or its IP address (e.g., 142.93.67.157): " DB_HOST
+      read -p "Please enter the public domain of your server (e.g., sigrepo.org) or its public IP address (e.g., 142.93.67.157): " DB_HOST
       # Check if input is empty
       if [[ -z "${DB_HOST}" ]]; then
         echo "WARNING: Input cannot be empty. Please try again."

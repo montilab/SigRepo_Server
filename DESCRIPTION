@@ -1,6 +1,6 @@
-Package: SigRepo
+Package: SigRepo.Server
 Type: Package
-Title: Storing and processing omic signatures
+Title: Server Architecture of SigRepo Database
 Version: 1.0.0
 Authors@R: 
   c(person(given="Reina", family="Chau", role=c("aut","cre"), 
@@ -11,12 +11,12 @@ Authors@R:
            email="vmli@bu.edu"), 
     person(given="Stefano", family="Monti", role=c("aut"), 
            email="smonti@bu.edu", comment=c(ORCID="0000-0002-9376-0660")))
-Description: As high-throughput technology evolves, a large number of omics-signatures are being derived. 
-  This package helps to store signatures efficiently and retrieve them conveniently. 
+Description: A reproducible workflow that enables users to launch a SigRepo database server 
+  and interact with it via a user-friendly, web-based interface built with R Shiny and Plumber API.
 Depends: R (>= 4.4.0)
 LazyData: false
 License: GPL-3 + file LICENSE
-URL: https://github.com/montilab/SigRepo/
+URL: https://github.com/montilab/SigRepo_Server/
 Encoding: UTF-8
 RoxygenNote: 7.3.2
 Imports:
@@ -48,4 +48,4 @@ Suggests:
 Config/testthat/edition: 3
 biocViews: Software, FeatureExtraction
 VignetteBuilder: knitr
-BugReports: https://github.com/montilab/SigRepo/issues
+BugReports: https://github.com/montilab/SigRepo_Server/issues

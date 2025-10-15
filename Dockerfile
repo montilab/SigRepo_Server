@@ -107,7 +107,7 @@ RUN dos2unix ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
 RUN chmod a+x ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
 
 # Copy bash script that starts api-server
-COPY api/api-server.sh ${SIGREPO_SERVER_DIR}/api/shiny-server.sh
+COPY api/api-server.sh ${SIGREPO_SERVER_DIR}/api/api-server.sh
 
 # Convert bash script from Windows style line endings to Unix-like control characters
 RUN dos2unix ${SIGREPO_SERVER_DIR}/api/api-server.sh

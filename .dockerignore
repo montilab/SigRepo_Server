@@ -6,7 +6,6 @@
 *.Rbuildignore
 *.Rproj
 *.log
-*.Renviron
 
 # Ignore folders
 **.git
@@ -16,3 +15,5 @@
 # Ignore specific files
 docker-compose.yml
 docker-compose-*.yml
+.Renviron
+.mysql_env
