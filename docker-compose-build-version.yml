@@ -1,20 +1,49 @@
 x-sql-volume:
   &sql-volume
   type: bind
-  source: /path/to/mysql/database
+  source: ~/mysql/database
   target: /var/lib/mysql
   
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: /path/to/mysql/difexp
+  source: ~/mysql/difexp
   target: /difexp
+  
+x-omic-signature-volume:
+  &omic-signature-volume
+  type: bind
+  source: ~/OmicSignature
+  target: /OmicSignature
+ 
+x-hyper-volume:
+  &hyper-volume
+  type: bind
+  source: ~/hypeR
+  target: /hypeR
+  
+x-sigrepo-volume:
+  &sigrepo-volume
+  type: bind
+  source: ~/SigRepo
+  target: /SigRepo  
+
+x-sigrepo-server-volume:
+  &sigrepo-server-volume
+  type: bind
+  source: ~/SigRepo_Server
+  target: /SigRepo_Server
   
 services:
   sigrepo-mysql:
     container_name: sigrepo-mysql
     platform: linux/amd64
-    image: montilab/sigrepo-mysql:latest
+    image: sigrepo-mysql:latest
+    build:
+      context: mysql
+      dockerfile: Dockerfile
+      args:
+        - mysql_image=mysql:8.0-bookworm
     env_file:
       - .mysql_env
     networks:
@@ -26,12 +55,25 @@ services:
       - *sql-volume
     command: ["--default-authentication-plugin=mysql_native_password"]
 
+  sigrepo-client:
+    container_name: sigrepo-client
+    platform: linux/amd64
+    image: sigrepo:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - R_VERSION=4.5.0
+    restart: always
+    command: tail -f /dev/null
+
   sigrepo-api:
     container_name: sigrepo-api
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: sigrepo:latest
     depends_on:
       - sigrepo-mysql
+      - sigrepo-client
     networks:
       - db-net
     ports:
@@ -40,14 +82,17 @@ services:
     volumes:
       - .Renviron:/SigRepo_Server/.Renviron
       - *difexp-volume
+      - *sigrepo-volume
+      - *sigrepo-server-volume
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
   sigrepo-shiny:
     container_name: sigrepo-shiny
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: sigrepo:latest
     depends_on:
       - sigrepo-mysql
+      - sigrepo-client
       - sigrepo-api
     networks:
       - db-net
@@ -56,6 +101,10 @@ services:
     restart: always
     volumes:
       - .Renviron:/SigRepo_Server/.Renviron
+      - *sigrepo-volume
+      - *sigrepo-server-volume   
+      - *omic-signature-volume
+      - *hyper-volume   
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
 networks:
