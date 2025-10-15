@@ -56,21 +56,14 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
           date_created,
           visibility
         ) %>%
-        summarise(
-          signature_count = n(),
-          .groups = "drop"
-        )
-    })
-    
-    
-    
-    output$collection_tbl <- renderDT({
-      DatatableFX(
-        df = df_grouped(),
-        scrollY = "500px",
-        paging = FALSE,
-        row_selection = "single"
-      )
+        summarise(signatures = paste(signature_name, collapse = ", "),
+                  .groups = "drop")
+      
+      # util function for datatable
+      
+      DatatableFX(df = df_grouped,
+                  scrollY = "500px",
+                  row_selection = "single")
     })
     
     
