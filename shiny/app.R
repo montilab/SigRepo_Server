@@ -278,7 +278,7 @@ ui <- fluidPage(
       tabPanel("Home", home_module_ui("home")),
       tabPanel("Signatures", signature_module_ui("signatures")),
       tabPanel("Collections", collection_module_ui("collections")),
-      tabPanel("Annotate", annotate_module_ui("annotate")),
+      tabPanel("Annotate", resource_module_ui("resource")),
       tabPanel("Compare", compare_module_ui("compare")),
       tabPanel("References", reference_module_ui("references")),
       tabPanel("Feedback ", feedbackUI("feedback")),
