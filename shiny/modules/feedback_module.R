@@ -20,13 +20,9 @@ feedbackServer <- function(id) {
       
       # Load Slack webhook URL at runtime
       slack_webhook_url <- Sys.getenv("SLACK_WEBHOOK_URL")
-      print(slack_webhook_url)
+     
       
-      # Validate that the URL isn't empty or malformed
-      if (slack_webhook_url == "" || !grepl("^https://hooks.slack.com/services/", slack_webhook_url)) {
-        output$response <- renderText(" Slack webhook URL is not set correctly.")
-        return()
-      }
+      
       
       # Build Slack message
       slack_msg <- list(
