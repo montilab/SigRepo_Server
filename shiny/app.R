@@ -52,6 +52,7 @@ source("modules/annotate_module.R", echo = FALSE)
 source("modules/compare_module.R", echo = FALSE)
 source("modules/reference_module.R", echo = FALSE)
 source("modules/resource_module.R", echo = FALSE)
+source("modules/feedback_module.R", echo = FALSE)
 
 # sourcing modals 
 
@@ -280,7 +281,7 @@ ui <- fluidPage(
       tabPanel("Annotate", annotate_module_ui("annotate")),
       tabPanel("Compare", compare_module_ui("compare")),
       tabPanel("References", reference_module_ui("references")),
-      tabPanel("Resources", resource_module_ui("resources")),
+      tabPanel("Feedback ", feedbackUI("feedback")),
       
       
       # custom logo for longevity consortium, need to add it still ###
@@ -1304,7 +1305,7 @@ server <- function(input, output, session) {
     
     
     reference_module_server("references", user_conn_handler = user_conn_handler)
-    
+    feedbackServer("feedback")
     
     # in progress modules
     #resourcesServer("resources")
