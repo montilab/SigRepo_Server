@@ -9,12 +9,12 @@ upload_modal_ui <- function(ns, type = c("Collection", "Signature")) {
     
     fileInput(ns("upload_file"), paste("Choose", type, "RDS file"), accept = ".rds"),
     
-    # Add visibility toggle
+    # Add visibility toggle make this default private
     radioButtons(
       inputId = ns("visibility"),
       label = "Set visibility:",
       choices = c("Private" = FALSE, "Public" = TRUE),
-      selected = "private",
+      selected = FALSE,
       inline = TRUE
     ),
     
