@@ -30,11 +30,11 @@ The **SigRepo_Server**'s architecture composes of three core components: a **MyS
 
 Our team has deployed a **"SigRepo" MySQL Database Server** on [**Digital Ocean**](https://www.digitalocean.com/), a cloud-based infrastructure platform used for hosting and managing applications. 
 
-- To access the signatures and collections stored in our database, <a target="_blank" href="https://sigrepo.org/">VISIT OUR WEBSITE</a> to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to be added.
+- To access the signatures and collections stored in our database, <a target="_blank" href="https://sigrepo.org">VISIT OUR WEBSITE</a> to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to be added.
 
-- [To connect and interact with our database using our "SigRepo" package](https://montilab.github.io/SigRepo/index.html){target=_blank}
+- [To connect and interact with our database using our "SigRepo" package](https://montilab.github.io/SigRepo/index.html){target="_blank"}
 
-- [To install a "SigRepo" database instance on your local machine](https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html){target=_blank}
+- [To install a "SigRepo" database instance on your local machine](https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html){target="_blank"}
 
 ## Shiny Dashboard
 

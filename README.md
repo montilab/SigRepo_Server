@@ -30,9 +30,9 @@ Our team has deployed a **“SigRepo” MySQL Database Server** on
 infrastructure platform used for hosting and managing applications.
 
 - To access the signatures and collections stored in our database,
-  <a target="_blank" href="https://sigrepo.org/">VISIT OUR WEBSITE</a>
-  to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a>
-  to be added.
+  <a target="_blank" href="https://sigrepo.org">VISIT OUR WEBSITE</a> to
+  create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to
+  be added.
 
 - <a href="https://montilab.github.io/SigRepo/index.html"
   target="_blank">To connect and interact with our database using our
