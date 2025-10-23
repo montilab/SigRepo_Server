@@ -1,0 +1,65 @@
+x-sql-volume:
+  &sql-volume
+  type: bind
+  source: /path/to/mysql/database
+  target: /var/lib/mysql
+  
+x-difexp-volume:
+  &difexp-volume
+  type: bind
+  source: /path/to/mysql/difexp
+  target: /difexp
+  
+services:
+  sigrepo-mysql:
+    container_name: sigrepo-mysql
+    platform: linux/amd64
+    image: montilab/sigrepo-mysql:latest
+    env_file:
+      - .mysql_env
+    networks:
+      - db-net
+    ports:
+      - 3306:3306
+    restart: always
+    volumes:
+      - *sql-volume
+    command: ["--default-authentication-plugin=mysql_native_password"]
+
+  sigrepo-api:
+    container_name: sigrepo-api
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+    networks:
+      - db-net
+    ports:
+      - 8020:3838
+    restart: always
+    volumes:
+      - *difexp-volume
+      - .Renviron:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
+
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo-api
+    networks:
+      - db-net
+    ports:
+      - 8050:3838
+    restart: always
+    volumes:
+      - .Renviron:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
+
+networks:
+  db-net:
+    external: true   
+    
+    

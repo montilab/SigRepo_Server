@@ -1,0 +1,51 @@
+Package: SigRepo.Server
+Type: Package
+Title: Server Architecture of SigRepo Database
+Version: 1.0.0
+Authors@R: 
+  c(person(given="Reina", family="Chau", role=c("aut","cre"), 
+           email="rchau88@bu.edu", comment=c(ORCID="0000-0003-3012-1404")), 
+    person(given="Cameron", family="Vicnaire", role=c("aut"), 
+           email="camv@bu.edu"), 
+    person(given="Mengze", family="Li", role=c("aut"), 
+           email="vmli@bu.edu"), 
+    person(given="Stefano", family="Monti", role=c("aut"), 
+           email="smonti@bu.edu", comment=c(ORCID="0000-0002-9376-0660")))
+Description: A reproducible workflow that enables users to launch a SigRepo database server 
+  and interact with it via a user-friendly, web-based interface built with R Shiny and Plumber API.
+Depends: R (>= 4.4.0)
+LazyData: false
+License: GPL-3 + file LICENSE
+URL: https://github.com/montilab/SigRepo_Server/
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+Imports:
+  dplyr,
+  DT,
+  DBI,
+  future,
+  ggplot2,
+  httr,
+  igraph,
+  jsonlite,
+  plumber,
+  promises,
+  plumber,
+  rmarkdown,
+  RMySQL,
+  sendmailR,
+  shiny,
+  shinyjs
+Remotes:
+  montilab/OmicSignature,
+  montilab/SigRepo,
+  montilab/hypeR
+Suggests:
+  BiocManager,
+  devtools,
+  pkgdown,
+  testthat (>= 3.0.0)
+Config/testthat/edition: 3
+biocViews: Software, FeatureExtraction
+VignetteBuilder: knitr
+BugReports: https://github.com/montilab/SigRepo_Server/issues

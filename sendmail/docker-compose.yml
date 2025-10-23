@@ -1,0 +1,13 @@
+
+services:
+  sigrepo-sendmail:
+    container_name: sigrepo-sendmail
+    image: montilab/sigrepo-sendmail:latest
+    env_file:
+      - .Renviron
+    ports:
+      - 8080:3838
+    restart: always
+    volumes:
+      - /montilab-p/SigRepo_Server:/SigRepo_Server
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/sendmmail/api-server.sh"]

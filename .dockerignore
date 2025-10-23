@@ -1,0 +1,20 @@
+
+# Ignore file extensions
+*.DS_Store
+*.Rhistory
+*.gitignore
+*.Rbuildignore
+*.Rproj
+*.log
+
+# Ignore folders
+**.git
+**.github
+**.Rproj.user
+
+# Ignore specific files
+docker-compose.yml
+docker-compose-*.yml
+.Renviron
+.mysql_env
+build.log
