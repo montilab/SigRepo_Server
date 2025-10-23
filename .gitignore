@@ -20,5 +20,5 @@
 *.log
 
 # Ignore folders
-.Rproj.user
-docs
+.Rproj.user/
+docs/
