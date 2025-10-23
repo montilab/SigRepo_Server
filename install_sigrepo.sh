@@ -34,8 +34,7 @@ done
 # Act based on choice
 case $choice in
   1)
-    DB_HOST='0.0.0.0'
-    DB_URL="localhost"
+    SERVER_URL="localhost"
     ;;
   2)
     while true; do
@@ -45,7 +44,7 @@ case $choice in
         echo "WARNING: Input cannot be empty. Please try again."
         continue
       else
-        DB_URL=${DB_HOST}
+        SERVER_URL=${DB_HOST}
         break
       fi
     done
@@ -140,12 +139,12 @@ find_available_port () {
 # Check if default ports are available for database, api, and shiny
 echo "Locate open ports to host MySQL database, API, and Shiny..."
 DB_PORT=$( find_available_port 3306 )
-DB_API_PORT=$( find_available_port 8020 )
-DB_SHINY_PORT=$( find_available_port 8050 )
+API_PORT=$( find_available_port 8020 )
+SHINY_PORT=$( find_available_port 8050 )
 
 echo "DB PORT: ${DB_PORT}"
-echo "API PORT: ${DB_API_PORT}"
-echo "SHINY PORT: ${DB_SHINY_PORT}"
+echo "API PORT: ${API_PORT}"
+echo "SHINY PORT: ${SHINY_PORT}"
 
 echo "Configure docker-compose.yml file to initialize the containers..."
 cat > "${MYSQL_DIR}/docker-compose.yml" <<EOF
@@ -186,11 +185,11 @@ services:
     networks:
       - db-net
     ports:
-      - ${DB_API_PORT}:3838
+      - ${API_PORT}:3838
     restart: always
     volumes:
-      - .Renviron:/SigRepo_Server/.Renviron
       - *difexp-volume
+      - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
   sigrepo-shiny:
@@ -203,7 +202,7 @@ services:
     networks:
       - db-net
     ports:
-      - ${DB_SHINY_PORT}:3838
+      - ${SHINY_PORT}:3838
     restart: always
     volumes:
       - .Renviron:/SigRepo_Server/.Renviron
@@ -229,10 +228,8 @@ DB_LOCAL_HOST=$( docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddr
 echo "Set up .Renviron to initialize SigRepo API and Shiny"
 cat > "${MYSQL_DIR}/.Renviron" <<EOF
 DB_NAME = 'sigrepo'
-DB_HOST = '${DB_HOST}'
 DB_LOCAL_HOST = '${DB_LOCAL_HOST}'
 DB_PORT = '${DB_PORT}'
-DB_API_PORT = '${DB_API_PORT}'
 DB_USER = 'root'
 DB_PASSWORD = '${MYSQL_ROOT_PASSWORD}'
 ADMIN_KEY = '${ADMIN_KEY}'
@@ -242,6 +239,25 @@ EOF
 echo "Start the sigrepo-api container. If prompted, enter the admin password to give permission..."
 sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-api
 
+# Create host variable based on where user deployed the container local vs. virtual machine
+case $choice in
+  1)
+    DB_HOST=${DB_LOCAL_HOST}
+    CONTAINER_API_HOST=$( docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-api )
+    CONTAINER_API_PORT=3838
+    ;;
+  2)
+    DB_HOST=${DB_HOST}
+    CONTAINER_API_HOST=${DB_HOST}
+    CONTAINER_API_PORT=${API_PORT}
+    ;;
+esac
+
+# Append the rest of variables to environment file
+echo "DB_HOST = '${DB_HOST}'" >> "${MYSQL_DIR}/.Renviron" 
+echo "API_HOST = '${CONTAINER_API_HOST}'" >> "${MYSQL_DIR}/.Renviron" 
+echo "API_PORT = '${CONTAINER_API_PORT}'" >> "${MYSQL_DIR}/.Renviron" 
+
 # Start sigrepo-shiny containers
 echo "Start the sigrepo-shiny container. If prompted, enter the admin password to give permission..."
 sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny
@@ -250,7 +266,7 @@ sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny
 echo ""
 echo "SigRepo setup is complete!"
 echo "SigRepo MySQL database is currently deployed at port ${DB_PORT}"
-echo "SigRepo API is currently deployed at ${DB_URL}:${DB_API_PORT}/__docs__/"
-echo "SigRepo Shiny is currently deployed at ${DB_URL}:${DB_SHINY_PORT}"
+echo "SigRepo API is currently deployed at ${SERVER_URL}:${API_PORT}/__docs__/"
+echo "SigRepo Shiny is currently deployed at ${SERVER_URL}:${SHINY_PORT}"
 echo ""
 

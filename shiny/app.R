@@ -72,17 +72,20 @@ source("utils/validateUser.R", echo = FALSE)
 # default connection handler for root, DONT USE IN MAIN APP
 
 conn_handler <- SigRepo::newConnHandler(
-  dbname = Sys.getenv("DB_NAME"),
-  host = Sys.getenv("DB_HOST"),
-  port = as.integer(Sys.getenv("DB_PORT")),
-  user = Sys.getenv("DB_USER"),
-  password = Sys.getenv("DB_PASSWORD")
+  dbname = base::Sys.getenv("DB_NAME"),
+  host = base::Sys.getenv("DB_HOST"),
+  port = base::as.integer(Sys.getenv("DB_PORT")),
+  user = base::Sys.getenv("DB_USER"),
+  password = base::Sys.getenv("DB_PASSWORD"),
+  api_host = base::Sys.getenv("API_HOST"),
+  api_port = base::Sys.getenv("API_PORT")
 )
 
 # UI scaffold
 
-ui <- fluidPage(
-  useShinyjs(),
+ui <- shiny::fluidPage(
+  
+  shinyjs::useShinyjs(),
   
   title = "SigRepo - Signature Repository",
   
@@ -363,29 +366,32 @@ server <- function(input, output, session) {
   shiny::observeEvent({
     input$sign_in_btn
   }, {
+    
     # Get user name and password
     user_name <- shiny::isolate({
       input$username
     }) %>% base::trimws()
+    
     user_password <- shiny::isolate({
       input$password
     }) %>% base::trimws()
     
     # Check user name
     if (user_name %in% c(NA, "")) {
+      
       login_error_message("'Username' cannot be empty")
       return(NULL)
       
     } else{
+      
       # Check user table
       check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
       
       # If user exists, throw an error
-      if (nrow(check_user_tbl) == 0) {
+      if (base::nrow(check_user_tbl) == 0) {
         login_error_message(base::sprintf("Invalid username or password!"))
         return(NULL)
-      } else if (nrow(check_user_tbl) > 0 &&
-                 check_user_tbl$active[1] == 0) {
+      } else if (base::nrow(check_user_tbl) > 0 && check_user_tbl$active[1] == 0) {
         login_error_message(
           base::sprintf(
             "User = '%s' is currently inactive in our database. Please contact our admin to activate it.",
@@ -404,26 +410,24 @@ server <- function(input, output, session) {
     }
     
     # Create a user connection handler
-    user_conn_handler(
-      SigRepo::newConnHandler(
-        dbname = Sys.getenv("DB_NAME"),
-        host = Sys.getenv("DB_HOST"),
-        port = as.integer(Sys.getenv("DB_PORT")),
-        user = user_name,
-        password = user_password
-      )
+    user_conn_handler <- SigRepo::newConnHandler(
+      dbname = base::Sys.getenv("DB_NAME"),
+      host = base::Sys.getenv("DB_HOST"),
+      port = base::as.integer(base::Sys.getenv("DB_PORT")),
+      user = user_name,
+      password = user_password
     )
     
     # Validate user
     user_tbl <- base::tryCatch({
-      validateUser(conn_handler = user_conn_handler())
+      validateUser(conn_handler = user_conn_handler)
     }, error = function(e) {
       base::print(e, "\n")
       return(base::data.frame(NULL))
     })
     
     # Check if conn is a MySQLConnection class object
-    if (nrow(user_tbl) == 0) {
+    if (base::nrow(user_tbl) == 0) {
       
       # Update message
       login_error_message(base::sprintf("Invalid username or password!"))
@@ -449,7 +453,7 @@ server <- function(input, output, session) {
       )
       
       # Get user connection info ####
-      user_conn_handler(user_conn_handler())
+      user_conn_handler(user_conn_handler)
       
       # Get user login info ####
       user_login_info(user_tbl)

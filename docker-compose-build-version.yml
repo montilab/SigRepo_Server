@@ -80,10 +80,10 @@ services:
       - 8020:3838
     restart: always
     volumes:
-      - .Renviron:/SigRepo_Server/.Renviron
       - *difexp-volume
       - *sigrepo-volume
       - *sigrepo-server-volume
+      - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
   sigrepo-shiny:
@@ -100,11 +100,11 @@ services:
       - 8050:3838
     restart: always
     volumes:
-      - .Renviron:/SigRepo_Server/.Renviron
       - *sigrepo-volume
       - *sigrepo-server-volume   
       - *omic-signature-volume
       - *hyper-volume   
+      - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
 networks:
