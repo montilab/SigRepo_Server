@@ -38,8 +38,8 @@ services:
       - 8020:3838
     restart: always
     volumes:
-      - .Renviron:/SigRepo_Server/.Renviron
       - *difexp-volume
+      - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
   sigrepo-shiny:
