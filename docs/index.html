@@ -63,12 +63,12 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><p><br></p>
-<p><strong>SigRepo_Server</strong> is a reproducible framework that enables users to deploy a <strong>SigRepo</strong> database server either locally or on any Linux-based cloud platform, and interact with it through a set of API endpoints and a user-friendly web interface built with R Shiny.</p>
-<p>The <strong>SigRepo_Server</strong>’s architecture composes of three core components: a <strong>MySQL Database Server</strong>, a set of <strong>Plumber APIs</strong> endpoints, and a <strong>Shiny Dashboard</strong>.</p>
+<p><strong>SigRepo_Server</strong> is a reproducible framework that enables users to deploy a <strong>SigRepo</strong> database server either locally or on a Linux-based cloud platform, and interact with it through a set of API endpoints and a user-friendly web interface built with R Shiny.</p>
+<p>The server architecture composes of three core components: a <strong>MySQL Database Server</strong>, a set of <strong>Plumber APIs</strong> endpoints, and a <strong>Shiny Dashboard</strong>.</p>
 <ul>
 <li>The <strong>MySQL Database Server</strong> handles the initialization and management of the <strong>SigRepo</strong> database, which stores biological signatures, collections, and their associated metadata.<br>
 </li>
-<li>The <strong>Plumber APIs</strong> provide endpoints to define the database schema, load essential reference tables (such as organisms, platforms, and sample types, etc.), and lastly, store or retrieve <em>difexp</em> objects associated with specific signatures.</li>
+<li>The <strong>Plumber APIs</strong> provide endpoints to define the database schema, load essential reference tables (such as organisms, platforms, sample types, etc.), and lastly, store and retrieve <em>difexp</em> objects associated with specific signatures.</li>
 <li>Finally, the <strong>Shiny Dashboard</strong> offers a user-friendly web interface that connects to both the database and APIs. Through this dashboard, users can import, update, or delete their own signatures or collections in the database using a set of functions from our R client package - <a href="https://github.com/montilab/SigRepo" class="external-link"><strong>SigRepo</strong></a>
 </li>
 </ul>
@@ -85,7 +85,7 @@
 <div class="section level2">
 <h2 id="shiny-dashboard">Shiny Dashboard<a class="anchor" aria-label="anchor" href="#shiny-dashboard"></a>
 </h2>
-<p>We’ve developed an R Shiny Dashboard that would allow users to explore and interact with our <strong>SigRepo</strong> database directly without the need to install or maintain the package.</p>
+<p>We’ve developed an R Shiny Dashboard that would allow users to explore and interact with our <strong>SigRepo</strong> database directly without the need to install or maintain our client package.</p>
 <p>See our web portal at <a target="_blank" href="https://sigrepo.org" class="external-link">https://sigrepo.org</a> for more details.</p>
 </div>
 
