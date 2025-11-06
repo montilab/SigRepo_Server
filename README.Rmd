@@ -18,12 +18,12 @@ knitr::opts_chunk$set(
 
 <br>
 
-**SigRepo_Server** is a reproducible framework that enables users to deploy a **SigRepo** database server either locally or on any Linux-based cloud platform, and interact with it through a set of API endpoints and a user-friendly web interface built with R Shiny.
+**SigRepo_Server** is a reproducible framework that enables users to deploy a **SigRepo** database server either locally or on a Linux-based cloud platform, and interact with it through a set of API endpoints and a user-friendly web interface built with R Shiny.
 
-The **SigRepo_Server**'s architecture composes of three core components: a **MySQL Database Server**, a set of **Plumber APIs** endpoints, and a **Shiny Dashboard**. 
+The server architecture composes of three core components: a **MySQL Database Server**, a set of **Plumber APIs** endpoints, and a **Shiny Dashboard**. 
 
 - The **MySQL Database Server** handles the initialization and management of the **SigRepo** database, which stores biological signatures, collections, and their associated metadata.  
-- The **Plumber APIs** provide endpoints to define the database schema, load essential reference tables (such as organisms, platforms, and sample types, etc.), and lastly, store or retrieve *difexp* objects associated with specific signatures. 
+- The **Plumber APIs** provide endpoints to define the database schema, load essential reference tables (such as organisms, platforms, sample types, etc.), and lastly, store and retrieve *difexp* objects associated with specific signatures. 
 - Finally, the **Shiny Dashboard** offers a user-friendly web interface that connects to both the database and APIs. Through this dashboard, users can import, update, or delete their own signatures or collections in the database using a set of functions from our R client package - [**SigRepo**](https://github.com/montilab/SigRepo)
 
 ## MySQL Database Server
@@ -38,6 +38,6 @@ Our team has deployed a **"SigRepo" MySQL Database Server** on [**Digital Ocean*
 
 ## Shiny Dashboard
 
-We've developed an R Shiny Dashboard that would allow users to explore and interact with our **SigRepo** database directly without the need to install or maintain the package.
+We've developed an R Shiny Dashboard that would allow users to explore and interact with our **SigRepo** database directly without the need to install or maintain our client package.
 
 See our web portal at <a target="_blank" href="https://sigrepo.org">https://sigrepo.org</a> for more details.
