@@ -1,7 +1,6 @@
-
 <br>
 
-**SigRepo_Server** is a reproducible framework that enables users to
+**SigRepo\_Server** is a reproducible framework that enables users to
 deploy a **SigRepo** database server either locally or on a Linux-based
 cloud platform, and interact with it through a set of API endpoints and
 a user-friendly web interface built with R Shiny.
@@ -10,18 +9,18 @@ The server architecture composes of three core components: a **MySQL
 Database Server**, a set of **Plumber APIs** endpoints, and a **Shiny
 Dashboard**.
 
-- The **MySQL Database Server** handles the initialization and
-  management of the **SigRepo** database, which stores biological
-  signatures, collections, and their associated metadata.  
-- The **Plumber APIs** provide endpoints to define the database schema,
-  load essential reference tables (such as organisms, platforms, sample
-  types, etc.), and lastly, store and retrieve *difexp* objects
-  associated with specific signatures.
-- Finally, the **Shiny Dashboard** offers a user-friendly web interface
-  that connects to both the database and APIs. Through this dashboard,
-  users can import, update, or delete their own signatures or
-  collections in the database using a set of functions from our R client
-  package - [**SigRepo**](https://github.com/montilab/SigRepo)
+-   The **MySQL Database Server** handles the initialization and
+    management of the **SigRepo** database, which stores biological
+    signatures, collections, and their associated metadata.  
+-   The **Plumber APIs** provide endpoints to define the database
+    schema, load essential reference tables (such as organisms,
+    platforms, sample types, etc.), and lastly, store and retrieve
+    *difexp* objects associated with specific signatures.
+-   Finally, the **Shiny Dashboard** offers a user-friendly web
+    interface that connects to both the database and APIs. Through this
+    dashboard, users can import, update, or delete their own signatures
+    or collections in the database using a set of functions from our R
+    client package - [**SigRepo**](https://github.com/montilab/SigRepo)
 
 ## MySQL Database Server
 
@@ -29,19 +28,19 @@ Our team has deployed a **“SigRepo” MySQL Database Server** on
 [**Digital Ocean**](https://www.digitalocean.com/), a cloud-based
 infrastructure platform used for hosting and managing applications.
 
-- To access the signatures and collections stored in our database,
-  <a target="_blank" href="https://sigrepo.org">VISIT OUR WEBSITE</a> to
-  create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to
-  be added.
+-   To access the signatures and collections stored in our database,
+    <a target="_blank" href="https://sigrepo.org">VISIT OUR WEBSITE</a>
+    to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT
+    US</a> to be added.
 
-- <a href="https://montilab.github.io/SigRepo/index.html"
-  target="_blank">To connect and interact with our database using our
-  “SigRepo” package</a>
+-   <a href="https://montilab.github.io/SigRepo/index.html"
+    target="_blank">To connect and interact with our database using our
+    “SigRepo” package</a>
 
-- <a
-  href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html"
-  target="_blank">To install a “SigRepo” database instance on your local
-  machine</a>
+-   <a
+    href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html"
+    target="_blank">To install a “SigRepo” database instance on your local
+    machine</a>
 
 ## Shiny Dashboard
 
