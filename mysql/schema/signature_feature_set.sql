@@ -10,6 +10,6 @@ CREATE TABLE `signature_feature_set` (
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "snps") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `feature_id`),
-  UNIQUE (`signature_id`, `feature_id`, `assay_type`, `score`),
+  UNIQUE (`signature_id`, `feature_id`, `assay_type`, `probe_id`),
   FOREIGN KEY (`signature_id`) REFERENCES `signatures` (`signature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
