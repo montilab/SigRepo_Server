@@ -114,9 +114,8 @@ reset_db_tables <- function(conn_handler){
   
 }
 
-
 # Function to generate schema for the database ####
-generate_db_schema <- function(conn_handler){
+generate_db_schema <- function(){
   
   ## Establish database connection
   conn <- DBI::dbConnect(
@@ -290,7 +289,10 @@ generate_db_schema <- function(conn_handler){
   base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
   
   # Disconnect from database ####
-  base::suppressWarnings(DBI::dbDisconnect(conn))   
+  base::suppressWarnings(DBI::dbDisconnect(conn)) 
+  
+  # Print message
+  print("Finished creating table schema for the database.")
   
 }
 
@@ -364,8 +366,10 @@ generate_db_tables <- function(conn_handler){
   user_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/users.csv"), header = TRUE)
   SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
   
+  # Print message
+  print("Finished uploading tables to the database.")
+  
 }
-
 
 #* Initiate database with schemas and reference tables
 #* @param admin_key
@@ -412,7 +416,7 @@ init_db <- function(res, admin_key){
   base::tryCatch({
     
     print("Initiate schema for the database...")
-    generate_db_schema(conn_handler = conn_handler)
+    generate_db_schema()
     
     print("Upload reference tables to the database...")
     generate_db_tables(conn_handler = conn_handler)
@@ -555,7 +559,7 @@ init_db_schema <- function(res, admin_key){
   base::tryCatch({
     
     print("Initiate schema for the database...")
-    generate_db_schema(conn_handler = conn_handler)
+    generate_db_schema()
     
     ## Initialize the serializers
     MESSAGES <- base::sprintf("Finish initialized schema for the database.")
@@ -650,6 +654,197 @@ init_db_tables <- function(res, admin_key){
   
 }
 
+#* Extract data from biomaRt package and update transcriptomics feature set in the database.
+#* @param admin_key
+#* @param organism
+#' @post /update_transcriptomics
+update_transcriptomics <- function(res, admin_key, organism = NULL){
+  
+  # parameters
+  variables <- c('admin_key')
+  
+  # Check parameters
+  if(base::missing(admin_key)){
+    
+    missing_variables <- c(base::missing(admin_key))
+    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # CHECK ADMIN KEY ####
+  if(admin_key == ""){
+    
+    error_message <- "admin_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
+    
+    error_message <- "Invalid admin key."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check parameters and trim white spaces
+  organism <- base::sapply(base::seq_along(organism), function(i){
+    x <- base::strsplit(organism[i], ",", fixed = TRUE)[[1]] %>% base::trimws() %>% base::as.character()
+  }) %>% base::as.vector() %>% base::sort() %>% base::unique() 
+  
+  ############# 
+  #
+  #  ORGANISMS ####
+  #
+  ############# 
+  print("Getting organisms from the database...")
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism)
+  
+  # Check if table is empty
+  if(base::nrow(organism_tbl) == 0){
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("There are no organisms returned from the search parameters.")
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  }
+  
+  ############# 
+  #
+  #  TRANSCRIPTOMICS ####
+  #
+  ############# 
+  print("Updating transcriptomics features to the database for each given organism...")
+  purrr::walk(
+    base::seq_len(base::nrow(organism_tbl)),
+    function(s){
+      #s=1;
+      SigRepo::updateTranscriptomicsFeatureSet(
+        conn_handler = conn_handler,
+        organism = organism_tbl$organism[s]
+      )
+    }
+  )
+  
+  ## Initialize the serializers
+  MESSAGES <- base::sprintf("Finish updating transcriptomics feature set.")
+  res$serializer <- serializers[["json"]]
+  res$status <- 200
+  warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+  return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  
+}
+
+#* Retrieve FTP UniProt data from NCBI and update proteomics feature set in the database
+#* @param admin_key
+#* @param organism
+#' @post /update_proteomics
+update_proteomics <- function(res, admin_key, organism = NULL){
+  
+  # parameters
+  variables <- c('admin_key')
+  
+  # Check parameters
+  if(base::missing(admin_key)){
+    
+    missing_variables <- c(base::missing(admin_key))
+    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
+    
+    ## Initialize the serializers
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # CHECK ADMIN KEY ####
+  if(admin_key == ""){
+    
+    error_message <- "admin_key cannot be empty."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
+    
+    error_message <- "Invalid admin key."
+    res$serializer <- serializers[["json"]]
+    res$status <- 404
+    warn_tbl <- base::data.frame(MESSAGES = error_message)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    
+  }
+  
+  # Check parameters and trim white spaces
+  organism <- base::sapply(base::seq_along(organism), function(i){
+    x <- base::strsplit(organism[i], ",", fixed = TRUE)[[1]] %>% base::trimws() %>% base::as.character()
+  }) %>% base::as.vector() %>% base::sort() %>% base::unique() 
+  
+  # Check if table is empty
+  if(base::nrow(organism_tbl) == 0){
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("There are no organisms returned from the search parameters.")
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  }
+  
+  ############# 
+  #
+  #  ORGANISMS ####
+  #
+  ############# 
+  print("Getting organisms from the database...")
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism)
+  
+  if(base::nrow(organism_tbl) == 0){
+    ## Initialize the serializers
+    MESSAGES <- base::sprintf("Finish updating proteomics feature set.")
+    res$serializer <- serializers[["json"]]
+    res$status <- 200
+    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  }
+  
+  ############# 
+  #
+  #  PROTEOMICS ####
+  #
+  ############# 
+  print("Updating proteomics features in the database for each given organism...")
+  purrr::walk(
+    base::seq_len(base::nrow(organism_tbl)),
+    function(s){
+      #s=1;
+      SigRepo::updateProteomicsFeatureSet(
+        conn_handler = conn_handler,
+        organism = organism_tbl$organism[s]
+      )
+    }
+  )
+  
+  ## Initialize the serializers
+  MESSAGES <- base::sprintf("Finish updating proteomics feature set.")
+  res$serializer <- serializers[["json"]]
+  res$status <- 200
+  warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+  return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+  
+}
+
 #* Show a list of tables in the database
 #* @param admin_key
 #' @get /show_db_tables
@@ -739,7 +934,7 @@ show_db_tables <- function(res, admin_key){
 #* @param search_var
 #* @param search_val
 #' @get /retrieve_db_table
-retrieve_db_table <- function(res, admin_key, db_table_name, search_var="", search_val=""){
+retrieve_db_table <- function(res, admin_key, db_table_name, search_var = "", search_val = ""){
   
   # parameters
   variables <- c("admin_key", "db_table_name")
@@ -836,8 +1031,6 @@ retrieve_db_table <- function(res, admin_key, db_table_name, search_var="", sear
   })
   
 }
-
-
 
 #* Store difexp in the database
 #* @parser multi

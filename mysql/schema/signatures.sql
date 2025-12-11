@@ -6,7 +6,7 @@ CREATE TABLE `signatures` (
   `signature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
   `direction_type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
-  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variations", "dna_binding_sites") NOT NULL,
+  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "snps") NOT NULL,
   `phenotype_id` INT UNSIGNED NOT NULL,
   `platform_id` INT UNSIGNED NOT NULL,
   `sample_type_id` INT UNSIGNED NOT NULL,

@@ -7,6 +7,10 @@ ARG R_VERSION=${R_VERSION:-4.5.0}
 # Get shiny+tidyverse+devtools packages from rocker image
 FROM rocker/shiny-verse:${R_VERSION} AS base
 
+# Build according to a specified version of R
+ARG SIGREPO_BRANCH
+ENV SIGREPO_BRANCH=${SIGREPO_BRANCH:-master}
+
 # local apt mirror support
 # start every stage with updated apt sources
 ARG APT_MIRROR_NAME=
@@ -16,8 +20,7 @@ RUN if [ -n "$APT_MIRROR_NAME" ]; then sed -i.bak -E '/security/! s^https?://.+?
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install system libraries of general use
-RUN apt-get update --allow-releaseinfo-change --fix-missing \
-  && apt-get -y --no-install-recommends install \
+RUN apt-get -y --no-install-recommends install \
   librsvg2-dev \
   libudunits2-dev \
   libv8-dev \
@@ -89,7 +92,7 @@ RUN R -e "BiocManager::install('limma')"
 RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies = TRUE)"
 
 # Install hypeR 
-RUN R -e "devtools::install_github(repo = 'montilab/hypeR', dependencies = TRUE)"
+RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); devtools::install_github(repo = 'montilab/hypeR', ref = branch, dependencies = TRUE)"
 
 # Install hypeR 
 RUN R -e "devtools::install_github(repo = 'montilab/SigRepo', dependencies = TRUE)"

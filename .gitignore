@@ -12,6 +12,8 @@
 .Rapp.history
 .mysql_env
 .Renviron
+docker-compose-build-version-local.yml
+Dockerfile-local
 
 # Ignore file extensions
 *.env
