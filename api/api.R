@@ -697,9 +697,11 @@ update_transcriptomics <- function(res, admin_key, organism = NULL){
   }
   
   # Check parameters and trim white spaces
-  organism <- base::sapply(base::seq_along(organism), function(i){
-    x <- base::strsplit(organism[i], ",", fixed = TRUE)[[1]] %>% base::trimws() %>% base::as.character()
-  }) %>% base::as.vector() %>% base::sort() %>% base::unique() 
+  if(base::length(organism) > 0 && base::all(!organism %in% c("", NA))){
+    organism <- base::sapply(base::seq_along(organism), function(i){
+      x <- base::strsplit(organism[i], ",", fixed = TRUE)[[1]] |> base::trimws() |> base::as.character()
+    }) |> base::as.vector() |> base::sort() |> base::unique() 
+  }
   
   ############# 
   #
@@ -707,7 +709,8 @@ update_transcriptomics <- function(res, admin_key, organism = NULL){
   #
   ############# 
   print("Getting organisms from the database...")
-  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism)
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism) |>
+    dplyr::filter(!.data$biomart_db %in% c(NA, "") & !.data$biomart_dataset %in% c(NA, ""))
   
   # Check if table is empty
   if(base::nrow(organism_tbl) == 0){
@@ -725,16 +728,22 @@ update_transcriptomics <- function(res, admin_key, organism = NULL){
   #
   ############# 
   print("Updating transcriptomics features to the database for each given organism...")
-  purrr::walk(
-    base::seq_len(base::nrow(organism_tbl)),
-    function(s){
-      #s=1;
+  for(s in base::seq_len(base::nrow(organism_tbl))){
+    #s=1;
+    base::tryCatch({
       SigRepo::updateTranscriptomicsFeatureSet(
         conn_handler = conn_handler,
         organism = organism_tbl$organism[s]
       )
-    }
-  )
+    }, error = function(e){
+      ## Initialize the serializers
+      MESSAGES <- base::sprintf(base::as.character(e))
+      res$serializer <- serializers[["json"]]
+      res$status <- 200
+      warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    })   
+  }
   
   ## Initialize the serializers
   MESSAGES <- base::sprintf("Finish updating transcriptomics feature set.")
@@ -758,7 +767,7 @@ update_proteomics <- function(res, admin_key, organism = NULL){
   if(base::missing(admin_key)){
     
     missing_variables <- c(base::missing(admin_key))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
+    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
     
     ## Initialize the serializers
     res$serializer <- serializers[["json"]]
@@ -788,9 +797,20 @@ update_proteomics <- function(res, admin_key, organism = NULL){
   }
   
   # Check parameters and trim white spaces
-  organism <- base::sapply(base::seq_along(organism), function(i){
-    x <- base::strsplit(organism[i], ",", fixed = TRUE)[[1]] %>% base::trimws() %>% base::as.character()
-  }) %>% base::as.vector() %>% base::sort() %>% base::unique() 
+  if(base::length(organism) > 0 && base::all(!organism %in% c("", NA))){
+    organism <- base::sapply(base::seq_along(organism), function(i){
+      x <- base::strsplit(organism[i], ",", fixed = TRUE)[[1]] |> base::trimws() |> base::as.character()
+    }) |> base::as.vector() |> base::sort() |> base::unique() 
+  }
+  
+  ############# 
+  #
+  #  ORGANISMS ####
+  #
+  ############# 
+  print("Getting organisms from the database...")
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism) |> 
+    dplyr::filter(!.data$prot_organism_code %in% c(NA, "") & !.data$prot_organism_code %in% c(NA, ""))
   
   # Check if table is empty
   if(base::nrow(organism_tbl) == 0){
@@ -804,37 +824,26 @@ update_proteomics <- function(res, admin_key, organism = NULL){
   
   ############# 
   #
-  #  ORGANISMS ####
-  #
-  ############# 
-  print("Getting organisms from the database...")
-  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism)
-  
-  if(base::nrow(organism_tbl) == 0){
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("Finish updating proteomics feature set.")
-    res$serializer <- serializers[["json"]]
-    res$status <- 200
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-  }
-  
-  ############# 
-  #
   #  PROTEOMICS ####
   #
   ############# 
   print("Updating proteomics features in the database for each given organism...")
-  purrr::walk(
-    base::seq_len(base::nrow(organism_tbl)),
-    function(s){
-      #s=1;
+  for(s in base::seq_len(base::nrow(organism_tbl))){
+    #s=1;
+    base::tryCatch({
       SigRepo::updateProteomicsFeatureSet(
         conn_handler = conn_handler,
         organism = organism_tbl$organism[s]
-      )
-    }
-  )
+      )        
+    }, error = function(e){
+      ## Initialize the serializers
+      MESSAGES <- base::sprintf(base::as.character(e))
+      res$serializer <- serializers[["json"]]
+      res$status <- 200
+      warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
+      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    }) 
+  }
   
   ## Initialize the serializers
   MESSAGES <- base::sprintf("Finish updating proteomics feature set.")
