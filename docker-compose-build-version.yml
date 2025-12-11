@@ -1,37 +1,37 @@
 x-sql-volume:
   &sql-volume
   type: bind
-  source: ~/mysql/database
+  source: /home/snu3/Connect/mysql/database
   target: /var/lib/mysql
   
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: ~/mysql/difexp
+  source: /home/snu3/Connect/mysql/difexp
   target: /difexp
   
 x-omic-signature-volume:
   &omic-signature-volume
   type: bind
-  source: ~/OmicSignature
+  source: /home/snu3/Connect/OmicSignature
   target: /OmicSignature
  
 x-hyper-volume:
   &hyper-volume
   type: bind
-  source: ~/hypeR
+  source: /home/snu3/Connect/hypeR
   target: /hypeR
   
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: ~/SigRepo
+  source: /home/snu3/Connect/SigRepo
   target: /SigRepo  
 
 x-sigrepo-server-volume:
   &sigrepo-server-volume
   type: bind
-  source: ~/SigRepo_Server
+  source: /home/snu3/Connect/SigRepo_Server
   target: /SigRepo_Server
   
 services:
@@ -64,6 +64,7 @@ services:
       dockerfile: Dockerfile
       args:
         - R_VERSION=4.5.0
+        - SIGREPO_BRANCH=master
     restart: always
     command: tail -f /dev/null
 
