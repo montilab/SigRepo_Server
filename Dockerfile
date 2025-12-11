@@ -20,7 +20,8 @@ RUN if [ -n "$APT_MIRROR_NAME" ]; then sed -i.bak -E '/security/! s^https?://.+?
 ARG DEBIAN_FRONTEND=noninteractive
 
 # Install system libraries of general use
-RUN apt-get -y --no-install-recommends install \
+RUN apt-get update --allow-releaseinfo-change --fix-missing \
+  && apt-get -y --no-install-recommends install \
   librsvg2-dev \
   libudunits2-dev \
   libv8-dev \
@@ -91,11 +92,14 @@ RUN R -e "BiocManager::install('limma')"
 # Install OmicSignature 
 RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies = TRUE)"
 
-# Install hypeR 
-RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); devtools::install_github(repo = 'montilab/hypeR', ref = branch, dependencies = TRUE)"
+# Install dependencies for OmicSignature 
+RUN R -e "BiocManager::install('biomaRt')"
+
+# Install SigRepo 
+RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); devtools::install_github(repo = 'montilab/SigRepo', ref = branch, dependencies = TRUE)"
 
 # Install hypeR 
-RUN R -e "devtools::install_github(repo = 'montilab/SigRepo', dependencies = TRUE)"
+RUN R -e "devtools::install_github(repo = 'montilab/hypeR', dependencies = TRUE)"
 
 # Expose app at port 3838
 EXPOSE 3838

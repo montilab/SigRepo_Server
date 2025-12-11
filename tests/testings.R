@@ -2,10 +2,10 @@
 library(devtools)
 
 # Load SigRepo package
-devtools::load_all("/home/snu3/Connect/SigRepo")
+devtools::load_all("/Users/reinachau/SigRepo")
 
 # Loading OmicSignature package
-devtools::load_all("/home/snu3/Connect/OmicSignature")
+devtools::load_all("/Users/reinachau/OmicSignature")
 
 conn_handler <- SigRepo::newConnHandler(
   dbname = base::Sys.getenv("DB_NAME"),

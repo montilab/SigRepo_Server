@@ -1,37 +1,37 @@
 x-sql-volume:
   &sql-volume
   type: bind
-  source: /home/snu3/Connect/mysql/database
+  source: /Users/reinachau/mysql/database
   target: /var/lib/mysql
   
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: /home/snu3/Connect/mysql/difexp
+  source: /Users/reinachau/mysql/difexp
   target: /difexp
   
 x-omic-signature-volume:
   &omic-signature-volume
   type: bind
-  source: /home/snu3/Connect/OmicSignature
+  source: /Users/reinachau/OmicSignature
   target: /OmicSignature
  
 x-hyper-volume:
   &hyper-volume
   type: bind
-  source: /home/snu3/Connect/hypeR
+  source: /Users/reinachau/hypeR
   target: /hypeR
   
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: /home/snu3/Connect/SigRepo
+  source: /Users/reinachau/SigRepo
   target: /SigRepo  
 
 x-sigrepo-server-volume:
   &sigrepo-server-volume
   type: bind
-  source: /home/snu3/Connect/SigRepo_Server
+  source: /Users/reinachau/SigRepo_Server
   target: /SigRepo_Server
   
 services:
