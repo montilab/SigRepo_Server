@@ -5,7 +5,7 @@ CREATE TABLE `signature_feature_set` (
   `signature_id` INT UNSIGNED NOT NULL,
   `feature_id` INT UNSIGNED NOT NULL,
   `probe_id` VARCHAR(255) DEFAULT NULL,
-  `score` NUMERIC(10, 8) DEFAULT NULL,
+  `score` NUMERIC(12, 8) DEFAULT NULL,
   `group_label` VARCHAR(255) DEFAULT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "snps") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
