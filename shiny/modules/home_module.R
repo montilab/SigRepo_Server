@@ -132,7 +132,7 @@ home_module_ui <- function(id) {
   )
 }
 
-home_module_server <- function(id, signature_db) {
+home_module_server <- function(id, signature_db, parent_session) {
   moduleServer(id, function(input, output, session) {
     
     # Top users plot
@@ -178,11 +178,11 @@ home_module_server <- function(id, signature_db) {
     
     # Redirect buttons
     observeEvent(input$go_signatures, {
-      updateTabsetPanel(parent_session, "main_navbar", selected = "signatures")
+      updateNavbarPage(parent_session, "main_navbar", selected = "Signatures")
     })
 
     observeEvent(input$go_collections, {
-      updateTabsetPanel(parent_session, "main_navbar", selected = "collections")
+      updateNavbarPage(parent_session, "main_navbar", selected = "Collections")
     })
   })
 }

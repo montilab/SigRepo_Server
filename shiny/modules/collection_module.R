@@ -31,7 +31,6 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
     
     selected_collection <- reactiveVal(NULL)
     collection_object <- reactiveVal(NULL)
-    collection_trigger <- reactiveVal(NULL)
     
     current_collection <- reactive({
       req(collection_object())
@@ -190,7 +189,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         
         
         # Trigger reactive update after upload
-        update_trigger(isolate(update_trigger()) + 1)
+        collection_trigger(isolate(collection_trigger()) + 1)
         
       }, error = function(e) {
         showNotification(paste(

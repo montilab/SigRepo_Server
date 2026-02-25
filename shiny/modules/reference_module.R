@@ -1,16 +1,12 @@
 reference_module_ui <- function(id) {
   ns <- NS(id)
   
-  tabPanel(
-    title = "References",
-    value = "references",
-    
-    div(
-      style = "padding-top: 70px;", 
+  div(
+    style = "padding-top: 70px;", 
       
-      sidebarLayout(
-        sidebarPanel(
-          width = 4,
+    sidebarLayout(
+      sidebarPanel(
+        width = 4,
           
           tabsetPanel(
             id = ns("sidebar_tabs"),
@@ -33,32 +29,19 @@ reference_module_ui <- function(id) {
               ),
               
               actionButton(ns("search_ref_btn"), "Search")
-            ),
-            
-            tabPanel(
-              title = "Platforms",
-              h4("Platform Search"),
-              
-           
-              
-              actionButton(ns("search_platform_btn"), "Search Platforms")
-            ),
-            tabPanel(
-              title = "Users",
-              h4("Users Search")
-              
             )
+            
+          
+            
           )
         ),
         
-        mainPanel(
-          width = 8,
-          DTOutput(ns("ref_feature_tbl"))
-        )
+      mainPanel(
+        width = 8,
+        DTOutput(ns("ref_feature_tbl"))
       )
     )
   )
-  
 }
 
 # reference server logic
@@ -111,4 +94,3 @@ reference_module_server <- function(id, user_conn_handler) {
     
   })
 }
-
