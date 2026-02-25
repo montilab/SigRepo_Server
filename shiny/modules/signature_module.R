@@ -217,7 +217,7 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
         
         
         # Trigger reactive update after upload
-        update_trigger(isolate(update_trigger()) + 1)
+        signature_trigger(isolate(signature_trigger()) + 1)
         
       }, error = function(e) {
         showNotification(paste(
