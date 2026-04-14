@@ -21,19 +21,28 @@ genesets_hypeR_UI <- function(id) {
   ns <- NS(id)
   
   tagList(
-    selectInput(
-      ns("collection"),
-      "MSigDB Collection",
-      choices = c("H", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8")
+    div(
+      class = "geneset-filter-group",
+      tags$div(
+        class = "geneset-filter-heading",
+        tags$h4("Geneset Filters"),
+        tags$p("Choose a species, collection, and subcollection before fetching genesets.")
+      ),
+      selectInput(
+        ns("collection"),
+        "Collection",
+        choices = c("H", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8")
+      ),
+      uiOutput(ns("subcategory_ui")),
+      div(
+        class = "geneset-filter-actions",
+        actionButton(ns("fetch_genesets"), "Fetch Genesets", class = "btn-primary"),
+        uiOutput(ns("status"))
+      )
     ),
-    
-    uiOutput(ns("subcategory_ui")),
-    
-    actionButton(ns("fetch_genesets"), "Fetch Genesets"),
-    
+
     DT::DTOutput(ns("genesets_table")),
-    
-    uiOutput(ns("status"))
+    uiOutput(ns("geneset_summary"))
   )
 }
 
@@ -72,27 +81,42 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         dplyr::filter(gs_collection == input$collection) |>
         dplyr::distinct(gs_subcollection) |>
         dplyr::pull(gs_subcollection) |>
-        na.omit()
-      
-      if (length(subcats) == 0) return(NULL)
-      
+        stats::na.omit() |>
+        unique()
+
+      if (length(subcats) == 0) {
+        return(
+          selectInput(
+            session$ns("subcategory"),
+            "Subcollection",
+            choices = c("No subcollection available" = ""),
+            selected = ""
+          )
+        )
+      }
+
       selectInput(
         session$ns("subcategory"),
-        "Subcategory",
-        choices = subcats
+        "Subcollection",
+        choices = subcats,
+        selected = subcats[[1]]
       )
     })
     
     # Reactive genesets list (updated on button press)
     reactive.genesets <- eventReactive(input$fetch_genesets, {
       req(input$collection)
-      req(input$subcategory)
-      
-      gs <- msigdb_tbl() |>
-        dplyr::filter(
-          gs_collection == input$collection,
-          gs_subcollection == input$subcategory
-        ) |>
+      req(!is.null(input$subcategory))
+
+      filtered_tbl <- msigdb_tbl() |>
+        dplyr::filter(gs_collection == input$collection)
+
+      if (!identical(input$subcategory, "")) {
+        filtered_tbl <- filtered_tbl |>
+          dplyr::filter(gs_subcollection == input$subcategory)
+      }
+
+      gs <- filtered_tbl |>
         (\(df) split(df, df$gs_name))() |>
         (\(lst) lapply(lst, function(x) unique(x$gene_symbol)))()
       
@@ -129,16 +153,45 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
       
     })
     
-    # Status icon
+    # Status message
     output$status <- renderUI({
       if (is.null(reactive.genesets()) || length(reactive.genesets()) == 0) {
-        icon("times-circle", lib = "font-awesome")
+        tags$div(
+          class = "geneset-status geneset-status-pending",
+          icon("circle-o", lib = "font-awesome"),
+          tags$span("No genesets fetched")
+        )
       } else {
-        icon("check-circle", lib = "font-awesome")
+        tags$div(
+          class = "geneset-status geneset-status-ready",
+          icon("check-circle", lib = "font-awesome"),
+          tags$span(sprintf("%s genesets ready", length(reactive.genesets())))
+        )
       }
+    })
+
+    output$geneset_summary <- renderUI({
+      if (is.null(reactive.genesets()) || length(reactive.genesets()) == 0) {
+        return(NULL)
+      }
+
+      tagList(
+        tags$p(
+          class = "geneset-summary-text",
+          sprintf(
+            "Loaded %s genesets for collection %s%s.",
+            length(reactive.genesets()),
+            input$collection,
+            if (!identical(input$subcategory, "")) {
+              sprintf(" / %s", input$subcategory)
+            } else {
+              ""
+            }
+          )
+        )
+      )
     })
     
     return(reactive.genesets)
   })
 }
-
