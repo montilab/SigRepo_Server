@@ -1,37 +1,37 @@
 x-sql-volume:
   &sql-volume
   type: bind
-  source: /Users/reinachau/mysql/database
+  source: /Users/cameronvicnaire/mysql/database
   target: /var/lib/mysql
   
 x-difexp-volume:
   &difexp-volume
   type: bind
-  source: /Users/reinachau/mysql/difexp
+  source: /Users/cameronvicnaire/mysql/difexp
   target: /difexp
   
 x-omic-signature-volume:
   &omic-signature-volume
   type: bind
-  source: /Users/reinachau/OmicSignature
+  source: /Users/cameronvicnaire/Documents/GitHub/OmicSignature
   target: /OmicSignature
  
 x-hyper-volume:
   &hyper-volume
   type: bind
-  source: /Users/reinachau/hypeR
+  source: /Users/cameronvicnaire/Documents/GitHub/hypeR
   target: /hypeR
   
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind
-  source: /Users/reinachau/SigRepo
+  source: /Users/cameronvicnaire/Documents/GitHub/SigRepo
   target: /SigRepo  
 
 x-sigrepo-server-volume:
   &sigrepo-server-volume
   type: bind
-  source: /Users/reinachau/SigRepo_Server
+  source: /Users/cameronvicnaire/Documents/GitHub/SigRepo_Server
   target: /SigRepo_Server
   
 services:

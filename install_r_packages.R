@@ -1,49 +1,55 @@
+repos <- "https://cloud.r-project.org"
+options(repos = c(CRAN = repos))
 
-# Create a list of start-up packages 
-startup_packages <- c("BiocManager", "dplyr", "rvest", "xml2", "yaml")
+install_if_missing <- function(pkgs) {
+  installed <- rownames(utils::installed.packages())
+  to_install <- setdiff(pkgs, installed)
+  if (length(to_install) > 0) {
+    utils::install.packages(
+      to_install,
+      dependencies = c("Depends", "Imports", "LinkingTo"),
+      repos = repos
+    )
+  }
+}
 
-# Select only the packages that aren't currently installed in the system
-install_startup_packages <- startup_packages[base::which(!startup_packages %in% utils::installed.packages())]
+# Minimal bootstrap only.
+bootstrap_pkgs <- c("BiocManager", "remotes", "yaml")
+install_if_missing(bootstrap_pkgs)
 
-# And finally we install the required packages
-for(pkg in install_startup_packages) utils::install.packages(pkg, dependencies=TRUE, repos='http://cran.rstudio.com/')
+# Parse DESCRIPTION (DCF format)
+desc <- read.dcf("DESCRIPTION")
+imports_field <- if ("Imports" %in% colnames(desc)) desc[1, "Imports"] else ""
 
-# Load packages
-library(BiocManager)
-library(dplyr)
-library(rvest)
-library(xml2)
-library(yaml)
+parse_pkg_names <- function(field) {
+  if (!nzchar(field)) return(character(0))
+  x <- unlist(strsplit(field, ",", fixed = TRUE), use.names = FALSE)
+  x <- trimws(gsub("\\s*\\(.*\\)", "", x))
+  x[x != ""]
+}
 
-# Get all available Bioconductor packages
-url <- 'https://www.bioconductor.org/packages/release/bioc/'
-biocPackages <- url |> 
-  xml2::read_html() |> 
-  rvest::html_table() |>
-  base::lapply(`[[`, "Package") |>
-  base::unlist()
+required_pkgs <- unique(parse_pkg_names(imports_field))
 
-# Read in package dependencies in DESCRIPTION
-DESCRIPTION <- yaml::read_yaml("DESCRIPTION")
+bioc_available <- tryCatch(BiocManager::available(), error = function(e) character(0))
+bioc_pkgs <- intersect(required_pkgs, bioc_available)
+cran_pkgs <- setdiff(required_pkgs, bioc_pkgs)
 
-# Extract all imports packages
-required_pkgs <- base::trimws(base::strsplit(DESCRIPTION$Imports, ",", fixed=TRUE)[[1]])
+if (length(cran_pkgs) > 0) {
+  install_if_missing(cran_pkgs)
+}
 
-# Extract all required bioconductor packages
-bioconductor_pkgs <- required_pkgs[base::which(required_pkgs %in% biocPackages)]
+if (length(bioc_pkgs) > 0) {
+  installed <- rownames(utils::installed.packages())
+  bioc_to_install <- setdiff(bioc_pkgs, installed)
+  if (length(bioc_to_install) > 0) {
+    BiocManager::install(bioc_to_install, ask = FALSE, update = FALSE)
+  }
+}
 
-# Select only the packages that aren't currently installed in the system
-install_bioconductor_pkgs <- bioconductor_pkgs[base::which(!bioconductor_pkgs %in% utils::installed.packages())]
+installed <- rownames(utils::installed.packages())
+missing <- setdiff(required_pkgs, installed)
+if (length(missing) > 0) {
+  stop(sprintf("Failed to install required packages: %s", paste(missing, collapse = ", ")))
+}
 
-# And finally we install the required Bioconductor packages
-for(pkg in install_bioconductor_pkgs) BiocManager::install(pkg)
-
-# Extract all required CRAN packages
-cran_pkgs <- required_pkgs[base::which(!required_pkgs %in% bioconductor_pkgs)]
-
-# Select only the packages that aren't currently installed in the system
-install_cran_pkgs <- cran_pkgs[base::which(!cran_pkgs %in% utils::installed.packages())]
-
-# And finally we install the required packages including their dependencies
-for(pkg in install_cran_pkgs) utils::install.packages(pkg, dependencies = TRUE, repos='http://cran.rstudio.com/')
-
+cat("Dependency install complete.\n")
