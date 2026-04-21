@@ -1,6 +1,31 @@
 # modules for hypeR 
 
 
+msigdb_collection_metadata <- data.frame(
+  gs_collection = c(
+    "H", "C1",
+    rep("C2", 8),
+    rep("C3", 4),
+    rep("C4", 3),
+    rep("C5", 4),
+    "C6",
+    rep("C7", 2),
+    "C8"
+  ),
+  gs_subcollection = c(
+    "", "",
+    "CGP", "CP", "CP:BIOCARTA", "CP:KEGG_LEGACY", "CP:KEGG_MEDICUS", "CP:PID", "CP:REACTOME", "CP:WIKIPATHWAYS",
+    "MIR:MIRDB", "MIR:MIR_LEGACY", "TFT:GTRD", "TFT:TFT_LEGACY",
+    "3CA", "CGN", "CM",
+    "GO:BP", "GO:CC", "GO:MF", "HPO",
+    "",
+    "IMMUNESIGDB", "VAX",
+    ""
+  ),
+  stringsAsFactors = FALSE
+)
+
+
 # hypeR genests ui rewrite
 #' Shiny UI for MSigDB subcategory selection
 #'
@@ -68,29 +93,16 @@ genesets_hypeR_UI <- function(id) {
 #' @export
 genesets_hypeR_Server <- function(id, species, clean = FALSE) {
   moduleServer(id, function(input, output, session) {
-    
-    # Load MSigDB table reactively
-    msigdb_tbl <- reactive({
-      req(species())
-      msigdbr::msigdbr(species = species()) |>
-        dplyr::select(
-          gs_name,
-          gs_collection,
-          gs_subcollection,
-          gene_symbol
-        )
-    })
+    selected_genesets <- reactiveVal(list())
     
     # Build subcategory selector
     output$subcategory_ui <- renderUI({
       req(input$collection)
-      subcats <- msigdb_tbl() |>
+
+      subcats <- msigdb_collection_metadata |>
         dplyr::filter(gs_collection == input$collection) |>
-        dplyr::distinct(gs_subcollection) |>
         dplyr::pull(gs_subcollection) |>
-        as.character() |>
         (\(x) x[!is.na(x) & nzchar(x)])() |>
-        stats::na.omit() |>
         unique()
 
       if (length(subcats) == 0) {
@@ -111,13 +123,26 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         selected = subcats[[1]]
       )
     })
+
+    observeEvent(
+      list(species(), input$collection, input$subcategory),
+      selected_genesets(list()),
+      ignoreInit = TRUE
+    )
     
     # Reactive genesets list (updated on button press)
-    reactive.genesets <- eventReactive(input$fetch_genesets, {
+    observeEvent(input$fetch_genesets, {
+      req(species())
       req(input$collection)
       req(!is.null(input$subcategory))
 
-      filtered_tbl <- msigdb_tbl() |>
+      filtered_tbl <- msigdbr::msigdbr(species = species()) |>
+        dplyr::select(
+          gs_name,
+          gs_collection,
+          gs_subcollection,
+          gene_symbol
+        ) |>
         dplyr::filter(gs_collection == input$collection)
 
       if (!identical(input$subcategory, "")) {
@@ -127,7 +152,8 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
 
       if (nrow(filtered_tbl) == 0) {
         showNotification("No genesets matched the selected filters.", type = "warning")
-        return(list())
+        selected_genesets(list())
+        return()
       }
 
       gs <- filtered_tbl |>
@@ -138,12 +164,14 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         names(gs) <- clean_genesets(names(gs))
       }
       
-      gs
+      selected_genesets(gs)
     })
     
     # Status message
     output$status <- renderUI({
-      if (is.null(reactive.genesets()) || length(reactive.genesets()) == 0) {
+      gs <- selected_genesets()
+
+      if (length(gs) == 0) {
         tags$div(
           class = "geneset-status geneset-status-pending",
           icon("circle-o", lib = "font-awesome"),
@@ -153,13 +181,15 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         tags$div(
           class = "geneset-status geneset-status-ready",
           icon("check-circle", lib = "font-awesome"),
-          tags$span(sprintf("%s genesets ready", length(reactive.genesets())))
+          tags$span(sprintf("%s genesets ready", length(gs)))
         )
       }
     })
 
     output$geneset_summary <- renderUI({
-      if (is.null(reactive.genesets()) || length(reactive.genesets()) == 0) {
+      gs <- selected_genesets()
+
+      if (length(gs) == 0) {
         return(NULL)
       }
 
@@ -168,7 +198,7 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
           class = "geneset-summary-text",
           sprintf(
             "Loaded %s genesets for collection %s%s.",
-            length(reactive.genesets()),
+            length(gs),
             input$collection,
             if (!identical(input$subcategory, "")) {
               sprintf(" / %s", input$subcategory)
@@ -180,6 +210,8 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
       )
     })
     
-    return(reactive.genesets)
+    return(reactive({
+      selected_genesets()
+    }))
   })
 }
