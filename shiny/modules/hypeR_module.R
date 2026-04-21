@@ -26,6 +26,90 @@ msigdb_collection_metadata <- data.frame(
 )
 
 
+fetch_msigdb_table <- function(species, collection, subcollection = "") {
+  msigdbr_args <- list(species = species)
+  msigdbr_formals <- names(formals(msigdbr::msigdbr))
+
+  if ("collection" %in% msigdbr_formals) {
+    msigdbr_args$collection <- collection
+  } else if ("category" %in% msigdbr_formals) {
+    msigdbr_args$category <- collection
+  }
+
+  if (!is.null(subcollection) && nzchar(subcollection)) {
+    if ("subcollection" %in% msigdbr_formals) {
+      msigdbr_args$subcollection <- subcollection
+    } else if ("subcategory" %in% msigdbr_formals) {
+      msigdbr_args$subcategory <- subcollection
+    }
+  }
+
+  msigdb_tbl <- do.call(msigdbr::msigdbr, msigdbr_args)
+
+  required_columns <- c("gs_name", "gs_collection", "gs_subcollection", "gene_symbol")
+  missing_columns <- setdiff(required_columns, names(msigdb_tbl))
+
+  if (length(missing_columns) > 0) {
+    stop(
+      sprintf(
+        "MSigDB result is missing required columns: %s",
+        paste(missing_columns, collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+
+  msigdb_tbl |>
+    dplyr::select(
+      gs_name,
+      gs_collection,
+      gs_subcollection,
+      gene_symbol
+    )
+}
+
+
+msigdb_cache_dir <- function() {
+  Sys.getenv(
+    "MSIGDB_CACHE_DIR",
+    unset = file.path("shiny", "data", "msigdb_genesets")
+  )
+}
+
+
+msigdb_slugify <- function(x) {
+  x <- gsub("[^A-Za-z0-9]+", "_", x)
+  x <- gsub("_+", "_", x)
+  gsub("^_|_$", "", x)
+}
+
+
+msigdb_cache_file <- function(species, collection, subcollection = "") {
+  species_slug <- msigdb_slugify(species)
+  subcollection_slug <- if (!is.null(subcollection) && nzchar(subcollection)) {
+    msigdb_slugify(subcollection)
+  } else {
+    "all"
+  }
+
+  file.path(
+    msigdb_cache_dir(),
+    sprintf("%s__%s__%s.rds", species_slug, collection, subcollection_slug)
+  )
+}
+
+
+load_cached_msigdb_genesets <- function(species, collection, subcollection = "") {
+  cache_file <- msigdb_cache_file(species, collection, subcollection)
+
+  if (!file.exists(cache_file)) {
+    return(NULL)
+  }
+
+  readRDS(cache_file)
+}
+
+
 # hypeR genests ui rewrite
 #' Shiny UI for MSigDB subcategory selection
 #'
@@ -136,18 +220,61 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
       req(input$collection)
       req(!is.null(input$subcategory))
 
-      filtered_tbl <- msigdbr::msigdbr(species = species()) |>
-        dplyr::select(
-          gs_name,
-          gs_collection,
-          gs_subcollection,
-          gene_symbol
-        ) |>
-        dplyr::filter(gs_collection == input$collection)
+      selected_genesets(list())
 
-      if (!identical(input$subcategory, "")) {
-        filtered_tbl <- filtered_tbl |>
-          dplyr::filter(gs_subcollection == input$subcategory)
+      cached_genesets <- tryCatch(
+        load_cached_msigdb_genesets(
+          species = species(),
+          collection = input$collection,
+          subcollection = input$subcategory
+        ),
+        error = function(err) {
+          showNotification(
+            sprintf("Failed to load cached genesets: %s", conditionMessage(err)),
+            type = "error",
+            duration = 10
+          )
+          NULL
+        }
+      )
+
+      if (!is.null(cached_genesets)) {
+        if (clean) {
+          names(cached_genesets) <- clean_genesets(names(cached_genesets))
+        }
+
+        selected_genesets(cached_genesets)
+        showNotification("Loaded genesets from local cache.", type = "message")
+        return()
+      }
+
+      filtered_tbl <- tryCatch(
+        {
+          shiny::withProgress(
+            message = "Fetching MSigDB genesets...",
+            value = 0.25,
+            {
+              fetch_msigdb_table(
+                species = species(),
+                collection = input$collection,
+                subcollection = input$subcategory
+              )
+            }
+          )
+        },
+        error = function(err) {
+          showNotification(
+            sprintf("Failed to fetch genesets: %s", conditionMessage(err)),
+            type = "error",
+            duration = 10
+          )
+          NULL
+        }
+      )
+
+      if (is.null(filtered_tbl)) {
+        selected_genesets(list())
+        return()
       }
 
       if (nrow(filtered_tbl) == 0) {
@@ -156,15 +283,16 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         return()
       }
 
-      gs <- filtered_tbl |>
-        (\(df) split(df, df$gs_name))() |>
-        (\(lst) lapply(lst, function(x) unique(x$gene_symbol)))()
+      gs <- split(filtered_tbl$gene_symbol, filtered_tbl$gs_name)
+      gs <- lapply(gs, unique)
       
       if (clean) {
         names(gs) <- clean_genesets(names(gs))
       }
       
       selected_genesets(gs)
+      rm(filtered_tbl)
+      gc(verbose = FALSE)
     })
     
     # Status message
