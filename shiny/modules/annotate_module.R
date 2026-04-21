@@ -119,6 +119,27 @@ annotate_module_ui <- function(id) {
         margin-left: 8px;
       }
 
+      ", page_selector, " .annotate-results-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+      }
+
+      ", page_selector, " .annotate-results-section h4 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        color: #17324d;
+        font-weight: 600;
+      }
+
+      ", page_selector, " .annotate-signature-key {
+        margin-top: 14px;
+      }
+
+      ", page_selector, " .annotate-signature-key .dataTables_wrapper {
+        font-size: 12px;
+      }
+
       ", page_selector, " .geneset-filter-group {
         padding: 16px;
         border: 1px solid #d9e3ec;
@@ -240,7 +261,7 @@ annotate_module_ui <- function(id) {
               choices = msigdbr::msigdbr_species()$species_name,
               selected = "Homo sapiens"
             ),
-            genesets_hypeR_UI("genesets")
+            genesets_hypeR_UI(ns("genesets"))
           )
         ),
 
@@ -252,7 +273,7 @@ annotate_module_ui <- function(id) {
             span(class = "annotate-step-label", "Step 3"),
             tags$h3("Select Signatures"),
             tags$p(
-              "Choose one or more signatures from the repository, then add them to the analysis."
+              "Choose up to 10 signatures from the repository, then add them to the analysis."
             ),
             DT::DTOutput(ns("signature_hypeR")),
             div(
@@ -280,6 +301,11 @@ annotate_module_ui <- function(id) {
                 ns("enrichment_do"),
                 "Run Enrichment",
                 class = "btn-primary"
+              ),
+              actionButton(
+                ns("experiment_reset"),
+                "New Experiment",
+                class = "btn-default"
               )
             )
           ),
@@ -305,19 +331,91 @@ annotate_module_ui <- function(id) {
           div(
             class = "annotate-results-actions",
             actionButton(ns("generate_report"), "HTML Report"),
-            actionButton(ns("export_hyp"), "Export")
+            downloadButton(ns("export_hyp"), "Export Hype Object")
           )
         ),
-        uiOutput(ns("enrichment")),
-        plotOutput(ns("dotplot"), height = "400px", width = "100%")
+        uiOutput(ns("enrichment"))
       )
     )
   )
 }
 
 
+hype_dotplot_data <- function(hyp, fdr_threshold, top = 30, abrv = 50) {
+  if (is.null(fdr_threshold) || length(fdr_threshold) == 0 || is.na(fdr_threshold)) {
+    fdr_threshold <- 1
+  }
+
+  empty_df <- data.frame(
+    signature = character(),
+    label = character(),
+    fdr = numeric(),
+    geneset_size = numeric(),
+    stringsAsFactors = FALSE
+  )
+
+  hyp_entries <- if (methods::is(hyp, "multihyp")) {
+    hyp$data
+  } else {
+    list(Enrichment = hyp)
+  }
+
+  if (is.null(names(hyp_entries)) || any(!nzchar(names(hyp_entries)))) {
+    names(hyp_entries) <- paste("Signature", seq_along(hyp_entries))
+  }
+
+  plot_dfs <- lapply(seq_along(hyp_entries), function(i) {
+    hyp_entry <- hyp_entries[[i]]
+    hyp_df <- if (is.data.frame(hyp_entry)) hyp_entry else hyp_entry$data
+
+    if (is.null(hyp_df) || !is.data.frame(hyp_df) || nrow(hyp_df) == 0) {
+      return(NULL)
+    }
+
+    if (!all(c("label", "fdr") %in% names(hyp_df))) {
+      return(NULL)
+    }
+
+    hyp_df$fdr <- suppressWarnings(as.numeric(hyp_df$fdr))
+    hyp_df <- hyp_df[!is.na(hyp_df$fdr) & hyp_df$fdr <= fdr_threshold, , drop = FALSE]
+
+    if (nrow(hyp_df) == 0) {
+      return(NULL)
+    }
+
+    geneset_size <- rep(1, nrow(hyp_df))
+    if ("geneset" %in% names(hyp_df)) {
+      geneset_size <- suppressWarnings(as.numeric(hyp_df$geneset))
+      geneset_size[is.na(geneset_size) | geneset_size <= 0] <- 1
+    }
+
+    data.frame(
+      signature = names(hyp_entries)[[i]],
+      label = substr(as.character(hyp_df$label), 1, abrv),
+      fdr = hyp_df$fdr,
+      geneset_size = geneset_size,
+      stringsAsFactors = FALSE
+    )
+  })
+
+  plot_dfs <- plot_dfs[!vapply(plot_dfs, is.null, logical(1))]
+
+  if (length(plot_dfs) == 0) {
+    return(empty_df)
+  }
+
+  plot_df <- do.call(rbind, plot_dfs)
+  label_rank <- stats::aggregate(fdr ~ label, data = plot_df, FUN = min)
+  label_rank <- label_rank[order(label_rank$fdr), , drop = FALSE]
+  top_labels <- head(label_rank$label, top)
+  plot_df <- plot_df[plot_df$label %in% top_labels, , drop = FALSE]
+  plot_df[order(plot_df$fdr), , drop = FALSE]
+}
+
+
 annotate_module_server <- function(id, signature_db, user_conn_handler) {
   moduleServer(id, function(input, output, session) {
+    max_signature_count <- 10
     active_signatures <- reactiveVal(list())
     run_feedback <- reactiveVal(NULL)
     hyp_result <- reactiveVal(NULL)
@@ -356,11 +454,18 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       sig_rows <- df[selected_rows, , drop = FALSE]
       current <- active_signatures()
       added_count <- 0
+      skipped_limit_count <- 0
 
       for (i in seq_len(nrow(sig_rows))) {
         sig_row <- sig_rows[i, ]
         key <- sig_row$signature_name
+
         if (!key %in% names(current)) {
+          if (length(current) >= max_signature_count) {
+            skipped_limit_count <- skipped_limit_count + 1
+            next
+          }
+
           current[[key]] <- list(
             experiment = input$experiment_label,
             signature_name = sig_row$signature_name,
@@ -371,15 +476,37 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       }
 
       active_signatures(current)
+      hyp_result(NULL)
 
       run_feedback(list(
-        type = if (added_count > 0) "success" else "info",
-        text = if (added_count > 0) {
+        type = if (skipped_limit_count > 0) "warning" else if (added_count > 0) "success" else "info",
+        text = if (skipped_limit_count > 0) {
+          sprintf(
+            "%s signature(s) added. The analysis is limited to %s signatures, so %s selection(s) were skipped.",
+            added_count,
+            max_signature_count,
+            skipped_limit_count
+          )
+        } else if (added_count > 0) {
           sprintf("%s signature(s) added to the analysis.", added_count)
         } else {
           "All selected signatures are already in the current analysis."
         }
       ))
+    })
+
+    observeEvent(input$experiment_reset, {
+      active_signatures(list())
+      hyp_result(NULL)
+      run_feedback(NULL)
+
+      updateTextInput(session, "experiment_label", value = "")
+      updateRadioButtons(session, "enrichment_type", selected = "hypergeo")
+      updateNumericInput(session, "enrichment_thresh", value = 0.05)
+      updateNumericInput(session, "enrichment_bg", value = 36000)
+
+      DT::selectRows(DT::dataTableProxy("signature_hypeR", session = session), NULL)
+      showNotification("Experiment selections and results were reset.", type = "message")
     })
 
     output$signature_feedback <- renderUI({
@@ -429,7 +556,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
         div(
           class = "annotate-summary-item",
           tags$strong("Selected Signatures"),
-          tags$span(length(sig_list))
+          tags$span(sprintf("%s / %s", length(sig_list), max_signature_count))
         ),
         div(
           class = "annotate-summary-item",
@@ -514,7 +641,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
         return()
       }
 
-      sig_ids <- vapply(sig_list, function(sig) sig$signature_id, character(1))
+      sig_ids <- vapply(sig_list, function(sig) as.numeric(sig$signature_id), numeric(1))
 
       sig_objs <- SigRepo::getSignature(
         conn_handler = user_conn_handler(),
@@ -557,15 +684,79 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       showNotification("Enrichment analysis completed.", type = "message")
     })
 
-    output$dotplot <- renderPlot({
+    dotplot_data <- reactive({
       hyp <- hyp_result()
       req(hyp)
 
-      hypeR::hyp_dots(
-        hyp,
-        merge = TRUE,
-        fdr = input$enrichment_thresh,
-        title = input$experiment_label
+      plot_df <- hype_dotplot_data(hyp, fdr_threshold = input$enrichment_thresh)
+      validate(need(nrow(plot_df) > 0, "No enriched genesets passed the selected FDR threshold."))
+
+      signature_lookup <- unique(plot_df["signature"])
+      signature_lookup$signature_label <- paste0("S", seq_len(nrow(signature_lookup)))
+
+      plot_df <- merge(plot_df, signature_lookup, by = "signature", all.x = TRUE, sort = FALSE)
+      plot_df$signature_label <- factor(plot_df$signature_label, levels = signature_lookup$signature_label)
+      plot_df$label <- factor(plot_df$label, levels = rev(unique(plot_df$label)))
+
+      positive_fdr <- plot_df$fdr[plot_df$fdr > 0]
+      min_positive_fdr <- if (length(positive_fdr) > 0) min(positive_fdr, na.rm = TRUE) else .Machine$double.xmin
+      plot_df$fdr_plot <- pmax(plot_df$fdr, min_positive_fdr / 10)
+
+      list(
+        plot_df = plot_df,
+        signature_lookup = signature_lookup[, c("signature_label", "signature"), drop = FALSE]
+      )
+    })
+
+    output$dotplot <- renderPlot({
+      plot_df <- dotplot_data()$plot_df
+
+      ggplot2::ggplot(
+        plot_df,
+        ggplot2::aes(
+          x = signature_label,
+          y = label,
+          color = fdr_plot,
+          size = geneset_size
+        )
+      ) +
+        ggplot2::geom_point(alpha = 0.86) +
+        ggplot2::scale_color_continuous(
+          low = "#E53935",
+          high = "#114357",
+          trans = "log10",
+          guide = ggplot2::guide_colorbar(reverse = TRUE)
+        ) +
+        ggplot2::scale_size_continuous(trans = "log10") +
+        ggplot2::labs(
+          title = input$experiment_label,
+          x = NULL,
+          y = NULL,
+          color = "FDR",
+          size = "Geneset Size"
+        ) +
+        ggplot2::theme_minimal(base_size = 12) +
+        ggplot2::theme(
+          plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+          axis.text.x = ggplot2::element_text(face = "bold"),
+          panel.grid.major.y = ggplot2::element_line(color = "#e6edf3"),
+          panel.grid.minor = ggplot2::element_blank()
+        )
+    })
+
+    output$dotplot_signature_key <- DT::renderDT({
+      key_df <- dotplot_data()$signature_lookup
+      names(key_df) <- c("Plot ID", "Signature")
+
+      DT::datatable(
+        key_df,
+        rownames = FALSE,
+        options = list(
+          pageLength = 10,
+          dom = "tip",
+          scrollX = TRUE
+        ),
+        class = "compact stripe hover"
       )
     })
 
@@ -581,9 +772,23 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
         )
       }
 
-      tagList(
-        tags$h4("Enrichment Results"),
-        hypeR::rctbl_build(hyp)
+      div(
+        class = "annotate-results-body",
+        div(
+          class = "annotate-results-section",
+          tags$h4("Results Table"),
+          hypeR::rctbl_build(hyp)
+        ),
+        div(
+          class = "annotate-results-section",
+          tags$h4("Dotplot"),
+          plotOutput(session$ns("dotplot"), height = "400px", width = "100%"),
+          div(
+            class = "annotate-signature-key",
+            tags$h4("Signature Key"),
+            DT::DTOutput(session$ns("dotplot_signature_key"))
+          )
+        )
       )
     })
 
@@ -594,11 +799,21 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       }
     })
 
-    observeEvent(input$export_hyp, {
-      hyp <- hyp_result()
-      if (is.null(hyp)) {
-        showNotification("Run an enrichment analysis before exporting results.", type = "warning")
+    output$export_hyp <- downloadHandler(
+      filename = function() {
+        label <- input$experiment_label
+        if (is.null(label) || !nzchar(label)) {
+          label <- "sigrepo_enrichment"
+        }
+
+        safe_label <- gsub("[^A-Za-z0-9_-]+", "_", label)
+        sprintf("%s_hype_%s.rds", safe_label, format(Sys.time(), "%Y%m%d_%H%M%S"))
+      },
+      content = function(file) {
+        hyp <- hyp_result()
+        req(hyp)
+        saveRDS(hyp, file)
       }
-    })
+    )
   })
 }
