@@ -15,7 +15,6 @@
 #' @return Shiny UI elements
 #'
 #' @importFrom shiny NS tagList selectInput uiOutput actionButton
-#' @importFrom DT DTOutput
 #' @export
 genesets_hypeR_UI <- function(id) {
   ns <- NS(id)
@@ -31,7 +30,18 @@ genesets_hypeR_UI <- function(id) {
       selectInput(
         ns("collection"),
         "Collection",
-        choices = c("H", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8")
+        choices = c(
+          "Hallmark (H)" = "H",
+          "Positional (C1)" = "C1",
+          "Curated (C2)" = "C2",
+          "Regulatory Target (C3)" = "C3",
+          "Computational (C4)" = "C4",
+          "Ontology (C5)" = "C5",
+          "Oncogenic Signature (C6)" = "C6",
+          "Immunologic Signature (C7)" = "C7",
+          "Cell Type Signature (C8)" = "C8"
+        ),
+        selected = "H"
       ),
       uiOutput(ns("subcategory_ui")),
       div(
@@ -40,8 +50,6 @@ genesets_hypeR_UI <- function(id) {
         uiOutput(ns("status"))
       )
     ),
-
-    DT::DTOutput(ns("genesets_table")),
     uiOutput(ns("geneset_summary"))
   )
 }
@@ -57,7 +65,6 @@ genesets_hypeR_UI <- function(id) {
 #' @return Reactive named list of genesets
 #'
 #' @importFrom shiny moduleServer renderUI observeEvent reactive req icon
-#' @importFrom DT renderDT datatable
 #' @export
 genesets_hypeR_Server <- function(id, species, clean = FALSE) {
   moduleServer(id, function(input, output, session) {
@@ -81,6 +88,8 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         dplyr::filter(gs_collection == input$collection) |>
         dplyr::distinct(gs_subcollection) |>
         dplyr::pull(gs_subcollection) |>
+        as.character() |>
+        (\(x) x[!is.na(x) & nzchar(x)])() |>
         stats::na.omit() |>
         unique()
 
@@ -116,6 +125,11 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
           dplyr::filter(gs_subcollection == input$subcategory)
       }
 
+      if (nrow(filtered_tbl) == 0) {
+        showNotification("No genesets matched the selected filters.", type = "warning")
+        return(list())
+      }
+
       gs <- filtered_tbl |>
         (\(df) split(df, df$gs_name))() |>
         (\(lst) lapply(lst, function(x) unique(x$gene_symbol)))()
@@ -125,32 +139,6 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
       }
       
       gs
-    })
-    
-    # Show genesets in a DT table
-    output$genesets_table <- DT::renderDT({
-      gs <- reactive.genesets()
-      req(gs)
-      
-      # Convert named list to a data.frame
-      df <- data.frame(
-        Geneset = names(gs),
-        Genes   = sapply(gs, function(x) paste(x, collapse = ", ")),
-        stringsAsFactors = FALSE
-      )
-      
-      DT::datatable(
-        df,
-        options = list(
-          scrollX = TRUE,
-          scrollY = "500px",
-          pageLength = 5,
-          columnDefs = list(
-            list(visible = FALSE, targets = 0)
-          )
-        )
-      )
-      
     })
     
     # Status message
