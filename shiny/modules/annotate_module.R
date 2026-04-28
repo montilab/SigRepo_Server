@@ -413,12 +413,99 @@ hype_dotplot_data <- function(hyp, fdr_threshold, top = 30, abrv = 50) {
 }
 
 
+build_enrichment_signatures <- function(sig_objs, sig_list) {
+  empty_result <- list(
+    vectors = list(),
+    metadata = data.frame(
+      signature = character(),
+      signature_name = character(),
+      group_label = character(),
+      signature_order = numeric(),
+      group_order = numeric(),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  if (length(sig_objs) == 0 || length(sig_list) == 0) {
+    return(empty_result)
+  }
+
+  sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
+  vectors <- list()
+  metadata <- vector("list", length(sig_objs))
+  metadata_idx <- 0
+
+  for (i in seq_along(sig_objs)) {
+    sig_obj <- sig_objs[[i]]
+    sig_name <- sig_names[[i]]
+
+    difexp_df <- sig_obj$difexp
+    if (is.null(difexp_df) || !is.data.frame(difexp_df) || nrow(difexp_df) == 0) {
+      next
+    }
+
+    difexp_df$symbol <- as.character(difexp_df$symbol)
+    difexp_df <- difexp_df[!is.na(difexp_df$symbol) & nzchar(difexp_df$symbol), , drop = FALSE]
+
+    if (nrow(difexp_df) == 0) {
+      next
+    }
+
+    if ("group_label" %in% names(difexp_df)) {
+      difexp_df$group_label <- as.character(difexp_df$group_label)
+      difexp_df$group_label[is.na(difexp_df$group_label) | !nzchar(difexp_df$group_label)] <- "Ungrouped"
+    } else {
+      difexp_df$group_label <- "All Features"
+    }
+
+    group_levels <- unique(difexp_df$group_label)
+
+    for (group_label in group_levels) {
+      group_symbols <- unique(difexp_df$symbol[difexp_df$group_label == group_label])
+
+      if (length(group_symbols) == 0) {
+        next
+      }
+
+      signature_key <- sprintf("%s | %s", sig_name, group_label)
+      vectors[[signature_key]] <- group_symbols
+
+      metadata_idx <- metadata_idx + 1
+      metadata[[metadata_idx]] <- data.frame(
+        signature = signature_key,
+        signature_name = sig_name,
+        group_label = group_label,
+        signature_order = i,
+        group_order = match(group_label, group_levels),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  metadata <- metadata[seq_len(metadata_idx)]
+  metadata_df <- if (length(metadata) > 0) do.call(rbind, metadata) else empty_result$metadata
+
+  list(
+    vectors = vectors,
+    metadata = metadata_df
+  )
+}
+
+
 annotate_module_server <- function(id, signature_db, user_conn_handler) {
   moduleServer(id, function(input, output, session) {
     max_signature_count <- 10
     active_signatures <- reactiveVal(list())
     run_feedback <- reactiveVal(NULL)
     hyp_result <- reactiveVal(NULL)
+    signature_plot_metadata <- reactiveVal(
+      data.frame(
+        signature = character(),
+        signature_name = character(),
+        group_label = character(),
+        stringsAsFactors = FALSE
+      )
+    )
 
     output$signature_hypeR <- renderDT({
       df <- signature_db()
@@ -469,7 +556,8 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
           current[[key]] <- list(
             experiment = input$experiment_label,
             signature_name = sig_row$signature_name,
-            signature_id = sig_row$signature_id
+            signature_id = sig_row$signature_id,
+            perturbation = if ("perturbation" %in% names(sig_row)) sig_row$perturbation else NA_character_
           )
           added_count <- added_count + 1
         }
@@ -477,6 +565,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
 
       active_signatures(current)
       hyp_result(NULL)
+      signature_plot_metadata(signature_plot_metadata()[0, , drop = FALSE])
 
       run_feedback(list(
         type = if (skipped_limit_count > 0) "warning" else if (added_count > 0) "success" else "info",
@@ -499,6 +588,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       active_signatures(list())
       hyp_result(NULL)
       run_feedback(NULL)
+      signature_plot_metadata(signature_plot_metadata()[0, , drop = FALSE])
 
       updateTextInput(session, "experiment_label", value = "")
       updateRadioButtons(session, "enrichment_type", selected = "hypergeo")
@@ -648,22 +738,8 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
         signature_id = sig_ids
       )
 
-      signature_vectors <- lapply(sig_objs, function(x) {
-        if (is.null(x$signature)) {
-          return(NULL)
-        }
-
-        symbols <- as.character(x$difexp$symbol)
-        symbols <- symbols[!is.na(symbols)]
-
-        if (length(symbols) == 0) {
-          return(NULL)
-        }
-
-        symbols
-      })
-
-      signature_vectors <- signature_vectors[!vapply(signature_vectors, is.null, logical(1))]
+      enrichment_inputs <- build_enrichment_signatures(sig_objs, sig_list)
+      signature_vectors <- enrichment_inputs$vectors
 
       if (length(signature_vectors) == 0) {
         showNotification("No valid signatures were available to run enrichment.", type = "error")
@@ -681,6 +757,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       )
 
       hyp_result(hyp)
+      signature_plot_metadata(enrichment_inputs$metadata)
       showNotification("Enrichment analysis completed.", type = "message")
     })
 
@@ -691,8 +768,31 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       plot_df <- hype_dotplot_data(hyp, fdr_threshold = input$enrichment_thresh)
       validate(need(nrow(plot_df) > 0, "No enriched genesets passed the selected FDR threshold."))
 
-      signature_lookup <- unique(plot_df["signature"])
-      signature_lookup$signature_label <- paste0("S", seq_len(nrow(signature_lookup)))
+      plot_metadata <- signature_plot_metadata()
+      validate(need(nrow(plot_metadata) > 0, "Signature grouping metadata was not available for plotting."))
+
+      signature_lookup <- unique(
+        plot_metadata[, c("signature", "signature_name", "group_label", "signature_order", "group_order"), drop = FALSE]
+      )
+      signature_lookup <- signature_lookup[order(signature_lookup$signature_order, signature_lookup$group_order), , drop = FALSE]
+
+      signature_id_lookup <- unique(signature_lookup[, c("signature_name", "signature_order"), drop = FALSE])
+      signature_id_lookup <- signature_id_lookup[order(signature_id_lookup$signature_order), , drop = FALSE]
+      signature_id_lookup$plot_id <- paste0("S", seq_len(nrow(signature_id_lookup)))
+
+      signature_lookup <- merge(
+        signature_lookup,
+        signature_id_lookup,
+        by = c("signature_name", "signature_order"),
+        all.x = TRUE,
+        sort = FALSE
+      )
+      signature_lookup <- signature_lookup[order(signature_lookup$signature_order, signature_lookup$group_order), , drop = FALSE]
+      signature_lookup$signature_label <- ifelse(
+        nzchar(signature_lookup$group_label) & signature_lookup$group_label != "All Features",
+        paste(signature_lookup$plot_id, signature_lookup$group_label),
+        signature_lookup$plot_id
+      )
 
       plot_df <- merge(plot_df, signature_lookup, by = "signature", all.x = TRUE, sort = FALSE)
       plot_df$signature_label <- factor(plot_df$signature_label, levels = signature_lookup$signature_label)
@@ -704,7 +804,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
 
       list(
         plot_df = plot_df,
-        signature_lookup = signature_lookup[, c("signature_label", "signature"), drop = FALSE]
+        signature_lookup = signature_lookup[, c("plot_id", "signature_label", "signature_name", "group_label"), drop = FALSE]
       )
     })
 
@@ -746,7 +846,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
 
     output$dotplot_signature_key <- DT::renderDT({
       key_df <- dotplot_data()$signature_lookup
-      names(key_df) <- c("Plot ID", "Signature")
+      names(key_df) <- c("Signature ID", "Plot Label", "Signature", "Group Label")
 
       DT::datatable(
         key_df,
