@@ -70,10 +70,31 @@ fetch_msigdb_table <- function(species, collection, subcollection = "") {
 
 
 msigdb_cache_dir <- function() {
-  Sys.getenv(
-    "MSIGDB_CACHE_DIR",
-    unset = file.path("shiny", "data", "msigdb_genesets")
-  )
+  env_cache_dir <- Sys.getenv("MSIGDB_CACHE_DIR", unset = "")
+
+  if (nzchar(env_cache_dir)) {
+    return(env_cache_dir)
+  }
+
+  shiny_path <- getOption("sigrepo.shiny_path", default = "")
+  server_root <- Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
+
+  cache_dir_candidates <- unique(c(
+    if (nzchar(shiny_path)) file.path(shiny_path, "data", "msigdb_genesets"),
+    if (nzchar(server_root)) file.path(server_root, "shiny", "data", "msigdb_genesets"),
+    file.path(getwd(), "data", "msigdb_genesets"),
+    file.path(getwd(), "shiny", "data", "msigdb_genesets"),
+    file.path("data", "msigdb_genesets"),
+    file.path("shiny", "data", "msigdb_genesets")
+  ))
+
+  existing_cache_dir <- cache_dir_candidates[dir.exists(cache_dir_candidates)]
+
+  if (length(existing_cache_dir) > 0) {
+    return(existing_cache_dir[[1]])
+  }
+
+  cache_dir_candidates[[1]]
 }
 
 
@@ -107,6 +128,12 @@ load_cached_msigdb_genesets <- function(species, collection, subcollection = "")
   }
 
   readRDS(cache_file)
+}
+
+
+runtime_msigdb_fetch_allowed <- function() {
+  value <- tolower(Sys.getenv("MSIGDB_ALLOW_RUNTIME_FETCH", unset = "false"))
+  value %in% c("true", "1", "yes", "y")
 }
 
 
@@ -245,6 +272,18 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
 
         selected_genesets(cached_genesets)
         showNotification("Loaded genesets from local cache.", type = "message")
+        return()
+      }
+
+      if (!runtime_msigdb_fetch_allowed()) {
+        showNotification(
+          sprintf(
+            "MSigDB cache file was not found: %s. Build the cache or set MSIGDB_CACHE_DIR.",
+            msigdb_cache_file(species(), input$collection, input$subcategory)
+          ),
+          type = "error",
+          duration = 12
+        )
         return()
       }
 
