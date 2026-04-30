@@ -492,6 +492,96 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
 }
 
 
+build_ranked_enrichment_signatures <- function(sig_objs, sig_list) {
+  empty_result <- list(
+    vectors = list(),
+    metadata = data.frame(
+      signature = character(),
+      signature_name = character(),
+      group_label = character(),
+      signature_order = numeric(),
+      group_order = numeric(),
+      stringsAsFactors = FALSE
+    )
+  )
+
+  if (length(sig_objs) == 0 || length(sig_list) == 0) {
+    return(empty_result)
+  }
+
+  sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
+  rank_candidates <- c("score", "t_stat", "stat", "t", "logfc", "logFC")
+  vectors <- list()
+  metadata <- vector("list", length(sig_objs) * 4)
+  metadata_idx <- 0
+
+  for (i in seq_along(sig_objs)) {
+    sig_obj <- sig_objs[[i]]
+    sig_name <- sig_names[[i]]
+    difexp_df <- sig_obj$difexp
+
+    if (is.null(difexp_df) || !is.data.frame(difexp_df) || nrow(difexp_df) == 0) {
+      next
+    }
+
+    rank_col <- rank_candidates[rank_candidates %in% names(difexp_df)][1]
+    if (is.na(rank_col) || !nzchar(rank_col)) {
+      next
+    }
+
+    difexp_df$symbol <- as.character(difexp_df$symbol)
+    difexp_df$rank_value <- suppressWarnings(as.numeric(difexp_df[[rank_col]]))
+    difexp_df <- difexp_df[!is.na(difexp_df$symbol) & nzchar(difexp_df$symbol) & !is.na(difexp_df$rank_value), , drop = FALSE]
+
+    if (nrow(difexp_df) == 0) {
+      next
+    }
+
+    rank_df <- difexp_df[, c("symbol", "rank_value"), drop = FALSE]
+    rank_df <- rank_df[!duplicated(rank_df$symbol), , drop = FALSE]
+
+    if (nrow(rank_df) == 0) {
+      next
+    }
+
+    direction_specs <- list(
+      list(label = "Up", decreasing = TRUE, order_index = 1),
+      list(label = "Down", decreasing = FALSE, order_index = 2)
+    )
+
+    for (direction in direction_specs) {
+      ordered_df <- rank_df[order(rank_df$rank_value, decreasing = direction$decreasing), , drop = FALSE]
+      ranked_signature <- stats::setNames(ordered_df$rank_value, ordered_df$symbol)
+
+      if (length(ranked_signature) == 0) {
+        next
+      }
+
+      signature_key <- sprintf("%s | %s", sig_name, direction$label)
+      vectors[[signature_key]] <- ranked_signature
+
+      metadata_idx <- metadata_idx + 1
+      metadata[[metadata_idx]] <- data.frame(
+        signature = signature_key,
+        signature_name = sig_name,
+        group_label = direction$label,
+        signature_order = i,
+        group_order = direction$order_index,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  metadata <- metadata[seq_len(metadata_idx)]
+  metadata_df <- if (length(metadata) > 0) do.call(rbind, metadata) else empty_result$metadata
+
+  list(
+    vectors = vectors,
+    metadata = metadata_df
+  )
+}
+
+
 annotate_module_server <- function(id, signature_db, user_conn_handler) {
   moduleServer(id, function(input, output, session) {
     max_signature_count <- 10
@@ -738,18 +828,36 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
         signature_id = sig_ids
       )
 
-      enrichment_inputs <- build_enrichment_signatures(sig_objs, sig_list)
+      enrichment_test <- dplyr::recode(
+        input$enrichment_type,
+        hypergeo = "hypergeo",
+        kstest = "ks",
+        gsea = "gsea"
+      )
+
+      enrichment_inputs <- if (identical(enrichment_test, "hypergeo")) {
+        build_enrichment_signatures(sig_objs, sig_list)
+      } else {
+        build_ranked_enrichment_signatures(sig_objs, sig_list)
+      }
       signature_vectors <- enrichment_inputs$vectors
 
       if (length(signature_vectors) == 0) {
-        showNotification("No valid signatures were available to run enrichment.", type = "error")
+        showNotification(
+          if (identical(enrichment_test, "hypergeo")) {
+            "No valid signatures were available to run enrichment."
+          } else {
+            "No ranked signatures were available to run KS/GSEA enrichment. Check that the signatures contain numeric score columns."
+          },
+          type = "error"
+        )
         return()
       }
 
       hyp <- hypeR::hypeR(
         signature = signature_vectors,
         genesets = gsets,
-        test = input$enrichment_type,
+        test = enrichment_test,
         background = input$enrichment_bg,
         fdr = input$enrichment_thresh,
         plotting = FALSE,
