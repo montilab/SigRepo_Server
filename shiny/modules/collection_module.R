@@ -56,6 +56,13 @@ collection_module_ui <- function(id) {
         margin-bottom: 16px;
       }
 
+      ", page_selector, " .collection-toolbar-primary {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
       ", page_selector, " .collection-actions {
         display: flex;
         gap: 10px;
@@ -124,6 +131,10 @@ collection_module_ui <- function(id) {
         margin-bottom: 14px;
         color: #597189;
       }
+
+      ", page_selector, " .collection-metadata-table .dataTables_wrapper {
+        margin-top: 8px;
+      }
     "))),
 
     div(
@@ -133,7 +144,7 @@ collection_module_ui <- function(id) {
         class = "collection-hero",
         tags$h2("Browse Collections"),
         tags$p(
-          "Select a collection to review its metadata and included signatures without opening a separate dialog."
+          "Select a collection from the repository to review metadata, member signatures, and collection-level details in one place."
         )
       ),
 
@@ -141,13 +152,20 @@ collection_module_ui <- function(id) {
         class = "collection-card",
         div(
           class = "collection-toolbar",
-          actionButton(
-            ns("open_upload_modal"),
-            "Upload Collection",
-            icon = icon("upload"),
-            class = "btn-primary"
+          div(
+            class = "collection-toolbar-primary",
+            actionButton(
+              ns("open_upload_modal"),
+              "Upload Collection",
+              icon = icon("upload"),
+              class = "btn-primary"
+            )
           ),
           uiOutput(ns("collection_actions"))
+        ),
+        p(
+          class = "collection-helper",
+          "Select a collection row to make it active. Use View to load the full collection details when you want to inspect it below."
         ),
         DT::DTOutput(ns("collection_tbl"))
       ),
@@ -157,7 +175,7 @@ collection_module_ui <- function(id) {
         tags$h3("Selected Collection"),
         p(
           class = "collection-helper",
-          "Selecting a row loads the collection details below so you can inspect metadata and member signatures in one place."
+          "The active collection summary appears immediately. Use View to fetch the collection details and member signatures on demand."
         ),
         uiOutput(ns("collection_detail_panel"))
       )
@@ -167,6 +185,7 @@ collection_module_ui <- function(id) {
 
 collection_module_server <- function(id, collection_db, user_conn_handler, collection_trigger) {
   moduleServer(id, function(input, output, session) {
+    ns <- session$ns
     selected_collection <- reactiveVal(NULL)
     collection_object <- reactiveVal(NULL)
 
@@ -190,12 +209,10 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       )
     }
 
-    df_grouped <- reactive({
+    grouped_collections <- reactive({
       req(user_conn_handler())
 
-      df <- collection_db()
-
-      df %>%
+      collection_db() %>%
         dplyr::group_by(
           collection_id,
           collection_name,
@@ -206,42 +223,41 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         ) %>%
         dplyr::summarise(
           signature_count = dplyr::n(),
-          signatures = paste(signature_name, collapse = ", "),
+          signature_preview = paste(utils::head(signature_name, 5), collapse = ", "),
           .groups = "drop"
         )
     })
 
+    current_collection_signatures <- reactive({
+      req(selected_collection(), collection_db())
+
+      collection_db()[
+        collection_db()$collection_id == selected_collection()$collection_id[[1]],
+        ,
+        drop = FALSE
+      ]
+    })
+
     output$collection_tbl <- renderDT({
       DatatableFX(
-        df = df_grouped(),
+        df = grouped_collections(),
+        hidden_columns = c(0, 7),
         scrollY = "500px",
         row_selection = "single"
       )
     }, server = TRUE)
 
     observeEvent(input$collection_tbl_rows_selected, {
-      row <- input$collection_tbl_rows_selected
+      rows <- input$collection_tbl_rows_selected
 
-      if (length(row) == 0) {
+      if (length(rows) == 0) {
         selected_collection(NULL)
         collection_object(NULL)
         return()
       }
 
-      df <- df_grouped()
-      collection_selected <- df[row, , drop = FALSE]
-      selected_collection(collection_selected)
-
-      tryCatch({
-        collection_object(fetch_selected_collection(collection_selected$collection_id[[1]]))
-      }, error = function(e) {
-        collection_object(NULL)
-        showNotification(
-          paste("Failed to load collection details:", e$message),
-          type = "error",
-          duration = 8
-        )
-      })
+      selected_collection(grouped_collections()[rows, , drop = FALSE])
+      collection_object(NULL)
     })
 
     output$collection_actions <- renderUI({
@@ -266,6 +282,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         ),
         div(
           class = "collection-actions",
+          actionButton(ns("view_btn"), "View", class = "btn-primary"),
           actionButton(ns("refresh_btn"), "Refresh"),
           actionButton(ns("update_btn"), "Update"),
           actionButton(ns("delete_btn"), "Delete"),
@@ -282,7 +299,41 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         return(
           div(
             class = "collection-empty",
-            "Choose a collection from the table above to inspect its metadata and included signatures."
+            "Choose a collection from the table above to inspect it."
+          )
+        )
+      }
+
+      if (is.null(collection_object())) {
+        return(
+          tagList(
+            div(
+              class = "collection-summary-grid",
+              div(
+                class = "collection-summary-item",
+                tags$strong("Collection"),
+                tags$span(collection_field_value(collection_selected, "collection_name"))
+              ),
+              div(
+                class = "collection-summary-item",
+                tags$strong("Owner"),
+                tags$span(collection_field_value(collection_selected, "user_name"))
+              ),
+              div(
+                class = "collection-summary-item",
+                tags$strong("Visibility"),
+                tags$span(collection_field_value(collection_selected, "visibility"))
+              ),
+              div(
+                class = "collection-summary-item",
+                tags$strong("Signatures"),
+                tags$span(collection_field_value(collection_selected, "signature_count", "0"))
+              )
+            ),
+            div(
+              class = "collection-empty",
+              "The selected collection has not been loaded yet. Click View to fetch its metadata and member signatures."
+            )
           )
         )
       }
@@ -312,37 +363,67 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
           )
         ),
         tabsetPanel(
-          tabPanel("Metadata", uiOutput(session$ns("collection_metadata"))),
-          tabPanel("Signatures", DT::DTOutput(session$ns("collection_sig_tbl")))
+          tabPanel(
+            "Metadata",
+            div(class = "collection-metadata-table", DT::DTOutput(ns("collection_metadata_table")))
+          ),
+          tabPanel(
+            "Signatures",
+            DT::DTOutput(ns("collection_sig_tbl"))
+          )
         )
       )
     })
 
-    output$collection_metadata <- renderUI({
+    output$collection_metadata_table <- DT::renderDataTable({
       req(selected_collection())
 
-      tagList(
-        p(tags$strong("Description:"), collection_field_value(selected_collection(), "description")),
-        p(tags$strong("Date Created:"), collection_field_value(selected_collection(), "date_created")),
-        p(tags$strong("User:"), collection_field_value(selected_collection(), "user_name")),
-        p(tags$strong("Total Signatures:"), collection_field_value(selected_collection(), "signature_count", "0"))
+      collection_selected <- selected_collection()
+      metadata_df <- data.frame(
+        Field = c("collection_id", names(collection_selected)[names(collection_selected) != "collection_id"]),
+        Value = c(
+          collection_selected$collection_id[[1]],
+          vapply(
+            names(collection_selected)[names(collection_selected) != "collection_id"],
+            function(field) collection_field_value(collection_selected, field),
+            character(1)
+          )
+        ),
+        stringsAsFactors = FALSE
       )
-    })
-
-    output$collection_sig_tbl <- renderDataTable({
-      req(selected_collection(), collection_db())
-
-      filtered_collection_tbl <- collection_db()[
-        collection_db()$collection_name == selected_collection()$collection_name[[1]],
-        ,
-        drop = FALSE
-      ]
 
       DatatableFX(
-        filtered_collection_tbl,
-        hidden_columns = c(3, 4)
+        metadata_df,
+        hidden_columns = integer(0),
+        scrollY = "360px"
       )
     }, server = TRUE)
+
+    output$collection_sig_tbl <- DT::renderDataTable({
+      req(selected_collection(), collection_object())
+
+      DatatableFX(
+        current_collection_signatures(),
+        hidden_columns = c(3, 4),
+        scrollY = "500px"
+      )
+    }, server = TRUE)
+
+    observeEvent(input$view_btn, {
+      req(selected_collection())
+
+      tryCatch({
+        collection_object(fetch_selected_collection(selected_collection()$collection_id[[1]]))
+        showNotification("Collection details loaded.", type = "message")
+      }, error = function(e) {
+        collection_object(NULL)
+        showNotification(
+          paste("Failed to load collection details:", e$message),
+          type = "error",
+          duration = 8
+        )
+      })
+    })
 
     observeEvent(input$refresh_btn, {
       req(selected_collection())
@@ -374,7 +455,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
           omic_collection = rds_object
         )
 
-        showNotification("Collection uploaded and added successfully!")
+        showNotification("Collection uploaded and added successfully!", type = "message")
         collection_trigger(isolate(collection_trigger()) + 1)
       }, error = function(e) {
         showNotification(
@@ -392,11 +473,11 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       showModal(
         modalDialog(
           title = "Confirm Delete",
-          paste(
-            "Are you sure you want to delete collection:",
-            selected_collection()$collection_name[[1]],
-            "?"
+          sprintf(
+            "Are you sure you want to delete collection %s?",
+            htmltools::htmlEscape(selected_collection()$collection_name[[1]])
           ),
+          easyClose = TRUE,
           footer = tagList(
             modalButton("Cancel"),
             actionButton(ns("confirm_delete_collection"), "Delete", class = "btn-danger")
@@ -420,9 +501,8 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         removeModal()
         selected_collection(NULL)
         collection_object(NULL)
-        collection_trigger(collection_trigger() + 1)
+        collection_trigger(isolate(collection_trigger()) + 1)
       }, error = function(e) {
-        message("Error deleting collection: ", e$message)
         showNotification(
           paste("Failed to delete collection:", e$message),
           type = "error",
@@ -434,51 +514,33 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
     observeEvent(input$update_btn, {
       req(selected_collection())
 
-      collection_name <- selected_collection()$collection_name[[1]]
-
-      showModal(modalDialog(
-        title = "Update collection",
-        paste("Collection to update:", collection_name),
-        fileInput(session$ns("update_file_upload"), "Choose an RDS file", accept = ".rds"),
-        p("The selected collection will be updated with the new collection object you upload."),
-        footer = tagList(
-          modalButton("Cancel")
+      showModal(
+        modalDialog(
+          title = "Update Collection",
+          paste("Collection to update:", selected_collection()$collection_name[[1]]),
+          fileInput(session$ns("update_file_upload"), "Choose an RDS file", accept = ".rds"),
+          p("The selected collection will be updated with the new collection object you upload."),
+          footer = tagList(
+            modalButton("Cancel")
+          )
         )
-      ))
+      )
     })
 
     observeEvent(input$access_btn, {
       req(selected_collection())
 
-      user_tbl <- SigRepo::searchUser(conn_handler = user_conn_handler())
-
-      showModal(modalDialog(
-        title = paste("Manage Users for Collection:", selected_collection()$collection_name[[1]]),
-        tabsetPanel(
-          tabPanel(
-            "Add to Collection",
-            fluidRow(
-              column(
-                6,
-                selectInput(
-                  inputId = "user_selector",
-                  label = "Select users to add:",
-                  choices = user_tbl$user_name,
-                  multiple = TRUE
-                )
-              )
-            ),
-            uiOutput("access_type_ui"),
-            actionButton("add_users_confirm", "Add Users", class = "btn-primary")
-          ),
-          tabPanel(
-            "Delete from Collection",
-            p("Delete user functionality goes here.")
+      showModal(
+        modalDialog(
+          title = paste("Collection Access:", selected_collection()$collection_name[[1]]),
+          easyClose = TRUE,
+          footer = modalButton("Close"),
+          div(
+            class = "collection-helper",
+            "Collection access management is still collection-specific and has not been modernized yet in this refactor."
           )
-        ),
-        easyClose = TRUE,
-        footer = modalButton("Close")
-      ))
+        )
+      )
     })
 
     output$download_btn <- downloadHandler(
