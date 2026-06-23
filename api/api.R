@@ -75,6 +75,58 @@ serializers <- base::list(
   "htmlwidget" = plumber::serializer_htmlwidget()
 )
 
+db_connect_local <- function() {
+  DBI::dbConnect(
+    drv = RMySQL::MySQL(),
+    dbname = base::Sys.getenv("DB_NAME"),
+    host = base::Sys.getenv("DB_LOCAL_HOST"),
+    port = base::as.integer(base::Sys.getenv("DB_PORT")),
+    user = base::Sys.getenv("DB_USER"),
+    password = base::Sys.getenv("DB_PASSWORD")
+  )
+}
+
+json_response <- function(res, status = 200, payload = NULL) {
+  res$serializer <- serializers[["json"]]
+  res$status <- status
+  jsonlite::toJSON(payload, pretty = TRUE, auto_unbox = TRUE, null = "null", na = "null")
+}
+
+json_error <- function(res, status = 400, message) {
+  json_response(
+    res = res,
+    status = status,
+    payload = base::data.frame(MESSAGES = as.character(message), stringsAsFactors = FALSE)
+  )
+}
+
+require_admin_key <- function(res, admin_key) {
+  if (base::missing(admin_key) || is.null(admin_key)) {
+    return(json_error(res, 404, "Missing required parameter: admin_key"))
+  }
+
+  admin_key <- base::trimws(admin_key[1])
+
+  if (identical(admin_key, "")) {
+    return(json_error(res, 404, "admin_key cannot be empty."))
+  }
+
+  if (!identical(admin_key, base::Sys.getenv("ADMIN_KEY"))) {
+    return(json_error(res, 404, "Invalid admin key."))
+  }
+
+  NULL
+}
+
+normalize_flag <- function(x, default = TRUE) {
+  if (is.null(x) || length(x) == 0 || is.na(x[1])) {
+    return(as.integer(default))
+  }
+
+  value <- tolower(trimws(as.character(x[1])))
+  as.integer(value %in% c("1", "true", "yes", "y"))
+}
+
 # Reset database ####
 reset_db_tables <- function(conn_handler){
   
@@ -175,6 +227,26 @@ generate_db_schema <- function(){
   ############# 
   print("Create schema for 'keywords' table in the database...")
   sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/keywords.sql")
+  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
+
+  #############
+  #
+  # GENESET RESOURCES ####
+  #
+  #############
+  print("Create schema for 'geneset_resources' table in the database...")
+  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/geneset_resources.sql")
+  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
+
+  #############
+  #
+  # GENESET ENTRIES ####
+  #
+  #############
+  print("Create schema for 'geneset_entries' table in the database...")
+  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/geneset_entries.sql")
   sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
   base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
   
@@ -285,6 +357,46 @@ generate_db_schema <- function(){
   ############# 
   print("Create schema for 'users' table in the database...")
   sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/users.sql")
+  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
+
+  #############
+  #
+  # FEDERATION NODES ####
+  #
+  #############
+  print("Create schema for 'federation_nodes' table in the database...")
+  sql_file <- base::file.path(sigrepo_server_path, "federation/schema/federation_nodes.sql")
+  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
+
+  #############
+  #
+  # FEDERATED SIGNATURES ####
+  #
+  #############
+  print("Create schema for 'federated_signatures' table in the database...")
+  sql_file <- base::file.path(sigrepo_server_path, "federation/schema/federated_signatures.sql")
+  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
+
+  #############
+  #
+  # FEDERATED COLLECTIONS ####
+  #
+  #############
+  print("Create schema for 'federated_collections' table in the database...")
+  sql_file <- base::file.path(sigrepo_server_path, "federation/schema/federated_collections.sql")
+  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
+  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
+
+  #############
+  #
+  # FEDERATION SYNC LOG ####
+  #
+  #############
+  print("Create schema for 'federation_sync_log' table in the database...")
+  sql_file <- base::file.path(sigrepo_server_path, "federation/schema/federation_sync_log.sql")
   sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
   base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
   
@@ -1403,4 +1515,404 @@ activate_user <- function(res, user_name, api_key){
   tbl <- base::data.frame(MESSAGES = MESSAGES)
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
+}
+
+#* Get federation node info
+#' @get /federation/node-info
+federation_node_info <- function(res) {
+  payload <- base::data.frame(
+    node_id = base::Sys.getenv("FEDERATION_NODE_ID", unset = base::Sys.getenv("DB_HOST", unset = "sigrepo-node")),
+    node_name = base::Sys.getenv("FEDERATION_NODE_NAME", unset = "SigRepo Node"),
+    lab_name = base::Sys.getenv("FEDERATION_LAB_NAME", unset = "Unknown Lab"),
+    base_url = base::Sys.getenv("FEDERATION_PUBLIC_BASE_URL", unset = ""),
+    api_url = base::sprintf(
+      "%s/api",
+      base::Sys.getenv("FEDERATION_PUBLIC_BASE_URL", unset = "")
+    ),
+    auth_mode = base::Sys.getenv("FEDERATION_AUTH_MODE", unset = "public"),
+    stringsAsFactors = FALSE
+  )
+
+  json_response(res, 200, payload)
+}
+
+#* Register or update a federation node
+#* @param admin_key
+#* @param node_id
+#* @param node_name
+#* @param lab_name
+#* @param base_url
+#* @param api_url
+#* @param auth_mode
+#* @param active
+#' @post /federation/catalog/register-node
+register_federation_node <- function(res, admin_key, node_id, node_name, lab_name = NULL, base_url, api_url, auth_mode = "public", active = TRUE) {
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  required_values <- list(
+    node_id = node_id,
+    node_name = node_name,
+    base_url = base_url,
+    api_url = api_url
+  )
+
+  missing_required <- names(required_values)[vapply(required_values, function(x) {
+    is.null(x) || length(x) == 0 || is.na(x[1]) || !nzchar(trimws(as.character(x[1])))
+  }, logical(1))]
+
+  if (length(missing_required) > 0) {
+    return(json_error(
+      res,
+      400,
+      base::sprintf("Missing required parameter(s): %s", base::paste(missing_required, collapse = ", "))
+    ))
+  }
+
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  query <- "
+    INSERT INTO federation_nodes
+      (node_id, node_name, lab_name, base_url, api_url, auth_mode, active, last_seen_at, last_sync_at)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, NOW(), NULL)
+    ON DUPLICATE KEY UPDATE
+      node_name = VALUES(node_name),
+      lab_name = VALUES(lab_name),
+      base_url = VALUES(base_url),
+      api_url = VALUES(api_url),
+      auth_mode = VALUES(auth_mode),
+      active = VALUES(active),
+      last_seen_at = NOW()
+  "
+
+  DBI::dbExecute(
+    conn,
+    query,
+    params = list(
+      trimws(as.character(node_id[1])),
+      trimws(as.character(node_name[1])),
+      if (!is.null(lab_name) && length(lab_name) > 0) trimws(as.character(lab_name[1])) else NA_character_,
+      trimws(as.character(base_url[1])),
+      trimws(as.character(api_url[1])),
+      trimws(as.character(auth_mode[1])),
+      normalize_flag(active, default = TRUE)
+    )
+  )
+
+  json_response(
+    res,
+    200,
+    base::data.frame(
+      MESSAGES = base::sprintf("Federation node '%s' registered or updated.", trimws(as.character(node_id[1]))),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+#* List federation nodes
+#* @param active_only
+#' @get /federation/catalog/nodes
+list_federation_nodes <- function(res, active_only = TRUE) {
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  query <- "SELECT * FROM federation_nodes"
+  params <- list()
+
+  if (normalize_flag(active_only, default = TRUE) == 1) {
+    query <- paste(query, "WHERE active = 1")
+  }
+
+  query <- paste(query, "ORDER BY node_name ASC")
+  node_tbl <- DBI::dbGetQuery(conn, query, params = params)
+  json_response(res, 200, node_tbl)
+}
+
+#* Upsert federated signature metadata
+#* @param admin_key
+#* @param node_id
+#* @param origin_signature_id
+#* @param signature_name
+#* @param description
+#* @param assay_type
+#* @param organism
+#* @param sample_type
+#* @param platform
+#* @param visibility
+#* @param has_difexp
+#* @param signature_size
+#* @param owner_label
+#* @param payload_endpoint
+#* @param updated_at
+#' @post /federation/catalog/upsert-signature
+upsert_federated_signature <- function(
+  res,
+  admin_key,
+  node_id,
+  origin_signature_id,
+  signature_name,
+  description = NULL,
+  assay_type = NULL,
+  organism = NULL,
+  sample_type = NULL,
+  platform = NULL,
+  visibility = TRUE,
+  has_difexp = FALSE,
+  signature_size = NULL,
+  owner_label = NULL,
+  payload_endpoint = NULL,
+  updated_at = NULL
+) {
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  required_values <- list(
+    node_id = node_id,
+    origin_signature_id = origin_signature_id,
+    signature_name = signature_name
+  )
+  missing_required <- names(required_values)[vapply(required_values, function(x) {
+    is.null(x) || length(x) == 0 || is.na(x[1]) || !nzchar(trimws(as.character(x[1])))
+  }, logical(1))]
+
+  if (length(missing_required) > 0) {
+    return(json_error(
+      res,
+      400,
+      base::sprintf("Missing required parameter(s): %s", base::paste(missing_required, collapse = ", "))
+    ))
+  }
+
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  query <- "
+    INSERT INTO federated_signatures
+      (node_id, origin_signature_id, signature_name, description, assay_type, organism,
+       sample_type, platform, visibility, has_difexp, signature_size, owner_label,
+       payload_endpoint, updated_at, last_indexed_at)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+      signature_name = VALUES(signature_name),
+      description = VALUES(description),
+      assay_type = VALUES(assay_type),
+      organism = VALUES(organism),
+      sample_type = VALUES(sample_type),
+      platform = VALUES(platform),
+      visibility = VALUES(visibility),
+      has_difexp = VALUES(has_difexp),
+      signature_size = VALUES(signature_size),
+      owner_label = VALUES(owner_label),
+      payload_endpoint = VALUES(payload_endpoint),
+      updated_at = VALUES(updated_at),
+      last_indexed_at = NOW()
+  "
+
+  DBI::dbExecute(
+    conn,
+    query,
+    params = list(
+      trimws(as.character(node_id[1])),
+      trimws(as.character(origin_signature_id[1])),
+      trimws(as.character(signature_name[1])),
+      if (!is.null(description) && length(description) > 0) as.character(description[1]) else NA_character_,
+      if (!is.null(assay_type) && length(assay_type) > 0) as.character(assay_type[1]) else NA_character_,
+      if (!is.null(organism) && length(organism) > 0) as.character(organism[1]) else NA_character_,
+      if (!is.null(sample_type) && length(sample_type) > 0) as.character(sample_type[1]) else NA_character_,
+      if (!is.null(platform) && length(platform) > 0) as.character(platform[1]) else NA_character_,
+      normalize_flag(visibility, default = TRUE),
+      normalize_flag(has_difexp, default = FALSE),
+      if (!is.null(signature_size) && length(signature_size) > 0 && nzchar(as.character(signature_size[1]))) as.integer(signature_size[1]) else NA_integer_,
+      if (!is.null(owner_label) && length(owner_label) > 0) as.character(owner_label[1]) else NA_character_,
+      if (!is.null(payload_endpoint) && length(payload_endpoint) > 0) as.character(payload_endpoint[1]) else NA_character_,
+      if (!is.null(updated_at) && length(updated_at) > 0 && nzchar(as.character(updated_at[1]))) as.character(updated_at[1]) else NA_character_
+    )
+  )
+
+  json_response(
+    res,
+    200,
+    base::data.frame(
+      MESSAGES = base::sprintf(
+        "Federated signature '%s' from node '%s' indexed.",
+        trimws(as.character(origin_signature_id[1])),
+        trimws(as.character(node_id[1]))
+      ),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+#* List federated signatures
+#* @param node_id
+#* @param organism
+#* @param assay_type
+#* @param signature_name
+#' @get /federation/catalog/signatures
+list_federated_signatures <- function(res, node_id = NULL, organism = NULL, assay_type = NULL, signature_name = NULL) {
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  query <- "
+    SELECT fs.*, fn.node_name, fn.lab_name, fn.base_url, fn.api_url
+    FROM federated_signatures fs
+    INNER JOIN federation_nodes fn ON fs.node_id = fn.node_id
+    WHERE fn.active = 1
+  "
+  params <- list()
+
+  if (!is.null(node_id) && length(node_id) > 0 && nzchar(trimws(as.character(node_id[1])))) {
+    query <- paste(query, "AND fs.node_id = ?")
+    params <- c(params, trimws(as.character(node_id[1])))
+  }
+  if (!is.null(organism) && length(organism) > 0 && nzchar(trimws(as.character(organism[1])))) {
+    query <- paste(query, "AND fs.organism = ?")
+    params <- c(params, trimws(as.character(organism[1])))
+  }
+  if (!is.null(assay_type) && length(assay_type) > 0 && nzchar(trimws(as.character(assay_type[1])))) {
+    query <- paste(query, "AND fs.assay_type = ?")
+    params <- c(params, trimws(as.character(assay_type[1])))
+  }
+  if (!is.null(signature_name) && length(signature_name) > 0 && nzchar(trimws(as.character(signature_name[1])))) {
+    query <- paste(query, "AND fs.signature_name LIKE ?")
+    params <- c(params, base::sprintf("%%%s%%", trimws(as.character(signature_name[1]))))
+  }
+
+  query <- paste(query, "ORDER BY fs.signature_name ASC")
+  signature_tbl <- DBI::dbGetQuery(conn, query, params = params)
+  json_response(res, 200, signature_tbl)
+}
+
+#* Upsert federated collection metadata
+#* @param admin_key
+#* @param node_id
+#* @param origin_collection_id
+#* @param collection_name
+#* @param description
+#* @param visibility
+#* @param signature_count
+#* @param owner_label
+#* @param payload_endpoint
+#* @param updated_at
+#' @post /federation/catalog/upsert-collection
+upsert_federated_collection <- function(
+  res,
+  admin_key,
+  node_id,
+  origin_collection_id,
+  collection_name,
+  description = NULL,
+  visibility = TRUE,
+  signature_count = NULL,
+  owner_label = NULL,
+  payload_endpoint = NULL,
+  updated_at = NULL
+) {
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  required_values <- list(
+    node_id = node_id,
+    origin_collection_id = origin_collection_id,
+    collection_name = collection_name
+  )
+  missing_required <- names(required_values)[vapply(required_values, function(x) {
+    is.null(x) || length(x) == 0 || is.na(x[1]) || !nzchar(trimws(as.character(x[1])))
+  }, logical(1))]
+
+  if (length(missing_required) > 0) {
+    return(json_error(
+      res,
+      400,
+      base::sprintf("Missing required parameter(s): %s", base::paste(missing_required, collapse = ", "))
+    ))
+  }
+
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  query <- "
+    INSERT INTO federated_collections
+      (node_id, origin_collection_id, collection_name, description, visibility,
+       signature_count, owner_label, payload_endpoint, updated_at, last_indexed_at)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+      collection_name = VALUES(collection_name),
+      description = VALUES(description),
+      visibility = VALUES(visibility),
+      signature_count = VALUES(signature_count),
+      owner_label = VALUES(owner_label),
+      payload_endpoint = VALUES(payload_endpoint),
+      updated_at = VALUES(updated_at),
+      last_indexed_at = NOW()
+  "
+
+  DBI::dbExecute(
+    conn,
+    query,
+    params = list(
+      trimws(as.character(node_id[1])),
+      trimws(as.character(origin_collection_id[1])),
+      trimws(as.character(collection_name[1])),
+      if (!is.null(description) && length(description) > 0) as.character(description[1]) else NA_character_,
+      normalize_flag(visibility, default = TRUE),
+      if (!is.null(signature_count) && length(signature_count) > 0 && nzchar(as.character(signature_count[1]))) as.integer(signature_count[1]) else NA_integer_,
+      if (!is.null(owner_label) && length(owner_label) > 0) as.character(owner_label[1]) else NA_character_,
+      if (!is.null(payload_endpoint) && length(payload_endpoint) > 0) as.character(payload_endpoint[1]) else NA_character_,
+      if (!is.null(updated_at) && length(updated_at) > 0 && nzchar(as.character(updated_at[1]))) as.character(updated_at[1]) else NA_character_
+    )
+  )
+
+  json_response(
+    res,
+    200,
+    base::data.frame(
+      MESSAGES = base::sprintf(
+        "Federated collection '%s' from node '%s' indexed.",
+        trimws(as.character(origin_collection_id[1])),
+        trimws(as.character(node_id[1]))
+      ),
+      stringsAsFactors = FALSE
+    )
+  )
+}
+
+#* List federated collections
+#* @param node_id
+#* @param collection_name
+#' @get /federation/catalog/collections
+list_federated_collections <- function(res, node_id = NULL, collection_name = NULL) {
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  query <- "
+    SELECT fc.*, fn.node_name, fn.lab_name, fn.base_url, fn.api_url
+    FROM federated_collections fc
+    INNER JOIN federation_nodes fn ON fc.node_id = fn.node_id
+    WHERE fn.active = 1
+  "
+  params <- list()
+
+  if (!is.null(node_id) && length(node_id) > 0 && nzchar(trimws(as.character(node_id[1])))) {
+    query <- paste(query, "AND fc.node_id = ?")
+    params <- c(params, trimws(as.character(node_id[1])))
+  }
+  if (!is.null(collection_name) && length(collection_name) > 0 && nzchar(trimws(as.character(collection_name[1])))) {
+    query <- paste(query, "AND fc.collection_name LIKE ?")
+    params <- c(params, base::sprintf("%%%s%%", trimws(as.character(collection_name[1]))))
+  }
+
+  query <- paste(query, "ORDER BY fc.collection_name ASC")
+  collection_tbl <- DBI::dbGetQuery(conn, query, params = params)
+  json_response(res, 200, collection_tbl)
 }
