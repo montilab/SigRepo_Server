@@ -1,17 +1,35 @@
 #!/usr/bin/env Rscript
 
 suppressPackageStartupMessages({
+  library(digest)
   library(dplyr)
   library(msigdbr)
 })
+
+find_repo_root <- function() {
+  file_arg <- commandArgs(trailingOnly = FALSE)
+  file_prefix <- "--file="
+  file_entry <- file_arg[startsWith(file_arg, file_prefix)][1]
+
+  script_path <- if (!is.na(file_entry)) {
+    normalizePath(sub(file_prefix, "", file_entry), winslash = "/", mustWork = FALSE)
+  } else {
+    normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+  }
+
+  script_dir <- if (dir.exists(script_path)) script_path else dirname(script_path)
+  normalizePath(file.path(script_dir, ".."), winslash = "/", mustWork = FALSE)
+}
 
 species_to_cache <- c(
   "Homo sapiens",
   "Mus musculus"
 )
 
-default_output_dir <- file.path("shiny", "data", "msigdb_genesets")
+repo_root <- find_repo_root()
+default_output_dir <- file.path(repo_root, "shiny", "data", "msigdb_genesets")
 output_dir <- Sys.getenv("MSIGDB_CACHE_DIR", unset = default_output_dir)
+output_dir <- normalizePath(output_dir, winslash = "/", mustWork = FALSE)
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -58,6 +76,7 @@ collections <- msigdbr::msigdbr_collections() |>
   dplyr::arrange(gs_collection, gs_subcollection)
 
 manifest <- list()
+msigdb_version <- as.character(utils::packageVersion("msigdbr"))
 
 for (species in species_to_cache) {
   message("Building MSigDB cache for: ", species)
@@ -88,12 +107,19 @@ for (species in species_to_cache) {
     saveRDS(genesets, cache_file, compress = "xz")
 
     manifest[[length(manifest) + 1]] <- data.frame(
+      source = "msigdb",
       species = species,
-      gs_collection = collection,
-      gs_subcollection = subcollection,
+      collection = collection,
+      subcollection = if (nzchar(subcollection)) subcollection else NA_character_,
+      version = format(Sys.Date(), "%Y-%m-%d"),
+      source_version = paste0("msigdbr_", msigdb_version),
+      format = "rds",
+      storage_path = normalizePath(cache_file, winslash = "/", mustWork = FALSE),
+      checksum = digest::digest(file = cache_file, algo = "md5", serialize = FALSE),
       file = basename(cache_file),
-      genesets = length(genesets),
-      genes = length(unique(unlist(genesets, use.names = FALSE))),
+      n_genesets = length(genesets),
+      n_features = length(unique(unlist(genesets, use.names = FALSE))),
+      is_current = 1L,
       stringsAsFactors = FALSE
     )
 
