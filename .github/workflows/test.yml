@@ -1,0 +1,133 @@
+name: test
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "api/**"
+      - "shiny/modules/**"
+      - "mysql/schema/**"
+      - "tests/**"
+      - "DESCRIPTION"
+      - "install_r_packages.R"
+      - ".github/workflows/test.yml"
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  testthat-integration:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: test-${{ github.event_name != 'pull_request' || github.run_id }}
+      cancel-in-progress: true
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: sigrepo_test
+          MYSQL_USER: sigrepo_test
+          MYSQL_PASSWORD: sigrepo_test_pw
+          MYSQL_ROOT_PASSWORD: sigrepo_root_pw
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -psigrepo_root_pw"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DB_NAME: sigrepo_test
+      DB_LOCAL_HOST: 127.0.0.1
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: sigrepo_root_pw
+      ADMIN_KEY: ci-test-admin-key
+      SENDMAIL_KEY: ci-test-sendmail-key
+      DIFEXP_DIR: ${{ github.workspace }}/tmp_ci_difexp
+      SIGREPO_SERVER_DIR: ${{ github.workspace }}
+      SIGREPO_DIR: ${{ github.workspace }}/external/SigRepo
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout SigRepo_Server
+        uses: actions/checkout@v4
+
+      - name: Checkout SigRepo (client package, loaded in dev mode)
+        uses: actions/checkout@v4
+        with:
+          repository: montilab/SigRepo
+          path: external/SigRepo
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update --allow-releaseinfo-change --fix-missing
+          sudo apt-get -y --no-install-recommends install \
+            build-essential pkg-config cmake \
+            libcurl4-openssl-dev libssl-dev libxml2-dev \
+            default-libmysqlclient-dev librsvg2-dev libudunits2-dev \
+            libv8-dev libsodium-dev libbz2-dev liblzma-dev \
+            tcl8.6-dev tk8.6-dev libabsl-dev libuv1-dev
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - name: Cache R library
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-rlibs-${{ hashFiles('DESCRIPTION', 'external/SigRepo/DESCRIPTION') }}
+          restore-keys: |
+            ${{ runner.os }}-rlibs-
+
+      - name: Install SigRepo_Server R dependencies
+        run: Rscript install_r_packages.R
+
+      - name: Install SigRepo's own dependencies (loaded via pkgload, not installed itself)
+        run: |
+          Rscript -e '
+            BiocManager::install(c("limma", "biomaRt"), ask = FALSE, update = FALSE)
+            install.packages(c("digest", "purrr", "readr", "rlang", "pkgload", "testthat"))
+          '
+
+      - name: Install hypeR and OmicSignature
+        run: |
+          Rscript -e 'remotes::install_github("montilab/OmicSignature", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
+          Rscript -e 'remotes::install_github("montilab/hypeR", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
+
+      - name: Load MySQL schema
+        run: |
+          {
+            echo "SET FOREIGN_KEY_CHECKS=0;"
+            for f in mysql/schema/*.sql; do cat "$f"; echo ";"; done
+            echo "SET FOREIGN_KEY_CHECKS=1;"
+          } > /tmp/schema.sql
+          mysql -h127.0.0.1 -uroot -psigrepo_root_pw sigrepo_test < /tmp/schema.sql
+
+      - name: Seed test fixtures
+        run: mysql -h127.0.0.1 -uroot -psigrepo_root_pw sigrepo_test < tests/testthat/fixtures/seed.sql
+
+      - name: Run testthat
+        run: testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
+        shell: Rscript {0}
+
+      - name: Boot Plumber API and smoke-check routes
+        run: |
+          mkdir -p "${DIFEXP_DIR}"
+          Rscript api/run_sigrepo_api.R > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3838/__docs__/ >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:3838/__docs__/ >/dev/null
+          curl -fsS http://127.0.0.1:3838/openapi.json >/dev/null
+          kill "$(cat /tmp/api.pid)" || true
+
+      - name: Show API log on failure
+        if: failure()
+        run: cat /tmp/api.log || true
