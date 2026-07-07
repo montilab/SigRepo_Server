@@ -73,7 +73,7 @@ msigdb_cache_dir <- function() {
   env_cache_dir <- Sys.getenv("MSIGDB_CACHE_DIR", unset = "")
 
   if (nzchar(env_cache_dir)) {
-    return(env_cache_dir)
+    return(normalizePath(env_cache_dir, winslash = "/", mustWork = FALSE))
   }
 
   shiny_path <- getOption("sigrepo.shiny_path", default = "")
@@ -91,10 +91,10 @@ msigdb_cache_dir <- function() {
   existing_cache_dir <- cache_dir_candidates[dir.exists(cache_dir_candidates)]
 
   if (length(existing_cache_dir) > 0) {
-    return(existing_cache_dir[[1]])
+    return(normalizePath(existing_cache_dir[[1]], winslash = "/", mustWork = FALSE))
   }
 
-  cache_dir_candidates[[1]]
+  normalizePath(cache_dir_candidates[[1]], winslash = "/", mustWork = FALSE)
 }
 
 
@@ -134,6 +134,121 @@ load_cached_msigdb_genesets <- function(species, collection, subcollection = "")
 runtime_msigdb_fetch_allowed <- function() {
   value <- tolower(Sys.getenv("MSIGDB_ALLOW_RUNTIME_FETCH", unset = "false"))
   value %in% c("true", "1", "yes", "y")
+}
+
+
+parse_custom_geneset_text <- function(geneset_name, genes_text) {
+  geneset_name <- trimws(as.character(geneset_name))
+  if (!nzchar(geneset_name)) {
+    stop("Provide a geneset name for the custom geneset.", call. = FALSE)
+  }
+
+  genes_text <- paste(genes_text, collapse = "\n")
+  raw_genes <- unlist(strsplit(genes_text, "[,\n\r\t;]+"))
+  genes <- unique(trimws(raw_genes))
+  genes <- genes[nzchar(genes)]
+
+  if (length(genes) == 0) {
+    stop("Provide at least one gene symbol for the custom geneset.", call. = FALSE)
+  }
+
+  stats::setNames(list(genes), geneset_name)
+}
+
+
+parse_custom_geneset_csv <- function(file_path) {
+  custom_tbl <- utils::read.csv(
+    file_path,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
+  if (nrow(custom_tbl) == 0) {
+    stop("The uploaded geneset CSV is empty.", call. = FALSE)
+  }
+
+  normalized_names <- tolower(gsub("[^a-z0-9]+", "", names(custom_tbl)))
+
+  find_column <- function(candidates) {
+    idx <- match(tolower(gsub("[^a-z0-9]+", "", candidates)), normalized_names, nomatch = 0)
+    idx <- idx[idx > 0]
+    if (length(idx) == 0) {
+      return(NULL)
+    }
+    names(custom_tbl)[[idx[[1]]]]
+  }
+
+  geneset_col <- find_column(c("geneset_name", "geneset", "set_name", "set"))
+  gene_col <- find_column(c("gene_symbol", "symbol", "gene", "feature_name"))
+
+  if (is.null(geneset_col) || is.null(gene_col)) {
+    stop(
+      "Custom geneset CSV must include columns like geneset_name and gene_symbol.",
+      call. = FALSE
+    )
+  }
+
+  custom_tbl[[geneset_col]] <- trimws(as.character(custom_tbl[[geneset_col]]))
+  custom_tbl[[gene_col]] <- trimws(as.character(custom_tbl[[gene_col]]))
+  custom_tbl <- custom_tbl[
+    nzchar(custom_tbl[[geneset_col]]) & nzchar(custom_tbl[[gene_col]]),
+    c(geneset_col, gene_col),
+    drop = FALSE
+  ]
+
+  if (nrow(custom_tbl) == 0) {
+    stop("The uploaded geneset CSV did not contain any valid geneset rows.", call. = FALSE)
+  }
+
+  genesets <- split(custom_tbl[[gene_col]], custom_tbl[[geneset_col]])
+  lapply(genesets, unique)
+}
+
+
+parse_custom_geneset_gmt <- function(file_path) {
+  gmt_lines <- readLines(file_path, warn = FALSE)
+  gmt_lines <- gmt_lines[nzchar(trimws(gmt_lines))]
+
+  if (length(gmt_lines) == 0) {
+    stop("The uploaded GMT file is empty.", call. = FALSE)
+  }
+
+  genesets <- lapply(gmt_lines, function(line) {
+    parts <- strsplit(line, "\t", fixed = TRUE)[[1]]
+    if (length(parts) < 3) {
+      return(NULL)
+    }
+
+    geneset_name <- trimws(parts[[1]])
+    genes <- unique(trimws(parts[-c(1, 2)]))
+    genes <- genes[nzchar(genes)]
+
+    if (!nzchar(geneset_name) || length(genes) == 0) {
+      return(NULL)
+    }
+
+    stats::setNames(list(genes), geneset_name)
+  })
+
+  genesets <- genesets[!vapply(genesets, is.null, logical(1))]
+
+  if (length(genesets) == 0) {
+    stop("The uploaded GMT file did not contain any valid genesets.", call. = FALSE)
+  }
+
+  unlist(genesets, recursive = FALSE, use.names = TRUE)
+}
+
+
+parse_custom_geneset_file <- function(file_info) {
+  req(file_info)
+  file_name <- if (!is.null(file_info$name)) tolower(file_info$name) else ""
+
+  if (grepl("\\.gmt$", file_name)) {
+    return(parse_custom_geneset_gmt(file_info$datapath))
+  }
+
+  parse_custom_geneset_csv(file_info$datapath)
 }
 
 
@@ -182,7 +297,11 @@ genesets_hypeR_UI <- function(id) {
       uiOutput(ns("subcategory_ui")),
       div(
         class = "geneset-filter-actions",
-        actionButton(ns("fetch_genesets"), "Fetch Genesets", class = "btn-primary"),
+        div(
+          style = "display:flex; gap:10px; flex-wrap:wrap;",
+          actionButton(ns("fetch_genesets"), "Fetch Genesets", class = "btn-primary"),
+          actionButton(ns("open_custom_geneset_modal"), "Add Custom Genesets")
+        ),
         uiOutput(ns("status"))
       )
     ),
@@ -205,6 +324,7 @@ genesets_hypeR_UI <- function(id) {
 genesets_hypeR_Server <- function(id, species, clean = FALSE) {
   moduleServer(id, function(input, output, session) {
     selected_genesets <- reactiveVal(list())
+    geneset_source_label <- reactiveVal(NULL)
     
     # Build subcategory selector
     output$subcategory_ui <- renderUI({
@@ -237,7 +357,10 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
 
     observeEvent(
       list(species(), input$collection, input$subcategory),
-      selected_genesets(list()),
+      {
+        selected_genesets(list())
+        geneset_source_label(NULL)
+      },
       ignoreInit = TRUE
     )
     
@@ -271,6 +394,12 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
         }
 
         selected_genesets(cached_genesets)
+        geneset_source_label(sprintf(
+          "Loaded %s genesets from local cache for collection %s%s.",
+          length(cached_genesets),
+          input$collection,
+          if (!identical(input$subcategory, "")) sprintf(" / %s", input$subcategory) else ""
+        ))
         showNotification("Loaded genesets from local cache.", type = "message")
         return()
       }
@@ -330,8 +459,92 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
       }
       
       selected_genesets(gs)
+      geneset_source_label(sprintf(
+        "Loaded %s genesets from MSigDB for collection %s%s.",
+        length(gs),
+        input$collection,
+        if (!identical(input$subcategory, "")) sprintf(" / %s", input$subcategory) else ""
+      ))
       rm(filtered_tbl)
       gc(verbose = FALSE)
+    })
+
+    observeEvent(input$open_custom_geneset_modal, {
+      showModal(
+        modalDialog(
+          title = "Add Custom Genesets",
+          size = "l",
+          easyClose = TRUE,
+          div(
+            class = "geneset-filter-heading",
+            tags$p("Create a single geneset by pasting genes, or upload a CSV/GMT file containing one or more custom genesets.")
+          ),
+          radioButtons(
+            session$ns("custom_geneset_mode"),
+            "Input Mode",
+            choices = c("Single Geneset" = "single", "CSV or GMT File" = "file"),
+            selected = "single",
+            inline = TRUE
+          ),
+          conditionalPanel(
+            condition = sprintf("input['%s'] === 'single'", session$ns("custom_geneset_mode")),
+            ns = session$ns,
+            textInput(session$ns("custom_geneset_name"), "Geneset Name"),
+            textAreaInput(
+              session$ns("custom_geneset_text"),
+              "Genes",
+              rows = 10,
+              placeholder = "Paste gene symbols separated by commas or new lines"
+            )
+          ),
+          conditionalPanel(
+            condition = sprintf("input['%s'] === 'file'", session$ns("custom_geneset_mode")),
+            ns = session$ns,
+            fileInput(
+              session$ns("custom_geneset_file"),
+              "Choose CSV or GMT File",
+              accept = c(".csv", ".gmt", "text/csv", "text/plain")
+            ),
+            tags$p(
+              class = "geneset-summary-text",
+              "CSV files should include columns like geneset_name and gene_symbol."
+            )
+          ),
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(session$ns("save_custom_geneset"), "Use Custom Genesets", class = "btn-primary")
+          )
+        )
+      )
+    })
+
+    observeEvent(input$save_custom_geneset, {
+      tryCatch({
+        custom_genesets <- if (identical(input$custom_geneset_mode, "file")) {
+          parse_custom_geneset_file(input$custom_geneset_file)
+        } else {
+          parse_custom_geneset_text(input$custom_geneset_name, input$custom_geneset_text)
+        }
+
+        if (clean) {
+          names(custom_genesets) <- clean_genesets(names(custom_genesets))
+        }
+
+        selected_genesets(custom_genesets)
+        geneset_source_label(sprintf(
+          "Loaded %s custom geneset%s.",
+          length(custom_genesets),
+          if (length(custom_genesets) == 1) "" else "s"
+        ))
+        removeModal()
+        showNotification("Custom genesets loaded.", type = "message")
+      }, error = function(err) {
+        showNotification(
+          sprintf("Failed to load custom genesets: %s", conditionMessage(err)),
+          type = "error",
+          duration = 10
+        )
+      })
     })
     
     # Status message
@@ -363,16 +576,11 @@ genesets_hypeR_Server <- function(id, species, clean = FALSE) {
       tagList(
         tags$p(
           class = "geneset-summary-text",
-          sprintf(
-            "Loaded %s genesets for collection %s%s.",
-            length(gs),
-            input$collection,
-            if (!identical(input$subcategory, "")) {
-              sprintf(" / %s", input$subcategory)
-            } else {
-              ""
-            }
-          )
+          if (!is.null(geneset_source_label())) {
+            geneset_source_label()
+          } else {
+            sprintf("Loaded %s genesets.", length(gs))
+          }
         )
       )
     })
