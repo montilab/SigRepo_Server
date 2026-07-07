@@ -26,17 +26,81 @@ library(dplyr)
 # Package for plotting
 library(ggplot2)
 
-# For loading and installing packages
-library(devtools)
+load_repo_package <- function(repo_dir, package_name, required = TRUE) {
+  repo_dir <- base::Sys.getenv(repo_dir, unset = repo_dir)
+
+  if (base::nzchar(repo_dir) && base::dir.exists(repo_dir)) {
+    if (requireNamespace("pkgload", quietly = TRUE)) {
+      pkgload::load_all(path = repo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+      return(invisible(TRUE))
+    }
+
+    if (requireNamespace("devtools", quietly = TRUE)) {
+      devtools::load_all(path = repo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+      return(invisible(TRUE))
+    }
+  }
+
+  if (requireNamespace(package_name, quietly = TRUE)) {
+    base::library(package_name, character.only = TRUE)
+    return(invisible(TRUE))
+  }
+
+  if (!required) {
+    return(invisible(FALSE))
+  }
+
+  base::stop(
+    base::sprintf(
+      "Cannot load package '%s'. Checked repo path '%s' and installed packages, but neither pkgload/devtools nor the installed package were available.",
+      package_name,
+      repo_dir
+    )
+  )
+}
 
 # Load SigRepo package
-devtools::load_all(base::Sys.getenv("SIGREPO_DIR"))
+load_repo_package("SIGREPO_DIR", "SigRepo")
 
 # Loading OmicSignature package
-devtools::load_all(base::Sys.getenv("OMICSIG_DIR"))
+load_repo_package("OMICSIG_DIR", "OmicSignature")
 
 # # Loading hypeR package
-devtools::load_all(base::Sys.getenv("HYPER_DIR"))
+load_repo_package("HYPER_DIR", "hypeR")
+
+hypgem_dir <- base::Sys.getenv("HYPERGEM_DIR", unset = "")
+if (!nzchar(hypgem_dir)) {
+  sibling_hypgem <- normalizePath(
+    file.path(dirname(normalizePath(getwd())), "hypeR-GEM"),
+    mustWork = FALSE
+  )
+  if (dir.exists(sibling_hypgem)) {
+    hypgem_dir <- sibling_hypgem
+  }
+}
+
+options(sigrepo.hypergem_available = FALSE)
+options(sigrepo.hypergem_error = NULL)
+
+if (nzchar(hypgem_dir) && dir.exists(hypgem_dir)) {
+  hypgem_loaded <- tryCatch({
+    if (requireNamespace("pkgload", quietly = TRUE)) {
+      pkgload::load_all(path = hypgem_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+    } else if (requireNamespace("devtools", quietly = TRUE)) {
+      devtools::load_all(path = hypgem_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+    } else if (requireNamespace("hypeR.GEM", quietly = TRUE)) {
+      base::library("hypeR.GEM", character.only = TRUE)
+    } else {
+      base::stop("Neither pkgload/devtools nor an installed hypeR.GEM package were available.")
+    }
+    TRUE
+  }, error = function(e) {
+    options(sigrepo.hypergem_error = conditionMessage(e))
+    FALSE
+  })
+
+  options(sigrepo.hypergem_available = hypgem_loaded)
+}
 
 # Package for parallel processes
 library(promises)
@@ -64,6 +128,8 @@ if (!file.exists(file.path(shiny_path, "modules", "home_module.R")) &&
     file.exists(file.path(shiny_path, "shiny", "modules", "home_module.R"))) {
   shiny_path <- normalizePath(file.path(shiny_path, "shiny"))
 }
+
+options(sigrepo.shiny_path = shiny_path)
 
 bootstrap_env <- .GlobalEnv
 
