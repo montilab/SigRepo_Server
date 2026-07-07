@@ -37,9 +37,35 @@ if (!file.exists(renviron_path)) {
 
 readRenviron(renviron_path)
 
-sigrepo_dir <- Sys.getenv("SIGREPO_DIR", unset = "")
-if (!nzchar(sigrepo_dir)) {
-  stop("SIGREPO_DIR must be defined in .Renviron", call. = FALSE)
+resolve_host_repo_path <- function(path_value, fallback_relative) {
+  if (!nzchar(path_value)) {
+    return(normalizePath(file.path(repo_root, fallback_relative), winslash = "/", mustWork = FALSE))
+  }
+
+  if (dir.exists(path_value) && file.exists(file.path(path_value, "DESCRIPTION"))) {
+    return(normalizePath(path_value, winslash = "/", mustWork = FALSE))
+  }
+
+  if (startsWith(path_value, "/")) {
+    fallback_path <- normalizePath(file.path(repo_root, fallback_relative), winslash = "/", mustWork = FALSE)
+    if (dir.exists(fallback_path) && file.exists(file.path(fallback_path, "DESCRIPTION"))) {
+      return(fallback_path)
+    }
+  }
+
+  normalizePath(path_value, winslash = "/", mustWork = FALSE)
+}
+
+sigrepo_dir <- resolve_host_repo_path(Sys.getenv("SIGREPO_DIR", unset = ""), "../SigRepo")
+
+if (!dir.exists(sigrepo_dir) || !file.exists(file.path(sigrepo_dir, "DESCRIPTION"))) {
+  stop(
+    sprintf(
+      "Could not resolve a local SigRepo package path. Checked: %s",
+      sigrepo_dir
+    ),
+    call. = FALSE
+  )
 }
 
 devtools::load_all(sigrepo_dir, quiet = TRUE)
@@ -102,10 +128,20 @@ resource_tbl <- manifest_tbl |>
 
 conn_handler <- SigRepo::newConnHandler(
   dbname = Sys.getenv("DB_NAME"),
-  host = Sys.getenv("DB_HOST"),
+  host = {
+    db_host <- Sys.getenv("DB_HOST", unset = "")
+    db_local_host <- Sys.getenv("DB_LOCAL_HOST", unset = "")
+    if (db_host %in% c("sigrepo-mysql", "") && db_local_host %in% c("sigrepo-mysql", "")) {
+      "127.0.0.1"
+    } else if (!db_local_host %in% c("", "sigrepo-mysql")) {
+      db_local_host
+    } else {
+      db_host
+    }
+  },
   port = as.integer(Sys.getenv("DB_PORT")),
-  user = Sys.getenv("DB_USER"),
-  password = Sys.getenv("DB_PASSWORD")
+  user = if (nzchar(Sys.getenv("DB_USER", unset = ""))) Sys.getenv("DB_USER") else "root",
+  password = if (nzchar(Sys.getenv("DB_PASSWORD", unset = ""))) Sys.getenv("DB_PASSWORD") else Sys.getenv("MYSQL_ROOT_PASSWORD", unset = "sigrepo")
 )
 
 message("Registering geneset resources in SigRepo...")
