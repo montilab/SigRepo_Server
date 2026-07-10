@@ -1,0 +1,59 @@
+:root {
+  --navbar-bg: #004080;
+  --navbar-border: #003366;
+
+  --text-heading: #17324d;
+  --text-body: #3f556b;
+  --text-muted: #597189;
+  --text-label: #4e6782;
+
+  --card-bg: #ffffff;
+  --card-border: #d9e3ec;
+  --card-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
+
+  --stat-bg: #f6f9fc;
+  --stat-border: #e1ebf2;
+
+  --empty-bg: #f8fbfd;
+  --empty-border: #c5d5e3;
+
+  --primary: #1c5d87;
+  --primary-dark: #154a6c;
+  --primary-light: #e7f1f9;
+
+  --badge-local-bg: #eef3f7;
+  --badge-local-fg: #35506b;
+  --badge-remote-bg: #e6f2fb;
+  --badge-remote-fg: #0f4d7c;
+  --badge-status-bg: #eef7ed;
+  --badge-status-fg: #2c6a3f;
+
+  --page-bg: #eef3f8;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: var(--primary);
+}
