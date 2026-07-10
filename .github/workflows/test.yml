@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - "api/**"
+      - "mcp/**"
       - "shiny/modules/**"
       - "mysql/schema/**"
       - "tests/**"
@@ -131,3 +132,27 @@ jobs:
       - name: Show API log on failure
         if: failure()
         run: cat /tmp/api.log || true
+
+      - name: Boot MCP server and smoke-check tools/list
+        env:
+          MCP_PORT: 8021
+        run: |
+          Rscript mcp/run_sigrepo_mcp.R > /tmp/mcp.log 2>&1 &
+          echo $! > /tmp/mcp.pid
+          for i in $(seq 1 30); do
+            curl -fsS -X POST http://127.0.0.1:8021 -H "Content-Type: application/json" \
+              -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          response=$(curl -fsS -X POST http://127.0.0.1:8021 -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
+          echo "$response"
+          echo "$response" | grep -q '"search_signatures"'
+          echo "$response" | grep -q '"get_signature_context"'
+          echo "$response" | grep -q '"compare_signatures"'
+          echo "$response" | grep -q '"list_vocabulary"'
+          kill "$(cat /tmp/mcp.pid)" || true
+
+      - name: Show MCP server log on failure
+        if: failure()
+        run: cat /tmp/mcp.log || true
