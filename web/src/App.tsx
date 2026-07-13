@@ -4,6 +4,7 @@ import "./App.css";
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import InsightsPage from "./pages/InsightsPage";
 import SignaturesPage from "./pages/SignaturesPage";
 import CollectionsPage from "./pages/CollectionsPage";
 import AnnotatePage from "./pages/AnnotatePage";
@@ -25,6 +26,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/insights" element={<InsightsPage />} />
           <Route path="/signatures" element={<SignaturesPage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/annotate" element={<AnnotatePage />} />

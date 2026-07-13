@@ -3,6 +3,7 @@ import { UserCircle, LogOut } from "lucide-react";
 
 const tabs = [
   { to: "/home", label: "Home" },
+  { to: "/insights", label: "Insights" },
   { to: "/signatures", label: "Signatures" },
   { to: "/collections", label: "Collections" },
   { to: "/annotate", label: "Annotate" },
