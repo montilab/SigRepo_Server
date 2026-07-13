@@ -193,3 +193,20 @@ export const connectedNodes = [
   { node_id: "monti_proteomics", node_name: "Monti Lab Proteomics", lab_name: "Monti Lab", status: "Connected", signatures: 148, last_sync: "2026-07-10 08:35" },
   { node_id: "gtex_public", node_name: "GTEx Public Atlas", lab_name: "GTEx Consortium", status: "Connected", signatures: 312, last_sync: "2026-07-10 08:41" },
 ];
+
+export interface EnrichmentResult {
+  geneset: string;
+  pval: number;
+  fdr: number;
+  overlapCount: number;
+  genesetSize: number;
+}
+
+export const enrichmentResults: EnrichmentResult[] = [
+  { geneset: "REACTOME_CELLULAR_SENESCENCE", pval: 0.00012, fdr: 0.0021, overlapCount: 14, genesetSize: 86 },
+  { geneset: "KEGG_COMPLEMENT_AND_COAGULATION_CASCADES", pval: 0.00045, fdr: 0.0038, overlapCount: 9, genesetSize: 68 },
+  { geneset: "WP_OXIDATIVE_STRESS_RESPONSE", pval: 0.0012, fdr: 0.0091, overlapCount: 7, genesetSize: 41 },
+  { geneset: "REACTOME_INNATE_IMMUNE_SYSTEM", pval: 0.0034, fdr: 0.018, overlapCount: 11, genesetSize: 122 },
+  { geneset: "KEGG_PPAR_SIGNALING_PATHWAY", pval: 0.0067, fdr: 0.031, overlapCount: 5, genesetSize: 29 },
+  { geneset: "REACTOME_EXTRACELLULAR_MATRIX_ORGANIZATION", pval: 0.0091, fdr: 0.038, overlapCount: 8, genesetSize: 94 },
+];
