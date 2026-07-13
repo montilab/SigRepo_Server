@@ -202,6 +202,61 @@ export interface EnrichmentResult {
   genesetSize: number;
 }
 
+export interface SignatureFeature {
+  feature_name: string;
+  score: number;
+}
+
+// Per-signature feature/score lists used by the Compare page. Feature name
+// overlap across signatures is intentional -- it's what drives the shared
+// vs. unique breakdown.
+export const signatureFeatures: Record<string, SignatureFeature[]> = {
+  sig_0001: [
+    { feature_name: "ALB", score: 3.42 },
+    { feature_name: "APOA1", score: 2.87 },
+    { feature_name: "SERPINA1", score: 2.66 },
+    { feature_name: "HP", score: -2.11 },
+    { feature_name: "TF", score: -2.45 },
+    { feature_name: "IL6", score: 1.82 },
+    { feature_name: "CRP", score: 1.44 },
+    { feature_name: "FOXO3", score: -1.65 },
+  ],
+  sig_0002: [
+    { feature_name: "ALB", score: 2.95 },
+    { feature_name: "APOA1", score: 2.31 },
+    { feature_name: "TF", score: -1.98 },
+    { feature_name: "SIRT1", score: -1.72 },
+    { feature_name: "IGF1", score: 1.55 },
+  ],
+  sig_0003: [
+    { feature_name: "NPPA", score: 2.61 },
+    { feature_name: "MYH6", score: 1.89 },
+    { feature_name: "IL6", score: 1.21 },
+    { feature_name: "CRP", score: 0.98 },
+    { feature_name: "TNNT2", score: -2.05 },
+  ],
+  sig_0004: [
+    { feature_name: "IFNG", score: 3.11 },
+    { feature_name: "CXCL9", score: 2.74 },
+    { feature_name: "IL6", score: 1.9 },
+    { feature_name: "PDCD1", score: 1.35 },
+  ],
+  sig_0005: [
+    { feature_name: "ALB", score: 2.9 },
+    { feature_name: "APOA1", score: 2.1 },
+    { feature_name: "MYOD1", score: 3.3 },
+    { feature_name: "ACTN3", score: -1.9 },
+    { feature_name: "IL6", score: 2.2 },
+    { feature_name: "TNF", score: 1.6 },
+  ],
+  sig_0006: [
+    { feature_name: "COL1A1", score: 2.4 },
+    { feature_name: "TGFB1", score: 2.1 },
+    { feature_name: "FOXO3", score: -1.4 },
+    { feature_name: "TNF", score: 1.3 },
+  ],
+};
+
 export const enrichmentResults: EnrichmentResult[] = [
   { geneset: "REACTOME_CELLULAR_SENESCENCE", pval: 0.00012, fdr: 0.0021, overlapCount: 14, genesetSize: 86 },
   { geneset: "KEGG_COMPLEMENT_AND_COAGULATION_CASCADES", pval: 0.00045, fdr: 0.0038, overlapCount: 9, genesetSize: 68 },
