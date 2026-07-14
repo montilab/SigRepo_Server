@@ -1,15 +1,17 @@
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 
 export default function LoginPage({ onLogIn }: { onLogIn: () => void }) {
-  const [showPassword, setShowPassword] = useState(false);
+  const [show, setShow] = useState(false);
 
   return (
-    <div className="login-wrapper">
-      <div className="login-container">
-        <div className="login-form-title">
-          <h1>Sign In</h1>
+    <div className="login">
+      <div className="login-panel">
+        <div className="login-brand">
+          <div className="brand-mark brand-mark-lg">SR</div>
+          <span className="brand-name brand-name-lg">SigRepo</span>
         </div>
+        <p className="login-tagline">Browse, organize, and annotate biological signatures.</p>
 
         <form
           className="login-form"
@@ -18,42 +20,37 @@ export default function LoginPage({ onLogIn }: { onLogIn: () => void }) {
             onLogIn();
           }}
         >
-          <div className="validate-input">
-            <label className="login-label">Username</label>
-            <input className="login-input" type="text" placeholder="Enter Username" defaultValue="cvicnaire" />
-          </div>
+          <label className="field">
+            <span className="field-label">Username</span>
+            <input className="input" type="text" defaultValue="cvicnaire" placeholder="Enter username" />
+          </label>
 
-          <div className="validate-input">
-            <label className="login-label">Password</label>
-            <div className="password-container">
+          <label className="field">
+            <span className="field-label">Password</span>
+            <div className="input-affix">
               <input
-                className="login-input"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter Password"
+                className="input"
+                type={show ? "text" : "password"}
                 defaultValue="password123"
+                placeholder="Enter password"
               />
-              <span className="toggle-password" onClick={() => setShowPassword((s) => !s)}>
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </span>
+              <button type="button" className="input-affix-btn" onClick={() => setShow((s) => !s)}>
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
-          </div>
+          </label>
 
-          <div className="validate-button">
-            <button type="submit" className="sign-in-button">
-              Login
-            </button>
-            <a href="#" className="forgot-psw">
-              Forgot password?
-            </a>
-          </div>
+          <button type="submit" className="btn btn-primary btn-block">
+            Sign in <ArrowRight size={16} />
+          </button>
 
-          <div className="register">
-            <span>
-              Don't have an account? <a href="#">Register here!</a>
-            </span>
+          <div className="login-links">
+            <a href="#">Forgot password?</a>
+            <a href="#">Create account</a>
           </div>
         </form>
       </div>
+      <p className="login-foot">SigRepo · Prototype UI · Montilab</p>
     </div>
   );
 }

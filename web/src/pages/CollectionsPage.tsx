@@ -1,92 +1,86 @@
 import { useState } from "react";
-import { Upload } from "lucide-react";
-import PageHero from "../components/PageHero";
+import { Upload, FolderPlus } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
+import Badge from "../components/Badge";
+import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
-import { collections, type Collection } from "../data/mock";
+import { collections, signatures, type Collection } from "../data/mock";
 
 export default function CollectionsPage() {
-  const [selected, setSelected] = useState<Collection | null>(collections[0]);
+  const [active, setActive] = useState<Collection | null>(null);
 
   const columns: Column<Collection>[] = [
-    { key: "collection_name", label: "Collection" },
-    { key: "num_signatures", label: "# Signatures" },
+    {
+      key: "collection_name",
+      label: "Collection",
+      render: (r) => (
+        <div>
+          <span className="cell-strong">{r.collection_name}</span>
+          <span className="cell-sub">{r.description}</span>
+        </div>
+      ),
+    },
+    { key: "num_signatures", label: "Signatures", align: "right", render: (r) => <span className="cell-mono">{r.num_signatures}</span> },
     { key: "user_name", label: "Owner" },
     {
       key: "visibility",
       label: "Visibility",
-      render: (row) => (
-        <span className={"badge " + (row.visibility === "Public" ? "badge-status" : "badge-local")}>
-          {row.visibility}
-        </span>
-      ),
+      render: (r) => <Badge tone={r.visibility === "Public" ? "success" : "neutral"}>{r.visibility}</Badge>,
     },
-    { key: "date_created", label: "Created" },
+    { key: "date_created", label: "Created", align: "right", render: (r) => <span className="cell-muted">{r.date_created}</span> },
   ];
 
   return (
     <div className="page">
-      <PageHero
-        gradient="linear-gradient(135deg, #184766 0%, #2d6f8f 100%)"
-        title="Browse Collections"
-        description="Select a collection from the repository to review metadata, member signatures, and collection-level details in one place."
+      <PageHeader
+        title="Collections"
+        subtitle={`${collections.length} collections`}
+        actions={
+          <>
+            <button className="btn btn-secondary">
+              <FolderPlus size={16} /> New collection
+            </button>
+            <button className="btn btn-primary">
+              <Upload size={16} /> Upload
+            </button>
+          </>
+        }
       />
 
-      <Card>
-        <div className="toolbar">
-          <div className="toolbar-group">
-            <button className="btn btn-primary">
-              <Upload size={16} /> Upload Collection
-            </button>
-          </div>
-        </div>
-        <p className="card-helper">
-          Select a collection row to make it active. Use View to load the full collection details when you want to
-          inspect it below.
-        </p>
-        <DataTable
-          columns={columns}
-          rows={collections}
-          rowKey="collection_id"
-          selectedKey={selected?.collection_id ?? null}
-          onSelectRow={setSelected}
-        />
+      <Card padded={false}>
+        <DataTable columns={columns} rows={collections} rowKey="collection_id" selectedKey={active?.collection_id ?? null} onSelectRow={setActive} />
       </Card>
 
-      <Card
-        title="Selected Collection"
-        helper="The active collection summary appears immediately. Use View to fetch the collection details and member signatures on demand."
+      <Drawer
+        open={active !== null}
+        onClose={() => setActive(null)}
+        title={active?.collection_name ?? ""}
+        subtitle={active ? `${active.num_signatures} signatures` : ""}
+        footer={active && <button className="btn btn-primary btn-block">Open collection</button>}
       >
-        {!selected ? (
-          <div className="empty-state">No collection selected.</div>
-        ) : (
+        {active && (
           <>
-            <div className="selected-header">
-              <span className="selected-label">Selection</span>
-              <span className="selected-name">{selected.collection_name}</span>
+            <dl className="detail-list">
+              <div><dt>Owner</dt><dd>{active.user_name}</dd></div>
+              <div><dt>Visibility</dt><dd><Badge tone={active.visibility === "Public" ? "success" : "neutral"}>{active.visibility}</Badge></dd></div>
+              <div><dt>Signatures</dt><dd>{active.num_signatures}</dd></div>
+              <div><dt>Created</dt><dd>{active.date_created}</dd></div>
+            </dl>
+            <p className="detail-desc">{active.description}</p>
+
+            <h4 className="detail-section-title">Member signatures (sample)</h4>
+            <div className="member-list">
+              {signatures.slice(0, Math.min(4, active.num_signatures)).map((s) => (
+                <div className="member-item" key={s.signature_id}>
+                  <span className="cell-strong">{s.signature_name}</span>
+                  <Badge tone="neutral">{s.assay_type}</Badge>
+                </div>
+              ))}
             </div>
-            <div className="stat-grid" style={{ marginTop: 14 }}>
-              <div className="stat-card">
-                <span className="stat-label">Signatures</span>
-                <span className="stat-value">{selected.num_signatures}</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Owner</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.user_name}</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Visibility</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.visibility}</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Created</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.date_created}</span>
-              </div>
-            </div>
-            <p className="card-helper" style={{ marginTop: 14 }}>{selected.description}</p>
           </>
         )}
-      </Card>
+      </Drawer>
     </div>
   );
 }

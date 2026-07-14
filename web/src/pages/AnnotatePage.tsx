@@ -1,122 +1,89 @@
 import { useState } from "react";
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  ZAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import PageHero from "../components/PageHero";
+import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { ArrowLeft, ArrowRight, Play, RotateCcw } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
+import Badge from "../components/Badge";
 import Stepper from "../components/Stepper";
 import { signatures, enrichmentResults } from "../data/mock";
 
-const STEPS = ["Signature", "Method & Library", "Results"];
-
+const STEPS = ["Signature", "Method", "Results"];
 const SIGNIFICANT_FDR = 0.01;
+const tooltipStyle = { border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", fontSize: 12 } as const;
 
 export default function AnnotatePage() {
   const [step, setStep] = useState(0);
-  const [selectedSig, setSelectedSig] = useState(signatures[0].signature_id);
+  const [sigId, setSigId] = useState(signatures[0].signature_id);
   const [method, setMethod] = useState<"hypeR" | "hyperGEM">("hypeR");
   const [collection, setCollection] = useState("CP:REACTOME");
-  const [fdrCutoff, setFdrCutoff] = useState(0.05);
+  const [fdr, setFdr] = useState(0.05);
 
-  const sig = signatures.find((s) => s.signature_id === selectedSig)!;
-
-  const plotData = enrichmentResults
-    .filter((r) => r.fdr <= fdrCutoff)
-    .map((r) => ({
-      ...r,
-      geneRatio: r.overlapCount / r.genesetSize,
-      shortName: r.geneset.length > 28 ? r.geneset.slice(0, 26) + "…" : r.geneset,
-    }));
+  const sig = signatures.find((s) => s.signature_id === sigId)!;
+  const plot = enrichmentResults
+    .filter((r) => r.fdr <= fdr)
+    .map((r) => ({ ...r, geneRatio: r.overlapCount / r.genesetSize, shortName: r.geneset.length > 30 ? r.geneset.slice(0, 28) + "…" : r.geneset }));
 
   return (
     <div className="page">
-      <PageHero
-        gradient="linear-gradient(135deg, #1f4a37 0%, #2f7a58 100%)"
-        title="Annotate"
-        description="Run gene set enrichment analysis against repository signatures using MSigDB collections, powered by hypeR."
-      />
+      <PageHeader title="Annotate" subtitle="Gene set enrichment analysis against MSigDB, powered by hypeR." />
 
       <Card>
         <Stepper steps={STEPS} current={step} />
       </Card>
 
       {step === 0 && (
-        <Card title="1. Choose a Signature" helper="Pick the signature to run enrichment analysis against.">
-          <div className="annotate-sig-list">
+        <Card title="Choose a signature" subtitle="Select the signature to run enrichment against">
+          <div className="radio-list">
             {signatures.map((s) => (
-              <label
-                className={"annotate-sig-option" + (selectedSig === s.signature_id ? " annotate-sig-option-selected" : "")}
-                key={s.signature_id}
-              >
-                <input
-                  type="radio"
-                  name="signature"
-                  checked={selectedSig === s.signature_id}
-                  onChange={() => setSelectedSig(s.signature_id)}
-                />
-                <span className="annotate-sig-option-text">
+              <label key={s.signature_id} className={"radio-row" + (sigId === s.signature_id ? " radio-row-active" : "")}>
+                <input type="radio" name="sig" checked={sigId === s.signature_id} onChange={() => setSigId(s.signature_id)} />
+                <span className="radio-row-text">
                   <strong>{s.signature_name}</strong>
-                  <span>
-                    {s.organism} · {s.assay_type} · {s.phenotype}
-                  </span>
+                  <small>{s.organism} · {s.assay_type} · {s.phenotype}</small>
                 </span>
+                <Badge tone="neutral">{s.assay_type}</Badge>
               </label>
             ))}
           </div>
-          <div className="wizard-actions">
+          <div className="wizard-nav">
             <button className="btn btn-primary" onClick={() => setStep(1)}>
-              Continue
+              Continue <ArrowRight size={16} />
             </button>
           </div>
         </Card>
       )}
 
       {step === 1 && (
-        <Card title="2. Method & Gene Set Library" helper={`Configure the enrichment run for ${sig.signature_name}.`}>
-          <div className="form-grid-2">
+        <Card title="Method & gene set library" subtitle={`Configure the run for ${sig.signature_name}`}>
+          <div className="form-grid">
             <label className="field">
-              <span>Method</span>
-              <select className="select-input" value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
-                <option value="hypeR">runHypeR (hypergeometric)</option>
-                <option value="hyperGEM">runHyperGEM (GSEA-style)</option>
+              <span className="field-label">Method</span>
+              <select className="input" value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
+                <option value="hypeR">runHypeR — hypergeometric</option>
+                <option value="hyperGEM">runHyperGEM — GSEA-style</option>
               </select>
             </label>
             <label className="field">
-              <span>MSigDB Collection</span>
-              <select className="select-input" value={collection} onChange={(e) => setCollection(e.target.value)}>
+              <span className="field-label">MSigDB collection</span>
+              <select className="input" value={collection} onChange={(e) => setCollection(e.target.value)}>
                 <option value="CP:REACTOME">CP:REACTOME</option>
                 <option value="CP:KEGG_LEGACY">CP:KEGG_LEGACY</option>
                 <option value="CP:WIKIPATHWAYS">CP:WIKIPATHWAYS</option>
                 <option value="CP:BIOCARTA">CP:BIOCARTA</option>
-                <option value="H">H (Hallmark)</option>
+                <option value="H">H — Hallmark</option>
               </select>
             </label>
           </div>
-          <label className="field" style={{ marginTop: 14 }}>
-            <span>FDR Cutoff ({fdrCutoff.toFixed(2)})</span>
-            <input
-              type="range"
-              min={0.01}
-              max={0.1}
-              step={0.01}
-              value={fdrCutoff}
-              onChange={(e) => setFdrCutoff(Number(e.target.value))}
-            />
+          <label className="field field-slider">
+            <span className="field-label">FDR cutoff <span className="field-value">{fdr.toFixed(2)}</span></span>
+            <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
           </label>
-          <div className="wizard-actions">
-            <button className="btn btn-default" onClick={() => setStep(0)}>
-              Back
+          <div className="wizard-nav">
+            <button className="btn btn-ghost" onClick={() => setStep(0)}>
+              <ArrowLeft size={16} /> Back
             </button>
             <button className="btn btn-primary" onClick={() => setStep(2)}>
-              Run Enrichment
+              <Play size={15} /> Run enrichment
             </button>
           </div>
         </Card>
@@ -125,33 +92,27 @@ export default function AnnotatePage() {
       {step === 2 && (
         <>
           <Card
-            title="Enrichment Results"
-            helper={`Top gene sets enriched in ${sig.signature_name} (${collection}, ${method}, FDR ≤ ${fdrCutoff.toFixed(2)}).`}
+            title="Enrichment results"
+            subtitle={`${sig.signature_name} · ${collection} · ${method} · FDR ≤ ${fdr.toFixed(2)}`}
+            actions={
+              <button className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>
+                <RotateCcw size={14} /> Edit
+              </button>
+            }
           >
-            {plotData.length === 0 ? (
-              <div className="empty-state">No gene sets pass the current FDR cutoff. Try loosening it in the previous step.</div>
+            {plot.length === 0 ? (
+              <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e6edf3" />
-                  <XAxis
-                    type="number"
-                    dataKey="geneRatio"
-                    name="Gene Ratio"
-                    tickFormatter={(v) => v.toFixed(2)}
-                    tick={{ fontSize: 11, fill: "#3f556b" }}
-                    label={{ value: "Gene Ratio", position: "insideBottom", offset: -5, fontSize: 12, fill: "#597189" }}
-                  />
-                  <YAxis type="category" dataKey="shortName" name="Gene Set" width={220} tick={{ fontSize: 11, fill: "#3f556b" }} />
-                  <ZAxis dataKey="overlapCount" range={[80, 420]} name="Overlap" />
-                  <Tooltip
-                    cursor={{ strokeDasharray: "3 3" }}
-                    formatter={(value, name) => (name === "Gene Ratio" && typeof value === "number" ? value.toFixed(3) : value)}
-                    labelFormatter={() => ""}
-                  />
-                  <Scatter data={plotData}>
-                    {plotData.map((entry) => (
-                      <Cell key={entry.geneset} fill={entry.fdr <= SIGNIFICANT_FDR ? "#1c5d87" : "#8fb3c9"} />
+                <ScatterChart margin={{ top: 8, right: 24, bottom: 20, left: 8 }}>
+                  <CartesianGrid stroke="var(--viz-grid)" />
+                  <XAxis type="number" dataKey="geneRatio" name="Gene ratio" tickFormatter={(v) => v.toFixed(2)} tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} label={{ value: "Gene ratio", position: "insideBottom", offset: -8, fontSize: 12, fill: "var(--text-secondary)" }} />
+                  <YAxis type="category" dataKey="shortName" width={230} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} axisLine={false} tickLine={false} />
+                  <ZAxis dataKey="overlapCount" range={[90, 460]} name="Overlap" />
+                  <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={tooltipStyle} formatter={(v, n) => (n === "Gene ratio" && typeof v === "number" ? v.toFixed(3) : v)} labelFormatter={() => ""} />
+                  <Scatter data={plot}>
+                    {plot.map((e) => (
+                      <Cell key={e.geneset} fill={e.fdr <= SIGNIFICANT_FDR ? "var(--accent)" : "var(--viz-2)"} fillOpacity={0.85} />
                     ))}
                   </Scatter>
                 </ScatterChart>
@@ -159,35 +120,30 @@ export default function AnnotatePage() {
             )}
           </Card>
 
-          <Card>
-            <table className="dt-table">
+          <Card padded={false}>
+            <table className="dt-table dt-table-flush">
               <thead>
                 <tr>
-                  <th>Gene Set</th>
-                  <th>P-value</th>
-                  <th>FDR</th>
-                  <th>Overlap</th>
+                  <th>Gene set</th>
+                  <th className="dt-right">P-value</th>
+                  <th className="dt-right">FDR</th>
+                  <th className="dt-right">Overlap</th>
                 </tr>
               </thead>
               <tbody>
-                {plotData.map((r) => (
+                {plot.map((r) => (
                   <tr key={r.geneset}>
-                    <td>{r.geneset}</td>
-                    <td>{r.pval.toExponential(1)}</td>
-                    <td>{r.fdr.toFixed(4)}</td>
-                    <td>
-                      {r.overlapCount}/{r.genesetSize}
-                    </td>
+                    <td className="cell-strong">{r.geneset}</td>
+                    <td className="dt-right cell-mono">{r.pval.toExponential(1)}</td>
+                    <td className="dt-right cell-mono">{r.fdr.toFixed(4)}</td>
+                    <td className="dt-right cell-mono">{r.overlapCount}/{r.genesetSize}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div className="wizard-actions">
-              <button className="btn btn-default" onClick={() => setStep(1)}>
-                Edit Parameters
-              </button>
-              <button className="btn btn-default" onClick={() => setStep(0)}>
-                Start Over
+            <div className="wizard-nav wizard-nav-padded">
+              <button className="btn btn-ghost" onClick={() => setStep(0)}>
+                <RotateCcw size={15} /> Start over
               </button>
             </div>
           </Card>

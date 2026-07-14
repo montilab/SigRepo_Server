@@ -1,36 +1,79 @@
+/* ============================================================================
+   SigRepo design tokens + base reset
+   "Refined analytical" — neutral surfaces, a single indigo accent, light only.
+   ========================================================================== */
+
 :root {
-  --navbar-bg: #004080;
-  --navbar-border: #003366;
+  /* Surfaces */
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --surface-sunken: #f9fafb;
 
-  --text-heading: #17324d;
-  --text-body: #3f556b;
-  --text-muted: #597189;
-  --text-label: #4e6782;
+  /* Borders */
+  --border: #e6e8ec;
+  --border-strong: #d4d7dd;
+  --border-subtle: #eef0f3;
 
-  --card-bg: #ffffff;
-  --card-border: #d9e3ec;
-  --card-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
+  /* Text */
+  --text: #101828;
+  --text-secondary: #545c6b;
+  --text-muted: #98a1b0;
 
-  --stat-bg: #f6f9fc;
-  --stat-border: #e1ebf2;
+  /* Accent (indigo) */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-active: #3730a3;
+  --accent-subtle: #eef2ff;
+  --accent-border: #c7d2fe;
+  --accent-text: #4338ca;
 
-  --empty-bg: #f8fbfd;
-  --empty-border: #c5d5e3;
+  /* Semantic */
+  --success: #067647;
+  --success-subtle: #ecfdf3;
+  --success-border: #abefc6;
+  --warning: #b54708;
+  --warning-subtle: #fffaeb;
+  --warning-border: #fedf89;
+  --danger: #b42318;
+  --danger-subtle: #fef3f2;
+  --danger-border: #fecdca;
 
-  --primary: #1c5d87;
-  --primary-dark: #154a6c;
-  --primary-light: #e7f1f9;
+  /* Data-viz palette */
+  --viz-1: #4f46e5;
+  --viz-2: #0ea5e9;
+  --viz-3: #14b8a6;
+  --viz-4: #f59e0b;
+  --viz-5: #ec4899;
+  --viz-grid: #eef0f3;
 
-  --badge-local-bg: #eef3f7;
-  --badge-local-fg: #35506b;
-  --badge-remote-bg: #e6f2fb;
-  --badge-remote-fg: #0f4d7c;
-  --badge-status-bg: #eef7ed;
-  --badge-status-fg: #2c6a3f;
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-pill: 999px;
 
-  --page-bg: #eef3f8;
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.16);
 
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Layout */
+  --sidebar-w: 244px;
+  --sidebar-w-collapsed: 68px;
+
+  /* Type */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -45,15 +88,52 @@ body,
 
 body {
   margin: 0;
-  background: var(--page-bg);
-  color: var(--text-body);
-  -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
 }
 
 button {
   font-family: inherit;
+  cursor: pointer;
 }
 
-a {
-  color: var(--primary);
+::selection {
+  background: var(--accent-subtle);
+}
+
+/* Slim, modern scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid var(--bg);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
