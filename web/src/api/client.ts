@@ -1,12 +1,10 @@
 // Typed client for the SigRepo Plumber API.
 //
-// Two quirks of that API this module absorbs so pages don't have to:
-//   1. Responses are double-encoded — the json serializer wraps a
-//      jsonlite::toJSON() string, so the body arrives as ["<json string>"].
-//      unwrap() parses through that to the real object.
-//   2. Single-value fields are auto-unboxed to scalars (one distinct
-//      organism comes back as "Homo sapiens", not ["Homo sapiens"]).
-//      toArray() normalizes list-shaped fields back to arrays.
+// One quirk this module still absorbs: single-value fields are auto-unboxed
+// to scalars (one distinct organism comes back as "Homo sapiens", not
+// ["Homo sapiens"]), so toArray() normalizes list-shaped fields back to
+// arrays. (The API previously also double-encoded every body; that's fixed
+// server-side in json_response, so no unwrap is needed here.)
 //
 // In dev, requests go to "/api/*", which Vite proxies to the Plumber server
 // (see vite.config.ts) — no CORS. Override with VITE_API_BASE for other setups.
@@ -21,17 +19,7 @@ export class ApiError extends Error {
   }
 }
 
-function unwrap(raw: unknown): unknown {
-  if (Array.isArray(raw) && raw.length === 1 && typeof raw[0] === "string") {
-    try {
-      return JSON.parse(raw[0]);
-    } catch {
-      return raw[0];
-    }
-  }
-  return raw;
-}
-
+// Error bodies come back as [{ MESSAGES: "..." }] (a data.frame row).
 function extractMessage(data: unknown): string | null {
   const asRecord = (v: unknown) =>
     v && typeof v === "object" ? (v as Record<string, unknown>) : null;
@@ -46,7 +34,7 @@ function extractMessage(data: unknown): string | null {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init);
-  const data = unwrap(await res.json().catch(() => null));
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
     throw new ApiError(extractMessage(data) ?? `Request failed (${res.status})`, res.status);
   }
