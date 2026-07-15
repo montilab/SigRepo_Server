@@ -1055,3 +1055,75 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
     json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))
   })
 }
+
+#* Download a single signature as an RDS file (metadata + features + difexp)
+#* @param api_key
+#* @param signature_hashkey
+#' @get /signatures/export
+signature_export_route <- function(res, api_key = "", signature_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  signature_hashkey <- json_scalar(signature_hashkey)
+  if (identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- build_signature_export(auth, signature_hashkey, difexp_dir)
+    if (!result$ok) {
+      return(json_error(res, 404, base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey)))
+    }
+
+    res$serializer <- serializers[["rds"]]
+    plumber::as_attachment(
+      result$export,
+      filename = base::sprintf("signature_%s.rds", export_safe_filename(result$signature_name))
+    )
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature export failed: %s", err$message))
+  })
+}
+
+#* Download a zip of RDS exports for a basket of signatures (skips any the
+#* caller can no longer see; check the X-Basket-Included/X-Basket-Skipped
+#* response headers)
+#* @parser json
+#* @param api_key
+#* @param signature_hashkeys
+#' @post /signatures/export-batch
+signature_export_batch_route <- function(req, res, api_key = "", signature_hashkeys = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  signature_hashkeys <- if (base::is.null(body$signature_hashkeys)) json_vector(signature_hashkeys) else json_vector(body$signature_hashkeys)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (base::length(signature_hashkeys) == 0) {
+    return(json_error(res, 404, "signature_hashkeys cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- build_signature_basket_zip(auth, signature_hashkeys, difexp_dir)
+    if (!result$ok) {
+      return(json_error(res, 404, "None of the requested signatures could be exported."))
+    }
+
+    raw_bytes <- base::readBin(result$zip_path, "raw", base::file.info(result$zip_path)$size)
+    base::unlink(result$zip_path)
+
+    res$setHeader("X-Basket-Included", base::length(result$included))
+    res$setHeader("X-Basket-Skipped", base::length(result$skipped))
+    res$serializer <- plumber::serializer_content_type("application/zip")
+    plumber::as_attachment(
+      raw_bytes,
+      filename = base::sprintf("signature_basket_%s.zip", base::format(base::Sys.Date(), "%Y%m%d"))
+    )
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Basket export failed: %s", err$message))
+  })
+}

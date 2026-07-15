@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Upload, Search, Download, Trash2 } from "lucide-react";
+import { Plus, Upload, Search, Download, Trash2, ShoppingBasket, X } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
@@ -10,11 +10,14 @@ import {
   getSignatureContext,
   deleteSignature,
   getDifexp,
+  downloadSignatureExport,
+  downloadSignatureBasket,
   getAuth,
   type SignatureSummary,
   type SignatureContext,
   type DifexpResult,
 } from "../api/client";
+import { useBasket, addToBasket, removeFromBasket, clearBasket, isInBasket } from "../basket";
 
 // Client-side approximation of the API's delete_signature() rule (editor/
 // admin role, owner unless admin) so the button doesn't appear for requests
@@ -124,6 +127,41 @@ export default function SignaturesPage() {
     }
   }
 
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function handleExport() {
+    if (!active) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadSignatureExport(active.signature_hashkey);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Could not export signature.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // ---------- Basket (bulk download), ported from the Shiny app's basket ----------
+
+  const basket = useBasket();
+  const [basketOpen, setBasketOpen] = useState(false);
+  const [basketDownloading, setBasketDownloading] = useState(false);
+  const [basketError, setBasketError] = useState<string | null>(null);
+
+  async function handleDownloadBasket() {
+    setBasketDownloading(true);
+    setBasketError(null);
+    try {
+      await downloadSignatureBasket(basket.map((b) => b.signature_hashkey));
+    } catch (err) {
+      setBasketError(err instanceof Error ? err.message : "Could not download basket.");
+    } finally {
+      setBasketDownloading(false);
+    }
+  }
+
   useEffect(() => {
     if (!active) {
       setContext(null);
@@ -201,6 +239,9 @@ export default function SignaturesPage() {
         subtitle={loading ? "Loading signatures…" : `${rows.length} signatures across the repository`}
         actions={
           <>
+            <button className="btn btn-secondary" onClick={() => setBasketOpen(true)}>
+              <ShoppingBasket size={16} /> Basket ({basket.length})
+            </button>
             <button className="btn btn-secondary">
               <Plus size={16} /> Create
             </button>
@@ -247,8 +288,15 @@ export default function SignaturesPage() {
                   <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete"}
                 </button>
               )}
-              <button className="btn btn-secondary">
-                <Download size={15} /> Export
+              <button className="btn btn-secondary" onClick={handleExport} disabled={exporting}>
+                <Download size={15} /> {exporting ? "Exporting…" : "Export"}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => addToBasket(active)}
+                disabled={isInBasket(active.signature_hashkey)}
+              >
+                <ShoppingBasket size={15} /> {isInBasket(active.signature_hashkey) ? "In Basket" : "Add to Basket"}
               </button>
               <button className="btn btn-primary">Run enrichment</button>
             </>
@@ -258,6 +306,7 @@ export default function SignaturesPage() {
         {active && (
           <>
             {deleteError && <p className="login-error">{deleteError}</p>}
+            {exportError && <p className="login-error">{exportError}</p>}
 
             <div className="segmented" style={{ marginBottom: 16 }}>
               <button
@@ -368,6 +417,51 @@ export default function SignaturesPage() {
               </>
             )}
           </>
+        )}
+      </Drawer>
+
+      <Drawer
+        open={basketOpen}
+        onClose={() => setBasketOpen(false)}
+        title="Basket"
+        subtitle={`${basket.length} signature${basket.length === 1 ? "" : "s"}`}
+        footer={
+          basket.length > 0 && (
+            <>
+              <button className="btn btn-secondary" onClick={clearBasket}>
+                Clear Basket
+              </button>
+              <button className="btn btn-primary" onClick={handleDownloadBasket} disabled={basketDownloading}>
+                <Download size={15} /> {basketDownloading ? "Downloading…" : "Download Basket"}
+              </button>
+            </>
+          )
+        }
+      >
+        {basketError && <p className="login-error">{basketError}</p>}
+        {basket.length === 0 ? (
+          <p className="cell-sub">No signatures in the basket yet. Open a signature and click "Add to Basket".</p>
+        ) : (
+          <div className="member-list">
+            {basket.map((item) => (
+              <div className="member-item" key={item.signature_hashkey}>
+                <div>
+                  <span className="cell-strong">{item.signature_name}</span>
+                  <span className="cell-sub">{item.organism ?? "—"} · {item.phenotype ?? "—"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Badge tone="neutral">{item.assay_type}</Badge>
+                  <button
+                    className="icon-btn"
+                    onClick={() => removeFromBasket(item.signature_hashkey)}
+                    title="Remove from basket"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </Drawer>
     </div>
