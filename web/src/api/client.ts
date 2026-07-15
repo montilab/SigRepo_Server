@@ -389,29 +389,52 @@ export interface EnrichmentResultRow {
   label: string;
   pval: number;
   fdr: number;
+  // Query size (gene count) for whichever signature this hit came from --
+  // NOT an identifier. See signature_label for that.
   signature: number;
   geneset: number;
   overlap: number;
   background: number;
   hits: string;
+  // Which input signature this hit came from; disambiguated with " (2)",
+  // " (3)", etc. if two selected signatures share a signature_name.
+  signature_label: string;
+}
+
+export interface EnrichmentRunSignature {
+  signature_hashkey: string;
+  signature_name: string;
+  label: string;
+  n_query: number;
+}
+
+export interface EnrichmentSkippedSignature {
+  signature_hashkey: string;
+  signature_name: string | null;
+  reason: string;
+  message: string | null;
 }
 
 export interface EnrichmentRun {
-  signature_name: string;
-  n_query: number;
   test: "hypergeometric" | "kstest";
   collection: string;
   subcollection: string;
   fdr: number;
   geneset_source: "cache" | "live";
   // hyp_dots() rendered server-side to a PNG (hypeR's own dotplot, not a
-  // reimplementation), as a data: URI ready for an <img src>.
+  // reimplementation, merged into one combined plot for multi-signature
+  // runs), as a data: URI ready for an <img src>.
   dotplot_png: string | null;
+  // Signatures that were actually run (a signature is dropped here, and
+  // listed in `skipped` instead, if e.g. a kstest run was requested but it
+  // has no stored difexp).
+  signatures: EnrichmentRunSignature[];
+  skipped: EnrichmentSkippedSignature[];
   results: EnrichmentResultRow[];
 }
 
 export interface RunAnnotationParams {
-  signatureHashkey: string;
+  signatureHashkeys: string[];
   test: "hypergeometric" | "kstest";
   species?: string;
   collection: string;
@@ -425,7 +448,7 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       api_key: requireApiKey(),
-      signature_hashkey: params.signatureHashkey,
+      signature_hashkeys: params.signatureHashkeys,
       test: params.test,
       species: params.species ?? "Homo sapiens",
       collection: params.collection,
@@ -433,7 +456,7 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
       fdr: params.fdr,
     }),
   });
-  return { ...raw, results: raw.results ?? [] };
+  return { ...raw, results: raw.results ?? [], signatures: raw.signatures ?? [], skipped: raw.skipped ?? [] };
 }
 
 // ---------- Signature export / basket download ----------

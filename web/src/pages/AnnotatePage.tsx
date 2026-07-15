@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Play, RotateCcw, Loader2, CheckCircle2, CircleDashed } from "lucide-react";
+import { Play, RotateCcw, Loader2, CheckCircle2, CircleDashed, ShoppingBasket, AlertTriangle } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Stepper from "../components/Stepper";
+import DataTable, { type Column } from "../components/DataTable";
 import {
   searchSignatures,
   getMsigdbSpecies,
@@ -15,6 +16,7 @@ import {
   type GenesetsReadiness,
   type EnrichmentRun,
 } from "../api/client";
+import { useBasket } from "../basket";
 
 const STEPS = ["Setup", "Results"];
 
@@ -24,19 +26,51 @@ export default function AnnotatePage() {
   const [signatures, setSignatures] = useState<SignatureSummary[]>([]);
   const [signaturesLoading, setSignaturesLoading] = useState(true);
   const [signaturesError, setSignaturesError] = useState<string | null>(null);
-  const [sigHashkey, setSigHashkey] = useState("");
+  const [selectedHashkeys, setSelectedHashkeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    searchSignatures({ limit: 100 })
+    searchSignatures({ limit: 500 })
       .then((results) => {
         setSignatures(results);
-        if (results.length > 0) setSigHashkey(results[0].signature_hashkey);
+        if (results.length > 0) setSelectedHashkeys(new Set([results[0].signature_hashkey]));
       })
       .catch((err) => setSignaturesError(err instanceof Error ? err.message : "Could not load signatures."))
       .finally(() => setSignaturesLoading(false));
   }, []);
 
-  const sig = signatures.find((s) => s.signature_hashkey === sigHashkey) ?? null;
+  const selectedSignatures = useMemo(
+    () => signatures.filter((s) => selectedHashkeys.has(s.signature_hashkey)),
+    [signatures, selectedHashkeys]
+  );
+
+  function toggleRow(row: SignatureSummary) {
+    setSelectedHashkeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.signature_hashkey)) next.delete(row.signature_hashkey);
+      else next.add(row.signature_hashkey);
+      return next;
+    });
+  }
+
+  function toggleAll(rows: SignatureSummary[], checked: boolean) {
+    setSelectedHashkeys((prev) => {
+      const next = new Set(prev);
+      for (const row of rows) {
+        if (checked) next.add(row.signature_hashkey);
+        else next.delete(row.signature_hashkey);
+      }
+      return next;
+    });
+  }
+
+  const basket = useBasket();
+  function handleAddFromBasket() {
+    setSelectedHashkeys((prev) => {
+      const next = new Set(prev);
+      for (const item of basket) next.add(item.signature_hashkey);
+      return next;
+    });
+  }
 
   // ---------- Geneset picking (species -> collection -> subcollection -> Fetch Genesets), mirroring the Shiny app ----------
 
@@ -99,8 +133,12 @@ export default function AnnotatePage() {
   const [fdr, setFdr] = useState(0.05);
 
   // Rank-based enrichment needs per-feature scores from difexp, which not
-  // every signature has stored.
-  const kstestAvailable = sig?.has_difexp === 1;
+  // every signature has stored. The option stays enabled as long as *any*
+  // selected signature qualifies -- the backend skips the rest and reports
+  // them back as `skipped`, so a basket mixing eligible and ineligible
+  // signatures still runs on the ones that qualify instead of hard-blocking.
+  const kstestEligibleCount = selectedSignatures.filter((s) => s.has_difexp === 1).length;
+  const kstestAvailable = kstestEligibleCount > 0;
   useEffect(() => {
     if (!kstestAvailable && test === "kstest") setTest("hypergeometric");
   }, [kstestAvailable, test]);
@@ -110,12 +148,12 @@ export default function AnnotatePage() {
   const [result, setResult] = useState<EnrichmentRun | null>(null);
 
   async function handleRun() {
-    if (!sig || !genesetStatus) return;
+    if (selectedHashkeys.size === 0 || !genesetStatus) return;
     setRunning(true);
     setRunError(null);
     try {
       const run = await runAnnotation({
-        signatureHashkey: sig.signature_hashkey,
+        signatureHashkeys: Array.from(selectedHashkeys),
         test,
         species,
         collection,
@@ -131,6 +169,22 @@ export default function AnnotatePage() {
     }
   }
 
+  const columns: Column<SignatureSummary>[] = useMemo(
+    () => [
+      { key: "signature_name", label: "Signature", render: (r) => <span className="cell-strong">{r.signature_name}</span> },
+      { key: "organism", label: "Organism", filterable: true, render: (r) => <span className="cell-italic">{r.organism ?? "—"}</span> },
+      { key: "assay_type", label: "Assay", filterable: true, render: (r) => <Badge tone="neutral">{r.assay_type}</Badge> },
+      { key: "phenotype", label: "Phenotype", filterable: true, render: (r) => r.phenotype ?? "—" },
+      { key: "feature_count", label: "Features", align: "right" },
+      {
+        key: "has_difexp",
+        label: "Has Difexp",
+        render: (r) => <Badge tone={r.has_difexp === 1 ? "success" : "neutral"}>{r.has_difexp === 1 ? "Yes" : "No"}</Badge>,
+      },
+    ],
+    []
+  );
+
   return (
     <div className="page">
       <PageHeader title="Annotate" subtitle="Gene set enrichment analysis against MSigDB, powered by hypeR." />
@@ -142,28 +196,45 @@ export default function AnnotatePage() {
       {step === 0 && (
         <>
           <div className="annotate-setup-grid">
-            <Card title="Signature" subtitle="Choose the signature to run enrichment against" className="annotate-setup-signature">
+            <Card
+              title="Signatures"
+              subtitle="Choose one or more signatures to run enrichment against — hypeR runs them together in a single call."
+              className="annotate-setup-signature"
+              actions={
+                basket.length > 0 && (
+                  <button className="btn btn-secondary btn-sm" onClick={handleAddFromBasket}>
+                    <ShoppingBasket size={14} /> Add from Basket ({basket.length})
+                  </button>
+                )
+              }
+            >
               {signaturesError && <p className="login-error">{signaturesError}</p>}
-              {signaturesLoading && <p className="cell-sub">Loading signatures…</p>}
-              {!signaturesLoading && signatures.length === 0 && !signaturesError && (
-                <p className="muted-note">No signatures available.</p>
-              )}
-              <div className="radio-list radio-list-scroll">
-                {signatures.map((s) => (
-                  <label key={s.signature_hashkey} className={"radio-row" + (sigHashkey === s.signature_hashkey ? " radio-row-active" : "")}>
-                    <input type="radio" name="sig" checked={sigHashkey === s.signature_hashkey} onChange={() => setSigHashkey(s.signature_hashkey)} />
-                    <span className="radio-row-text">
-                      <strong>{s.signature_name}</strong>
-                      <small>{s.organism ?? "—"} · {s.assay_type} · {s.phenotype ?? "—"}</small>
-                    </span>
-                    <Badge tone="neutral">{s.assay_type}</Badge>
-                  </label>
-                ))}
-              </div>
+              <p className="cell-sub" style={{ marginBottom: 10 }}>
+                {selectedHashkeys.size} of {signatures.length} selected
+              </p>
+              <DataTable
+                columns={columns}
+                rows={signatures}
+                rowKey="signature_hashkey"
+                selectable
+                selectedKeys={selectedHashkeys}
+                onToggleRow={toggleRow}
+                onToggleAll={toggleAll}
+                scrollable
+                maxHeight={420}
+                emptyLabel={signaturesLoading ? "Loading signatures…" : "No signatures available."}
+              />
             </Card>
 
             <div className="annotate-setup-side">
-              <Card title="Method" subtitle={sig ? `Configure the run for ${sig.signature_name}` : "Select a signature first"}>
+              <Card
+                title="Method"
+                subtitle={
+                  selectedSignatures.length === 0
+                    ? "Select at least one signature first"
+                    : `Configure the run for ${selectedSignatures.length} signature${selectedSignatures.length === 1 ? "" : "s"}`
+                }
+              >
                 <div className="form-grid">
                   <label className="field">
                     <span className="field-label">Method</span>
@@ -179,6 +250,12 @@ export default function AnnotatePage() {
                     <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
                   </label>
                 </div>
+                {test === "kstest" && selectedSignatures.length > 0 && kstestEligibleCount < selectedSignatures.length && (
+                  <p className="cell-sub" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    <AlertTriangle size={13} /> Only {kstestEligibleCount} of {selectedSignatures.length} selected signatures have stored
+                    difexp; the rest will be skipped for this run.
+                  </p>
+                )}
               </Card>
 
               <Card title="Geneset selection" subtitle="Choose a species, collection, and subcollection, then fetch gene sets.">
@@ -238,14 +315,14 @@ export default function AnnotatePage() {
 
           {runError && <p className="login-error">{runError}</p>}
           <div className="wizard-nav">
-            <button className="btn btn-primary" onClick={handleRun} disabled={running || !sig || !genesetStatus}>
+            <button className="btn btn-primary" onClick={handleRun} disabled={running || selectedHashkeys.size === 0 || !genesetStatus}>
               {running ? (
                 <>
                   <Loader2 size={15} className="spin" /> Running…
                 </>
               ) : (
                 <>
-                  <Play size={15} /> Run enrichment
+                  <Play size={15} /> Run enrichment{selectedHashkeys.size > 1 ? ` (${selectedHashkeys.size} signatures)` : ""}
                 </>
               )}
             </button>
@@ -253,17 +330,36 @@ export default function AnnotatePage() {
         </>
       )}
 
-      {step === 1 && sig && result && (
+      {step === 1 && result && (
         <>
           <Card
             title="Enrichment results"
-            subtitle={`${result.signature_name} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}`}
+            subtitle={`${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}`}
             actions={
               <button className="btn btn-ghost btn-sm" onClick={() => setStep(0)}>
                 <RotateCcw size={14} /> Edit
               </button>
             }
           >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: result.skipped.length > 0 ? 14 : 0 }}>
+              {result.signatures.map((s) => (
+                <span key={s.signature_hashkey} className="badge badge-neutral" title={`${s.n_query} query genes`}>
+                  {s.label} · {s.n_query}
+                </span>
+              ))}
+            </div>
+            {result.skipped.length > 0 && (
+              <p className="cell-sub" style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                <AlertTriangle size={13} style={{ marginTop: 2, flexShrink: 0 }} />
+                <span>
+                  Skipped {result.skipped.length} signature{result.skipped.length === 1 ? "" : "s"}:{" "}
+                  {result.skipped.map((s) => s.signature_name ?? s.signature_hashkey).join(", ")}
+                </span>
+              </p>
+            )}
+          </Card>
+
+          <Card>
             {result.results.length === 0 ? (
               <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
             ) : result.dotplot_png ? (
@@ -279,9 +375,10 @@ export default function AnnotatePage() {
                 <thead>
                   <tr>
                     <th>Gene set (label)</th>
+                    {result.signatures.length > 1 && <th>Signature</th>}
                     <th className="dt-right">P-value</th>
                     <th className="dt-right">FDR</th>
-                    <th className="dt-right">Signature</th>
+                    <th className="dt-right">Query Size</th>
                     <th className="dt-right">Geneset</th>
                     <th className="dt-right">Overlap</th>
                     <th className="dt-right">Background</th>
@@ -289,9 +386,10 @@ export default function AnnotatePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.results.map((r) => (
-                    <tr key={r.label}>
+                  {result.results.map((r, i) => (
+                    <tr key={`${r.signature_label}-${r.label}-${i}`}>
                       <td className="cell-strong">{r.label}</td>
+                      {result.signatures.length > 1 && <td>{r.signature_label}</td>}
                       <td className="dt-right cell-mono">{r.pval.toExponential(1)}</td>
                       <td className="dt-right cell-mono">{r.fdr.toFixed(4)}</td>
                       <td className="dt-right cell-mono">{r.signature}</td>

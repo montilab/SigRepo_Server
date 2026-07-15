@@ -389,6 +389,17 @@
 .dt-scroll {
   overflow-x: auto;
 }
+.dt-scroll-bounded {
+  overflow-y: auto;
+}
+.dt-check-col {
+  width: 1%;
+  padding-left: 16px !important;
+  padding-right: 4px !important;
+}
+.dt-check-col input {
+  accent-color: var(--accent);
+}
 .dt-table {
   width: 100%;
   border-collapse: collapse;
@@ -1271,9 +1282,15 @@ input[type="range"] {
 /* ---------- Annotate (enrichment) setup ---------- */
 .annotate-setup-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  /* minmax(0, ...), not a bare fr -- the signature table's natural content
+     width would otherwise expand this track past its share and push the
+     second column off-screen instead of scrolling internally. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 18px;
   align-items: start;
+}
+.annotate-setup-signature {
+  min-width: 0;
 }
 .annotate-setup-side {
   display: flex;
