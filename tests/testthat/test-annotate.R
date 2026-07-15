@@ -1,6 +1,7 @@
 source(testthat::test_path("../../api/lib/common.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/difexp.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/signature.R"), local = FALSE)
+source(testthat::test_path("../../api/lib/msigdb_cache.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/annotate.R"), local = FALSE)
 source(testthat::test_path("helper-db.R"), local = FALSE)
 
@@ -19,6 +20,11 @@ local_tempdir <- function() {
   dir.create(dir)
   dir
 }
+
+# The repo's real pre-built cache (shiny/data/msigdb_genesets) -- using it
+# directly means run_enrichment can be tested without hitting the network,
+# same as the API does whenever this cache is present.
+real_msigdb_cache_dir <- testthat::test_path("../../shiny/data/msigdb_genesets")
 
 test_that("enrichment_reference_table maps assay_type to the right features table", {
   expect_equal(enrichment_reference_table("transcriptomics"), "transcriptomics_features")
@@ -123,9 +129,57 @@ test_that("resolve_enrichment_query requires difexp for kstest, and resolves it 
   expect_equal(unname(kstest_result$query["BRCA1"]), -1.2)
 })
 
-test_that("run_enrichment computes real hypergeometric enrichment against a live MSigDB collection", {
+test_that("msigdb_species_options lists real species including Homo sapiens", {
+  species <- msigdb_species_options()
+  expect_true(is.character(species))
+  expect_true("Homo sapiens" %in% species)
+})
+
+test_that("msigdb_collection_metadata lists the real Collection/Subcollection matrix", {
+  meta <- msigdb_collection_metadata()
+  expect_equal(nrow(meta), 25)
+  expect_true(all(c("collection", "collection_label", "subcollection") %in% colnames(meta)))
+  expect_true("H" %in% meta$collection)
+  expect_equal(meta$collection_label[meta$collection == "H"][1], "Hallmark (H)")
+})
+
+test_that("msigdb_slugify normalizes names into cache-file-safe slugs", {
+  expect_equal(msigdb_slugify("Homo sapiens"), "Homo_sapiens")
+  expect_equal(msigdb_slugify("CP:KEGG_LEGACY"), "CP_KEGG_LEGACY")
+})
+
+test_that("load_cached_msigdb_genesets loads the real Hallmark cache and returns NULL for a miss", {
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+
+  gs <- load_cached_msigdb_genesets(real_msigdb_cache_dir, "Homo sapiens", "H")
+  expect_type(gs, "list")
+  expect_true(length(gs) > 0)
+  expect_true("HALLMARK_ADIPOGENESIS" %in% names(gs))
+
+  expect_null(load_cached_msigdb_genesets(real_msigdb_cache_dir, "Homo sapiens", "NOT_A_REAL_COLLECTION"))
+})
+
+test_that("resolve_msigdb_genesets resolves from cache and reports not_cached when disabled and missing", {
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+  withr_env <- Sys.getenv("MSIGDB_ALLOW_RUNTIME_FETCH", unset = NA)
+  Sys.setenv(MSIGDB_ALLOW_RUNTIME_FETCH = "false")
+  on.exit({
+    if (is.na(withr_env)) Sys.unsetenv("MSIGDB_ALLOW_RUNTIME_FETCH") else Sys.setenv(MSIGDB_ALLOW_RUNTIME_FETCH = withr_env)
+  }, add = TRUE)
+
+  cached <- resolve_msigdb_genesets(real_msigdb_cache_dir, "Homo sapiens", "H")
+  expect_true(cached$ok)
+  expect_equal(cached$source, "cache")
+  expect_true(length(cached$genesets) > 0)
+
+  missing <- resolve_msigdb_genesets(real_msigdb_cache_dir, "Homo sapiens", "NOT_A_REAL_COLLECTION")
+  expect_false(missing$ok)
+  expect_equal(missing$reason, "not_cached")
+})
+
+test_that("run_enrichment computes real hypergeometric enrichment from the on-disk MSigDB cache", {
   skip_if_no_test_db()
-  skip_if_offline()
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
 
   exec_sql <- function(stmt) {
     conn <- db_connect_local()
@@ -144,12 +198,53 @@ test_that("run_enrichment computes real hypergeometric enrichment against a live
   auth <- list(user_name = "ci_admin", user_role = "admin")
   result <- run_enrichment(
     auth, "ci_test_signature_hashkey_0000", test = "hypergeometric",
-    species = "Homo sapiens", collection = "H", fdr = 1, difexp_dir = tempdir()
+    species = "Homo sapiens", collection = "H", fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
   )
 
   expect_true(result$ok)
   expect_equal(result$n_query, 2)
+  expect_equal(result$geneset_source, "cache")
   expect_true(is.data.frame(result$results))
-  expect_true(all(c("label", "pval", "fdr", "overlap") %in% colnames(result$results)))
+  expect_true(all(c("label", "pval", "fdr", "overlap", "hits") %in% colnames(result$results)))
+  expect_true(nrow(result$results) > 0)
+  expect_true(is.character(result$dotplot_png))
+  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+})
+
+test_that("run_enrichment falls back to a live MSigDB fetch when nothing is cached and it's allowed", {
+  skip_if_no_test_db()
+  skip_if_offline()
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  withr_env <- Sys.getenv("MSIGDB_ALLOW_RUNTIME_FETCH", unset = NA)
+  Sys.setenv(MSIGDB_ALLOW_RUNTIME_FETCH = "true")
+  on.exit({
+    if (is.na(withr_env)) Sys.unsetenv("MSIGDB_ALLOW_RUNTIME_FETCH") else Sys.setenv(MSIGDB_ALLOW_RUNTIME_FETCH = withr_env)
+  }, add = TRUE)
+
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+  # An empty, definitely-uncached directory forces the live-fetch path.
+  result <- run_enrichment(
+    auth, "ci_test_signature_hashkey_0000", test = "hypergeometric",
+    species = "Homo sapiens", collection = "H", fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = local_tempdir()
+  )
+
+  expect_true(result$ok)
+  expect_equal(result$geneset_source, "live")
   expect_true(nrow(result$results) > 0)
 })

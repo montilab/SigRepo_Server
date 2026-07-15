@@ -117,6 +117,10 @@ for (lib_file in base::sort(base::list.files(base::file.path(sigrepo_server_path
   base::source(lib_file, local = TRUE)
 }
 
+# Resolved once at boot (see api/lib/msigdb_cache.R for the MSIGDB_CACHE_DIR/
+# fallback logic) so every /annotate/* request shares the same cache lookup.
+msigdb_cache_dir <- default_msigdb_cache_dir(sigrepo_server_path)
+
 #* Initiate database with schemas and reference tables
 #* @param admin_key
 #' @post /init_db
@@ -889,7 +893,26 @@ remove_signature_from_collection_route <- function(res, api_key = "", collection
   })
 }
 
-#* Real MSigDB collection/subcollection options for the Annotate picker
+#* MSigDB species options for the Annotate picker (matches the Shiny app's
+#* species picker; static/local, no network)
+#* @param api_key
+#' @get /annotate/msigdb-species
+msigdb_species_route <- function(res, api_key = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    json_response(res, 200, payload = base::list(species = msigdb_species_options()))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Could not list MSigDB species: %s", err$message))
+  })
+}
+
+#* MSigDB collection/subcollection options for the Annotate picker (the
+#* fixed Collection/Subcollection matrix, with human-readable labels --
+#* matches the Shiny app's picker, see api/lib/msigdb_cache.R)
 #* @param api_key
 #' @get /annotate/msigdb-collections
 msigdb_collections_route <- function(res, api_key = ""){
@@ -899,9 +922,44 @@ msigdb_collections_route <- function(res, api_key = ""){
   }
 
   base::tryCatch({
-    json_response(res, 200, payload = base::list(collections = list_msigdb_collections()))
+    json_response(res, 200, payload = base::list(collections = msigdb_collection_metadata()))
   }, error = function(err) {
     json_error(res, 500, base::sprintf("Could not list MSigDB collections: %s", err$message))
+  })
+}
+
+#* Resolve (from cache, or live if MSIGDB_ALLOW_RUNTIME_FETCH) a gene set
+#* collection ahead of running enrichment, mirroring the Shiny app's
+#* separate "Fetch Genesets" step
+#* @parser json
+#* @param api_key
+#* @param species
+#* @param collection
+#* @param subcollection
+#' @post /annotate/genesets
+annotate_genesets_route <- function(req, res, api_key = "", species = "Homo sapiens", collection = "H", subcollection = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  species <- if (is.null(body$species)) species else json_scalar(body$species)
+  collection <- if (is.null(body$collection)) collection else json_scalar(body$collection)
+  subcollection <- if (is.null(body$subcollection)) subcollection else json_scalar(body$subcollection)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection)
+    if (!result$ok) {
+      return(json_error(res, 404, result$message))
+    }
+    json_response(res, 200, payload = base::list(
+      n_genesets = base::length(result$genesets),
+      source = result$source
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Could not resolve gene sets: %s", err$message))
   })
 }
 
@@ -951,7 +1009,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
       collection = collection,
       subcollection = if (identical(subcollection, "")) NULL else subcollection,
       fdr = fdr,
-      difexp_dir = difexp_dir
+      difexp_dir = difexp_dir,
+      msigdb_cache_dir = msigdb_cache_dir
     )
 
     if (!result$ok) {
@@ -963,6 +1022,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
         "unsupported_assay_type" = 400,
         "unsupported_difexp_shape" = 400,
         "invalid_geneset" = 400,
+        "not_cached" = 404,
+        "fetch_failed" = 502,
         500
       )
       message <- if (!base::is.null(result$message)) {
@@ -986,6 +1047,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
       collection = collection,
       subcollection = subcollection,
       fdr = fdr,
+      geneset_source = result$geneset_source,
+      dotplot_png = result$dotplot_png,
       results = compact_table(result$results, max_rows = 500)
     ))
   }, error = function(err) {

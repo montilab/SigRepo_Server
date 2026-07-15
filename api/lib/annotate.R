@@ -17,11 +17,6 @@
 
 `%||%` <- function(x, y) if (base::is.null(x) || base::is.na(x)) y else x
 
-# The real list of MSigDB collections/subcollections hypeR can fetch.
-list_msigdb_collections <- function() {
-  as.data.frame(hypeR::msigdb_available())
-}
-
 # assay_type -> the reference table holding feature_id -> gene_symbol.
 # Enrichment against MSigDB needs gene symbols; only these two assay types
 # have a features table with a gene_symbol column today.
@@ -151,12 +146,28 @@ resolve_enrichment_query <- function(auth, signature_hashkey, test, difexp_dir) 
   base::list(ok = TRUE, query = query_vector, signature_name = signature_name)
 }
 
-# Runs hypeR::hypeR() and shapes the result table for the API response.
-# Returns list(ok = FALSE, reason, message) or
-# list(ok = TRUE, signature_name, n_query = <int>, results = <data.frame>).
+# Renders hypeR's own hyp_dots() (a ggplot object) to a PNG and returns it
+# as a base64 data URI, so the frontend gets the actual hypeR plot rather
+# than a reimplementation. Returns NULL if there's nothing to plot (e.g.
+# hyp_dots() itself errors on an empty result set).
+render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) {
+  base::tryCatch({
+    plot_obj <- hypeR::hyp_dots(hyp, top = 30, fdr = fdr)
+    tmp <- base::tempfile(fileext = ".png")
+    on.exit(base::unlink(tmp), add = TRUE)
+    ggplot2::ggsave(tmp, plot = plot_obj, width = width / res, height = height / res, dpi = res, units = "in", bg = "white")
+    raw_bytes <- base::readBin(tmp, "raw", file.info(tmp)$size)
+    base::sprintf("data:image/png;base64,%s", jsonlite::base64_enc(raw_bytes))
+  }, error = function(err) NULL)
+}
+
+# Runs hypeR::hypeR() and shapes the result table + native dotplot for the
+# API response. Returns list(ok = FALSE, reason, message) or
+# list(ok = TRUE, signature_name, n_query, results = <data.frame>,
+#      dotplot_png = <data URI or NULL>, geneset_source = "cache" | "live").
 run_enrichment <- function(auth, signature_hashkey, test = c("hypergeometric", "kstest"),
                             species = "Homo sapiens", collection = "H", subcollection = NULL,
-                            fdr = 0.05, difexp_dir) {
+                            fdr = 0.05, difexp_dir, msigdb_cache_dir) {
   test <- base::match.arg(test)
 
   resolved <- resolve_enrichment_query(auth, signature_hashkey, test, difexp_dir)
@@ -164,18 +175,13 @@ run_enrichment <- function(auth, signature_hashkey, test = c("hypergeometric", "
     return(resolved)
   }
 
-  genesets <- base::tryCatch(
-    hypeR::msigdb_gsets(species = species, collection = collection, subcollection = subcollection, clean = FALSE),
-    error = function(err) {
-      structure(base::list(message = err$message), class = "enrichment_geneset_error")
-    }
-  )
-  if (base::inherits(genesets, "enrichment_geneset_error")) {
-    return(base::list(ok = FALSE, reason = "invalid_geneset", message = genesets$message))
+  geneset_result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection %||% "")
+  if (!geneset_result$ok) {
+    return(base::list(ok = FALSE, reason = geneset_result$reason, message = geneset_result$message))
   }
 
   hyp <- base::tryCatch(
-    hypeR::hypeR(signature = resolved$query, genesets = genesets, test = test, fdr = fdr, plotting = FALSE, quiet = TRUE),
+    hypeR::hypeR(signature = resolved$query, genesets = geneset_result$genesets, test = test, fdr = fdr, plotting = FALSE, quiet = TRUE),
     error = function(err) {
       structure(base::list(message = err$message), class = "enrichment_run_error")
     }
@@ -190,6 +196,8 @@ run_enrichment <- function(auth, signature_hashkey, test = c("hypergeometric", "
     ok = TRUE,
     signature_name = resolved$signature_name,
     n_query = base::length(resolved$query),
-    results = results_tbl
+    results = results_tbl,
+    dotplot_png = render_hyp_dots_png(hyp, fdr),
+    geneset_source = geneset_result$source
   )
 }

@@ -29,6 +29,7 @@ Imports:
   hypeR,
   igraph,
   jsonlite,
+  msigdbr,
   plumber,
   promises,
   plumber,

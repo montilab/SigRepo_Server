@@ -333,9 +333,21 @@ export async function removeSignatureFromCollection(collectionHashkey: string, s
 
 // ---------- Annotate (gene set enrichment) ----------
 
+// Real species list msigdbr supports (static/local on the server, no
+// network) -- matches the Shiny app's species picker.
+export async function getMsigdbSpecies(): Promise<string[]> {
+  const raw = await apiFetch<{ species: string[] }>(
+    `/annotate/msigdb-species?api_key=${encodeURIComponent(requireApiKey())}`
+  );
+  return raw.species ?? [];
+}
+
+// The fixed Collection/Subcollection matrix with human-readable labels,
+// matching the Shiny app's picker (see api/lib/msigdb_cache.R).
 export interface MsigdbCollectionOption {
-  Collection: string;
-  Subcollection: string;
+  collection: string;
+  collection_label: string;
+  subcollection: string;
 }
 
 export async function getMsigdbCollections(): Promise<MsigdbCollectionOption[]> {
@@ -343,6 +355,34 @@ export async function getMsigdbCollections(): Promise<MsigdbCollectionOption[]> 
     `/annotate/msigdb-collections?api_key=${encodeURIComponent(requireApiKey())}`
   );
   return raw.collections ?? [];
+}
+
+export interface FetchGenesetsParams {
+  species: string;
+  collection: string;
+  subcollection?: string;
+}
+
+export interface GenesetsReadiness {
+  n_genesets: number;
+  source: "cache" | "live";
+}
+
+// Mirrors the Shiny app's separate "Fetch Genesets" step: resolves (from
+// the on-disk cache, or live if the server allows it) before enrichment is
+// runnable, so the UI can show a readiness status instead of silently
+// re-resolving on every run.
+export async function fetchGenesets(params: FetchGenesetsParams): Promise<GenesetsReadiness> {
+  return apiFetch<GenesetsReadiness>("/annotate/genesets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      species: params.species,
+      collection: params.collection,
+      subcollection: params.subcollection ?? "",
+    }),
+  });
 }
 
 export interface EnrichmentResultRow {
@@ -363,6 +403,10 @@ export interface EnrichmentRun {
   collection: string;
   subcollection: string;
   fdr: number;
+  geneset_source: "cache" | "live";
+  // hyp_dots() rendered server-side to a PNG (hypeR's own dotplot, not a
+  // reimplementation), as a data: URI ready for an <img src>.
+  dotplot_png: string | null;
   results: EnrichmentResultRow[];
 }
 
@@ -375,9 +419,6 @@ export interface RunAnnotationParams {
   fdr: number;
 }
 
-// The first request for a given species/collection/subcollection can take
-// ~10s (hypeR fetches MSigDB live and caches in-process); callers should
-// show a loading state, not assume this resolves quickly.
 export async function runAnnotation(params: RunAnnotationParams): Promise<EnrichmentRun> {
   const raw = await apiFetch<EnrichmentRun>("/annotate/run", {
     method: "POST",
