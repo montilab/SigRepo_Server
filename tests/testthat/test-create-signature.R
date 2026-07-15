@@ -11,13 +11,54 @@ if (db_test_available()) {
   pkgload::load_all(sigrepo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
 }
 
+# The real `OmicSignature` package (montilab/OmicSignature, installed per
+# .github/workflows/test.yml) is currently R6 -- NOT the unmerged S4
+# migration some in-repo branches carry -- so this is what an actual
+# uploaded .rds file (built by a real SigRepo user, e.g. via Shiny's
+# "Upload Signature") looks like on the wire today.
+omic_signature_available <- requireNamespace("OmicSignature", quietly = TRUE)
+
 local_tempdir <- function() {
   dir <- tempfile("sigrepo-create-signature-test-")
   dir.create(dir)
   dir
 }
 
-valid_upload <- function(signature_name, extra_features = data.frame()) {
+# A real OmicSignature R6 object -- the shape build_signature_from_upload()
+# needs to support since that's what Shiny's "Upload Signature" feature (and
+# any real SigRepo user) actually produces. feature_name values must match
+# ones seeded into transcriptomics_features by the tests below.
+omic_signature_upload <- function(signature_name, feature_names = c("CI_UPLOAD_TEST_GENE_1", "CI_UPLOAD_TEST_GENE_2"),
+                                   scores = c(2.5, -1.2), difexp = NULL) {
+  suppressWarnings(suppressMessages(
+    OmicSignature::OmicSignature$new(
+      metadata = list(
+        signature_name = signature_name,
+        direction_type = "bi-directional",
+        assay_type = "transcriptomics",
+        organism = "CI Test Organism",
+        phenotype = "CI Test Phenotype",
+        sample_type = "CI Test Sample Type",
+        platform = "CI Test Platform",
+        description = "A test signature",
+        keywords = "test,upload"
+      ),
+      signature = data.frame(
+        probe_id = paste0("probe_", seq_along(feature_names)),
+        feature_name = feature_names,
+        score = scores,
+        group_label = factor(rep("All Features", length(feature_names))),
+        stringsAsFactors = FALSE
+      ),
+      difexp = difexp
+    )
+  ))
+}
+
+# This API's own /signatures/export shape (list(metadata, signature,
+# difexp)), whose feature rows already carry a resolved feature_id --
+# Export -> Upload must keep round-tripping without a feature_name lookup.
+export_shape_upload <- function(signature_name, extra_features = data.frame()) {
   list(
     metadata = list(
       signature_name = signature_name,
@@ -39,20 +80,63 @@ valid_upload <- function(signature_name, extra_features = data.frame()) {
   )
 }
 
-test_that("validate_upload_shape rejects missing metadata fields and missing feature columns", {
-  bad_meta <- validate_upload_shape(list(metadata = list(signature_name = "x"), signature = data.frame(probe_id = 1)))
-  expect_false(bad_meta$ok)
-  expect_equal(bad_meta$reason, "invalid_upload")
-  expect_match(bad_meta$message, "direction_type")
+seed_transcriptomics_features <- function(exec_sql) {
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_name IN ('CI_UPLOAD_TEST_GENE_1', 'CI_UPLOAD_TEST_GENE_2')")
+  # feature_hashkey computed the same way collection_hash()/
+  # SigRepo::createHashKey() do: md5(tolower(paste0(feature_name, organism_id))).
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, MD5(LOWER(CONCAT('ENSG_TEST_1', organism_id))) FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, MD5(LOWER(CONCAT('ENSG_TEST_2', organism_id))) FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT NULL, 'CI_UPLOAD_TEST_GENE_1', organism_id, 'TP53', 1, MD5(LOWER(CONCAT('CI_UPLOAD_TEST_GENE_1', organism_id))) FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT NULL, 'CI_UPLOAD_TEST_GENE_2', organism_id, 'BRCA1', 1, MD5(LOWER(CONCAT('CI_UPLOAD_TEST_GENE_2', organism_id))) FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+}
 
-  bad_features <- validate_upload_shape(list(
+cleanup_transcriptomics_features <- function(exec_sql) {
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_name IN ('CI_UPLOAD_TEST_GENE_1', 'CI_UPLOAD_TEST_GENE_2')")
+}
+
+test_that("normalize_upload recognizes a real OmicSignature object vs. the export-list shape vs. neither", {
+  skip_if_not(omic_signature_available, "OmicSignature package not installed")
+
+  omic_norm <- normalize_upload(omic_signature_upload("Norm Test"))
+  expect_true(omic_norm$ok)
+  expect_equal(omic_norm$feature_key, "feature_name")
+  expect_equal(omic_norm$platform_field, "platform")
+
+  export_norm <- normalize_upload(export_shape_upload("Norm Test"))
+  expect_true(export_norm$ok)
+  expect_equal(export_norm$feature_key, "feature_id")
+  expect_equal(export_norm$platform_field, "platform_name")
+
+  bad_norm <- normalize_upload(list(foo = "bar"))
+  expect_false(bad_norm$ok)
+  expect_equal(bad_norm$reason, "invalid_upload")
+})
+
+test_that("validate_upload_shape rejects missing metadata fields and missing feature columns", {
+  bad_meta <- normalize_upload(list(metadata = list(signature_name = "x"), signature = data.frame(probe_id = 1, feature_id = 1)))
+  expect_null(bad_meta$reason)
+  err <- validate_upload_shape(bad_meta)
+  expect_false(is.null(err))
+  expect_equal(err$reason, "invalid_upload")
+  expect_match(err$message, "direction_type")
+
+  bad_features <- normalize_upload(list(
     metadata = as.list(setNames(rep("x", length(REQUIRED_UPLOAD_METADATA_FIELDS)), REQUIRED_UPLOAD_METADATA_FIELDS)),
     signature = data.frame(probe_id = 1)
   ))
-  expect_false(bad_features$ok)
-  expect_equal(bad_features$reason, "invalid_upload")
+  err2 <- validate_upload_shape(bad_features)
+  expect_false(is.null(err2))
+  expect_equal(err2$reason, "invalid_upload")
 
-  expect_null(validate_upload_shape(valid_upload("ok")))
+  expect_null(validate_upload_shape(normalize_upload(export_shape_upload("ok"))))
 })
 
 test_that("build_signature_from_upload rejects viewers and unsupported assay types", {
@@ -60,29 +144,29 @@ test_that("build_signature_from_upload rejects viewers and unsupported assay typ
   viewer_auth <- list(user_name = "ci_viewer", user_role = "viewer")
   editor_auth <- list(user_name = "ci_admin", user_role = "admin")
 
-  forbidden <- build_signature_from_upload(viewer_auth, valid_upload("Forbidden Test"), difexp_dir = tempdir())
+  forbidden <- build_signature_from_upload(viewer_auth, export_shape_upload("Forbidden Test"), difexp_dir = tempdir())
   expect_false(forbidden$ok)
   expect_equal(forbidden$reason, "forbidden")
 
-  upload <- valid_upload("Bad Assay Test")
+  upload <- export_shape_upload("Bad Assay Test")
   upload$metadata$assay_type <- "metabolomics"
   bad_assay <- build_signature_from_upload(editor_auth, upload, difexp_dir = tempdir())
   expect_false(bad_assay$ok)
   expect_equal(bad_assay$reason, "unsupported_assay_type")
 })
 
-test_that("build_signature_from_upload rejects unknown organism/platform/sample_type and unknown features", {
+test_that("build_signature_from_upload rejects unknown organism/platform/sample_type and unknown features (export shape)", {
   skip_if_no_test_db()
   auth <- list(user_name = "ci_admin", user_role = "admin")
 
-  bad_org <- valid_upload("Bad Org Test")
+  bad_org <- export_shape_upload("Bad Org Test")
   bad_org$metadata$organism <- "Not A Real Organism"
   result <- build_signature_from_upload(auth, bad_org, difexp_dir = tempdir())
   expect_false(result$ok)
   expect_equal(result$reason, "invalid_upload")
   expect_match(result$message, "organism")
 
-  bad_features <- valid_upload("Bad Features Test")
+  bad_features <- export_shape_upload("Bad Features Test")
   bad_features$signature <- data.frame(probe_id = "999999", feature_id = 999999, score = 1, group_label = "All Features", stringsAsFactors = FALSE)
   result2 <- build_signature_from_upload(auth, bad_features, difexp_dir = tempdir())
   expect_false(result2$ok)
@@ -90,7 +174,7 @@ test_that("build_signature_from_upload rejects unknown organism/platform/sample_
   expect_match(result2$message, "999999")
 })
 
-test_that("build_signature_from_upload writes a real signature end-to-end and computes up/down counts", {
+test_that("build_signature_from_upload writes a real signature end-to-end from the export shape and computes up/down counts", {
   skip_if_no_test_db()
 
   exec_sql <- function(stmt) {
@@ -104,17 +188,11 @@ test_that("build_signature_from_upload writes a real signature end-to-end and co
     DBI::dbGetQuery(conn, stmt)
   }
 
-  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
-  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
-  exec_sql("
-    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
-    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'create_sig_test_feature_01' FROM organisms WHERE organism = 'CI Test Organism'
-    UNION ALL
-    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'create_sig_test_feature_02' FROM organisms WHERE organism = 'CI Test Organism'
-  ")
+  seed_transcriptomics_features(exec_sql)
+  on.exit(cleanup_transcriptomics_features(exec_sql), add = TRUE)
 
   auth <- list(user_name = "ci_admin", user_role = "admin")
-  upload <- valid_upload("Upload Roundtrip Test")
+  upload <- export_shape_upload("Upload Roundtrip Test")
   upload$difexp <- data.frame(probe_id = c("1020", "1023"), score = c(2.5, -1.2), stringsAsFactors = FALSE)
 
   difexp_dir <- local_tempdir()
@@ -150,9 +228,63 @@ test_that("build_signature_from_upload writes a real signature end-to-end and co
   expect_equal(nrow(loaded_difexp), 2)
 
   # Duplicate name+user is rejected.
-  dup <- build_signature_from_upload(auth, valid_upload("Upload Roundtrip Test"), difexp_dir = tempdir())
+  dup <- build_signature_from_upload(auth, export_shape_upload("Upload Roundtrip Test"), difexp_dir = tempdir())
   expect_false(dup$ok)
   expect_equal(dup$reason, "duplicate")
+})
+
+test_that("build_signature_from_upload writes a real signature end-to-end from a genuine OmicSignature object", {
+  skip_if_no_test_db()
+  skip_if_not(omic_signature_available, "OmicSignature package not installed")
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  query_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    DBI::dbGetQuery(conn, stmt)
+  }
+
+  seed_transcriptomics_features(exec_sql)
+  on.exit(cleanup_transcriptomics_features(exec_sql), add = TRUE)
+
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+  upload <- omic_signature_upload("Omic Upload Test")
+
+  result <- build_signature_from_upload(auth, upload, visibility = FALSE, difexp_dir = tempdir())
+  expect_true(result$ok)
+  expect_equal(result$signature_name, "Omic Upload Test")
+
+  on.exit({
+    row <- query_sql(sprintf("SELECT signature_id FROM signatures WHERE signature_hashkey = '%s'", result$signature_hashkey))
+    if (nrow(row) > 0) {
+      sid <- row$signature_id[1]
+      exec_sql(sprintf("DELETE FROM signature_feature_set WHERE signature_id = %d", sid))
+      exec_sql(sprintf("DELETE FROM signature_access WHERE signature_id = %d", sid))
+      exec_sql(sprintf("DELETE FROM signatures WHERE signature_id = %d", sid))
+    }
+  }, add = TRUE)
+
+  sig_row <- query_sql(sprintf("SELECT * FROM signatures WHERE signature_hashkey = '%s'", result$signature_hashkey))
+  expect_equal(nrow(sig_row), 1)
+  expect_equal(sig_row$user_name[1], "ci_admin")
+  expect_equal(as.integer(sig_row$num_up_regulated[1]), 1)
+  expect_equal(as.integer(sig_row$num_down_regulated[1]), 1)
+  expect_equal(as.integer(sig_row$visibility[1]), 0)
+
+  feature_rows <- query_sql(sprintf("SELECT * FROM signature_feature_set WHERE signature_id = %d", sig_row$signature_id[1]))
+  expect_equal(nrow(feature_rows), 2)
+  expect_true(all(c("probe_1", "probe_2") %in% feature_rows$probe_id))
+
+  # A feature_name that doesn't exist in transcriptomics_features is rejected.
+  bad <- omic_signature_upload("Omic Unknown Feature Test", feature_names = c("NOT_A_REAL_GENE", "CI_UPLOAD_TEST_GENE_2"))
+  bad_result <- build_signature_from_upload(auth, bad, difexp_dir = tempdir())
+  expect_false(bad_result$ok)
+  expect_equal(bad_result$reason, "unknown_features")
+  expect_match(bad_result$message, "NOT_A_REAL_GENE")
 })
 
 test_that("build_signature_from_upload rolls back the signature row if feature insertion fails", {
@@ -169,20 +301,14 @@ test_that("build_signature_from_upload rolls back the signature row if feature i
     DBI::dbGetQuery(conn, stmt)
   }
 
-  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
-  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
-  exec_sql("
-    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
-    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'create_sig_test_feature_01' FROM organisms WHERE organism = 'CI Test Organism'
-    UNION ALL
-    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'create_sig_test_feature_02' FROM organisms WHERE organism = 'CI Test Organism'
-  ")
+  seed_transcriptomics_features(exec_sql)
+  on.exit(cleanup_transcriptomics_features(exec_sql), add = TRUE)
 
   auth <- list(user_name = "ci_admin", user_role = "admin")
   # Two rows with the same (group_label, probe_id) violate
   # signature_feature_set's primary key, forcing the insert to fail after
   # the signatures row already exists.
-  upload <- valid_upload(
+  upload <- export_shape_upload(
     "Rollback Test",
     extra_features = data.frame(probe_id = "1020", feature_id = 1, score = 3.0, group_label = "All Features", stringsAsFactors = FALSE)
   )

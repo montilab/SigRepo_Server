@@ -1,6 +1,23 @@
-# Signature upload backing POST /signatures/upload -- re-adds a signature
-# from an .rds file shaped exactly like /signatures/export's own output
-# (list(metadata, signature, difexp)), so Export -> Upload round-trips.
+# Signature upload backing POST /signatures/upload. Accepts two shapes:
+#
+#  - A real `OmicSignature` R6 object (montilab/OmicSignature, currently
+#    installed as v1.3.0 -- NOT the unmerged S4-migration branch some
+#    exploration briefly assumed was live) -- e.g.
+#    `saveRDS(OmicSignature$new(metadata, signature, difexp), f)`. This is
+#    the shape Shiny's own "Upload Signature" feature works with
+#    (SigRepo::addSignature(omic_signature = readRDS(f))), and what a real
+#    user actually has on hand. Fields come from `$metadata` (an R6 active
+#    binding returning a flat list; required keys checked by
+#    OmicSignature's private$checkMetadata(): signature_name, phenotype,
+#    organism, direction_type, assay_type) and `$signature` (a data.frame
+#    keyed by `feature_name`, not a DB id -- resolved below via the same
+#    feature_hashkey lookup addTranscriptomicsSignatureSet()/
+#    addProteomicsSignatureSet() use).
+#  - This API's own /signatures/export output (list(metadata, signature,
+#    difexp)), so Export -> Upload keeps round-tripping. Its feature rows
+#    already carry a resolved `feature_id` (straight from
+#    signature_feature_set), so no name lookup is needed for that shape.
+#
 # Deliberately NOT the same feature as Shiny's "Create" flow (CSV upload +
 # column-mapping + metadata form that *builds* an OmicSignature from
 # scratch) -- that's materially more work and out of scope here.
@@ -16,14 +33,12 @@
 #
 # Depends on api/lib/common.R (db_connect_local), api/lib/annotate.R
 # (enrichment_reference_table), api/lib/collection.R (collection_hash --
-# a generic tolower+md5 helper, reused here for feature/access hash keys),
+# a generic tolower+md5 helper, reused here for feature/access hash keys --
+# note it computes the SAME formula SigRepo::createHashKey() uses:
+# md5(tolower(paste0(...))), so it doubles as the feature_hashkey function),
 # and api/lib/difexp.R (save_difexp_rds).
 
-REQUIRED_UPLOAD_METADATA_FIELDS <- c(
-  "signature_name", "direction_type", "assay_type",
-  "organism", "phenotype", "sample_type", "platform_name"
-)
-REQUIRED_UPLOAD_FEATURE_COLUMNS <- c("probe_id", "feature_id", "score", "group_label")
+REQUIRED_UPLOAD_METADATA_FIELDS <- c("signature_name", "direction_type", "assay_type", "organism", "phenotype")
 
 meta_str <- function(metadata, field) {
   value <- metadata[[field]]
@@ -33,16 +48,49 @@ meta_str <- function(metadata, field) {
   base::trimws(base::as.character(value[1]))
 }
 
-# Returns list(ok = FALSE, reason = "invalid_upload", message) or NULL (valid).
-validate_upload_shape <- function(uploaded) {
-  if (!base::is.list(uploaded) || base::is.null(uploaded$metadata) || base::is.null(uploaded$signature)) {
+# Normalizes either accepted shape into a common
+# list(metadata, feature_tbl, difexp_tbl, feature_key, platform_field), or
+# list(ok = FALSE, ...) if `uploaded` matches neither. `feature_key` says
+# whether feature_tbl's rows resolve to a DB feature via `feature_name`
+# (real OmicSignature objects) or already carry a resolved `feature_id`
+# (this API's own /signatures/export shape). `platform_field` says which
+# metadata key holds the platform value ("platform" on a real
+# OmicSignature -- the OmicSignature package's own field name -- vs.
+# "platform_name" on /signatures/export's output, which joins in the DB
+# column name directly).
+normalize_upload <- function(uploaded) {
+  if (base::inherits(uploaded, "OmicSignature")) {
     return(base::list(
-      ok = FALSE, reason = "invalid_upload",
-      message = "Uploaded file must be an .rds produced by /signatures/export (a list with metadata/signature/difexp)."
+      ok = TRUE,
+      metadata = uploaded$metadata,
+      feature_tbl = uploaded$signature,
+      difexp_tbl = uploaded$difexp,
+      feature_key = "feature_name",
+      platform_field = "platform"
     ))
   }
+  if (base::is.list(uploaded) && !base::is.null(uploaded$metadata) && !base::is.null(uploaded$signature)) {
+    return(base::list(
+      ok = TRUE,
+      metadata = uploaded$metadata,
+      feature_tbl = uploaded$signature,
+      difexp_tbl = uploaded$difexp,
+      feature_key = "feature_id",
+      platform_field = "platform_name"
+    ))
+  }
+  base::list(
+    ok = FALSE, reason = "invalid_upload",
+    message = "Uploaded file must be an OmicSignature object (e.g. saveRDS(OmicSignature::OmicSignature(...))) or an .rds produced by /signatures/export."
+  )
+}
 
-  missing_meta <- base::Filter(function(f) base::is.null(meta_str(uploaded$metadata, f)), REQUIRED_UPLOAD_METADATA_FIELDS)
+# Returns list(ok = FALSE, reason = "invalid_upload", message) or NULL (valid).
+validate_upload_shape <- function(norm) {
+  metadata <- norm$metadata
+  feature_tbl <- norm$feature_tbl
+
+  missing_meta <- base::Filter(function(f) base::is.null(meta_str(metadata, f)), REQUIRED_UPLOAD_METADATA_FIELDS)
   if (base::length(missing_meta) > 0) {
     return(base::list(
       ok = FALSE, reason = "invalid_upload",
@@ -50,14 +98,19 @@ validate_upload_shape <- function(uploaded) {
     ))
   }
 
-  feature_tbl <- uploaded$signature
+  required_cols <- if (norm$feature_key == "feature_name") c("probe_id", "feature_name") else c("probe_id", "feature_id")
+  direction_type <- meta_str(metadata, "direction_type")
+  if (!base::is.null(direction_type) && direction_type != "uni-directional") {
+    required_cols <- c(required_cols, "group_label")
+  }
+
   if (!base::is.data.frame(feature_tbl) || base::nrow(feature_tbl) == 0 ||
-      base::any(!REQUIRED_UPLOAD_FEATURE_COLUMNS %in% base::colnames(feature_tbl))) {
+      base::any(!required_cols %in% base::colnames(feature_tbl))) {
     return(base::list(
       ok = FALSE, reason = "invalid_upload",
       message = base::sprintf(
         "Uploaded 'signature' must be a non-empty table with columns: %s.",
-        base::paste(REQUIRED_UPLOAD_FEATURE_COLUMNS, collapse = ", ")
+        base::paste(required_cols, collapse = ", ")
       )
     ))
   }
@@ -91,6 +144,60 @@ sql_value <- function(conn, value) {
   DBI::dbQuoteLiteral(conn, base::as.character(value[1]))
 }
 
+# Resolves feature_tbl's rows to DB feature_ids in `ref_table`, per
+# norm$feature_key. Returns list(ok = TRUE, feature_ids = <integer vector,
+# one per row of feature_tbl>) or list(ok = FALSE, reason =
+# "unknown_features", message).
+resolve_feature_ids <- function(conn, feature_tbl, ref_table, organism_id, feature_key) {
+  if (feature_key == "feature_id") {
+    requested <- base::suppressWarnings(base::as.integer(feature_tbl$feature_id))
+    unique_ids <- base::unique(requested[!base::is.na(requested)])
+    known_ids <- if (base::length(unique_ids) > 0) {
+      DBI::dbGetQuery(conn, base::sprintf(
+        "SELECT feature_id FROM %s WHERE feature_id IN (%s)", ref_table, base::paste(unique_ids, collapse = ",")
+      ))$feature_id
+    } else {
+      base::integer(0)
+    }
+    unknown <- base::setdiff(unique_ids, known_ids)
+    if (base::length(unknown) > 0) {
+      return(base::list(
+        ok = FALSE, reason = "unknown_features",
+        message = base::sprintf(
+          "%d uploaded feature(s) do not exist in %s and cannot be uploaded: %s.",
+          base::length(unknown), ref_table, base::paste(utils::head(unknown, 20), collapse = ", ")
+        )
+      ))
+    }
+    return(base::list(ok = TRUE, feature_ids = requested))
+  }
+
+  # feature_key == "feature_name": resolve the same way
+  # SigRepo::addTranscriptomicsSignatureSet()/addProteomicsSignatureSet() do
+  # -- a feature_hashkey = md5(tolower(paste0(feature_name, organism_id)))
+  # bulk lookup against the reference table, per-organism.
+  feature_names <- base::as.character(feature_tbl$feature_name)
+  hashkeys <- base::vapply(feature_names, function(fn) collection_hash(fn, organism_id), base::character(1))
+  unique_hashkeys <- base::unique(hashkeys)
+  lookup <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT feature_id, feature_hashkey FROM %s WHERE feature_hashkey IN (%s)",
+    ref_table, base::paste(DBI::dbQuoteLiteral(conn, unique_hashkeys), collapse = ",")
+  ))
+  id_by_hashkey <- stats::setNames(lookup$feature_id, lookup$feature_hashkey)
+  resolved <- base::unname(id_by_hashkey[hashkeys])
+  unknown <- base::unique(feature_names[base::is.na(resolved)])
+  if (base::length(unknown) > 0) {
+    return(base::list(
+      ok = FALSE, reason = "unknown_features",
+      message = base::sprintf(
+        "%d uploaded feature(s) do not exist in %s and cannot be uploaded: %s.",
+        base::length(unknown), ref_table, base::paste(utils::head(unknown, 20), collapse = ", ")
+      )
+    ))
+  }
+  base::list(ok = TRUE, feature_ids = base::as.integer(resolved))
+}
+
 # Returns list(ok = FALSE, reason, message) or
 # list(ok = TRUE, signature_hashkey, signature_name).
 build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, difexp_dir) {
@@ -98,14 +205,18 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
     return(base::list(ok = FALSE, reason = "forbidden"))
   }
 
-  shape_error <- validate_upload_shape(uploaded)
+  norm <- normalize_upload(uploaded)
+  if (!norm$ok) {
+    return(norm)
+  }
+  shape_error <- validate_upload_shape(norm)
   if (!base::is.null(shape_error)) {
     return(shape_error)
   }
 
-  metadata <- uploaded$metadata
-  feature_tbl <- uploaded$signature
-  difexp_tbl <- uploaded$difexp
+  metadata <- norm$metadata
+  feature_tbl <- norm$feature_tbl
+  difexp_tbl <- norm$difexp_tbl
 
   assay_type <- meta_str(metadata, "assay_type")
   ref_table <- enrichment_reference_table(assay_type)
@@ -132,13 +243,15 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
     if (base::is.null(organism_id)) {
       return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown organism: '%s'.", meta_str(metadata, "organism"))))
     }
-    platform_id <- lookup_id(conn, "platforms", "platform_id", "platform_name", meta_str(metadata, "platform_name"))
+    platform_value <- meta_str(metadata, norm$platform_field) %||% "unknown"
+    platform_id <- lookup_id(conn, "platforms", "platform_id", "platform_name", platform_value)
     if (base::is.null(platform_id)) {
-      return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown platform: '%s'.", meta_str(metadata, "platform_name"))))
+      return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown platform: '%s'.", platform_value)))
     }
-    sample_type_id <- lookup_id(conn, "sample_types", "sample_type_id", "sample_type", meta_str(metadata, "sample_type"))
+    sample_type_value <- meta_str(metadata, "sample_type") %||% "unknown"
+    sample_type_id <- lookup_id(conn, "sample_types", "sample_type_id", "sample_type", sample_type_value)
     if (base::is.null(sample_type_id)) {
-      return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown sample_type: '%s'.", meta_str(metadata, "sample_type"))))
+      return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown sample_type: '%s'.", sample_type_value)))
     }
 
     phenotype_id <- lookup_id(conn, "phenotypes", "phenotype_id", "phenotype", meta_str(metadata, "phenotype"))
@@ -149,26 +262,14 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
 
     # Every uploaded feature must already resolve in the target reference
     # table -- no auto-creating new features from an upload.
-    feature_ids <- base::unique(base::suppressWarnings(base::as.integer(feature_tbl$feature_id)))
-    feature_ids <- feature_ids[!base::is.na(feature_ids)]
-    known_ids <- if (base::length(feature_ids) > 0) {
-      DBI::dbGetQuery(conn, base::sprintf("SELECT feature_id FROM %s WHERE feature_id IN (%s)", ref_table, base::paste(feature_ids, collapse = ",")))$feature_id
-    } else {
-      base::integer(0)
+    resolved <- resolve_feature_ids(conn, feature_tbl, ref_table, organism_id, norm$feature_key)
+    if (!resolved$ok) {
+      return(resolved)
     }
-    unknown_ids <- base::setdiff(feature_ids, known_ids)
-    if (base::length(unknown_ids) > 0) {
-      return(base::list(
-        ok = FALSE, reason = "unknown_features",
-        message = base::sprintf(
-          "%d uploaded feature(s) do not exist in %s and cannot be uploaded: %s.",
-          base::length(unknown_ids), ref_table, base::paste(utils::head(unknown_ids, 20), collapse = ", ")
-        )
-      ))
-    }
+    feature_ids <- resolved$feature_ids
 
     has_difexp <- base::is.data.frame(difexp_tbl) && base::nrow(difexp_tbl) > 0
-    scores <- base::suppressWarnings(base::as.numeric(feature_tbl$score))
+    scores <- if ("score" %in% base::colnames(feature_tbl)) base::suppressWarnings(base::as.numeric(feature_tbl$score)) else base::rep(NA_real_, base::nrow(feature_tbl))
     num_up <- base::sum(scores > 0, na.rm = TRUE)
     num_down <- base::sum(scores < 0, na.rm = TRUE)
 
@@ -219,6 +320,7 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
     }
 
     access_hash <- collection_hash(signature_id, auth$user_name)
+    has_group_label <- "group_label" %in% base::colnames(feature_tbl)
     write_result <- base::tryCatch({
       DBI::dbExecute(conn, base::sprintf(
         "INSERT INTO signature_access (signature_id, user_name, access_type, access_sig_hashkey) VALUES (%d, %s, 'owner', %s)",
@@ -231,11 +333,11 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
 
       feature_rows <- base::lapply(base::seq_len(base::nrow(feature_tbl)), function(i) {
         row <- feature_tbl[i, , drop = FALSE]
-        group_label <- base::trimws(base::as.character(row$group_label[1]))
+        group_label <- if (has_group_label) base::trimws(base::as.character(row$group_label[1])) else NA_character_
         if (base::is.na(group_label) || !base::nzchar(group_label)) group_label <- "All Features"
-        feature_id <- base::as.integer(row$feature_id[1])
+        feature_id <- feature_ids[i]
         probe_id <- base::as.character(row$probe_id[1])
-        score <- base::suppressWarnings(base::as.numeric(row$score[1]))
+        score <- scores[i]
         sig_feature_hash <- collection_hash(signature_id, feature_id, assay_type, probe_id)
         base::sprintf(
           "(%d, %d, %s, %s, %s, %s, %s)",
