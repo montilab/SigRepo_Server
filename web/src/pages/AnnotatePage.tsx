@@ -1,11 +1,18 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { ArrowLeft, ArrowRight, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Play, RotateCcw, Loader2 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Stepper from "../components/Stepper";
-import { signatures, enrichmentResults } from "../data/mock";
+import {
+  searchSignatures,
+  getMsigdbCollections,
+  runAnnotation,
+  type SignatureSummary,
+  type MsigdbCollectionOption,
+  type EnrichmentRun,
+} from "../api/client";
 
 const STEPS = ["Signature", "Method", "Results"];
 const SIGNIFICANT_FDR = 0.01;
@@ -13,15 +20,87 @@ const tooltipStyle = { border: "1px solid var(--border)", borderRadius: 8, boxSh
 
 export default function AnnotatePage() {
   const [step, setStep] = useState(0);
-  const [sigId, setSigId] = useState(signatures[0].signature_id);
-  const [method, setMethod] = useState<"hypeR" | "hyperGEM">("hypeR");
-  const [collection, setCollection] = useState("CP:REACTOME");
+
+  const [signatures, setSignatures] = useState<SignatureSummary[]>([]);
+  const [signaturesLoading, setSignaturesLoading] = useState(true);
+  const [signaturesError, setSignaturesError] = useState<string | null>(null);
+  const [sigHashkey, setSigHashkey] = useState("");
+
+  useEffect(() => {
+    searchSignatures({ limit: 100 })
+      .then((results) => {
+        setSignatures(results);
+        if (results.length > 0) setSigHashkey(results[0].signature_hashkey);
+      })
+      .catch((err) => setSignaturesError(err instanceof Error ? err.message : "Could not load signatures."))
+      .finally(() => setSignaturesLoading(false));
+  }, []);
+
+  const sig = signatures.find((s) => s.signature_hashkey === sigHashkey) ?? null;
+
+  const [collections, setCollections] = useState<MsigdbCollectionOption[]>([]);
+  const [collectionsLoading, setCollectionsLoading] = useState(true);
+  const [collectionsError, setCollectionsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMsigdbCollections()
+      .then(setCollections)
+      .catch((err) => setCollectionsError(err instanceof Error ? err.message : "Could not load MSigDB collections."))
+      .finally(() => setCollectionsLoading(false));
+  }, []);
+
+  const collectionOptions = useMemo(() => Array.from(new Set(collections.map((c) => c.Collection))).sort(), [collections]);
+  const [collection, setCollection] = useState("H");
+  const subcollectionOptions = useMemo(
+    () => collections.filter((c) => c.Collection === collection).map((c) => c.Subcollection).filter(Boolean).sort(),
+    [collections, collection]
+  );
+  const [subcollection, setSubcollection] = useState("");
+
+  useEffect(() => {
+    setSubcollection("");
+  }, [collection]);
+
+  const [test, setTest] = useState<"hypergeometric" | "kstest">("hypergeometric");
   const [fdr, setFdr] = useState(0.05);
 
-  const sig = signatures.find((s) => s.signature_id === sigId)!;
-  const plot = enrichmentResults
-    .filter((r) => r.fdr <= fdr)
-    .map((r) => ({ ...r, geneRatio: r.overlapCount / r.genesetSize, shortName: r.geneset.length > 30 ? r.geneset.slice(0, 28) + "…" : r.geneset }));
+  // Rank-based enrichment needs per-feature scores from difexp, which not
+  // every signature has stored.
+  const kstestAvailable = sig?.has_difexp === 1;
+  useEffect(() => {
+    if (!kstestAvailable && test === "kstest") setTest("hypergeometric");
+  }, [kstestAvailable, test]);
+
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [result, setResult] = useState<EnrichmentRun | null>(null);
+
+  async function handleRun() {
+    if (!sig) return;
+    setRunning(true);
+    setRunError(null);
+    try {
+      const run = await runAnnotation({
+        signatureHashkey: sig.signature_hashkey,
+        test,
+        collection,
+        subcollection: subcollection || undefined,
+        fdr,
+      });
+      setResult(run);
+      setStep(2);
+    } catch (err) {
+      setRunError(err instanceof Error ? err.message : "Enrichment failed.");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  const plot = (result?.results ?? []).map((r) => ({
+    ...r,
+    geneRatio: r.overlap / r.geneset,
+    shortName: r.label.length > 30 ? r.label.slice(0, 28) + "…" : r.label,
+  }));
 
   return (
     <div className="page">
@@ -33,67 +112,93 @@ export default function AnnotatePage() {
 
       {step === 0 && (
         <Card title="Choose a signature" subtitle="Select the signature to run enrichment against">
+          {signaturesError && <p className="login-error">{signaturesError}</p>}
+          {signaturesLoading && <p className="cell-sub">Loading signatures…</p>}
+          {!signaturesLoading && signatures.length === 0 && !signaturesError && (
+            <p className="muted-note">No signatures available.</p>
+          )}
           <div className="radio-list">
             {signatures.map((s) => (
-              <label key={s.signature_id} className={"radio-row" + (sigId === s.signature_id ? " radio-row-active" : "")}>
-                <input type="radio" name="sig" checked={sigId === s.signature_id} onChange={() => setSigId(s.signature_id)} />
+              <label key={s.signature_hashkey} className={"radio-row" + (sigHashkey === s.signature_hashkey ? " radio-row-active" : "")}>
+                <input type="radio" name="sig" checked={sigHashkey === s.signature_hashkey} onChange={() => setSigHashkey(s.signature_hashkey)} />
                 <span className="radio-row-text">
                   <strong>{s.signature_name}</strong>
-                  <small>{s.organism} · {s.assay_type} · {s.phenotype}</small>
+                  <small>{s.organism ?? "—"} · {s.assay_type} · {s.phenotype ?? "—"}</small>
                 </span>
                 <Badge tone="neutral">{s.assay_type}</Badge>
               </label>
             ))}
           </div>
           <div className="wizard-nav">
-            <button className="btn btn-primary" onClick={() => setStep(1)}>
+            <button className="btn btn-primary" disabled={!sig} onClick={() => setStep(1)}>
               Continue <ArrowRight size={16} />
             </button>
           </div>
         </Card>
       )}
 
-      {step === 1 && (
+      {step === 1 && sig && (
         <Card title="Method & gene set library" subtitle={`Configure the run for ${sig.signature_name}`}>
           <div className="form-grid">
             <label className="field">
               <span className="field-label">Method</span>
-              <select className="input" value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
-                <option value="hypeR">runHypeR — hypergeometric</option>
-                <option value="hyperGEM">runHyperGEM — GSEA-style</option>
+              <select className="input" value={test} onChange={(e) => setTest(e.target.value as typeof test)}>
+                <option value="hypergeometric">Hypergeometric — feature overlap</option>
+                <option value="kstest" disabled={!kstestAvailable}>
+                  Rank-based (KS test) {!kstestAvailable ? "— requires stored difexp" : ""}
+                </option>
               </select>
             </label>
             <label className="field">
               <span className="field-label">MSigDB collection</span>
-              <select className="input" value={collection} onChange={(e) => setCollection(e.target.value)}>
-                <option value="CP:REACTOME">CP:REACTOME</option>
-                <option value="CP:KEGG_LEGACY">CP:KEGG_LEGACY</option>
-                <option value="CP:WIKIPATHWAYS">CP:WIKIPATHWAYS</option>
-                <option value="CP:BIOCARTA">CP:BIOCARTA</option>
-                <option value="H">H — Hallmark</option>
+              <select className="input" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={collectionsLoading}>
+                {collectionOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </label>
+            {subcollectionOptions.length > 0 && (
+              <label className="field">
+                <span className="field-label">Subcollection</span>
+                <select className="input" value={subcollection} onChange={(e) => setSubcollection(e.target.value)}>
+                  <option value="">All</option>
+                  {subcollectionOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
+          {collectionsError && <p className="login-error">{collectionsError}</p>}
           <label className="field field-slider">
             <span className="field-label">FDR cutoff <span className="field-value">{fdr.toFixed(2)}</span></span>
             <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
           </label>
+          {runError && <p className="login-error">{runError}</p>}
           <div className="wizard-nav">
-            <button className="btn btn-ghost" onClick={() => setStep(0)}>
+            <button className="btn btn-ghost" onClick={() => setStep(0)} disabled={running}>
               <ArrowLeft size={16} /> Back
             </button>
-            <button className="btn btn-primary" onClick={() => setStep(2)}>
-              <Play size={15} /> Run enrichment
+            <button className="btn btn-primary" onClick={handleRun} disabled={running || collectionsLoading}>
+              {running ? (
+                <>
+                  <Loader2 size={15} className="spin" /> Running… (first run per collection can take ~10s)
+                </>
+              ) : (
+                <>
+                  <Play size={15} /> Run enrichment
+                </>
+              )}
             </button>
           </div>
         </Card>
       )}
 
-      {step === 2 && (
+      {step === 2 && sig && result && (
         <>
           <Card
             title="Enrichment results"
-            subtitle={`${sig.signature_name} · ${collection} · ${method} · FDR ≤ ${fdr.toFixed(2)}`}
+            subtitle={`${result.signature_name} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)}`}
             actions={
               <button className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>
                 <RotateCcw size={14} /> Edit
@@ -108,11 +213,11 @@ export default function AnnotatePage() {
                   <CartesianGrid stroke="var(--viz-grid)" />
                   <XAxis type="number" dataKey="geneRatio" name="Gene ratio" tickFormatter={(v) => v.toFixed(2)} tick={{ fontSize: 11, fill: "var(--text-muted)" }} axisLine={false} tickLine={false} label={{ value: "Gene ratio", position: "insideBottom", offset: -8, fontSize: 12, fill: "var(--text-secondary)" }} />
                   <YAxis type="category" dataKey="shortName" width={230} tick={{ fontSize: 11, fill: "var(--text-secondary)" }} axisLine={false} tickLine={false} />
-                  <ZAxis dataKey="overlapCount" range={[90, 460]} name="Overlap" />
+                  <ZAxis dataKey="overlap" range={[90, 460]} name="Overlap" />
                   <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={tooltipStyle} formatter={(v, n) => (n === "Gene ratio" && typeof v === "number" ? v.toFixed(3) : v)} labelFormatter={() => ""} />
                   <Scatter data={plot}>
                     {plot.map((e) => (
-                      <Cell key={e.geneset} fill={e.fdr <= SIGNIFICANT_FDR ? "var(--accent)" : "var(--viz-2)"} fillOpacity={0.85} />
+                      <Cell key={e.label} fill={e.fdr <= SIGNIFICANT_FDR ? "var(--accent)" : "var(--viz-2)"} fillOpacity={0.85} />
                     ))}
                   </Scatter>
                 </ScatterChart>
@@ -132,17 +237,17 @@ export default function AnnotatePage() {
               </thead>
               <tbody>
                 {plot.map((r) => (
-                  <tr key={r.geneset}>
-                    <td className="cell-strong">{r.geneset}</td>
+                  <tr key={r.label}>
+                    <td className="cell-strong">{r.label}</td>
                     <td className="dt-right cell-mono">{r.pval.toExponential(1)}</td>
                     <td className="dt-right cell-mono">{r.fdr.toFixed(4)}</td>
-                    <td className="dt-right cell-mono">{r.overlapCount}/{r.genesetSize}</td>
+                    <td className="dt-right cell-mono">{r.overlap}/{r.geneset}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="wizard-nav wizard-nav-padded">
-              <button className="btn btn-ghost" onClick={() => setStep(0)}>
+              <button className="btn btn-ghost" onClick={() => { setStep(0); setResult(null); }}>
                 <RotateCcw size={15} /> Start over
               </button>
             </div>

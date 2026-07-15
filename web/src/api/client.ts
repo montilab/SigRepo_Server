@@ -330,3 +330,67 @@ export async function removeSignatureFromCollection(collectionHashkey: string, s
     { method: "DELETE" }
   );
 }
+
+// ---------- Annotate (gene set enrichment) ----------
+
+export interface MsigdbCollectionOption {
+  Collection: string;
+  Subcollection: string;
+}
+
+export async function getMsigdbCollections(): Promise<MsigdbCollectionOption[]> {
+  const raw = await apiFetch<{ collections: MsigdbCollectionOption[] }>(
+    `/annotate/msigdb-collections?api_key=${encodeURIComponent(requireApiKey())}`
+  );
+  return raw.collections ?? [];
+}
+
+export interface EnrichmentResultRow {
+  label: string;
+  pval: number;
+  fdr: number;
+  signature: number;
+  geneset: number;
+  overlap: number;
+  background: number;
+  hits: string;
+}
+
+export interface EnrichmentRun {
+  signature_name: string;
+  n_query: number;
+  test: "hypergeometric" | "kstest";
+  collection: string;
+  subcollection: string;
+  fdr: number;
+  results: EnrichmentResultRow[];
+}
+
+export interface RunAnnotationParams {
+  signatureHashkey: string;
+  test: "hypergeometric" | "kstest";
+  species?: string;
+  collection: string;
+  subcollection?: string;
+  fdr: number;
+}
+
+// The first request for a given species/collection/subcollection can take
+// ~10s (hypeR fetches MSigDB live and caches in-process); callers should
+// show a loading state, not assume this resolves quickly.
+export async function runAnnotation(params: RunAnnotationParams): Promise<EnrichmentRun> {
+  const raw = await apiFetch<EnrichmentRun>("/annotate/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      signature_hashkey: params.signatureHashkey,
+      test: params.test,
+      species: params.species ?? "Homo sapiens",
+      collection: params.collection,
+      subcollection: params.subcollection ?? "",
+      fdr: params.fdr,
+    }),
+  });
+  return { ...raw, results: raw.results ?? [] };
+}
