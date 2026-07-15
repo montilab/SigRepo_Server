@@ -280,6 +280,7 @@ export default function SignaturesPage() {
         onClose={() => setActive(null)}
         title={active?.signature_name ?? ""}
         subtitle={active ? `${active.organism ?? "—"} · ${active.assay_type}` : ""}
+        size="wide"
         footer={
           active && (
             <>
