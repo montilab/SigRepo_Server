@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, Upload, Search, Download, Trash2, ShoppingBasket, X } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
@@ -32,18 +32,6 @@ function canDelete(signature: SignatureSummary): boolean {
   return auth.user_role === "editor" && auth.user_name === signature.user_name;
 }
 
-// signature_id/organism_id/phenotype_id/platform_id/sample_type_id are
-// internal foreign keys -- the joined organism/phenotype/sample_type/
-// platform_name fields (and signature_hashkey, shown separately) are the
-// human-readable versions, so hide the raw ids from the full metadata dump.
-const HIDDEN_METADATA_FIELDS = new Set([
-  "signature_id",
-  "organism_id",
-  "phenotype_id",
-  "platform_id",
-  "sample_type_id",
-]);
-
 function formatLabel(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -52,6 +40,85 @@ function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   return String(value);
 }
+
+function hasValue(value: unknown): boolean {
+  return value !== null && value !== undefined && value !== "";
+}
+
+interface MetadataField {
+  key: string;
+  label: string;
+  render?: (value: unknown) => ReactNode;
+}
+
+// Groups the raw signature row (every column of `signatures`, plus the
+// joined organism/phenotype/sample_type/platform_name) into labeled
+// sections instead of one flat alphabetical dump. Excludes:
+//  - signature_id/organism_id/phenotype_id/platform_id/sample_type_id --
+//    internal foreign keys; the joined human-readable columns replace them.
+//  - signature_name/assay_type -- already shown in the drawer title/subtitle.
+//  - signature_hashkey -- an internal lookup key, not metadata; shown as a
+//    small reference line under the title instead.
+// Fields with no value are dropped individually, and a whole section is
+// skipped if none of its fields have a value.
+const METADATA_SECTIONS: { title: string; fields: MetadataField[] }[] = [
+  {
+    title: "Classification",
+    fields: [
+      { key: "organism", label: "Organism" },
+      { key: "phenotype", label: "Phenotype" },
+      { key: "sample_type", label: "Sample Type" },
+      { key: "platform_name", label: "Platform" },
+      { key: "direction_type", label: "Direction Type" },
+    ],
+  },
+  {
+    title: "Cutoffs & Thresholds",
+    fields: [
+      { key: "score_cutoff", label: "Score Cutoff" },
+      { key: "logfc_cutoff", label: "LogFC Cutoff" },
+      { key: "p_value_cutoff", label: "P-value Cutoff" },
+      { key: "adj_p_cutoff", label: "Adj. P Cutoff" },
+      { key: "cutoff_description", label: "Cutoff Description" },
+    ],
+  },
+  {
+    title: "Differential Expression",
+    fields: [
+      {
+        key: "has_difexp",
+        label: "Has Difexp",
+        render: (v) => <Badge tone={v === 1 ? "success" : "neutral"}>{v === 1 ? "Yes" : "No"}</Badge>,
+      },
+      { key: "num_of_difexp", label: "# Difexp" },
+      { key: "num_up_regulated", label: "# Up" },
+      { key: "num_down_regulated", label: "# Down" },
+    ],
+  },
+  {
+    title: "Details",
+    fields: [
+      { key: "description", label: "Description" },
+      { key: "covariates", label: "Covariates" },
+      { key: "keywords", label: "Keywords" },
+      { key: "PMID", label: "PMID" },
+      { key: "year", label: "Year" },
+      { key: "others", label: "Others" },
+    ],
+  },
+  {
+    title: "Provenance",
+    fields: [
+      { key: "user_name", label: "Owner" },
+      { key: "date_created", label: "Created" },
+      {
+        key: "visibility",
+        label: "Visibility",
+        render: (v) => <Badge tone={v === 1 ? "success" : "neutral"}>{v === 1 ? "Public" : "Private"}</Badge>,
+      },
+    ],
+  },
+];
 
 export default function SignaturesPage() {
   const [rows, setRows] = useState<SignatureSummary[]>([]);
@@ -328,25 +395,25 @@ export default function SignaturesPage() {
               <>
                 {contextLoading && <p className="cell-sub">Loading metadata…</p>}
                 {!contextLoading && context && (
-                  <dl className="detail-list">
-                    {Object.entries(context.signature)
-                      .filter(([key]) => !HIDDEN_METADATA_FIELDS.has(key))
-                      .map(([key, value]) => (
-                        <div key={key}>
-                          <dt>{formatLabel(key)}</dt>
-                          <dd className={key === "signature_hashkey" ? "cell-mono" : undefined}>
-                            {key === "visibility" ? (
-                              <Badge tone={value === 1 ? "success" : "neutral"}>{value === 1 ? "Public" : "Private"}</Badge>
-                            ) : key === "has_difexp" ? (
-                              <Badge tone={value === 1 ? "success" : "neutral"}>{value === 1 ? "Yes" : "No"}</Badge>
-                            ) : (
-                              formatValue(value)
-                            )}
-                          </dd>
-                        </div>
-                      ))}
-                  </dl>
+                  <p className="cell-sub cell-mono" style={{ marginBottom: 18 }}>{context.signature.signature_hashkey as string}</p>
                 )}
+                {!contextLoading && context && METADATA_SECTIONS.map((section) => {
+                  const fields = section.fields.filter((f) => hasValue(context.signature[f.key]));
+                  if (fields.length === 0) return null;
+                  return (
+                    <div key={section.title} style={{ marginBottom: 22 }}>
+                      <h4 className="detail-section-title">{section.title}</h4>
+                      <dl className="detail-list">
+                        {fields.map((f) => (
+                          <div key={f.key}>
+                            <dt>{f.label}</dt>
+                            <dd>{f.render ? f.render(context.signature[f.key]) : formatValue(context.signature[f.key])}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  );
+                })}
 
                 <h4 className="detail-section-title">Top features</h4>
                 {contextLoading && <p className="cell-sub">Loading features…</p>}
