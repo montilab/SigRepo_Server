@@ -1127,3 +1127,51 @@ signature_export_batch_route <- function(req, res, api_key = "", signature_hashk
     json_error(res, 500, base::sprintf("Basket export failed: %s", err$message))
   })
 }
+
+#* Upload a signature from an .rds file shaped like /signatures/export's
+#* own output (editor/admin; transcriptomics/proteomics only)
+#* @parser multi
+#* @parser rds
+#* @param api_key
+#* @param visibility
+#* @param signature_file:file
+#' @post /signatures/upload
+signature_upload_route <- function(res, api_key = "", visibility = "false", signature_file){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  if (base::missing(signature_file) || base::length(signature_file) == 0) {
+    return(json_error(res, 400, "signature_file is required."))
+  }
+
+  base::tryCatch({
+    result <- build_signature_from_upload(
+      auth = auth,
+      uploaded = signature_file[[1]],
+      visibility = normalize_flag(visibility, default = FALSE) == 1,
+      difexp_dir = difexp_dir
+    )
+
+    if (!result$ok) {
+      status <- switch(result$reason,
+        "forbidden" = 403,
+        "invalid_upload" = 400,
+        "unsupported_assay_type" = 400,
+        "unknown_features" = 400,
+        "duplicate" = 409,
+        500
+      )
+      message <- if (!base::is.null(result$message)) result$message else "Signature upload failed."
+      return(json_error(res, status, message))
+    }
+
+    json_response(res, 200, payload = base::list(
+      signature_hashkey = result$signature_hashkey,
+      MESSAGES = base::sprintf("Signature '%s' uploaded.", result$signature_name)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature upload failed: %s", err$message))
+  })
+}

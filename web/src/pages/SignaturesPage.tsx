@@ -12,6 +12,7 @@ import {
   getDifexp,
   downloadSignatureExport,
   downloadSignatureBasket,
+  uploadSignature,
   getAuth,
   type SignatureSummary,
   type SignatureContext,
@@ -30,6 +31,12 @@ function canDelete(signature: SignatureSummary): boolean {
   if (!auth) return false;
   if (auth.user_role === "admin") return true;
   return auth.user_role === "editor" && auth.user_name === signature.user_name;
+}
+
+// Mirrors build_signature_from_upload()'s own check: editor or admin, any owner.
+function canUpload(): boolean {
+  const auth = getAuth();
+  return auth?.user_role === "editor" || auth?.user_role === "admin";
 }
 
 function formatLabel(key: string): string {
@@ -125,6 +132,7 @@ export default function SignaturesPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,7 +153,8 @@ export default function SignaturesPage() {
     return () => {
       cancelled = true;
     };
-  }, [query]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, refreshTick]);
 
   const [active, setActive] = useState<SignatureSummary | null>(null);
   const [tab, setTab] = useState<"signature" | "difexp">("signature");
@@ -226,6 +235,31 @@ export default function SignaturesPage() {
       setBasketError(err instanceof Error ? err.message : "Could not download basket.");
     } finally {
       setBasketDownloading(false);
+    }
+  }
+
+  // ---------- Upload (re-add a signature from an /signatures/export .rds file) ----------
+
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadVisible, setUploadVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleUpload() {
+    if (!uploadFile) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      await uploadSignature(uploadFile, uploadVisible);
+      setShowUpload(false);
+      setUploadFile(null);
+      setUploadVisible(false);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Could not upload signature.");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -312,12 +346,51 @@ export default function SignaturesPage() {
             <button className="btn btn-secondary">
               <Plus size={16} /> Create
             </button>
-            <button className="btn btn-primary">
-              <Upload size={16} /> Upload
-            </button>
+            {canUpload() && (
+              <button className="btn btn-primary" onClick={() => setShowUpload((s) => !s)}>
+                <Upload size={16} /> Upload
+              </button>
+            )}
           </>
         }
       />
+
+      {showUpload && (
+        <Card title="Upload signature">
+          <p className="cell-sub" style={{ marginBottom: 12 }}>
+            Upload an .rds file produced by a signature's "Export" download to re-add it under your account.
+          </p>
+          <div className="field">
+            <span className="field-label">Signature file (.rds)</span>
+            <input
+              className="input"
+              type="file"
+              accept=".rds"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+          <label className="dt-filter-option" style={{ marginTop: 12, padding: 0 }}>
+            <input type="checkbox" checked={uploadVisible} onChange={(e) => setUploadVisible(e.target.checked)} />
+            <span>Public</span>
+          </label>
+          {uploadError && <p className="login-error">{uploadError}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button className="btn btn-primary" disabled={!uploadFile || uploading} onClick={handleUpload}>
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowUpload(false);
+                setUploadFile(null);
+                setUploadError(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </Card>
+      )}
 
       <Card padded={false}>
         <div className="toolbar">

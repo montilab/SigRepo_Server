@@ -483,3 +483,21 @@ export async function downloadSignatureBasket(signatureHashkeys: string[]): Prom
     "signature_basket.zip"
   );
 }
+
+// Re-adds a signature from an .rds file shaped like /signatures/export's own
+// output (list(metadata, signature, difexp)) -- the "Upload" counterpart to
+// downloadSignatureExport(). api_key/visibility go in the query string, not
+// the multipart body: Plumber's multi+rds parser combination doesn't bind
+// plain text fields to route parameters, only the file part.
+export async function uploadSignature(
+  file: File,
+  visibility: boolean
+): Promise<{ signature_hashkey: string; MESSAGES: string }> {
+  const query = new URLSearchParams({ api_key: requireApiKey(), visibility: String(visibility) });
+  const body = new FormData();
+  body.append("signature_file", file);
+  return apiFetch<{ signature_hashkey: string; MESSAGES: string }>(`/signatures/upload?${query.toString()}`, {
+    method: "POST",
+    body,
+  });
+}
