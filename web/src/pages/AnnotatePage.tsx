@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Play, RotateCcw, Loader2, CheckCircle2, CircleDashed } from "lucide-react";
+import { Play, RotateCcw, Loader2, CheckCircle2, CircleDashed } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
@@ -16,7 +16,7 @@ import {
   type EnrichmentRun,
 } from "../api/client";
 
-const STEPS = ["Signature", "Method", "Results"];
+const STEPS = ["Setup", "Results"];
 
 export default function AnnotatePage() {
   const [step, setStep] = useState(0);
@@ -123,7 +123,7 @@ export default function AnnotatePage() {
         fdr,
       });
       setResult(run);
-      setStep(2);
+      setStep(1);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : "Enrichment failed.");
     } finally {
@@ -140,111 +140,105 @@ export default function AnnotatePage() {
       </Card>
 
       {step === 0 && (
-        <Card title="Choose a signature" subtitle="Select the signature to run enrichment against">
-          {signaturesError && <p className="login-error">{signaturesError}</p>}
-          {signaturesLoading && <p className="cell-sub">Loading signatures…</p>}
-          {!signaturesLoading && signatures.length === 0 && !signaturesError && (
-            <p className="muted-note">No signatures available.</p>
-          )}
-          <div className="radio-list">
-            {signatures.map((s) => (
-              <label key={s.signature_hashkey} className={"radio-row" + (sigHashkey === s.signature_hashkey ? " radio-row-active" : "")}>
-                <input type="radio" name="sig" checked={sigHashkey === s.signature_hashkey} onChange={() => setSigHashkey(s.signature_hashkey)} />
-                <span className="radio-row-text">
-                  <strong>{s.signature_name}</strong>
-                  <small>{s.organism ?? "—"} · {s.assay_type} · {s.phenotype ?? "—"}</small>
-                </span>
-                <Badge tone="neutral">{s.assay_type}</Badge>
-              </label>
-            ))}
-          </div>
-          <div className="wizard-nav">
-            <button className="btn btn-primary" disabled={!sig} onClick={() => setStep(1)}>
-              Continue <ArrowRight size={16} />
-            </button>
-          </div>
-        </Card>
-      )}
-
-      {step === 1 && sig && (
         <>
-          <Card title="Method" subtitle={`Configure the run for ${sig.signature_name}`}>
-            <div className="form-grid">
-              <label className="field">
-                <span className="field-label">Method</span>
-                <select className="input" value={test} onChange={(e) => setTest(e.target.value as typeof test)}>
-                  <option value="hypergeometric">Hypergeometric — feature overlap</option>
-                  <option value="kstest" disabled={!kstestAvailable}>
-                    Rank-based (KS test) {!kstestAvailable ? "— requires stored difexp" : ""}
-                  </option>
-                </select>
-              </label>
-              <label className="field field-slider">
-                <span className="field-label">FDR cutoff <span className="field-value">{fdr.toFixed(2)}</span></span>
-                <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
-              </label>
-            </div>
-          </Card>
-
-          <Card title="Geneset selection" subtitle="Choose a species, collection, and subcollection, then fetch gene sets.">
-            <div className="form-grid">
-              <label className="field">
-                <span className="field-label">Species</span>
-                <select className="input" value={species} onChange={(e) => setSpecies(e.target.value)}>
-                  {(speciesOptions.length > 0 ? speciesOptions : ["Homo sapiens"]).map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span className="field-label">Collection</span>
-                <select className="input" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={collectionsLoading}>
-                  {collectionOptions.map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                <span className="field-label">Subcollection</span>
-                <select className="input" value={subcollection} onChange={(e) => setSubcollection(e.target.value)} disabled={subcollectionOptions.length === 0}>
-                  <option value="">{subcollectionOptions.length === 0 ? "No subcollection available" : "All"}</option>
-                  {subcollectionOptions.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {collectionsError && <p className="login-error">{collectionsError}</p>}
-            <div className="wizard-nav" style={{ justifyContent: "flex-start", gap: 16 }}>
-              <button className="btn btn-secondary" onClick={handleFetchGenesets} disabled={genesetFetching}>
-                {genesetFetching ? (
-                  <>
-                    <Loader2 size={15} className="spin" /> Fetching…
-                  </>
-                ) : (
-                  "Fetch Genesets"
-                )}
-              </button>
-              {genesetStatus ? (
-                <span className="badge badge-success" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <CheckCircle2 size={14} /> {genesetStatus.n_genesets} genesets ready
-                  {genesetStatus.source === "live" ? " (fetched live)" : ""}
-                </span>
-              ) : (
-                <span className="badge badge-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <CircleDashed size={14} /> No genesets fetched
-                </span>
+          <div className="annotate-setup-grid">
+            <Card title="Signature" subtitle="Choose the signature to run enrichment against" className="annotate-setup-signature">
+              {signaturesError && <p className="login-error">{signaturesError}</p>}
+              {signaturesLoading && <p className="cell-sub">Loading signatures…</p>}
+              {!signaturesLoading && signatures.length === 0 && !signaturesError && (
+                <p className="muted-note">No signatures available.</p>
               )}
+              <div className="radio-list radio-list-scroll">
+                {signatures.map((s) => (
+                  <label key={s.signature_hashkey} className={"radio-row" + (sigHashkey === s.signature_hashkey ? " radio-row-active" : "")}>
+                    <input type="radio" name="sig" checked={sigHashkey === s.signature_hashkey} onChange={() => setSigHashkey(s.signature_hashkey)} />
+                    <span className="radio-row-text">
+                      <strong>{s.signature_name}</strong>
+                      <small>{s.organism ?? "—"} · {s.assay_type} · {s.phenotype ?? "—"}</small>
+                    </span>
+                    <Badge tone="neutral">{s.assay_type}</Badge>
+                  </label>
+                ))}
+              </div>
+            </Card>
+
+            <div className="annotate-setup-side">
+              <Card title="Method" subtitle={sig ? `Configure the run for ${sig.signature_name}` : "Select a signature first"}>
+                <div className="form-grid">
+                  <label className="field">
+                    <span className="field-label">Method</span>
+                    <select className="input" value={test} onChange={(e) => setTest(e.target.value as typeof test)}>
+                      <option value="hypergeometric">Hypergeometric — feature overlap</option>
+                      <option value="kstest" disabled={!kstestAvailable}>
+                        Rank-based (KS test) {!kstestAvailable ? "— requires stored difexp" : ""}
+                      </option>
+                    </select>
+                  </label>
+                  <label className="field field-slider">
+                    <span className="field-label">FDR cutoff <span className="field-value">{fdr.toFixed(2)}</span></span>
+                    <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
+                  </label>
+                </div>
+              </Card>
+
+              <Card title="Geneset selection" subtitle="Choose a species, collection, and subcollection, then fetch gene sets.">
+                <div className="form-grid">
+                  <label className="field">
+                    <span className="field-label">Species</span>
+                    <select className="input" value={species} onChange={(e) => setSpecies(e.target.value)}>
+                      {(speciesOptions.length > 0 ? speciesOptions : ["Homo sapiens"]).map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="field-label">Collection</span>
+                    <select className="input" value={collection} onChange={(e) => setCollection(e.target.value)} disabled={collectionsLoading}>
+                      {collectionOptions.map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="field-label">Subcollection</span>
+                    <select className="input" value={subcollection} onChange={(e) => setSubcollection(e.target.value)} disabled={subcollectionOptions.length === 0}>
+                      <option value="">{subcollectionOptions.length === 0 ? "No subcollection available" : "All"}</option>
+                      {subcollectionOptions.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {collectionsError && <p className="login-error">{collectionsError}</p>}
+                <div className="wizard-nav" style={{ justifyContent: "flex-start", gap: 16 }}>
+                  <button className="btn btn-secondary" onClick={handleFetchGenesets} disabled={genesetFetching}>
+                    {genesetFetching ? (
+                      <>
+                        <Loader2 size={15} className="spin" /> Fetching…
+                      </>
+                    ) : (
+                      "Fetch Genesets"
+                    )}
+                  </button>
+                  {genesetStatus ? (
+                    <span className="badge badge-success" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <CheckCircle2 size={14} /> {genesetStatus.n_genesets} genesets ready
+                      {genesetStatus.source === "live" ? " (fetched live)" : ""}
+                    </span>
+                  ) : (
+                    <span className="badge badge-neutral" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <CircleDashed size={14} /> No genesets fetched
+                    </span>
+                  )}
+                </div>
+                {genesetError && <p className="login-error">{genesetError}</p>}
+              </Card>
             </div>
-            {genesetError && <p className="login-error">{genesetError}</p>}
-          </Card>
+          </div>
 
           {runError && <p className="login-error">{runError}</p>}
           <div className="wizard-nav">
-            <button className="btn btn-ghost" onClick={() => setStep(0)} disabled={running}>
-              <ArrowLeft size={16} /> Back
-            </button>
-            <button className="btn btn-primary" onClick={handleRun} disabled={running || !genesetStatus}>
+            <button className="btn btn-primary" onClick={handleRun} disabled={running || !sig || !genesetStatus}>
               {running ? (
                 <>
                   <Loader2 size={15} className="spin" /> Running…
@@ -259,13 +253,13 @@ export default function AnnotatePage() {
         </>
       )}
 
-      {step === 2 && sig && result && (
+      {step === 1 && sig && result && (
         <>
           <Card
             title="Enrichment results"
             subtitle={`${result.signature_name} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}`}
             actions={
-              <button className="btn btn-ghost btn-sm" onClick={() => setStep(1)}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setStep(0)}>
                 <RotateCcw size={14} /> Edit
               </button>
             }
