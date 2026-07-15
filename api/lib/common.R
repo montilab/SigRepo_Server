@@ -13,9 +13,12 @@ db_connect_local <- function() {
 }
 
 json_response <- function(res, status = 200, payload = NULL) {
+  # Return the payload object and let the json serializer (configured in
+  # api.R with auto_unbox/null/na/pretty) encode it once. Encoding here as
+  # well would double-wrap the body as ["<json string>"].
   res$serializer <- serializers[["json"]]
   res$status <- status
-  jsonlite::toJSON(payload, pretty = TRUE, auto_unbox = TRUE, null = "null", na = "null")
+  payload
 }
 
 json_error <- function(res, status = 400, message) {

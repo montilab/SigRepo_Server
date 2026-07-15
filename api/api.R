@@ -97,7 +97,11 @@ function(req){
 # Create a list of serializers to return the object ####
 serializers <- base::list(
   "html" = plumber::serializer_html(),
-  "json" = plumber::serializer_json(),
+  # Encode json_response() payloads exactly once, with the same options the
+  # helper used to apply by hand -- see api/lib/common.R. (The difexp routes
+  # keep their own hand-rolled jsonlite::toJSON + plumber's default
+  # serializer, which the SigRepo R client double-decodes on purpose.)
+  "json" = plumber::serializer_json(auto_unbox = TRUE, null = "null", na = "null", pretty = TRUE),
   "csv" = plumber::serializer_csv(),
   "rds" = plumber::serializer_rds(),
   "pdf" = plumber::serializer_pdf(),
