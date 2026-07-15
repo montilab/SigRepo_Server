@@ -699,3 +699,192 @@ delete_signature_route <- function(res, api_key = "", signature_hashkey = ""){
     json_error(res, 500, base::sprintf("Signature delete failed: %s", err$message))
   })
 }
+
+#* Search collections visible to the caller
+#* @param api_key
+#* @param keyword
+#* @param limit
+#' @get /collections/search
+search_collections_route <- function(res, api_key = "", keyword = "", limit = 50){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    results <- search_collections(conn = conn, auth = auth, keyword = json_scalar(keyword), limit = limit)
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    json_response(res, 200, payload = base::list(
+      count = base::nrow(results),
+      collections = compact_table(results, max_rows = 200)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection search failed: %s", err$message))
+  })
+}
+
+#* Collection metadata plus its member signatures
+#* @parser json
+#* @param api_key
+#* @param collection_hashkey
+#' @post /collections/detail
+collection_detail_route <- function(req, res, api_key = "", collection_hashkey = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  collection_hashkey <- if (identical(json_scalar(collection_hashkey), "")) json_scalar(body$collection_hashkey) else json_scalar(collection_hashkey)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (identical(collection_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- get_collection_detail(auth = auth, collection_hashkey = collection_hashkey)
+
+    if (!result$ok && identical(result$reason, "not_found")) {
+      return(json_error(res, 404, base::sprintf("No collection found for collection_hashkey = '%s'.", collection_hashkey)))
+    }
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to view this collection."))
+    }
+
+    json_response(res, 200, payload = base::list(
+      collection = result$collection,
+      signatures = result$signatures
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection detail lookup failed: %s", err$message))
+  })
+}
+
+#* Create a collection owned by the caller (editor/admin)
+#* @parser json
+#* @param api_key
+#* @param collection_name
+#* @param description
+#* @param visibility
+#' @post /collections/create
+create_collection_route <- function(req, res, api_key = "", collection_name = "", description = "", visibility = "false"){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  collection_name <- if (identical(json_scalar(collection_name), "")) json_scalar(body$collection_name) else json_scalar(collection_name)
+  description <- if (identical(json_scalar(description), "")) json_scalar(body$description) else json_scalar(description)
+  visibility <- if (is.null(body$visibility)) visibility else body$visibility
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    result <- create_collection(
+      auth = auth,
+      collection_name = collection_name,
+      description = description,
+      visibility = normalize_flag(visibility, default = FALSE) == 1
+    )
+
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to create a collection."))
+    }
+    if (!result$ok && identical(result$reason, "invalid")) {
+      return(json_error(res, 400, result$message))
+    }
+    if (!result$ok && identical(result$reason, "duplicate")) {
+      return(json_error(res, 409, result$message))
+    }
+
+    json_response(res, 200, payload = base::list(collection_hashkey = result$collection_hashkey))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection create failed: %s", err$message))
+  })
+}
+
+#* Delete a collection (editor/admin, and owner unless admin)
+#* @param api_key
+#* @param collection_hashkey
+#' @delete /collections/delete
+delete_collection_route <- function(res, api_key = "", collection_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  collection_hashkey <- json_scalar(collection_hashkey)
+  if (identical(collection_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- delete_collection_by_hashkey(auth = auth, collection_hashkey = collection_hashkey)
+
+    if (!result$ok && identical(result$reason, "not_found")) {
+      return(json_error(res, 404, base::sprintf("No collection found for collection_hashkey = '%s'.", collection_hashkey)))
+    }
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to delete this collection."))
+    }
+
+    json_response(res, 200, payload = base::list(
+      MESSAGES = base::sprintf("Collection '%s' has been deleted.", result$collection_name)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection delete failed: %s", err$message))
+  })
+}
+
+#* Add a signature to a collection (editor/admin, with access to both)
+#* @parser json
+#* @param api_key
+#* @param collection_hashkey
+#* @param signature_hashkey
+#' @post /collections/signatures/add
+add_signature_to_collection_route <- function(req, res, api_key = "", collection_hashkey = "", signature_hashkey = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  collection_hashkey <- if (identical(json_scalar(collection_hashkey), "")) json_scalar(body$collection_hashkey) else json_scalar(collection_hashkey)
+  signature_hashkey <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (identical(collection_hashkey, "") || identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey and signature_hashkey are required."))
+  }
+
+  base::tryCatch({
+    result <- add_signature_to_collection(auth = auth, collection_hashkey = collection_hashkey, signature_hashkey = signature_hashkey)
+    collection_signature_error_response(res, result, collection_hashkey, signature_hashkey)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Adding signature to collection failed: %s", err$message))
+  })
+}
+
+#* Remove a signature from a collection (editor/admin, with access to both)
+#* @param api_key
+#* @param collection_hashkey
+#* @param signature_hashkey
+#' @delete /collections/signatures/remove
+remove_signature_from_collection_route <- function(res, api_key = "", collection_hashkey = "", signature_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  collection_hashkey <- json_scalar(collection_hashkey)
+  signature_hashkey <- json_scalar(signature_hashkey)
+  if (identical(collection_hashkey, "") || identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey and signature_hashkey are required."))
+  }
+
+  base::tryCatch({
+    result <- remove_signature_from_collection(auth = auth, collection_hashkey = collection_hashkey, signature_hashkey = signature_hashkey)
+    collection_signature_error_response(res, result, collection_hashkey, signature_hashkey)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Removing signature from collection failed: %s", err$message))
+  })
+}
