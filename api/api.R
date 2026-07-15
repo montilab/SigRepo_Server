@@ -665,3 +665,37 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
     json_error(res, 500, base::sprintf("Signature search failed: %s", err$message))
   })
 }
+
+#* Delete a signature (editor/admin, and owner unless admin)
+#* @param api_key
+#* @param signature_hashkey
+#' @delete /signatures/delete
+delete_signature_route <- function(res, api_key = "", signature_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  signature_hashkey <- json_scalar(signature_hashkey)
+  if (identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- delete_signature(auth = auth, signature_hashkey = signature_hashkey)
+
+    if (!result$ok && identical(result$reason, "not_found")) {
+      return(json_error(res, 404, base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey)))
+    }
+
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to delete this signature."))
+    }
+
+    json_response(res, 200, payload = base::list(
+      MESSAGES = base::sprintf("Signature '%s' has been deleted.", result$signature_name)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature delete failed: %s", err$message))
+  })
+}

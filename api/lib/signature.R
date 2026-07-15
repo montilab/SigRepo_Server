@@ -252,3 +252,83 @@ draft_signature_groups <- function(similarity_tbl, threshold = 0.10) {
   base::names(unique_groups) <- base::sprintf("group_%s", base::seq_along(unique_groups))
   unique_groups
 }
+
+# Delete a signature and its child rows, authorizing against the *calling*
+# user (auth$user_name/auth$user_role, resolved from their api_key by
+# validate_api_key()) rather than SigRepo::deleteSignature()'s own
+# checkPermissions(), which authorizes against the DB connection's own
+# login. The REST API always connects as one shared service account
+# (see conn_handler in api.R), so checkPermissions() would authorize every
+# request as that shared account instead of the real api_key holder -- it
+# only does the right thing in Shiny, where each session's DB connection
+# genuinely is logged in as that person (see shiny/app_src/app_server.R).
+# Depends on api/lib/common.R (db_connect_local) and api/lib/difexp.R
+# (delete_difexp_rds) and the `difexp_dir` global defined in api.R.
+#
+# Returns list(ok = TRUE, signature_name = ...) on success, or
+# list(ok = FALSE, reason = "not_found" | "forbidden") otherwise.
+delete_signature <- function(auth, signature_hashkey) {
+  conn <- NULL
+
+  base::tryCatch({
+    conn <- db_connect_local()
+
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "signatures",
+      return_var = c("signature_id", "signature_name", "user_name", "has_difexp"),
+      filter_coln_var = "signature_hashkey",
+      filter_coln_val = base::list("signature_hashkey" = signature_hashkey),
+      check_db_table = TRUE
+    )
+
+    if (base::nrow(signature_tbl) == 0) {
+      return(base::list(ok = FALSE, reason = "not_found"))
+    }
+
+    signature_id <- signature_tbl$signature_id[1]
+    owner <- signature_tbl$user_name[1]
+    signature_name <- signature_tbl$signature_name[1]
+    has_difexp <- base::isTRUE(base::as.logical(signature_tbl$has_difexp[1]))
+
+    if (!auth$user_role %in% c("editor", "admin")) {
+      return(base::list(ok = FALSE, reason = "forbidden"))
+    }
+
+    if (!identical(auth$user_role, "admin") && !identical(auth$user_name, owner)) {
+      access_tbl <- SigRepo::lookup_table_sql(
+        conn = conn,
+        db_table_name = "signature_access",
+        return_var = c("signature_id", "user_name", "access_type"),
+        filter_coln_var = c("signature_id", "user_name", "access_type"),
+        filter_coln_val = base::list(
+          "signature_id" = signature_id,
+          "user_name" = auth$user_name,
+          "access_type" = c("owner", "editor")
+        ),
+        filter_var_by = c("AND", "AND"),
+        check_db_table = TRUE
+      )
+
+      if (base::nrow(access_tbl) == 0) {
+        return(base::list(ok = FALSE, reason = "forbidden"))
+      }
+    }
+
+    # Children before parent so this works without disabling FK checks.
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_feature_set WHERE signature_id = %d", signature_id))
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_access WHERE signature_id = %d", signature_id))
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_collection_access WHERE signature_id = %d", signature_id))
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signatures WHERE signature_id = %d", signature_id))
+
+    if (has_difexp) {
+      delete_difexp_rds(difexp_dir, signature_hashkey)
+    }
+
+    base::list(ok = TRUE, signature_name = signature_name)
+  }, finally = {
+    if (!is.null(conn)) {
+      base::suppressWarnings(DBI::dbDisconnect(conn))
+    }
+  })
+}
