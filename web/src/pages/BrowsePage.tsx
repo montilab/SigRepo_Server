@@ -1,15 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
+import { getVocabulary, type Vocabulary } from "../api/client";
 import { referenceFeatures } from "../data/mock";
 
 type RefFeature = (typeof referenceFeatures)[number];
 
+// Fallbacks if the vocabulary endpoint is unreachable, so filters still render.
+const FALLBACK_ORGANISMS = ["Homo sapiens", "Mus musculus"];
+const FALLBACK_ASSAYS = ["transcriptomics", "proteomics"];
+
 export default function BrowsePage() {
+  // Organism + assay options come from the live /vocabulary endpoint
+  // (authenticated with the logged-in user's api_key). The results table
+  // below is still mock until the Browse data slice lands.
+  const [vocab, setVocab] = useState<Vocabulary | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getVocabulary()
+      .then((v) => {
+        if (!cancelled) setVocab(v);
+      })
+      .catch(() => {
+        /* keep fallbacks */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const organismOptions = vocab && vocab.organism.length > 0 ? vocab.organism : FALLBACK_ORGANISMS;
+  const assayOptions = vocab && vocab.assay_type.length > 0 ? vocab.assay_type : FALLBACK_ASSAYS;
+
   const [organism, setOrganism] = useState("Homo sapiens");
   const [assay, setAssay] = useState("transcriptomics");
   const [query, setQuery] = useState("");
@@ -35,15 +61,21 @@ export default function BrowsePage() {
           <label className="field">
             <span className="field-label">Organism</span>
             <select className="input" value={organism} onChange={(e) => setOrganism(e.target.value)}>
-              <option>Homo sapiens</option>
-              <option>Mus musculus</option>
+              {organismOptions.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
             </select>
           </label>
           <label className="field">
             <span className="field-label">Assay</span>
             <select className="input" value={assay} onChange={(e) => setAssay(e.target.value)}>
-              <option value="transcriptomics">Transcriptomics</option>
-              <option value="proteomics">Proteomics</option>
+              {assayOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a.charAt(0).toUpperCase() + a.slice(1)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="field">
