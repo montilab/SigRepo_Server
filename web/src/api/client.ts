@@ -117,16 +117,37 @@ export async function getVocabulary(): Promise<Vocabulary> {
   };
 }
 
+// Mirrors the full `signatures` table (mysql/schema/signatures.sql), plus
+// the joined organism/phenotype/sample_type/platform_name lookups and a
+// computed feature_count. See search_signatures() in api/lib/signature.R.
 export interface SignatureSummary {
+  signature_id: number;
   signature_hashkey: string;
   signature_name: string;
+  direction_type: string;
+  assay_type: string;
   organism: string | null;
   phenotype: string | null;
-  assay_type: string;
+  sample_type: string | null;
+  platform_name: string | null;
+  covariates: string | null;
   description: string | null;
-  visibility: 0 | 1;
+  score_cutoff: number | null;
+  logfc_cutoff: number | null;
+  p_value_cutoff: number | null;
+  adj_p_cutoff: number | null;
+  cutoff_description: string | null;
+  keywords: string | null;
+  PMID: number | null;
+  year: number | null;
+  others: string | null;
+  has_difexp: 0 | 1;
+  num_of_difexp: number | null;
+  num_up_regulated: number | null;
+  num_down_regulated: number | null;
   user_name: string;
   date_created: string;
+  visibility: 0 | 1;
   feature_count: number;
 }
 
@@ -188,4 +209,37 @@ export async function deleteSignature(signatureHashkey: string): Promise<void> {
     `/signatures/delete?api_key=${encodeURIComponent(requireApiKey())}&signature_hashkey=${encodeURIComponent(signatureHashkey)}`,
     { method: "DELETE" }
   );
+}
+
+export interface DifexpRow {
+  [key: string]: unknown;
+}
+
+export interface DifexpResult {
+  rows: DifexpRow[];
+  message?: string;
+}
+
+// /get_difexp is one of the few routes that still hand-rolls
+// jsonlite::toJSON and is genuinely double-encoded on purpose -- the SigRepo
+// R client double-decodes it too (see createOmicSignature.R), so the wire
+// format can't change here without breaking that. The body is
+// ["<json string>"]; the inner string is either the difexp rows or a single
+// { MESSAGES: "..." } row if none exist.
+export async function getDifexp(signatureHashkey: string): Promise<DifexpResult> {
+  const res = await fetch(
+    `${API_BASE}/get_difexp?api_key=${encodeURIComponent(requireApiKey())}&signature_hashkey=${encodeURIComponent(signatureHashkey)}`
+  );
+  const wrapped = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(extractMessage(wrapped) ?? `Request failed (${res.status})`, res.status);
+  }
+
+  const inner = Array.isArray(wrapped) && typeof wrapped[0] === "string" ? JSON.parse(wrapped[0]) : wrapped;
+  const rows: DifexpRow[] = Array.isArray(inner) ? inner : [];
+
+  if (rows.length === 1 && Object.keys(rows[0]).length === 1 && typeof rows[0].MESSAGES === "string") {
+    return { rows: [], message: rows[0].MESSAGES as string };
+  }
+  return { rows };
 }
