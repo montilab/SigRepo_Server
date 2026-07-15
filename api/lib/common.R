@@ -22,11 +22,18 @@ json_response <- function(res, status = 200, payload = NULL) {
 }
 
 json_error <- function(res, status = 400, message) {
-  json_response(
-    res = res,
-    status = status,
-    payload = base::data.frame(MESSAGES = as.character(message), stringsAsFactors = FALSE)
-  )
+  payload <- base::data.frame(MESSAGES = as.character(message), stringsAsFactors = FALSE)
+  # Tag the payload so callers (e.g. validate_api_key()'s "return the error
+  # straight through to Plumber" pattern) can detect an error result with
+  # is_json_error() instead of inspecting its type -- json_response() used to
+  # return a JSON string here, and code that checked is.character(auth) broke
+  # silently once json_response() started returning the payload object itself.
+  base::class(payload) <- c("sigrepo_json_error", base::class(payload))
+  json_response(res = res, status = status, payload = payload)
+}
+
+is_json_error <- function(x) {
+  base::inherits(x, "sigrepo_json_error")
 }
 
 normalize_flag <- function(x, default = TRUE) {

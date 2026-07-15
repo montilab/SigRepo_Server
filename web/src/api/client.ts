@@ -116,3 +116,69 @@ export async function getVocabulary(): Promise<Vocabulary> {
     assay_type: toArray(raw.assay_type),
   };
 }
+
+export interface SignatureSummary {
+  signature_hashkey: string;
+  signature_name: string;
+  organism: string | null;
+  phenotype: string | null;
+  assay_type: string;
+  description: string | null;
+  visibility: 0 | 1;
+  user_name: string;
+  date_created: string;
+  feature_count: number;
+}
+
+export interface SearchSignaturesParams {
+  organism?: string;
+  phenotype?: string;
+  assay_type?: string;
+  keyword?: string;
+  limit?: number;
+}
+
+export async function searchSignatures(params: SearchSignaturesParams = {}): Promise<SignatureSummary[]> {
+  const query = new URLSearchParams({ api_key: requireApiKey() });
+  if (params.organism) query.set("organism", params.organism);
+  if (params.phenotype) query.set("phenotype", params.phenotype);
+  if (params.assay_type) query.set("assay_type", params.assay_type);
+  if (params.keyword) query.set("keyword", params.keyword);
+  if (params.limit) query.set("limit", String(params.limit));
+
+  const raw = await apiFetch<{ count: number; signatures: SignatureSummary[] }>(
+    `/signatures/search?${query.toString()}`
+  );
+  return raw.signatures ?? [];
+}
+
+export interface SignatureFeature {
+  probe_id?: string;
+  feature_id?: number;
+  score?: number;
+  group_label?: string;
+  [key: string]: unknown;
+}
+
+export interface SignatureContext {
+  signature: Record<string, unknown>;
+  feature_count: number;
+  features: SignatureFeature[];
+}
+
+export async function getSignatureContext(
+  signatureHashkey: string,
+  options: { includeFeatures?: boolean; maxFeatures?: number } = {}
+): Promise<SignatureContext> {
+  const raw = await apiFetch<{ context: SignatureContext }>("/read/signature_context", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      signature_hashkey: signatureHashkey,
+      include_features: options.includeFeatures ?? true,
+      max_features: options.maxFeatures ?? 50,
+    }),
+  });
+  return raw.context;
+}

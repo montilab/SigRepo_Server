@@ -355,7 +355,7 @@ retrieve_db_table <- function(res, admin_key, db_table_name, search_var = "", se
 #' @post /store_difexp
 store_difexp <- function(res, api_key, signature_hashkey, difexp){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -375,7 +375,7 @@ store_difexp <- function(res, api_key, signature_hashkey, difexp){
 #' @get /get_difexp
 get_difexp <- function(res, api_key, signature_hashkey){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -411,7 +411,7 @@ read_signature_context <- function(req, res, api_key = "", signature_hashkey = "
   max_features <- if (is.null(body$max_features)) max_features else body$max_features
 
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -468,7 +468,7 @@ read_group_signatures <- function(req, res, api_key = "", signature_hashkeys = "
   similarity_threshold <- if (is.null(body$similarity_threshold)) similarity_threshold else body$similarity_threshold
 
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -523,7 +523,7 @@ read_group_signatures <- function(req, res, api_key = "", signature_hashkeys = "
 #' @delete /delete_difexp
 delete_difexp <- function(res, api_key, signature_hashkey){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -617,7 +617,7 @@ login <- function(req, res, user_name = "", password = ""){
 #' @get /vocabulary
 vocabulary <- function(res, api_key = ""){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -628,5 +628,40 @@ vocabulary <- function(res, api_key = ""){
     json_response(res, 200, payload = vocab)
   }, error = function(err) {
     json_error(res, 500, base::sprintf("Vocabulary lookup failed: %s", err$message))
+  })
+}
+
+#* Search signatures by organism/phenotype/assay_type/keyword
+#* @param api_key
+#* @param organism
+#* @param phenotype
+#* @param assay_type
+#* @param keyword
+#* @param limit
+#' @get /signatures/search
+search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    results <- search_signatures(
+      conn = conn,
+      organism = json_scalar(organism),
+      phenotype = json_scalar(phenotype),
+      assay_type = json_scalar(assay_type),
+      keyword = json_scalar(keyword),
+      limit = limit,
+      is_admin = identical(auth$user_role, "admin")
+    )
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    json_response(res, 200, payload = base::list(
+      count = base::nrow(results),
+      signatures = compact_table(results, max_rows = 100)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature search failed: %s", err$message))
   })
 }
