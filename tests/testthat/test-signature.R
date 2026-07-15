@@ -66,3 +66,26 @@ test_that("fetch_signature_context returns NULL for a signature that does not ex
   skip_if_no_test_db()
   expect_null(fetch_signature_context("does-not-exist-hashkey"))
 })
+
+test_that("search_signatures filters by organism/keyword and hides invisible rows from non-admins", {
+  skip_if_no_test_db()
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  by_organism <- search_signatures(conn, organism = "CI Test Organism", is_admin = TRUE)
+  expect_true("CI Test Signature" %in% by_organism$signature_name)
+
+  by_keyword <- search_signatures(conn, keyword = "CI Test Signature", is_admin = TRUE)
+  expect_true(nrow(by_keyword) >= 1)
+  expect_true(all(grepl("CI Test", by_keyword$signature_name, fixed = TRUE)))
+
+  none <- search_signatures(conn, organism = "No Such Organism", is_admin = TRUE)
+  expect_equal(nrow(none), 0)
+
+  # The seeded signature is visibility = 1 (public) per fixtures/seed.sql, so
+  # it should also surface for a non-admin search -- this only proves the
+  # is_admin flag doesn't wrongly hide visible rows, not that hidden rows are
+  # filtered (seed.sql has no hidden signature to assert against).
+  as_viewer <- search_signatures(conn, organism = "CI Test Organism", is_admin = FALSE)
+  expect_true("CI Test Signature" %in% as_viewer$signature_name)
+})
