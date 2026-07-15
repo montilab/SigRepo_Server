@@ -16,13 +16,17 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
   }
   limit <- base::min(limit, 100)
 
+  # s.* so the Signatures page table can show every signatures-table column,
+  # not just a curated subset -- plus the human-readable joined names instead
+  # of the raw *_id foreign keys, and a computed feature_count.
   query <- "
-    SELECT s.signature_hashkey, s.signature_name, o.organism, p.phenotype,
-           s.assay_type, s.description, s.visibility, s.user_name, s.date_created,
+    SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform_name,
            (SELECT COUNT(*) FROM signature_feature_set sfs WHERE sfs.signature_id = s.signature_id) AS feature_count
     FROM signatures s
     LEFT JOIN organisms o ON s.organism_id = o.organism_id
     LEFT JOIN phenotypes p ON s.phenotype_id = p.phenotype_id
+    LEFT JOIN sample_types st ON s.sample_type_id = st.sample_type_id
+    LEFT JOIN platforms pl ON s.platform_id = pl.platform_id
     WHERE 1=1
   "
 
