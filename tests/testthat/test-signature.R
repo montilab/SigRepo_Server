@@ -89,3 +89,67 @@ test_that("search_signatures filters by organism/keyword and hides invisible row
   as_viewer <- search_signatures(conn, organism = "CI Test Organism", is_admin = FALSE)
   expect_true("CI Test Signature" %in% as_viewer$signature_name)
 })
+
+test_that("delete_signature enforces caller role/ownership and removes child rows", {
+  skip_if_no_test_db()
+
+  # Short-lived connection per statement -- delete_signature() opens/closes
+  # its own connection internally, and RMySQL corrupts handles if another
+  # connection is held open across those calls (see test-login-vocabulary.R).
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  query_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    DBI::dbGetQuery(conn, stmt)
+  }
+  make_test_signature <- function(hashkey, owner) {
+    exec_sql(sprintf("DELETE FROM signatures WHERE signature_hashkey = '%s'", hashkey))
+    exec_sql(sprintf("
+      INSERT INTO signatures (signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
+      SELECT 'Delete Test Signature', organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, '%s', 1, '%s'
+      FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'
+    ", owner, hashkey))
+    query_sql(sprintf("SELECT signature_id FROM signatures WHERE signature_hashkey = '%s'", hashkey))$signature_id[1]
+  }
+
+  hashkey_1 <- "slice3_delete_test_hashkey_001"
+  signature_id_1 <- make_test_signature(hashkey_1, "ci_viewer")
+  on.exit(exec_sql(sprintf("DELETE FROM signatures WHERE signature_hashkey = '%s'", hashkey_1)), add = TRUE)
+
+  exec_sql(sprintf(
+    "INSERT INTO signature_feature_set (signature_id, feature_id, probe_id, score, assay_type, sig_feature_hashkey)
+     VALUES (%d, 1, 'probe_test_1', 1.0, 'transcriptomics', 'slice3_feature_hashkey_001')",
+    signature_id_1
+  ))
+
+  viewer_auth <- list(user_name = "ci_viewer", user_role = "viewer")
+  non_owner_editor_auth <- list(user_name = "ci_admin", user_role = "editor")
+  owner_editor_auth <- list(user_name = "ci_viewer", user_role = "editor")
+
+  # Viewer role can never delete, even as the owner.
+  expect_equal(delete_signature(viewer_auth, hashkey_1)$reason, "forbidden")
+
+  # Editor role, but neither the owner nor granted access -- forbidden.
+  expect_equal(delete_signature(non_owner_editor_auth, hashkey_1)$reason, "forbidden")
+
+  # Unknown signature.
+  expect_equal(delete_signature(owner_editor_auth, "does-not-exist-hashkey")$reason, "not_found")
+
+  # Owner with editor role can delete their own signature; child rows go too.
+  result <- delete_signature(owner_editor_auth, hashkey_1)
+  expect_true(result$ok)
+  expect_equal(nrow(query_sql(sprintf("SELECT * FROM signatures WHERE signature_hashkey = '%s'", hashkey_1))), 0)
+  expect_equal(nrow(query_sql(sprintf("SELECT * FROM signature_feature_set WHERE signature_id = %d", signature_id_1))), 0)
+
+  # Admin can delete a signature they don't own, without an access grant.
+  hashkey_2 <- "slice3_delete_test_hashkey_002"
+  make_test_signature(hashkey_2, "ci_viewer")
+  on.exit(exec_sql(sprintf("DELETE FROM signatures WHERE signature_hashkey = '%s'", hashkey_2)), add = TRUE)
+
+  admin_auth <- list(user_name = "ci_admin", user_role = "admin")
+  expect_true(delete_signature(admin_auth, hashkey_2)$ok)
+})

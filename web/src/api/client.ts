@@ -182,3 +182,10 @@ export async function getSignatureContext(
   });
   return raw.context;
 }
+
+export async function deleteSignature(signatureHashkey: string): Promise<void> {
+  await apiFetch<{ MESSAGES: string }>(
+    `/signatures/delete?api_key=${encodeURIComponent(requireApiKey())}&signature_hashkey=${encodeURIComponent(signatureHashkey)}`,
+    { method: "DELETE" }
+  );
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Upload, Search, Download } from "lucide-react";
+import { Plus, Upload, Search, Download, Trash2 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
@@ -8,9 +8,24 @@ import DataTable, { type Column } from "../components/DataTable";
 import {
   searchSignatures,
   getSignatureContext,
+  deleteSignature,
+  getAuth,
   type SignatureSummary,
   type SignatureContext,
 } from "../api/client";
+
+// Client-side approximation of the API's delete_signature() rule (editor/
+// admin role, owner unless admin) so the button doesn't appear for requests
+// that will just 403. Doesn't know about per-signature signature_access
+// grants (an editor explicitly granted access to someone else's signature),
+// so it can hide the button in a few cases the API would actually allow --
+// the API is the real authority either way.
+function canDelete(signature: SignatureSummary): boolean {
+  const auth = getAuth();
+  if (!auth) return false;
+  if (auth.user_role === "admin") return true;
+  return auth.user_role === "editor" && auth.user_name === signature.user_name;
+}
 
 export default function SignaturesPage() {
   const [rows, setRows] = useState<SignatureSummary[]>([]);
@@ -42,6 +57,24 @@ export default function SignaturesPage() {
   const [active, setActive] = useState<SignatureSummary | null>(null);
   const [context, setContext] = useState<SignatureContext | null>(null);
   const [contextLoading, setContextLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!active) return;
+    if (!window.confirm(`Delete "${active.signature_name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteSignature(active.signature_hashkey);
+      setRows((prev) => prev.filter((r) => r.signature_hashkey !== active.signature_hashkey));
+      setActive(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete signature.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     if (!active) {
@@ -138,6 +171,11 @@ export default function SignaturesPage() {
         footer={
           active && (
             <>
+              {canDelete(active) && (
+                <button className="btn btn-secondary" onClick={handleDelete} disabled={deleting}>
+                  <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete"}
+                </button>
+              )}
               <button className="btn btn-secondary">
                 <Download size={15} /> Export
               </button>
@@ -148,6 +186,7 @@ export default function SignaturesPage() {
       >
         {active && (
           <>
+            {deleteError && <p className="login-error">{deleteError}</p>}
             <dl className="detail-list">
               <div><dt>Phenotype</dt><dd>{active.phenotype ?? "—"}</dd></div>
               <div><dt>Owner</dt><dd>{active.user_name}</dd></div>
