@@ -243,3 +243,90 @@ export async function getDifexp(signatureHashkey: string): Promise<DifexpResult>
   }
   return { rows };
 }
+
+// ---------- Collections ----------
+
+export interface CollectionSummary {
+  collection_id: number;
+  collection_name: string;
+  description: string | null;
+  user_name: string;
+  visibility: 0 | 1;
+  date_created: string;
+  collection_hashkey: string;
+  num_signatures: number;
+}
+
+export interface CollectionMemberSignature {
+  signature_hashkey: string;
+  signature_name: string;
+  organism: string | null;
+  phenotype: string | null;
+  assay_type: string;
+  visibility: 0 | 1;
+}
+
+export interface CollectionDetail {
+  collection: Record<string, unknown>;
+  signatures: CollectionMemberSignature[];
+}
+
+export async function searchCollections(keyword?: string): Promise<CollectionSummary[]> {
+  const query = new URLSearchParams({ api_key: requireApiKey() });
+  if (keyword) query.set("keyword", keyword);
+  const raw = await apiFetch<{ count: number; collections: CollectionSummary[] }>(
+    `/collections/search?${query.toString()}`
+  );
+  return raw.collections ?? [];
+}
+
+export async function getCollectionDetail(collectionHashkey: string): Promise<CollectionDetail> {
+  return apiFetch<CollectionDetail>("/collections/detail", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: requireApiKey(), collection_hashkey: collectionHashkey }),
+  });
+}
+
+export async function createCollection(
+  collectionName: string,
+  description: string,
+  visibility: boolean
+): Promise<{ collection_hashkey: string }> {
+  return apiFetch<{ collection_hashkey: string }>("/collections/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      collection_name: collectionName,
+      description,
+      visibility,
+    }),
+  });
+}
+
+export async function deleteCollection(collectionHashkey: string): Promise<void> {
+  await apiFetch<{ MESSAGES: string }>(
+    `/collections/delete?api_key=${encodeURIComponent(requireApiKey())}&collection_hashkey=${encodeURIComponent(collectionHashkey)}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function addSignatureToCollection(collectionHashkey: string, signatureHashkey: string): Promise<void> {
+  await apiFetch<{ MESSAGES: string }>("/collections/signatures/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      collection_hashkey: collectionHashkey,
+      signature_hashkey: signatureHashkey,
+    }),
+  });
+}
+
+export async function removeSignatureFromCollection(collectionHashkey: string, signatureHashkey: string): Promise<void> {
+  await apiFetch<{ MESSAGES: string }>(
+    `/collections/signatures/remove?api_key=${encodeURIComponent(requireApiKey())}&collection_hashkey=${encodeURIComponent(collectionHashkey)}&signature_hashkey=${encodeURIComponent(signatureHashkey)}`,
+    { method: "DELETE" }
+  );
+}
