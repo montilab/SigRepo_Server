@@ -888,3 +888,107 @@ remove_signature_from_collection_route <- function(res, api_key = "", collection
     json_error(res, 500, base::sprintf("Removing signature from collection failed: %s", err$message))
   })
 }
+
+#* Real MSigDB collection/subcollection options for the Annotate picker
+#* @param api_key
+#' @get /annotate/msigdb-collections
+msigdb_collections_route <- function(res, api_key = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    json_response(res, 200, payload = base::list(collections = list_msigdb_collections()))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Could not list MSigDB collections: %s", err$message))
+  })
+}
+
+#* Run gene set enrichment for a signature against an MSigDB collection
+#* @parser json
+#* @param api_key
+#* @param signature_hashkey
+#* @param test
+#* @param species
+#* @param collection
+#* @param subcollection
+#* @param fdr
+#' @post /annotate/run
+annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", test = "hypergeometric",
+                                species = "Homo sapiens", collection = "H", subcollection = "", fdr = 0.05){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  signature_hashkey <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+  test <- if (identical(json_scalar(test), "")) "hypergeometric" else json_scalar(test)
+  species <- if (is.null(body$species)) species else json_scalar(body$species)
+  collection <- if (is.null(body$collection)) collection else json_scalar(body$collection)
+  subcollection <- if (is.null(body$subcollection)) subcollection else json_scalar(body$subcollection)
+  fdr <- if (is.null(body$fdr)) fdr else body$fdr
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+  if (!test %in% c("hypergeometric", "kstest")) {
+    return(json_error(res, 400, "test must be 'hypergeometric' or 'kstest'."))
+  }
+
+  fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
+  if (base::is.na(fdr) || fdr <= 0 || fdr > 1) {
+    fdr <- 0.05
+  }
+
+  base::tryCatch({
+    result <- run_enrichment(
+      auth = auth,
+      signature_hashkey = signature_hashkey,
+      test = test,
+      species = species,
+      collection = collection,
+      subcollection = if (identical(subcollection, "")) NULL else subcollection,
+      fdr = fdr,
+      difexp_dir = difexp_dir
+    )
+
+    if (!result$ok) {
+      status <- switch(result$reason,
+        "not_found" = 404,
+        "no_features" = 404,
+        "no_difexp" = 404,
+        "no_gene_symbols" = 404,
+        "unsupported_assay_type" = 400,
+        "unsupported_difexp_shape" = 400,
+        "invalid_geneset" = 400,
+        500
+      )
+      message <- if (!base::is.null(result$message)) {
+        result$message
+      } else {
+        switch(result$reason,
+          "not_found" = base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey),
+          "no_features" = "This signature has no stored features.",
+          "no_difexp" = "This signature has no stored difexp, which rank-based (kstest) enrichment requires.",
+          "no_gene_symbols" = "None of this signature's features could be mapped to a gene symbol.",
+          "Enrichment failed."
+        )
+      }
+      return(json_error(res, status, message))
+    }
+
+    json_response(res, 200, payload = base::list(
+      signature_name = result$signature_name,
+      n_query = result$n_query,
+      test = test,
+      collection = collection,
+      subcollection = subcollection,
+      fdr = fdr,
+      results = compact_table(result$results, max_rows = 500)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))
+  })
+}

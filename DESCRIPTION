@@ -26,6 +26,7 @@ Imports:
   future,
   ggplot2,
   httr,
+  hypeR,
   igraph,
   jsonlite,
   plumber,
