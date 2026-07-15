@@ -1268,6 +1268,24 @@ input[type="range"] {
   color: var(--text-secondary);
 }
 
+/* ---------- Annotate (enrichment) setup ---------- */
+.annotate-setup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 18px;
+  align-items: start;
+}
+.annotate-setup-side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.radio-list-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .stat-row,
@@ -1277,7 +1295,8 @@ input[type="range"] {
   .dash-grid,
   .insights-grid,
   .compare-grid,
-  .browse-layout {
+  .browse-layout,
+  .annotate-setup-grid {
     grid-template-columns: 1fr;
   }
   .insights-wide {
