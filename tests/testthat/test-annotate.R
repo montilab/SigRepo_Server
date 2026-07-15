@@ -129,6 +129,65 @@ test_that("resolve_single_enrichment_query requires difexp for kstest, and resol
   expect_equal(unname(kstest_result$query["BRCA1"]), -1.2)
 })
 
+test_that("resolve_single_enrichment_query's kstest uses difexp's own gene_symbol/feature_name columns, not just the curated feature set", {
+  skip_if_no_test_db()
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2, 3, 4)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2, 3, 4)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 3, 'ENSG_TEST_3', organism_id, 'MYC', 1, 'annotate_test_feature_hashkey_03' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 4, 'ENSG_TEST_4', organism_id, 'EGFR', 1, 'annotate_test_feature_hashkey_04' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+  exec_sql("UPDATE signatures SET has_difexp = 1 WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'")
+  on.exit(exec_sql("UPDATE signatures SET has_difexp = 0 WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'"), add = TRUE)
+
+  # A realistic difexp table: far more rows than the signature's curated
+  # 2-feature set (probe_1/probe_2 only), with its own gene_symbol column --
+  # every row here must be usable, not just the two that also happen to be
+  # curated features.
+  difexp_dir <- local_tempdir()
+  difexp_with_symbol <- data.frame(
+    probe_id = c("probe_1", "probe_2", "probe_3", "probe_4"),
+    gene_symbol = c("TP53", "BRCA1", "MYC", "EGFR"),
+    score = c(2.5, -1.2, 4.4, -3.3),
+    stringsAsFactors = FALSE
+  )
+  saveRDS(difexp_with_symbol, file.path(difexp_dir, "ci_test_signature_hashkey_0000.RDS"))
+
+  result_via_symbol <- resolve_single_enrichment_query(auth, "ci_test_signature_hashkey_0000", "kstest", difexp_dir = difexp_dir)
+  expect_true(result_via_symbol$ok)
+  expect_setequal(names(result_via_symbol$query), c("TP53", "BRCA1", "MYC", "EGFR"))
+  expect_equal(unname(result_via_symbol$query["MYC"]), 4.4)
+
+  # Same shape, but no gene_symbol column -- resolved via feature_name
+  # against the reference table instead.
+  difexp_via_feature_name <- data.frame(
+    probe_id = c("probe_1", "probe_2", "probe_3", "probe_4"),
+    feature_name = c("ENSG_TEST_1", "ENSG_TEST_2", "ENSG_TEST_3", "ENSG_TEST_4"),
+    score = c(2.5, -1.2, 4.4, -3.3),
+    stringsAsFactors = FALSE
+  )
+  saveRDS(difexp_via_feature_name, file.path(difexp_dir, "ci_test_signature_hashkey_0000.RDS"))
+
+  result_via_feature_name <- resolve_single_enrichment_query(auth, "ci_test_signature_hashkey_0000", "kstest", difexp_dir = difexp_dir)
+  expect_true(result_via_feature_name$ok)
+  expect_setequal(names(result_via_feature_name$query), c("TP53", "BRCA1", "MYC", "EGFR"))
+  expect_equal(unname(result_via_feature_name$query["EGFR"]), -3.3)
+})
+
 test_that("msigdb_species_options lists real species including Homo sapiens", {
   species <- msigdb_species_options()
   expect_true(is.character(species))

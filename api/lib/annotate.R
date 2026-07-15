@@ -45,16 +45,44 @@ lookup_gene_symbols <- function(conn, ref_table, feature_ids) {
   stats::setNames(symbols, base::as.character(tbl$feature_id))
 }
 
+# feature_name -> gene_symbol for the given names within one organism (the
+# reference tables' natural key is (feature_name, organism_id) -- see their
+# UNIQUE constraint), from the appropriate reference table. Returns a named
+# character vector (names = feature_name). This is what lets a kstest run
+# use every gene difexp actually measured, not just the ones that happen to
+# also be in the signature's own curated feature set (see
+# resolve_single_enrichment_query()).
+lookup_gene_symbols_by_feature_name <- function(conn, ref_table, feature_names, organism_id) {
+  feature_names <- base::unique(feature_names[!base::is.na(feature_names) & base::nzchar(feature_names)])
+  if (base::length(feature_names) == 0 || base::is.na(organism_id)) {
+    return(base::character())
+  }
+
+  query <- base::sprintf(
+    "SELECT feature_name, gene_symbol FROM %s WHERE organism_id = %d AND feature_name IN (%s)",
+    ref_table, base::as.integer(organism_id), base::paste(DBI::dbQuoteLiteral(conn, feature_names), collapse = ",")
+  )
+  tbl <- DBI::dbGetQuery(conn, query)
+  symbols <- base::trimws(base::as.character(tbl$gene_symbol))
+  stats::setNames(symbols, base::as.character(tbl$feature_name))
+}
+
 # Builds the query hypeR::hypeR() expects for a single signature:
 #   - "hypergeometric": an unnamed character vector of gene symbols, from
 #     the signature's stored (already-curated) feature set.
 #   - "kstest" (rank-based/GSEA-style): a named numeric vector, gene symbol
 #     -> score, from the signature's *difexp* table -- the full unfiltered
-#     ranked results, not the curated signature subset, which is what a
-#     rank statistic actually needs. Requires has_difexp = 1. difexp rows
-#     are matched back to gene symbols via their shared probe_id with the
-#     signature's own feature set (SigRepo enforces this correspondence at
-#     upload time -- see createOmicSignature.R's probe_id cross-check).
+#     ranked results (typically hundreds-to-thousands of rows), not the
+#     curated signature subset, which is what a rank statistic actually
+#     needs for real statistical power. Requires has_difexp = 1. Gene
+#     symbols are resolved, in order of preference: (1) difexp's own
+#     gene_symbol column, if present; (2) difexp's own feature_name column,
+#     resolved against the reference table by (feature_name, organism_id);
+#     (3) for older difexp shapes with neither, difexp rows are matched
+#     back to gene symbols via their shared probe_id with the signature's
+#     own (much smaller) curated feature set -- a real fallback, but one
+#     that silently discards every difexp row outside that curated subset,
+#     so it should only kick in when (1)/(2) genuinely aren't available.
 #
 # Returns list(ok = FALSE, reason, message?, signature_name = NULL or the
 # resolved name if the failure happened after it was looked up) or
@@ -120,21 +148,53 @@ resolve_single_enrichment_query <- function(auth, signature_hashkey, test, difex
     return(base::list(ok = FALSE, reason = "no_difexp", signature_name = signature_name))
   }
 
-  id_col <- if ("probe_id" %in% base::colnames(difexp_tbl)) "probe_id" else NULL
   score_col <- if ("score" %in% base::colnames(difexp_tbl)) "score" else NULL
-  if (base::is.null(id_col) || base::is.null(score_col)) {
+  if (base::is.null(score_col)) {
     return(base::list(
       ok = FALSE, reason = "unsupported_difexp_shape", signature_name = signature_name,
       message = base::sprintf(
-        "difexp for this signature does not have the expected 'probe_id'/'score' columns (has: %s).",
+        "difexp for this signature does not have the expected 'score' column (has: %s).",
         base::paste(base::colnames(difexp_tbl), collapse = ", ")
       )
     ))
   }
-
-  difexp_probe_ids <- base::as.character(difexp_tbl[[id_col]])
   difexp_scores <- base::suppressWarnings(base::as.numeric(difexp_tbl[[score_col]]))
-  difexp_symbols <- base::unname(symbol_by_probe_id[difexp_probe_ids])
+
+  difexp_symbols <- NULL
+  if ("gene_symbol" %in% base::colnames(difexp_tbl)) {
+    candidate <- base::trimws(base::as.character(difexp_tbl$gene_symbol))
+    if (base::any(base::nzchar(candidate) & !base::is.na(candidate))) {
+      difexp_symbols <- candidate
+    }
+  }
+  if (base::is.null(difexp_symbols) && "feature_name" %in% base::colnames(difexp_tbl)) {
+    organism_id <- base::suppressWarnings(base::as.integer(context$signature$organism_id))
+    feature_names <- base::trimws(base::as.character(difexp_tbl$feature_name))
+    conn2 <- NULL
+    symbol_by_feature_name <- base::tryCatch({
+      conn2 <- db_connect_local()
+      lookup_gene_symbols_by_feature_name(conn2, ref_table, feature_names, organism_id)
+    }, finally = {
+      if (!base::is.null(conn2)) base::suppressWarnings(DBI::dbDisconnect(conn2))
+    })
+    candidate <- base::unname(symbol_by_feature_name[feature_names])
+    if (base::any(!base::is.na(candidate) & base::nzchar(candidate))) {
+      difexp_symbols <- candidate
+    }
+  }
+  if (base::is.null(difexp_symbols)) {
+    if (!"probe_id" %in% base::colnames(difexp_tbl)) {
+      return(base::list(
+        ok = FALSE, reason = "unsupported_difexp_shape", signature_name = signature_name,
+        message = base::sprintf(
+          "difexp for this signature does not have a gene_symbol, feature_name, or probe_id column to resolve gene symbols from (has: %s).",
+          base::paste(base::colnames(difexp_tbl), collapse = ", ")
+        )
+      ))
+    }
+    difexp_probe_ids <- base::as.character(difexp_tbl$probe_id)
+    difexp_symbols <- base::unname(symbol_by_probe_id[difexp_probe_ids])
+  }
 
   keep <- !base::is.na(difexp_symbols) & base::nzchar(difexp_symbols) & !base::is.na(difexp_scores)
   ranked <- stats::aggregate(difexp_scores[keep], by = base::list(symbol = difexp_symbols[keep]), FUN = function(x) x[base::which.max(base::abs(x))])
