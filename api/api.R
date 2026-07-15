@@ -575,3 +575,54 @@ activate_user <- function(res, user_name, api_key){
 
   json_response(res, 200, base::data.frame(MESSAGES = MESSAGES))
 }
+
+#* Log in with a username and password; returns the account's api_key on success
+#* @parser json
+#* @param user_name
+#* @param password
+#' @post /login
+login <- function(req, res, user_name = "", password = ""){
+  body <- request_json_body(req)
+  user_name <- if (identical(json_scalar(user_name), "")) json_scalar(body$user_name) else json_scalar(user_name)
+  password <- if (identical(json_scalar(password), "")) json_scalar(body$password) else json_scalar(password)
+
+  if (identical(user_name, "") || identical(password, "")) {
+    return(json_error(res, 400, "user_name and password are required."))
+  }
+
+  # One generic 401 for unknown user / wrong password / inactive account --
+  # authenticate_user() deliberately doesn't distinguish them.
+  auth <- base::tryCatch(
+    authenticate_user(user_name, password),
+    error = function(err) NULL
+  )
+
+  if (is.null(auth)) {
+    return(json_error(res, 401, "Invalid username or password."))
+  }
+
+  json_response(res, 200, payload = base::list(
+    user_name = auth$user_name,
+    user_role = auth$user_role,
+    api_key = auth$api_key
+  ))
+}
+
+#* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
+#* @param api_key
+#' @get /vocabulary
+vocabulary <- function(res, api_key = ""){
+  auth <- validate_api_key(res, api_key)
+  if (base::is.character(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    vocab <- list_vocabulary(conn)
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    json_response(res, 200, payload = vocab)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Vocabulary lookup failed: %s", err$message))
+  })
+}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
+import { getAuth, logout } from "./api/client";
 import AppShell from "./components/AppShell";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
@@ -13,13 +14,18 @@ import BrowsePage from "./pages/BrowsePage";
 import FeedbackPage from "./pages/FeedbackPage";
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => getAuth() !== null);
 
   if (!loggedIn) return <LoginPage onLogIn={() => setLoggedIn(true)} />;
 
   return (
     <BrowserRouter>
-      <AppShell onLogOut={() => setLoggedIn(false)}>
+      <AppShell
+        onLogOut={() => {
+          logout();
+          setLoggedIn(false);
+        }}
+      >
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />

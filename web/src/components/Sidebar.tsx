@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
+import { getAuth } from "../api/client";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,6 +34,11 @@ export default function Sidebar({
   onToggle: () => void;
   onLogOut: () => void;
 }) {
+  const auth = getAuth();
+  const userName = auth?.user_name ?? "Guest";
+  const role = auth ? auth.user_role.charAt(0).toUpperCase() + auth.user_role.slice(1) : "";
+  const initials = userName.slice(0, 2).toUpperCase();
+
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
@@ -61,11 +67,11 @@ export default function Sidebar({
 
       <div className="sidebar-foot">
         <div className="user-chip">
-          <div className="avatar">CV</div>
+          <div className="avatar">{initials}</div>
           {!collapsed && (
             <div className="user-meta">
-              <span className="user-name">cvicnaire</span>
-              <span className="user-role">Editor</span>
+              <span className="user-name">{userName}</span>
+              <span className="user-role">{role}</span>
             </div>
           )}
           {!collapsed && (
