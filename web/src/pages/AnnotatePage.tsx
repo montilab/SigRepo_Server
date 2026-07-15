@@ -284,10 +284,13 @@ export default function AnnotatePage() {
               <table className="dt-table dt-table-flush">
                 <thead>
                   <tr>
-                    <th>Gene set</th>
+                    <th>Gene set (label)</th>
                     <th className="dt-right">P-value</th>
                     <th className="dt-right">FDR</th>
+                    <th className="dt-right">Signature</th>
+                    <th className="dt-right">Geneset</th>
                     <th className="dt-right">Overlap</th>
+                    <th className="dt-right">Background</th>
                     <th>Hits</th>
                   </tr>
                 </thead>
@@ -297,7 +300,10 @@ export default function AnnotatePage() {
                       <td className="cell-strong">{r.label}</td>
                       <td className="dt-right cell-mono">{r.pval.toExponential(1)}</td>
                       <td className="dt-right cell-mono">{r.fdr.toFixed(4)}</td>
-                      <td className="dt-right cell-mono">{r.overlap}/{r.geneset}</td>
+                      <td className="dt-right cell-mono">{r.signature}</td>
+                      <td className="dt-right cell-mono">{r.geneset}</td>
+                      <td className="dt-right cell-mono">{r.overlap}</td>
+                      <td className="dt-right cell-mono">{r.background}</td>
                       <td className="cell-sub" style={{ maxWidth: 320 }}>{r.hits}</td>
                     </tr>
                   ))}
