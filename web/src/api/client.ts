@@ -435,3 +435,51 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
   });
   return { ...raw, results: raw.results ?? [] };
 }
+
+// ---------- Signature export / basket download ----------
+
+// Extracts a filename from a Content-Disposition header, falling back to
+// `fallback` if the header is missing or doesn't have one.
+function filenameFromContentDisposition(res: Response, fallback: string): string {
+  const header = res.headers.get("Content-Disposition") ?? "";
+  const match = header.match(/filename="?([^";]+)"?/i);
+  return match ? match[1] : fallback;
+}
+
+async function downloadBlob(path: string, init: RequestInit | undefined, fallbackFilename: string): Promise<void> {
+  const res = await fetch(`${API_BASE}${path}`, init);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(extractMessage(data) ?? `Request failed (${res.status})`, res.status);
+  }
+  const blob = await res.blob();
+  const filename = filenameFromContentDisposition(res, fallbackFilename);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadSignatureExport(signatureHashkey: string): Promise<void> {
+  await downloadBlob(
+    `/signatures/export?api_key=${encodeURIComponent(requireApiKey())}&signature_hashkey=${encodeURIComponent(signatureHashkey)}`,
+    undefined,
+    `signature_${signatureHashkey}.rds`
+  );
+}
+
+export async function downloadSignatureBasket(signatureHashkeys: string[]): Promise<void> {
+  await downloadBlob(
+    "/signatures/export-batch",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: requireApiKey(), signature_hashkeys: signatureHashkeys }),
+    },
+    "signature_basket.zip"
+  );
+}
