@@ -8,6 +8,7 @@ export default function Drawer({
   subtitle,
   children,
   footer,
+  size = "default",
 }: {
   open: boolean;
   onClose: () => void;
@@ -15,6 +16,10 @@ export default function Drawer({
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  // "wide" for drawers with dense content (long metadata lists, data
+  // tables with many/dynamic columns) that crop or wrap awkwardly at the
+  // default width.
+  size?: "default" | "wide";
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -27,7 +32,7 @@ export default function Drawer({
   return (
     <div className={"drawer-root" + (open ? " drawer-open" : "")} aria-hidden={!open}>
       <div className="drawer-scrim" onClick={onClose} />
-      <aside className="drawer-panel" role="dialog" aria-modal="true">
+      <aside className={"drawer-panel" + (size === "wide" ? " drawer-panel-wide" : "")} role="dialog" aria-modal="true">
         <header className="drawer-head">
           <div>
             <h3 className="drawer-title">{title}</h3>
