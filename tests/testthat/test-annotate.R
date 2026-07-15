@@ -33,7 +33,7 @@ test_that("enrichment_reference_table maps assay_type to the right features tabl
   expect_null(enrichment_reference_table("snps"))
 })
 
-test_that("resolve_enrichment_query resolves hypergeometric queries to real gene symbols", {
+test_that("resolve_single_enrichment_query resolves hypergeometric queries to real gene symbols", {
   skip_if_no_test_db()
 
   exec_sql <- function(stmt) {
@@ -55,14 +55,14 @@ test_that("resolve_enrichment_query resolves hypergeometric queries to real gene
   ")
 
   auth <- list(user_name = "ci_admin", user_role = "admin")
-  result <- resolve_enrichment_query(auth, "ci_test_signature_hashkey_0000", "hypergeometric", difexp_dir = tempdir())
+  result <- resolve_single_enrichment_query(auth, "ci_test_signature_hashkey_0000", "hypergeometric", difexp_dir = tempdir())
 
   expect_true(result$ok)
   expect_setequal(result$query, c("TP53", "BRCA1"))
   expect_equal(result$signature_name, "CI Test Signature")
 })
 
-test_that("resolve_enrichment_query reports no_gene_symbols when features don't map to any", {
+test_that("resolve_single_enrichment_query reports no_gene_symbols when features don't map to any", {
   skip_if_no_test_db()
 
   exec_sql <- function(stmt) {
@@ -73,21 +73,21 @@ test_that("resolve_enrichment_query reports no_gene_symbols when features don't 
   exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
 
   auth <- list(user_name = "ci_admin", user_role = "admin")
-  result <- resolve_enrichment_query(auth, "ci_test_signature_hashkey_0000", "hypergeometric", difexp_dir = tempdir())
+  result <- resolve_single_enrichment_query(auth, "ci_test_signature_hashkey_0000", "hypergeometric", difexp_dir = tempdir())
 
   expect_false(result$ok)
   expect_equal(result$reason, "no_gene_symbols")
 })
 
-test_that("resolve_enrichment_query reports not_found for an unknown signature", {
+test_that("resolve_single_enrichment_query reports not_found for an unknown signature", {
   skip_if_no_test_db()
   auth <- list(user_name = "ci_admin", user_role = "admin")
-  result <- resolve_enrichment_query(auth, "does-not-exist-hashkey", "hypergeometric", difexp_dir = tempdir())
+  result <- resolve_single_enrichment_query(auth, "does-not-exist-hashkey", "hypergeometric", difexp_dir = tempdir())
   expect_false(result$ok)
   expect_equal(result$reason, "not_found")
 })
 
-test_that("resolve_enrichment_query requires difexp for kstest, and resolves it correctly when present", {
+test_that("resolve_single_enrichment_query requires difexp for kstest, and resolves it correctly when present", {
   skip_if_no_test_db()
 
   exec_sql <- function(stmt) {
@@ -107,7 +107,7 @@ test_that("resolve_enrichment_query requires difexp for kstest, and resolves it 
   auth <- list(user_name = "ci_admin", user_role = "admin")
 
   # has_difexp = 0 for the seeded signature -> no_difexp, regardless of files on disk.
-  no_difexp_result <- resolve_enrichment_query(auth, "ci_test_signature_hashkey_0000", "kstest", difexp_dir = tempdir())
+  no_difexp_result <- resolve_single_enrichment_query(auth, "ci_test_signature_hashkey_0000", "kstest", difexp_dir = tempdir())
   expect_false(no_difexp_result$ok)
   expect_equal(no_difexp_result$reason, "no_difexp")
 
@@ -122,7 +122,7 @@ test_that("resolve_enrichment_query requires difexp for kstest, and resolves it 
   )
   saveRDS(difexp_tbl, file.path(difexp_dir, "ci_test_signature_hashkey_0000.RDS"))
 
-  kstest_result <- resolve_enrichment_query(auth, "ci_test_signature_hashkey_0000", "kstest", difexp_dir = difexp_dir)
+  kstest_result <- resolve_single_enrichment_query(auth, "ci_test_signature_hashkey_0000", "kstest", difexp_dir = difexp_dir)
   expect_true(kstest_result$ok)
   expect_setequal(names(kstest_result$query), c("TP53", "BRCA1"))
   expect_equal(unname(kstest_result$query["TP53"]), 2.5)
@@ -203,13 +203,100 @@ test_that("run_enrichment computes real hypergeometric enrichment from the on-di
   )
 
   expect_true(result$ok)
-  expect_equal(result$n_query, 2)
+  expect_equal(length(result$resolved), 1)
+  expect_equal(result$resolved[[1]]$n_query, 2)
+  expect_equal(result$resolved[[1]]$signature_name, "CI Test Signature")
+  expect_equal(length(result$skipped), 0)
   expect_equal(result$geneset_source, "cache")
   expect_true(is.data.frame(result$results))
-  expect_true(all(c("label", "pval", "fdr", "overlap", "hits") %in% colnames(result$results)))
+  expect_true(all(c("label", "pval", "fdr", "overlap", "hits", "signature_label") %in% colnames(result$results)))
+  expect_true(all(result$results$signature_label == "CI Test Signature"))
   expect_true(nrow(result$results) > 0)
   expect_true(is.character(result$dotplot_png))
   expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+})
+
+test_that("run_enrichment runs multiple signatures at once and skips ones that can't resolve", {
+  skip_if_no_test_db()
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  # A second signature that happens to share the first's signature_name (two
+  # different users can both name a signature "CI Test Signature") -- the
+  # realistic case resolve_enrichment_queries()'s label-disambiguation
+  # exists for, since signature_hashkey is unique but signature_name isn't.
+  exec_sql("
+    INSERT INTO signatures
+      (signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
+    SELECT signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, 'ci_admin', 1, 'ci_test_signature_hashkey_0001'
+    FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'
+  ")
+  on.exit({
+    exec_sql("DELETE FROM signature_feature_set WHERE signature_id = (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0001')")
+    exec_sql("DELETE FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0001'")
+  }, add = TRUE)
+  exec_sql("
+    INSERT INTO signature_feature_set (signature_id, feature_id, probe_id, score, group_label, assay_type, sig_feature_hashkey)
+    SELECT (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0001'),
+           feature_id, probe_id, score, group_label, assay_type, MD5(CONCAT(sig_feature_hashkey, '_dup'))
+    FROM signature_feature_set
+    WHERE signature_id = (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000')
+  ")
+
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+
+  # Two distinct signatures sharing one signature_name (exercises the
+  # duplicate-label disambiguation), plus one unresolvable hashkey
+  # (exercises skip-on-partial-failure).
+  result <- run_enrichment(
+    auth, c("ci_test_signature_hashkey_0000", "ci_test_signature_hashkey_0001", "does-not-exist-hashkey"),
+    test = "hypergeometric", species = "Homo sapiens", collection = "H", fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+
+  expect_true(result$ok)
+  expect_equal(length(result$resolved), 2)
+  expect_equal(result$resolved[[1]]$label, "CI Test Signature")
+  expect_equal(result$resolved[[2]]$label, "CI Test Signature (2)")
+  expect_equal(length(result$skipped), 1)
+  expect_equal(result$skipped[[1]]$signature_hashkey, "does-not-exist-hashkey")
+  expect_equal(result$skipped[[1]]$reason, "not_found")
+  expect_setequal(unique(result$results$signature_label), c("CI Test Signature", "CI Test Signature (2)"))
+  expect_true(is.character(result$dotplot_png))
+  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+})
+
+test_that("run_enrichment fails only when every requested signature is unresolvable", {
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+
+  empty_result <- run_enrichment(
+    auth, character(), test = "hypergeometric",
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+  expect_false(empty_result$ok)
+  expect_equal(empty_result$reason, "no_signatures")
+
+  skip_if_no_test_db()
+  all_fail_result <- run_enrichment(
+    auth, c("does-not-exist-1", "does-not-exist-2"), test = "hypergeometric",
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+  expect_false(all_fail_result$ok)
+  expect_equal(all_fail_result$reason, "not_found")
+  expect_equal(length(all_fail_result$skipped), 2)
 })
 
 test_that("run_enrichment falls back to a live MSigDB fetch when nothing is cached and it's allowed", {

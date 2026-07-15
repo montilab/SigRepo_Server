@@ -963,21 +963,34 @@ annotate_genesets_route <- function(req, res, api_key = "", species = "Homo sapi
   })
 }
 
-#* Run gene set enrichment for a signature against an MSigDB collection
+#* Run gene set enrichment for one or more signatures at once (hypeR's own
+#* multi-signature support) against an MSigDB collection
 #* @parser json
 #* @param api_key
-#* @param signature_hashkey
+#* @param signature_hashkeys
 #* @param test
 #* @param species
 #* @param collection
 #* @param subcollection
 #* @param fdr
 #' @post /annotate/run
-annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", test = "hypergeometric",
+annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", test = "hypergeometric",
                                 species = "Homo sapiens", collection = "H", subcollection = "", fdr = 0.05){
   body <- request_json_body(req)
   api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
-  signature_hashkey <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+  # Accepts either signature_hashkeys (array) or the older singular
+  # signature_hashkey, so a single-signature run still works either way.
+  signature_hashkeys <- if (base::is.null(body$signature_hashkeys)) {
+    json_vector(signature_hashkeys)
+  } else {
+    json_vector(body$signature_hashkeys)
+  }
+  if (base::length(signature_hashkeys) == 0) {
+    singular <- if (base::is.null(body$signature_hashkey)) NULL else json_scalar(body$signature_hashkey)
+    if (!base::is.null(singular) && base::nzchar(singular)) {
+      signature_hashkeys <- singular
+    }
+  }
   test <- if (identical(json_scalar(test), "")) "hypergeometric" else json_scalar(test)
   species <- if (is.null(body$species)) species else json_scalar(body$species)
   collection <- if (is.null(body$collection)) collection else json_scalar(body$collection)
@@ -988,8 +1001,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
   if (is_json_error(auth)) {
     return(auth)
   }
-  if (identical(signature_hashkey, "")) {
-    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  if (base::length(signature_hashkeys) == 0) {
+    return(json_error(res, 404, "signature_hashkeys cannot be empty."))
   }
   if (!test %in% c("hypergeometric", "kstest")) {
     return(json_error(res, 400, "test must be 'hypergeometric' or 'kstest'."))
@@ -1003,7 +1016,7 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
   base::tryCatch({
     result <- run_enrichment(
       auth = auth,
-      signature_hashkey = signature_hashkey,
+      signature_hashkeys = signature_hashkeys,
       test = test,
       species = species,
       collection = collection,
@@ -1015,6 +1028,7 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
 
     if (!result$ok) {
       status <- switch(result$reason,
+        "no_signatures" = 400,
         "not_found" = 404,
         "no_features" = 404,
         "no_difexp" = 404,
@@ -1030,10 +1044,10 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
         result$message
       } else {
         switch(result$reason,
-          "not_found" = base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey),
-          "no_features" = "This signature has no stored features.",
-          "no_difexp" = "This signature has no stored difexp, which rank-based (kstest) enrichment requires.",
-          "no_gene_symbols" = "None of this signature's features could be mapped to a gene symbol.",
+          "not_found" = "No signature found for the selected signature(s).",
+          "no_features" = "The selected signature has no stored features.",
+          "no_difexp" = "The selected signature has no stored difexp, which rank-based (kstest) enrichment requires.",
+          "no_gene_symbols" = "None of the selected signature's features could be mapped to a gene symbol.",
           "Enrichment failed."
         )
       }
@@ -1041,14 +1055,14 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkey = "", t
     }
 
     json_response(res, 200, payload = base::list(
-      signature_name = result$signature_name,
-      n_query = result$n_query,
       test = test,
       collection = collection,
       subcollection = subcollection,
       fdr = fdr,
       geneset_source = result$geneset_source,
       dotplot_png = result$dotplot_png,
+      signatures = result$resolved,
+      skipped = result$skipped,
       results = compact_table(result$results, max_rows = 500)
     ))
   }, error = function(err) {

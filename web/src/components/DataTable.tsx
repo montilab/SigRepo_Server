@@ -21,6 +21,12 @@ export default function DataTable<T extends object>({
   onSelectRow,
   pageSize = 8,
   emptyLabel = "No rows to display",
+  scrollable = false,
+  maxHeight = 420,
+  selectable = false,
+  selectedKeys,
+  onToggleRow,
+  onToggleAll,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -29,6 +35,18 @@ export default function DataTable<T extends object>({
   onSelectRow?: (row: T) => void;
   pageSize?: number;
   emptyLabel?: string;
+  // Renders every sorted/filtered row inside a fixed-height, vertically
+  // scrolling body (sticky header) instead of paginating -- for tables that
+  // may hold hundreds of rows (e.g. picking from every signature).
+  scrollable?: boolean;
+  maxHeight?: number;
+  // Adds a checkbox column for choosing more than one row at once,
+  // independent of (and combinable with) the single-row selectedKey/
+  // onSelectRow highlight.
+  selectable?: boolean;
+  selectedKeys?: Set<string>;
+  onToggleRow?: (row: T) => void;
+  onToggleAll?: (rows: T[], checked: boolean) => void;
 }) {
   const [sortKey, setSortKey] = useState<keyof T | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -88,7 +106,9 @@ export default function DataTable<T extends object>({
 
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
-  const paged = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const paged = scrollable ? sorted : sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
+  const allVisibleSelected = selectable && paged.length > 0 && paged.every((row) => selectedKeys?.has(String(row[rowKey])));
 
   function toggleSort(key: keyof T) {
     if (sortKey === key) setSortAsc((a) => !a);
@@ -119,10 +139,20 @@ export default function DataTable<T extends object>({
 
   return (
     <div className="dt">
-      <div className="dt-scroll">
+      <div className={"dt-scroll" + (scrollable ? " dt-scroll-bounded" : "")} style={scrollable ? { maxHeight } : undefined}>
         <table className="dt-table">
           <thead>
             <tr>
+              {selectable && (
+                <th className="dt-check-col">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={(e) => onToggleAll?.(paged, e.target.checked)}
+                    aria-label="Select all visible rows"
+                  />
+                </th>
+              )}
               {columns.map((col) => {
                 const key = String(col.key);
                 const activeCount = filters[key]?.size ?? 0;
@@ -191,14 +221,20 @@ export default function DataTable<T extends object>({
           <tbody>
             {paged.map((row) => {
               const key = String(row[rowKey]);
+              const checked = selectedKeys?.has(key) ?? false;
               return (
                 <tr
                   key={key}
                   className={
-                    (onSelectRow ? "dt-clickable" : "") + (selectedKey === key ? " dt-selected" : "")
+                    (onSelectRow ? "dt-clickable" : "") + (selectedKey === key ? " dt-selected" : "") + (checked ? " dt-selected" : "")
                   }
                   onClick={() => onSelectRow?.(row)}
                 >
+                  {selectable && (
+                    <td className="dt-check-col" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={checked} onChange={() => onToggleRow?.(row)} aria-label={`Select row ${key}`} />
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={String(col.key)} className={col.align === "right" ? "dt-right" : ""}>
                       {col.render ? col.render(row) : String(row[col.key] ?? "")}
@@ -209,7 +245,7 @@ export default function DataTable<T extends object>({
             })}
             {paged.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="dt-empty">
+                <td colSpan={columns.length + (selectable ? 1 : 0)} className="dt-empty">
                   {emptyLabel}
                 </td>
               </tr>
@@ -217,7 +253,7 @@ export default function DataTable<T extends object>({
           </tbody>
         </table>
       </div>
-      {sorted.length > pageSize && (
+      {!scrollable && sorted.length > pageSize && (
         <div className="dt-foot">
           <span className="dt-count">
             {safePage * pageSize + 1}–{Math.min(sorted.length, safePage * pageSize + pageSize)} of {sorted.length}
