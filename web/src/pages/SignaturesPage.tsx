@@ -151,12 +151,12 @@ export default function SignaturesPage() {
   const columns: Column<SignatureSummary>[] = useMemo(
     () => [
       { key: "signature_name", label: "Signature", render: (r) => <span className="cell-strong">{r.signature_name}</span> },
-      { key: "organism", label: "Organism", render: (r) => <span className="cell-italic">{r.organism ?? "—"}</span> },
-      { key: "assay_type", label: "Assay", render: (r) => <Badge tone="neutral">{r.assay_type}</Badge> },
-      { key: "direction_type", label: "Direction Type" },
-      { key: "phenotype", label: "Phenotype", render: (r) => r.phenotype ?? "—" },
-      { key: "sample_type", label: "Sample Type", render: (r) => r.sample_type ?? "—" },
-      { key: "platform_name", label: "Platform", render: (r) => r.platform_name ?? "—" },
+      { key: "organism", label: "Organism", filterable: true, render: (r) => <span className="cell-italic">{r.organism ?? "—"}</span> },
+      { key: "assay_type", label: "Assay", filterable: true, render: (r) => <Badge tone="neutral">{r.assay_type}</Badge> },
+      { key: "direction_type", label: "Direction Type", filterable: true },
+      { key: "phenotype", label: "Phenotype", filterable: true, render: (r) => r.phenotype ?? "—" },
+      { key: "sample_type", label: "Sample Type", filterable: true, render: (r) => r.sample_type ?? "—" },
+      { key: "platform_name", label: "Platform", filterable: true, render: (r) => r.platform_name ?? "—" },
       { key: "feature_count", label: "Features", align: "right" },
       {
         key: "has_difexp",
