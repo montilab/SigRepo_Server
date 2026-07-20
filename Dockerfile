@@ -30,6 +30,8 @@ RUN apt-get update --allow-releaseinfo-change --fix-missing \
   default-libmysqlclient-dev \
   librsvg2-dev \
   libudunits2-dev \
+  libharfbuzz-dev \
+  libfribidi-dev \
   libv8-dev \
   libsodium-dev \
   libbz2-dev \
@@ -110,6 +112,11 @@ RUN R -e "remotes::install_github(repo = 'montilab/hypeR', dependencies = c('Dep
 # Expose app at port 3838
 EXPOSE 3838
 
+# Expose the MCP server's port (internal to the Docker network by default --
+# see docker-compose.yml, no `ports:` mapping is published for this service)
+ENV MCP_PORT=8021
+EXPOSE 8021
+
 # Copy bash script that starts shiny-server
 COPY shiny/shiny-server.sh ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
 
@@ -127,3 +134,12 @@ RUN dos2unix ${SIGREPO_SERVER_DIR}/api/api-server.sh
 
 # Allow permissions to execute the bash script
 RUN chmod a+x ${SIGREPO_SERVER_DIR}/api/api-server.sh
+
+# Copy bash script that starts the MCP server
+COPY mcp/mcp-server.sh ${SIGREPO_SERVER_DIR}/mcp/mcp-server.sh
+
+# Convert bash script from Windows style line endings to Unix-like control characters
+RUN dos2unix ${SIGREPO_SERVER_DIR}/mcp/mcp-server.sh
+
+# Allow permissions to execute the bash script
+RUN chmod a+x ${SIGREPO_SERVER_DIR}/mcp/mcp-server.sh

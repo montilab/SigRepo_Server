@@ -88,6 +88,26 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
+  # Agentic AI-facing MCP server. No `ports:` mapping on purpose -- it's only
+  # reachable by other containers on db-net, not published to the host/
+  # internet, since its only auth today is a per-call api_key with no rate
+  # limiting. Use an SSH tunnel or a reverse proxy with its own auth in front
+  # if remote agent access is needed.
+  sigrepo-mcp:
+    container_name: sigrepo-mcp
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+    networks:
+      - db-net
+    restart: always
+    volumes:
+      - *sigrepo-volume
+      - *sigrepo-server-volume
+      - .Renviron:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/mcp/mcp-server.sh"]
+
 networks:
   db-net:
     external: true   
