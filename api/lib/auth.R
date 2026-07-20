@@ -20,15 +20,27 @@ require_admin_key <- function(res, admin_key) {
   NULL
 }
 
-validate_api_key <- function(res, api_key) {
+sigrepo_condition <- function(subclass, message, status = 500) {
+  structure(
+    class = c(subclass, "sigrepo_api_key_error", "error", "condition"),
+    list(message = message, status = status, call = NULL)
+  )
+}
+
+# Core api_key -> user lookup, shared by the Plumber-facing validate_api_key()
+# and the MCP-facing require_api_key(). Throws a classed
+# "sigrepo_api_key_error" condition (with a $status) on any failure instead of
+# shaping a response itself, since callers need to render that failure very
+# differently (a Plumber json_error() vs. an MCP tool error).
+lookup_user_by_api_key <- function(api_key) {
   if (base::missing(api_key) || is.null(api_key)) {
-    return(json_error(res, 404, "Missing required parameter: api_key"))
+    stop(sigrepo_condition("sigrepo_missing_api_key", "Missing required parameter: api_key", 404))
   }
 
   api_key <- json_scalar(api_key)
 
   if (identical(api_key, "")) {
-    return(json_error(res, 404, "api_key cannot be empty."))
+    stop(sigrepo_condition("sigrepo_empty_api_key", "api_key cannot be empty.", 404))
   }
 
   conn <- NULL
@@ -43,22 +55,19 @@ validate_api_key <- function(res, api_key) {
       check_db_table = TRUE
     )
   }, error = function(err) {
-    structure(
-      base::list(message = base::sprintf("Could not validate api_key: %s", err$message)),
-      class = "sigrepo_api_key_error"
-    )
+    stop(sigrepo_condition(
+      "sigrepo_api_key_lookup_error",
+      base::sprintf("Could not validate api_key: %s", err$message),
+      500
+    ))
   }, finally = {
     if (!is.null(conn)) {
       base::suppressWarnings(DBI::dbDisconnect(conn))
     }
   })
 
-  if (base::inherits(user_tbl, "sigrepo_api_key_error")) {
-    return(json_error(res, 500, user_tbl$message))
-  }
-
   if (base::nrow(user_tbl) == 0) {
-    return(json_error(res, 404, "Invalid api key."))
+    stop(sigrepo_condition("sigrepo_invalid_api_key", "Invalid api key.", 404))
   }
 
   base::list(
@@ -66,4 +75,18 @@ validate_api_key <- function(res, api_key) {
     user_role = user_tbl$user_role[1],
     api_key = api_key
   )
+}
+
+# Plumber-facing: same behavior/response shape as before the refactor.
+validate_api_key <- function(res, api_key) {
+  base::tryCatch(
+    lookup_user_by_api_key(api_key),
+    sigrepo_api_key_error = function(err) json_error(res, err$status, err$message)
+  )
+}
+
+# MCP-facing: lets the sigrepo_api_key_error condition propagate so
+# mcptools/ellmer report it back to the calling agent as a tool error.
+require_api_key <- function(api_key) {
+  lookup_user_by_api_key(api_key)
 }
