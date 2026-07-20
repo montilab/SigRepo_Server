@@ -1,11 +1,15 @@
 # Build according to a specified version of R
 ARG R_VERSION
-ARG R_VERSION=${R_VERSION:-4.5.0}
+ARG R_VERSION=${R_VERSION:-4.4.3}
 
 ############# Build Stage ##################
 
-# Get shiny+tidyverse+devtools packages from rocker image
-FROM rocker/shiny-verse:${R_VERSION} AS base
+# Use a multi-arch Rocker base.
+FROM rocker/r-ver:${R_VERSION} AS base
+
+# Build according to a specified version of R
+ARG SIGREPO_BRANCH
+ENV SIGREPO_BRANCH=${SIGREPO_BRANCH:-master}
 
 # local apt mirror support
 # start every stage with updated apt sources
@@ -18,8 +22,16 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install system libraries of general use
 RUN apt-get update --allow-releaseinfo-change --fix-missing \
   && apt-get -y --no-install-recommends install \
+  build-essential \
+  pkg-config \
+  libcurl4-openssl-dev \
+  libssl-dev \
+  libxml2-dev \
+  default-libmysqlclient-dev \
   librsvg2-dev \
   libudunits2-dev \
+  libharfbuzz-dev \
+  libfribidi-dev \
   libv8-dev \
   libsodium-dev \
   libbz2-dev \
@@ -86,16 +98,24 @@ RUN Rscript "${SIGREPO_SERVER_DIR}/install_r_packages.R"
 RUN R -e "BiocManager::install('limma')"
 
 # Install OmicSignature 
-RUN R -e "devtools::install_github(repo = 'montilab/OmicSignature', dependencies = TRUE)"
+RUN R -e "remotes::install_github(repo = 'montilab/OmicSignature', dependencies = c('Depends','Imports','LinkingTo'))"
+
+# Install dependencies for OmicSignature 
+RUN R -e "BiocManager::install('biomaRt')"
+
+# Install SigRepo 
+RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); remotes::install_github(repo = 'montilab/SigRepo', ref = branch, dependencies = c('Depends','Imports','LinkingTo'))"
 
 # Install hypeR 
-RUN R -e "devtools::install_github(repo = 'montilab/hypeR', dependencies = TRUE)"
-
-# Install hypeR 
-RUN R -e "devtools::install_github(repo = 'montilab/SigRepo', dependencies = TRUE)"
+RUN R -e "remotes::install_github(repo = 'montilab/hypeR', dependencies = c('Depends','Imports','LinkingTo'))"
 
 # Expose app at port 3838
 EXPOSE 3838
+
+# Expose the MCP server's port (internal to the Docker network by default --
+# see docker-compose.yml, no `ports:` mapping is published for this service)
+ENV MCP_PORT=8021
+EXPOSE 8021
 
 # Copy bash script that starts shiny-server
 COPY shiny/shiny-server.sh ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
@@ -115,4 +135,11 @@ RUN dos2unix ${SIGREPO_SERVER_DIR}/api/api-server.sh
 # Allow permissions to execute the bash script
 RUN chmod a+x ${SIGREPO_SERVER_DIR}/api/api-server.sh
 
+# Copy bash script that starts the MCP server
+COPY mcp/mcp-server.sh ${SIGREPO_SERVER_DIR}/mcp/mcp-server.sh
 
+# Convert bash script from Windows style line endings to Unix-like control characters
+RUN dos2unix ${SIGREPO_SERVER_DIR}/mcp/mcp-server.sh
+
+# Allow permissions to execute the bash script
+RUN chmod a+x ${SIGREPO_SERVER_DIR}/mcp/mcp-server.sh

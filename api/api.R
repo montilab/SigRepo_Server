@@ -1,5 +1,5 @@
 
-# For API 
+# For API
 library(plumber)
 library(httr)
 library(jsonlite)
@@ -11,18 +11,48 @@ library(DBI)
 # For data cleaning
 library(dplyr)
 
-# For loading and installing packages
-library(devtools)
+load_repo_package <- function(repo_dir, package_name, required = TRUE) {
+  repo_dir <- base::Sys.getenv(repo_dir, unset = repo_dir)
+
+  if (base::nzchar(repo_dir) && base::dir.exists(repo_dir)) {
+    if (requireNamespace("pkgload", quietly = TRUE)) {
+      pkgload::load_all(path = repo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+      return(invisible(TRUE))
+    }
+
+    if (requireNamespace("devtools", quietly = TRUE)) {
+      devtools::load_all(path = repo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+      return(invisible(TRUE))
+    }
+  }
+
+  if (requireNamespace(package_name, quietly = TRUE)) {
+    base::library(package_name, character.only = TRUE)
+    return(invisible(TRUE))
+  }
+
+  if (!required) {
+    return(invisible(FALSE))
+  }
+
+  base::stop(
+    base::sprintf(
+      "Cannot load package '%s'. Checked repo path '%s' and installed packages, but neither pkgload/devtools nor the installed package were available.",
+      package_name,
+      repo_dir
+    )
+  )
+}
 
 # Load SigRepo package
-devtools::load_all(base::Sys.getenv("SIGREPO_DIR"))
+load_repo_package("SIGREPO_DIR", "SigRepo")
 
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
-  dbname = base::Sys.getenv("DB_NAME"), 
-  host = base::Sys.getenv("DB_LOCAL_HOST"), 
+  dbname = base::Sys.getenv("DB_NAME"),
+  host = base::Sys.getenv("DB_LOCAL_HOST"),
   port = base::as.integer(base::Sys.getenv("DB_PORT")),
-  user = base::Sys.getenv("DB_USER"), 
+  user = base::Sys.getenv("DB_USER"),
   password = base::Sys.getenv("DB_PASSWORD")
 )
 
@@ -33,10 +63,10 @@ base::dir.create(path = difexp_dir, showWarnings = FALSE, recursive = TRUE, mode
 # Get sigrepo server path
 sigrepo_server_path <- base::Sys.getenv("SIGREPO_SERVER_DIR")
 
-# Get the 
-# 
+# Get the
+#
 # This is a Plumber API. You can run the API by clicking the 'run API' button above
-# 
+#
 # Found out more about building APIs with Plumber here:
 #
 #       https://www.rplumber.io/
@@ -45,7 +75,7 @@ sigrepo_server_path <- base::Sys.getenv("SIGREPO_SERVER_DIR")
 # API title and description
 #* @apiTitle Plumber API
 #* @apiDescription This is a server for accessing data on the SigRepo Database
-#* @apiContact list(name = "Reina Chau", email = "rchau88@bu.edu") 
+#* @apiContact list(name = "Reina Chau", email = "rchau88@bu.edu")
 
 # Set-up header access
 
@@ -75,662 +105,190 @@ serializers <- base::list(
   "htmlwidget" = plumber::serializer_htmlwidget()
 )
 
-# Reset database ####
-reset_db_tables <- function(conn_handler){
-  
-  ## Establish database connection
-  conn <- DBI::dbConnect(
-    drv = RMySQL::MySQL(),
-    dbname = base::Sys.getenv("DB_NAME"), 
-    host = base::Sys.getenv("DB_LOCAL_HOST"), 
-    port = base::as.integer(base::Sys.getenv("DB_PORT")),
-    user = base::Sys.getenv("DB_USER"), 
-    password = base::Sys.getenv("DB_PASSWORD")
-  )
-  
-  # Set foreign key checks to false when dropping tables
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
-  
-  # Show all tables in DB
-  table_result <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SHOW TABLES;"))
-  
-  ###################
-  #
-  # DROP ALL TABLES
-  #
-  ##################  
-  purrr::walk(
-    base::seq_len(base::nrow(table_result)),
-    function(t){
-      #t=1;
-      table_name <- table_result$Tables_in_sigrepo[t]
-      drop_table_sql <- base::sprintf("DROP TABLE IF EXISTS `%s`;", table_name)
-      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
-    }
-  )
-  
-  # Disconnect from database ####
-  base::suppressWarnings(DBI::dbDisconnect(conn))   
-  
+# Load domain logic (auth, DB access, business logic) from api/lib/*.R.
+# Endpoints below stay in this file because Plumber only parses `#*` route
+# annotations from the file it plumb()s directly; everything else lives in
+# lib/ so it can be unit/integration tested without booting the API.
+for (lib_file in base::sort(base::list.files(base::file.path(sigrepo_server_path, "api", "lib"), pattern = "\\.R$", full.names = TRUE))) {
+  base::source(lib_file, local = TRUE)
 }
-
-
-# Function to generate schema for the database ####
-generate_db_schema <- function(conn_handler){
-  
-  ## Establish database connection
-  conn <- DBI::dbConnect(
-    drv = RMySQL::MySQL(),
-    dbname = base::Sys.getenv("DB_NAME"), 
-    host = base::Sys.getenv("DB_LOCAL_HOST"), 
-    port = base::as.integer(base::Sys.getenv("DB_PORT")),
-    user = base::Sys.getenv("DB_USER"), 
-    password = base::Sys.getenv("DB_PASSWORD")
-  )
-  
-  # Set foreign key checks to false when dropping tables
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SET FOREIGN_KEY_CHECKS=0;"))
-    
-  # Show all tables in DB
-  table_result <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SHOW TABLES;"))
-  
-  ###################
-  #
-  # DROP ALL TABLES
-  #
-  ##################  
-  purrr::walk(
-    base::seq_len(base::nrow(table_result)),
-    function(t){
-      #t=1;
-      table_name <- table_result$Tables_in_sigrepo[t]
-      drop_table_sql <- base::sprintf("DROP TABLE IF EXISTS `%s`;", table_name)
-      base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = drop_table_sql))
-    }
-  )
-  
-  ############# 
-  #
-  # COLLECTION ACCESS ####
-  #
-  ############# 
-  print("Create schema for 'collection_access' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/collection_access.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  # COLLECTION  ####
-  #
-  ############# 
-  print("Create schema for 'collection' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/collection.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  KEYWORDS ####
-  #
-  ############# 
-  print("Create schema for 'keywords' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/keywords.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  ORGANISMS ####
-  #
-  ############# 
-  print("Create schema for 'organisms' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/organisms.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  PHENOTYPES ####
-  #
-  ############# 
-  print("Create schema for 'phenotypes' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/phenotypes.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  PLATFORMS ####
-  #
-  ############# 
-  print("Create schema for 'platforms' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/platforms.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  PROTEOMICS FEATURES ####
-  #
-  ############# 
-  print("Create schema for 'proteomics_features' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/proteomics_features.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  SAMPLE TYPES ####
-  #
-  ############# 
-  print("Create schema for 'sample_types' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/sample_types.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  SIGNATURE ACCESS ####
-  #
-  ############# 
-  print("Create schema for 'signature_access' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/signature_access.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  # SIGNATURE COLLECTION ACCESS ####
-  #
-  ############# 
-  print("Create schema for 'signature_collection_access' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/signature_collection_access.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  # SIGNATURE FEATURE SET ####
-  #
-  ############# 
-  print("Create schema for 'signature_feature_set' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/signature_feature_set.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  # SIGNATURES ####
-  #
-  ############# 
-  print("Create schema for 'signatures' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/signatures.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  TRANSCRIPTOMICS FEATURES ####
-  #
-  ############# 
-  print("Create schema for 'transcriptomics_features' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/transcriptomics_features.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  ############# 
-  #
-  #  USERS ####
-  #
-  ############# 
-  print("Create schema for 'users' table in the database...")
-  sql_file <- base::file.path(sigrepo_server_path, "mysql/schema/users.sql")
-  sql_query <- base::paste0(base::readLines(sql_file), collapse = "\n")
-  base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = sql_query))
-  
-  # Disconnect from database ####
-  base::suppressWarnings(DBI::dbDisconnect(conn))   
-  
-}
-
-# Function to generate a list of reference tables for the database ####
-generate_db_tables <- function(conn_handler){
-  
-  ############# 
-  #
-  #  ORGANISMS ####
-  #
-  ############# 
-  print("Upload organisms to the database...")
-  organism_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/organisms.csv"))
-  SigRepo::addOrganism(conn_handler = conn_handler, organism_tbl = organism_tbl)
-  
-  ############# 
-  #
-  #  PLATFORMS ####
-  #
-  ############# 
-  print("Upload platforms to the database...")
-  platform_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/platforms.csv"))
-  SigRepo::addPlatform(conn_handler = conn_handler, platform_tbl = platform_tbl)
-  
-  ############# 
-  #
-  #  PHENOTYPES ####
-  #
-  ############# 
-  print("Upload phenotypes to the database...")
-  phenotype_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/phenotypes.csv"), header = TRUE)
-  SigRepo::addPhenotype(conn_handler = conn_handler, phenotype_tbl = phenotype_tbl)
-  
-  ############# 
-  #
-  #  SAMPLE TYPES ####
-  #
-  ############# 
-  print("Upload sample types to the database...")
-  sample_type_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/sample_types.csv"), header = TRUE)
-  SigRepo::addSampleType(conn_handler = conn_handler, sample_type_tbl = sample_type_tbl)
-  
-  ############# 
-  #
-  #  TRANSCRIPTOMICS ####
-  #
-  ############# 
-  print("Upload human transcriptomics features to the database...")
-  transcriptomics_human_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Transcriptomics_Homo_Sapiens.csv"), header = TRUE) 
-  SigRepo::addTranscriptomicsFeatureSet(conn_handler = conn_handler, feature_set = transcriptomics_human_gene_tbl)
-  
-  print("Upload mouse transcriptomics features to the database...")
-  transcriptomics_mouse_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Transcriptomics_Mus_Musculus.csv"), header = TRUE) 
-  SigRepo::addTranscriptomicsFeatureSet(conn_handler = conn_handler, feature_set = transcriptomics_mouse_gene_tbl)
-  
-  ############# 
-  #
-  #  PROTEOMICS ####
-  #
-  ############# 
-  print("Upload human proteomics features to the database...")
-  proteomics_human_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Proteomics_Homo_Sapiens.csv"), header = TRUE) 
-  SigRepo::addProteomicsFeatureSet(conn_handler = conn_handler, feature_set = proteomics_human_gene_tbl)
-  
-  ############# 
-  #
-  #  USERS ####
-  #
-  #############   
-  print("Upload users to the database...")
-  user_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/users.csv"), header = TRUE)
-  SigRepo::addUser(conn_handler = conn_handler, user_tbl = user_tbl)
-  
-}
-
 
 #* Initiate database with schemas and reference tables
 #* @param admin_key
 #' @post /init_db
 init_db <- function(res, admin_key){
-  
-  # parameters
-  variables <- c('admin_key')
-  
-  # Check parameters
-  if(base::missing(admin_key)){
-    
-    missing_variables <- c(base::missing(admin_key))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
   }
-  
-  # CHECK ADMIN KEY ####
-  if(admin_key == ""){
-    
-    error_message <- "admin_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
-    
-    error_message <- "Invalid admin key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }
-  
-  ## Init database
+
   base::tryCatch({
-    
     print("Initiate schema for the database...")
-    generate_db_schema(conn_handler = conn_handler)
-    
+    generate_db_schema(sigrepo_server_path)
+
     print("Upload reference tables to the database...")
-    generate_db_tables(conn_handler = conn_handler)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("Finish initialized the database.")
-    res$serializer <- serializers[["json"]]
-    res$status <- 200
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    generate_db_tables(conn_handler = conn_handler, sigrepo_server_path = sigrepo_server_path)
+
+    json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized the database."))
   }, error = function(err){
-    
-    # print the error message
     print(err)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("ERROR: %s", err)
-    res$serializer <- serializers[["json"]]
-    res$status <- 500
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
   })
-  
 }
 
 #* Reset schemas and reference tables in the database
 #* @param admin_key
 #' @post /reset_db
 reset_db <- function(res, admin_key){
-  
-  # parameters
-  variables <- c('admin_key')
-  
-  # Check parameters
-  if(base::missing(admin_key)){
-    
-    missing_variables <- c(base::missing(admin_key))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
   }
-  
-  # CHECK ADMIN KEY ####
-  if(admin_key == ""){
-    
-    error_message <- "admin_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
-    
-    error_message <- "Invalid admin key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }
-  
-  ## Reset database
+
   base::tryCatch({
-    
     print("Reset tables in the database...")
     reset_db_tables(conn_handler = conn_handler)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("Finish reset the database.")
-    res$serializer <- serializers[["json"]]
-    res$status <- 200
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+
+    json_response(res, 200, base::data.frame(MESSAGES = "Finish reset the database."))
   }, error = function(err){
-    
-    # print the error message
     print(err)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("ERROR: %s", err)
-    res$serializer <- serializers[["json"]]
-    res$status <- 500
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
   })
-  
 }
 
 #* Initiate schema for the database
 #* @param admin_key
 #' @post /init_db_schema
 init_db_schema <- function(res, admin_key){
-  
-  # parameters
-  variables <- c('admin_key')
-  
-  # Check parameters
-  if(base::missing(admin_key)){
-    
-    missing_variables <- c(base::missing(admin_key))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
   }
-  
-  # CHECK ADMIN KEY ####
-  if(admin_key == ""){
-    
-    error_message <- "admin_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
-    
-    error_message <- "Invalid admin key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }
-  
-  ## Init database
+
   base::tryCatch({
-    
     print("Initiate schema for the database...")
-    generate_db_schema(conn_handler = conn_handler)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("Finish initialized schema for the database.")
-    res$serializer <- serializers[["json"]]
-    res$status <- 200
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    generate_db_schema(sigrepo_server_path)
+
+    json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized schema for the database."))
   }, error = function(err){
-    
-    # print the error message
     print(err)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("ERROR: %s", err)
-    res$serializer <- serializers[["json"]]
-    res$status <- 500
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
   })
-  
 }
 
 #* Initiate reference tables in the database
 #* @param admin_key
 #' @post /init_db_tables
 init_db_tables <- function(res, admin_key){
-  
-  # parameters
-  variables <- c('admin_key')
-  
-  # Check parameters
-  if(base::missing(admin_key)){
-    
-    missing_variables <- c(base::missing(admin_key))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
   }
-  
-  # CHECK ADMIN KEY ####
-  if(admin_key == ""){
-    
-    error_message <- "admin_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
-    
-    error_message <- "Invalid admin key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }
-  
-  ## Init database
+
   base::tryCatch({
-    
     print("Upload reference tables to the database...")
-    generate_db_tables(conn_handler = conn_handler)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("Finish initialized reference tables for the database.")
-    res$serializer <- serializers[["json"]]
-    res$status <- 200
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    generate_db_tables(conn_handler = conn_handler, sigrepo_server_path = sigrepo_server_path)
+
+    json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized reference tables for the database."))
   }, error = function(err){
-    
-    # print the error message
     print(err)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("ERROR: %s", err)
-    res$serializer <- serializers[["json"]]
-    res$status <- 500
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
   })
-  
+}
+
+#* Extract data from biomaRt package and update transcriptomics feature set in the database.
+#* @param admin_key
+#* @param organism
+#' @post /update_transcriptomics
+update_transcriptomics <- function(res, admin_key, organism = NULL){
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  organism <- parse_organism_filter(organism)
+
+  print("Getting organisms from the database...")
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism) |>
+    dplyr::filter(!.data$biomart_db %in% c(NA, "") & !.data$biomart_dataset %in% c(NA, ""))
+
+  if (base::nrow(organism_tbl) == 0) {
+    return(json_response(res, 200, base::data.frame(MESSAGES = "There are no organisms returned from the search parameters.")))
+  }
+
+  print("Updating transcriptomics features to the database for each given organism...")
+  for (s in base::seq_len(base::nrow(organism_tbl))) {
+    base::tryCatch({
+      SigRepo::updateTranscriptomicsFeatureSet(
+        conn_handler = conn_handler,
+        organism = organism_tbl$organism[s]
+      )
+    }, error = function(e){
+      json_response(res, 200, base::data.frame(MESSAGES = base::as.character(e)))
+    })
+  }
+
+  json_response(res, 200, base::data.frame(MESSAGES = "Finish updating transcriptomics feature set."))
+}
+
+#* Retrieve FTP UniProt data from NCBI and update proteomics feature set in the database
+#* @param admin_key
+#* @param organism
+#' @post /update_proteomics
+update_proteomics <- function(res, admin_key, organism = NULL){
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  organism <- parse_organism_filter(organism)
+
+  print("Getting organisms from the database...")
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism) |>
+    dplyr::filter(!.data$prot_organism_code %in% c(NA, "") & !.data$prot_organism_code %in% c(NA, ""))
+
+  if (base::nrow(organism_tbl) == 0) {
+    return(json_response(res, 200, base::data.frame(MESSAGES = "There are no organisms returned from the search parameters.")))
+  }
+
+  print("Updating proteomics features in the database for each given organism...")
+  for (s in base::seq_len(base::nrow(organism_tbl))) {
+    base::tryCatch({
+      SigRepo::updateProteomicsFeatureSet(
+        conn_handler = conn_handler,
+        organism = organism_tbl$organism[s]
+      )
+    }, error = function(e){
+      json_response(res, 200, base::data.frame(MESSAGES = base::as.character(e)))
+    })
+  }
+
+  json_response(res, 200, base::data.frame(MESSAGES = "Finish updating proteomics feature set."))
 }
 
 #* Show a list of tables in the database
 #* @param admin_key
 #' @get /show_db_tables
 show_db_tables <- function(res, admin_key){
-  
-  # parameters
-  variables <- c('admin_key')
-  
-  # Check parameters
-  if(base::missing(admin_key)){
-    
-    missing_variables <- c(base::missing(admin_key))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
   }
-  
-  # CHECK ADMIN KEY ####
-  if(admin_key == ""){
-    
-    error_message <- "admin_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
-    
-    error_message <- "Invalid admin key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }  
-  
-  base::tryCatch({ 
-    
-    ## Establish database connection
-    conn <- DBI::dbConnect(
-      drv = RMySQL::MySQL(),
-      dbname = base::Sys.getenv("DB_NAME"), 
-      host = base::Sys.getenv("DB_LOCAL_HOST"), 
-      port = base::as.integer(base::Sys.getenv("DB_PORT")),
-      user = base::Sys.getenv("DB_USER"), 
-      password = base::Sys.getenv("DB_PASSWORD")
-    )
-    
-    # Show all tables in DB
+
+  base::tryCatch({
+    conn <- db_connect_local()
     table_result <- base::suppressWarnings(DBI::dbGetQuery(conn = conn, statement = "SHOW TABLES;"))
-    
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    
-    # Return table
-    if(base::nrow(table_result) > 0){
-      return(jsonlite::toJSON(table_result, pretty=TRUE))
-    }else{
-      warn_tbl <- base::data.frame(MESSAGES = "Currently, there are no tables existed in the database.")
-      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+
+    if (base::nrow(table_result) > 0) {
+      json_response(res, 200, table_result)
+    } else {
+      json_response(res, 200, base::data.frame(MESSAGES = "Currently, there are no tables existed in the database."))
     }
-    
   }, error = function(err){
-    
-    # print the error message
     print(err)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("Something went wrong. Contact admin for support.")
-    res$serializer <- serializers[["json"]]
-    res$status <- 500
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    json_error(res, 500, "Something went wrong. Contact admin for support.")
   })
-  
 }
 
 #* Retrieve a specific table from the database
@@ -739,69 +297,30 @@ show_db_tables <- function(res, admin_key){
 #* @param search_var
 #* @param search_val
 #' @get /retrieve_db_table
-retrieve_db_table <- function(res, admin_key, db_table_name, search_var="", search_val=""){
-  
-  # parameters
-  variables <- c("admin_key", "db_table_name")
-  
-  # Check parameters
-  if(base::missing(admin_key) || base::missing(db_table_name)){
-    
-    missing_variables <- c(base::missing(admin_key), base::missing(db_table_name))
-    error_message <- sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+retrieve_db_table <- function(res, admin_key, db_table_name, search_var = "", search_val = ""){
+  if (base::missing(db_table_name)) {
+    return(json_error(res, 404, "Missing required parameter(s): db_table_name"))
   }
-  
-  # CHECK ADMIN KEY ####
-  if(admin_key == ""){
-    
-    error_message <- "admin_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(admin_key != base::Sys.getenv("ADMIN_KEY")){
-    
-    error_message <- "Invalid admin key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }  
-  
-  # Check parameters and trim white spaces
-  db_table_name <- base::trimws(db_table_name[1]); 
-  filter_coln_var <- if(search_var[1] %in% c(NA, "")){ NULL }else{ base::trimws(search_var[1]) } 
-  filter_coln_val <- if(search_val[1] %in% c(NA, "")){ NULL }else{ base::trimws(base::strsplit(search_val[1], ",", fixed=TRUE)[[1]]) }
-  
-  # Whether to add label to search values
-  if(base::length(filter_coln_var) > 0 && base::length(filter_coln_val) > 0)
+
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  db_table_name <- base::trimws(db_table_name[1])
+  filter_coln_var <- if (search_var[1] %in% c(NA, "")) NULL else base::trimws(search_var[1])
+  filter_coln_val <- if (search_val[1] %in% c(NA, "")) NULL else base::trimws(base::strsplit(search_val[1], ",", fixed = TRUE)[[1]])
+
+  if (base::length(filter_coln_var) > 0 && base::length(filter_coln_val) > 0) {
     base::names(filter_coln_val) <- filter_coln_var
-  
-  # Look up table
-  base::tryCatch({ 
-    
-    ## Establish database connection
-    conn <- DBI::dbConnect(
-      drv = RMySQL::MySQL(),
-      dbname = base::Sys.getenv("DB_NAME"), 
-      host = base::Sys.getenv("DB_LOCAL_HOST"), 
-      port = base::as.integer(base::Sys.getenv("DB_PORT")),
-      user = base::Sys.getenv("DB_USER"), 
-      password = base::Sys.getenv("DB_PASSWORD")
-    )
-    
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+
     print(base::sprintf("Check if '%s' table exists in the database", db_table_name))
     SigRepo::checkDBTable(conn = conn, db_table_name = db_table_name)
-    
+
     print(base::sprintf("Check if values exist in '%s' table of the database", db_table_name))
     table_result <- SigRepo::lookup_table_sql(
       conn = conn,
@@ -809,35 +328,19 @@ retrieve_db_table <- function(res, admin_key, db_table_name, search_var="", sear
       filter_coln_var = filter_coln_var,
       filter_coln_val = filter_coln_val
     )
-    
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    
-    # Return table
-    if(base::nrow(table_result) > 0){
-      return(jsonlite::toJSON(table_result, pretty=TRUE))
-    }else{
-      warn_tbl <- base::data.frame(MESSAGES = base::sprintf("There are no values returned from the search parameters.\n"))
-      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+
+    if (base::nrow(table_result) > 0) {
+      json_response(res, 200, table_result)
+    } else {
+      json_response(res, 200, base::data.frame(MESSAGES = "There are no values returned from the search parameters.\n"))
     }
-    
   }, error = function(err){
-    
-    # print the error message
     print(err)
-    
-    ## Initialize the serializers
-    MESSAGES <- base::sprintf("ERROR: %s", err)
-    res$serializer <- serializers[["json"]]
-    res$status <- 500
-    warn_tbl <- base::data.frame(MESSAGES = MESSAGES)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
   })
-  
 }
-
-
 
 #* Store difexp in the database
 #* @parser multi
@@ -847,176 +350,167 @@ retrieve_db_table <- function(res, admin_key, db_table_name, search_var="", sear
 #* @param difexp:file
 #' @post /store_difexp
 store_difexp <- function(res, api_key, signature_hashkey, difexp){
-  
-  # parameters
-  variables <- c('api_key', 'signature_hashkey')
-  
-  # Check parameters
-  if(base::missing(api_key)){
-    
-    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
-    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  auth <- validate_api_key(res, api_key)
+  if (base::is.character(auth)) {
+    return(auth)
   }
-  
-  # Check parameters and trim white spaces
-  api_key <- base::trimws(api_key[1]); 
-  signature_hashkey <- base::trimws(signature_hashkey[1]); 
-  
-  # Check signature_hashkey ####
-  if(signature_hashkey %in% c(NA, "")){
-    
-    error_message <- "signature_hashkey cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }
-  
-  # Check api_key ####
-  if(api_key %in% ""){
-    
-    error_message <- "api_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else{
-    
-    ## Establish database connection
-    conn <- SigRepo::conn_init(conn_handler = conn_handler)
-    
-    # Check if api_key exists in the database
-    user_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "users",
-      return_var = "*",
-      filter_coln_var = "api_key",
-      filter_coln_val = base::list("api_key" = api_key),
-      check_db_table = TRUE
-    )
-    
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    
-    # Check user tbl
-    if(nrow(user_tbl) == 0){
-      error_message <- "Invalid api key."
-      res$serializer <- serializers[["json"]]
-      res$status <- 404
-      warn_tbl <- base::data.frame(MESSAGES = error_message)
-      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    }
-    
-  }
-  
-  # Store difexp
-  if(base::is.data.frame(difexp[[1]])){
-    base::saveRDS(difexp[[1]], file = base::file.path(difexp_dir, base::paste0(signature_hashkey, ".RDS")))
-  }else{
-    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("difexp is not a valid file."))
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-  }  
-  
-}
 
+  if (base::missing(signature_hashkey) || base::trimws(signature_hashkey[1]) %in% c(NA, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+  signature_hashkey <- base::trimws(signature_hashkey[1])
+
+  if (!save_difexp_rds(difexp_dir, signature_hashkey, difexp[[1]])) {
+    return(jsonlite::toJSON(base::data.frame(MESSAGES = "difexp is not a valid file."), pretty = TRUE))
+  }
+}
 
 #* Get difexp from the database
 #* @param api_key
 #* @param signature_hashkey
 #' @get /get_difexp
 get_difexp <- function(res, api_key, signature_hashkey){
-  
-  # Parameters
-  variables <- c('api_key', 'signature_hashkey')
-  
-  # Check parameters
-  if(base::missing(api_key)){
-    
-    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
-    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  auth <- validate_api_key(res, api_key)
+  if (base::is.character(auth)) {
+    return(auth)
   }
-  
-  # Check parameters and trim white spaces
-  api_key <- base::trimws(api_key[1]); 
-  signature_hashkey <- base::trimws(signature_hashkey[1]); 
-  
-  # Check signature_hashkey ####
-  if(signature_hashkey %in% c(NA, "")){
-    
-    error_message <- "signature_hashkey cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+
+  if (base::missing(signature_hashkey) || base::trimws(signature_hashkey[1]) %in% c(NA, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
   }
-  
-  # Check api_key ####
-  if(api_key %in% ""){
-    
-    error_message <- "api_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else{
-    
-    ## Establish database connection
-    conn <- SigRepo::conn_init(conn_handler = conn_handler)
-    
-    # Check if api_key exists in the database
-    user_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "users",
-      return_var = "*",
-      filter_coln_var = "api_key",
-      filter_coln_val = base::list("api_key" = api_key),
-      check_db_table = TRUE
+  signature_hashkey <- base::trimws(signature_hashkey[1])
+
+  difexp <- load_difexp_rds(difexp_dir, signature_hashkey)
+  if (!is.null(difexp)) {
+    return(jsonlite::toJSON(difexp, pretty = TRUE))
+  }
+
+  jsonlite::toJSON(
+    base::data.frame(MESSAGES = base::sprintf("There is no difexp file found for signature_hashkey = '%s'", signature_hashkey)),
+    pretty = TRUE
+  )
+}
+
+#* Return read-only signature metadata and feature context
+#* @parser json
+#* @param api_key
+#* @param signature_hashkey
+#* @param include_features
+#* @param max_features
+#' @post /read/signature_context
+read_signature_context <- function(req, res, api_key = "", signature_hashkey = "", include_features = "true", max_features = 50) {
+
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  signature_hashkey <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+  include_features <- if (is.null(body$include_features)) include_features else body$include_features
+  max_features <- if (is.null(body$max_features)) max_features else body$max_features
+
+  auth <- validate_api_key(res, api_key)
+  if (base::is.character(auth)) {
+    return(auth)
+  }
+
+  if (identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+
+  include_features <- normalize_flag(include_features, default = TRUE) == 1
+  max_features <- base::suppressWarnings(base::as.integer(max_features[1]))
+  if (base::is.na(max_features) || max_features < 1) {
+    max_features <- 50
+  }
+
+  base::tryCatch({
+    context <- fetch_signature_context(
+      signature_hashkey = signature_hashkey,
+      include_features = include_features,
+      max_features = max_features,
+      auth = auth
     )
-    
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    
-    # Check user tbl
-    if(nrow(user_tbl) == 0){
-      error_message <- "Invalid API Key."
-      res$serializer <- serializers[["json"]]
-      res$status <- 404
-      warn_tbl <- base::data.frame(MESSAGES = error_message)
-      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
+
+    if (is.null(context)) {
+      return(json_error(res, 404, base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey)))
     }
-    
+
+    json_response(res, payload = base::list(
+      endpoint = "/read/signature_context",
+      user_name = auth$user_name,
+      signature_hashkey = signature_hashkey,
+      context = context
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Read-only signature context failed: %s", err$message))
+  })
+}
+
+#* Group signatures by deterministic feature overlap
+#* @parser json
+#* @param api_key
+#* @param signature_hashkeys
+#* @param max_features
+#* @param similarity_threshold
+#' @post /read/group_signatures
+read_group_signatures <- function(req, res, api_key = "", signature_hashkeys = "", max_features = 200, similarity_threshold = 0.10) {
+
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  signature_hashkeys <- if (identical(json_scalar(signature_hashkeys), "")) {
+    json_vector(body$signature_hashkeys)
+  } else {
+    json_vector(base::strsplit(signature_hashkeys, ",", fixed = TRUE)[[1]])
   }
-  
-  # Get difexp file
-  difexp_file <- base::file.path(difexp_dir, base::paste0(signature_hashkey, ".RDS"))
-  
-  # Check if file exists
-  if(base::file.exists(difexp_file)){
-    difexp <- base::readRDS(difexp_file)
-    return(jsonlite::toJSON(difexp, pretty=TRUE))
-  }else{
-    warn_tbl <- base::data.frame(MESSAGES = base::sprintf("There is no difexp file found for signature_hashkey = '%s'", signature_hashkey))
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-  }  
-  
+  max_features <- if (is.null(body$max_features)) max_features else body$max_features
+  similarity_threshold <- if (is.null(body$similarity_threshold)) similarity_threshold else body$similarity_threshold
+
+  auth <- validate_api_key(res, api_key)
+  if (base::is.character(auth)) {
+    return(auth)
+  }
+
+  if (base::length(signature_hashkeys) < 2) {
+    return(json_error(res, 404, "Provide at least two signature_hashkeys."))
+  }
+
+  max_features <- base::suppressWarnings(base::as.integer(max_features[1]))
+  if (base::is.na(max_features) || max_features < 1) {
+    max_features <- 200
+  }
+
+  similarity_threshold <- base::suppressWarnings(base::as.numeric(similarity_threshold[1]))
+  if (base::is.na(similarity_threshold) || similarity_threshold < 0 || similarity_threshold > 1) {
+    similarity_threshold <- 0.10
+  }
+
+  base::tryCatch({
+    contexts <- fetch_signature_contexts(
+      signature_hashkeys = signature_hashkeys,
+      include_features = TRUE,
+      max_features = max_features,
+      auth = auth
+    )
+
+    missing_hashkeys <- base::setdiff(signature_hashkeys, base::names(contexts))
+    if (base::length(contexts) < 2) {
+      return(json_error(res, 404, "Fewer than two requested signatures could be found."))
+    }
+
+    similarity_tbl <- signature_similarity_summary(contexts)
+    groups <- draft_signature_groups(similarity_tbl, threshold = similarity_threshold)
+
+    json_response(res, payload = base::list(
+      endpoint = "/read/group_signatures",
+      user_name = auth$user_name,
+      requested_signature_hashkeys = signature_hashkeys,
+      missing_signature_hashkeys = missing_hashkeys,
+      similarity_threshold = similarity_threshold,
+      groups = groups,
+      similarity = similarity_tbl,
+      signatures = base::lapply(contexts, function(x) x$signature)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Read-only signature grouping failed: %s", err$message))
+  })
 }
 
 #* Delete difexp from the database
@@ -1024,89 +518,22 @@ get_difexp <- function(res, api_key, signature_hashkey){
 #* @param signature_hashkey
 #' @delete /delete_difexp
 delete_difexp <- function(res, api_key, signature_hashkey){
-  
-  # Parameters
-  variables <- c('api_key', 'signature_hashkey')
-  
-  # Check parameters
-  if(base::missing(api_key)){
-    
-    missing_variables <- c(base::missing(api_key), base::missing(signature_hashkey))
-    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[base::which(missing_variables==TRUE)], collapse=", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  auth <- validate_api_key(res, api_key)
+  if (base::is.character(auth)) {
+    return(auth)
   }
-  
-  # Check parameters and trim white spaces
-  api_key <- base::trimws(api_key[1]); 
-  signature_hashkey <- base::trimws(signature_hashkey[1]); 
-  
-  # Check signature_hashkey ####
-  if(signature_hashkey %in% c(NA, "")){
-    
-    error_message <- "signature_hashkey cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+
+  if (base::missing(signature_hashkey) || base::trimws(signature_hashkey[1]) %in% c(NA, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
   }
-  
-  # Check api_key ####
-  if(api_key %in% ""){
-    
-    error_message <- "api_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else{
-    
-    ## Establish database connection
-    conn <- SigRepo::conn_init(conn_handler = conn_handler)
-    
-    # Check if api_key exists in the database
-    user_tbl <- SigRepo::lookup_table_sql(
-      conn = conn,
-      db_table_name = "users",
-      return_var = "*",
-      filter_coln_var = "api_key",
-      filter_coln_val = base::list("api_key" = api_key),
-      check_db_table = TRUE
-    )
-    
-    # Disconnect from database ####
-    base::suppressWarnings(DBI::dbDisconnect(conn)) 
-    
-    # Check user tbl
-    if(nrow(user_tbl) == 0){
-      error_message <- "Invalid API Key."
-      res$serializer <- serializers[["json"]]
-      res$status <- 404
-      warn_tbl <- base::data.frame(MESSAGES = error_message)
-      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    }
-    
-  }
-  
-  # Get difexp file
-  difexp_file <- base::file.path(difexp_dir, base::paste0(signature_hashkey, ".RDS"))
-  
-  # Check if file exists
-  if(base::file.exists(difexp_file)){
-    base::unlink(difexp_file)
-  }
-  
-  # Return messages
-  tbl <- base::data.frame(MESSAGES = base::sprintf("difexp file has been removed for signature_hashkey = '%s'", signature_hashkey))
-  return(jsonlite::toJSON(tbl, pretty=TRUE))
-  
+  signature_hashkey <- base::trimws(signature_hashkey[1])
+
+  delete_difexp_rds(difexp_dir, signature_hashkey)
+
+  jsonlite::toJSON(
+    base::data.frame(MESSAGES = base::sprintf("difexp file has been removed for signature_hashkey = '%s'", signature_hashkey)),
+    pretty = TRUE
+  )
 }
 
 #* Activate registered users in the database
@@ -1114,91 +541,37 @@ delete_difexp <- function(res, api_key, signature_hashkey){
 #* @param api_key
 #' @get /activate_user
 activate_user <- function(res, user_name, api_key){
-  
-  variables <- c("user_name", "api_key")
-  
-  # Check parameters
-  if(base::missing(user_name) || base::missing(api_key)){
-    
-    missing_variables <- c(base::missing(user_name),  base::missing(api_key))
-    error_message <- base::sprintf('Missing required parameter(s): %s', base::paste0(variables[which(missing_variables==TRUE)], collapse = ", "))
-    
-    ## Initialize the serializers
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+  if (base::missing(user_name) || base::missing(api_key)) {
+    return(json_error(res, 404, "Missing required parameter(s): user_name, api_key"))
   }
-  
-  # Check parameters and trim white spaces
+
   user_name <- base::trimws(user_name[1])
-  api_key <- base::trimws(api_key[1]) 
-  
-  # Check user_name ####
-  if(user_name %in% c(NA, "")){
-    
-    error_message <- "user_name cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else{
-    
-    # Check user table
-    check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
-    
-    # If user exists, throw an error
-    if(nrow(check_user_tbl) == 0){
-      error_message <- base::sprintf("User = '%s' does not exist in our database. Please choose a different name.", user_name)
-      res$serializer <- serializers[["json"]]
-      res$status <- 404
-      warn_tbl <- base::data.frame(MESSAGES = error_message)
-      return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    }
-    
+  api_key <- base::trimws(api_key[1])
+
+  if (user_name %in% c(NA, "")) {
+    return(json_error(res, 404, "user_name cannot be empty."))
   }
-  
-  # Check api_key ####
-  if(api_key %in% ""){
-    
-    error_message <- "api_key cannot be empty."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
-  }else if(!api_key %in% base::Sys.getenv("SENDMAIL_KEY")){
-    
-    error_message <- "Invalid Sendmail API Key."
-    res$serializer <- serializers[["json"]]
-    res$status <- 404
-    warn_tbl <- base::data.frame(MESSAGES = error_message)
-    return(jsonlite::toJSON(warn_tbl, pretty=TRUE))
-    
+
+  check_user_tbl <- SigRepo::searchUser(conn_handler = conn_handler, user_name = user_name)
+  if (base::nrow(check_user_tbl) == 0) {
+    return(json_error(res, 404, base::sprintf("User = '%s' does not exist in our database. Please choose a different name.", user_name)))
   }
-  
-  # Activate user
-  SigRepo::updateUser(conn_handler = conn_handler, user_name = user_name, active = TRUE)
-  
-  # Send email to users to notify their account are activated
-  api_url <- base::sprintf("https://montilab.bu.edu/SigRepo/send_notifications/activate_user?user_name=%s&api_key=%s", user_name, api_key)
-  
-  # Send email to users through montilab server API
-  res <- httr::GET(url = api_url)
-  
-  # Check status code
-  if(res$status_code != 200){
-    MESSAGES <- base::sprintf("Something went wrong with the API. Cannot activate user. Please contact admin for support.")
-  }else{
+
+  if (api_key %in% "") {
+    return(json_error(res, 404, "api_key cannot be empty."))
+  } else if (!api_key %in% base::Sys.getenv("SENDMAIL_KEY")) {
+    return(json_error(res, 404, "Invalid Sendmail API Key."))
+  }
+
+  mark_user_active(conn_handler, user_name)
+
+  notify_res <- send_user_activation_email(user_name, api_key)
+
+  if (notify_res$status_code != 200) {
+    MESSAGES <- "Something went wrong with the API. Cannot activate user. Please contact admin for support."
+  } else {
     MESSAGES <- base::sprintf("User = '%s' has been activated. A notified email has been sent to user.", user_name)
   }
-  
-  # Return message ####
-  res$serializer <- serializers[["json"]]
-  res$status <- 200
-  tbl <- base::data.frame(MESSAGES = MESSAGES)
-  return(jsonlite::toJSON(tbl, pretty=TRUE))
-  
+
+  json_response(res, 200, base::data.frame(MESSAGES = MESSAGES))
 }

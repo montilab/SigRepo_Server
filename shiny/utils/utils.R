@@ -18,7 +18,8 @@ DatatableFX <- function(df,
                         hidden_columns = c(0, 6, 7, 8, 11, 14, 15, 16, 19, 24, 25, 26),
                         scrollY = "500px",
                         row_selection = "single",
-                        rownames = FALSE) {
+                        rownames = FALSE,
+                        escape = TRUE) {
   
   # Check if df is valid
   if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
@@ -55,7 +56,8 @@ DatatableFX <- function(df,
     ),
     class = "compact stripe hover nowrap",
     selection = row_selection,
-    rownames = rownames
+    rownames = rownames,
+    escape = escape
   )
 }
 
@@ -95,7 +97,6 @@ DatatableFX <- function(df,
 # }
 
 # modals 
-
 
 
 

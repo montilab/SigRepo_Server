@@ -92,7 +92,7 @@ while true; do
   read -s -p "Create an administrator key for accessing the API endpoints (must be at least 10 characters long): " ADMIN_KEY
   echo ""
   
-  if [ ${#ADMIN_KEY} -le 10 ]; then
+  if [ ${#ADMIN_KEY} -lt 10 ]; then
     echo "WARNING: An administrator key must be at least 10 characters long. Please try again."
     continue
   else
@@ -222,7 +222,7 @@ echo "Start the mysql container. If prompted, enter the admin password to give p
 sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-mysql
 
 # Retrieve mysql local ip address
-DB_LOCAL_HOST=$( docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql )
+DB_LOCAL_HOST=$( sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql )
 
 # Create .Renviron file for R, and populate with user prompts ####
 echo "Set up .Renviron to initialize SigRepo API and Shiny"
@@ -243,7 +243,7 @@ sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-api
 case $choice in
   1)
     DB_HOST=${DB_LOCAL_HOST}
-    CONTAINER_API_HOST=$( docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-api )
+    CONTAINER_API_HOST=$( sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-api )
     CONTAINER_API_PORT=3838
     ;;
   2)

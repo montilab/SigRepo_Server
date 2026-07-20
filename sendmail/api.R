@@ -7,11 +7,41 @@ library(jsonlite)
 # For data cleaning, extraction and manipulation
 library(tidyverse)
 
-# For loading and installing packages
-library(devtools)
+load_repo_package <- function(repo_dir, package_name, required = TRUE) {
+  repo_dir <- base::Sys.getenv(repo_dir, unset = repo_dir)
+
+  if (base::nzchar(repo_dir) && base::dir.exists(repo_dir)) {
+    if (requireNamespace("pkgload", quietly = TRUE)) {
+      pkgload::load_all(path = repo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+      return(invisible(TRUE))
+    }
+
+    if (requireNamespace("devtools", quietly = TRUE)) {
+      devtools::load_all(path = repo_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
+      return(invisible(TRUE))
+    }
+  }
+
+  if (requireNamespace(package_name, quietly = TRUE)) {
+    base::library(package_name, character.only = TRUE)
+    return(invisible(TRUE))
+  }
+
+  if (!required) {
+    return(invisible(FALSE))
+  }
+
+  base::stop(
+    base::sprintf(
+      "Cannot load package '%s'. Checked repo path '%s' and installed packages, but neither pkgload/devtools nor the installed package were available.",
+      package_name,
+      repo_dir
+    )
+  )
+}
 
 # Load SigRepo package
-devtools::load_all(base::Sys.getenv("SIGREPO_DIR"))
+load_repo_package("SIGREPO_DIR", "SigRepo")
 
 # Create a default database handler
 conn_handler <- SigRepo::newConnHandler(
@@ -549,6 +579,5 @@ send_tmp_password <- function(res, user_name, api_key){
   return(jsonlite::toJSON(tbl, pretty=TRUE))
   
 }
-
 
 
