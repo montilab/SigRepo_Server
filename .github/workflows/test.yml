@@ -151,6 +151,11 @@ jobs:
           echo "$response" | grep -q '"get_signature_context"'
           echo "$response" | grep -q '"compare_signatures"'
           echo "$response" | grep -q '"list_vocabulary"'
+          echo "$response" | grep -q '"search_collections"'
+          echo "$response" | grep -q '"search_geneset_resources"'
+          echo "$response" | grep -q '"search_geneset_entries"'
+          echo "$response" | grep -q '"search_features"'
+          echo "$response" | grep -q '"run_enrichment"'
           kill "$(cat /tmp/mcp.pid)" || true
 
       - name: Show MCP server log on failure
