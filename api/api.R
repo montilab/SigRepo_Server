@@ -113,6 +113,10 @@ for (lib_file in base::sort(base::list.files(base::file.path(sigrepo_server_path
   base::source(lib_file, local = TRUE)
 }
 
+# Resolved once at boot so /init_db_genesets, /geneset_resources/ensure, and
+# /init_db's combined bootstrap all share the same cache lookup.
+msigdb_cache_dir <- default_msigdb_cache_dir(sigrepo_server_path)
+
 #* Initiate database with schemas and reference tables
 #* @param admin_key
 #' @post /init_db
@@ -128,6 +132,9 @@ init_db <- function(res, admin_key){
 
     print("Upload reference tables to the database...")
     generate_db_tables(conn_handler = conn_handler, sigrepo_server_path = sigrepo_server_path)
+
+    print("Building and registering MSigDB gene sets...")
+    generate_msigdb_genesets(conn_handler = conn_handler, cache_dir = msigdb_cache_dir)
 
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized the database."))
   }, error = function(err){
@@ -190,6 +197,78 @@ init_db_tables <- function(res, admin_key){
     generate_db_tables(conn_handler = conn_handler, sigrepo_server_path = sigrepo_server_path)
 
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized reference tables for the database."))
+  }, error = function(err){
+    print(err)
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
+  })
+}
+
+#* Build and register the MSigDB gene-set cache (geneset_resources/geneset_entries).
+#* Defaults to the curated H/C2/C5 set; pass full_sweep=true for every
+#* collection msigdbr knows about (meaningfully slower).
+#* @param admin_key
+#* @param full_sweep
+#' @post /init_db_genesets
+init_db_genesets <- function(res, admin_key, full_sweep = FALSE){
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  collection_table <- if (normalize_flag(full_sweep, default = FALSE)) "all" else NULL
+
+  base::tryCatch({
+    print("Building and registering MSigDB gene sets...")
+    manifest_df <- generate_msigdb_genesets(
+      conn_handler = conn_handler, cache_dir = msigdb_cache_dir, collection_table = collection_table
+    )
+
+    json_response(res, 200, base::data.frame(MESSAGES = base::sprintf(
+      "Finished building and registering %d MSigDB geneset resource(s).", base::nrow(manifest_df)
+    )))
+  }, error = function(err){
+    print(err)
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
+  })
+}
+
+#* Return a geneset_resources row for one species/collection/subcollection,
+#* fetching and registering it from MSigDB on the fly if it isn't already in
+#* the database. Available to any authenticated user, not admin-gated --
+#* MSigDB content is public reference data, not user content; the write
+#* itself still runs via the API's own privileged connection regardless of
+#* the caller's own role, same as every other geneset-registering route.
+#* @parser json
+#* @param api_key
+#* @param species
+#* @param collection
+#* @param subcollection
+#' @post /geneset_resources/ensure
+ensure_geneset_resource_route <- function(req, res, api_key = "", species = "", collection = "", subcollection = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  species <- if (identical(json_scalar(species), "")) json_scalar(body$species) else json_scalar(species)
+  collection <- if (identical(json_scalar(collection), "")) json_scalar(body$collection) else json_scalar(collection)
+  subcollection <- if (identical(json_scalar(subcollection), "")) json_scalar(body$subcollection) else json_scalar(subcollection)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  if (identical(species, "") || identical(collection, "")) {
+    return(json_error(res, 404, "species and collection are required."))
+  }
+
+  base::tryCatch({
+    result <- ensure_msigdb_geneset_resource(
+      conn_handler = conn_handler, cache_dir = msigdb_cache_dir,
+      species = species, collection = collection, subcollection = subcollection
+    )
+
+    payload <- result$resource
+    payload$fetched_on_demand <- result$fetched
+    json_response(res, 200, payload)
   }, error = function(err){
     print(err)
     json_error(res, 500, base::sprintf("ERROR: %s", err))
