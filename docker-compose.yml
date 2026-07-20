@@ -76,6 +76,35 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/mcp/mcp-server.sh"]
 
+  # The only way in to sigrepo-mcp: it has no host port of its own (see
+  # above), so this is the sole published port for MCP access. Adds a
+  # second auth layer (HTTP basic auth, distinct from sigrepo-mcp's own
+  # per-call api_key) and rate limiting in front, per mcp/proxy/nginx.conf.
+  #
+  # Same compose file covers both deployment shapes:
+  #   - one person, local machine: leave MCP_PROXY_BIND at its default
+  #     (127.0.0.1) -- nothing outside this machine can reach it.
+  #   - shared server, multiple people: set MCP_PROXY_BIND=0.0.0.0 (or a
+  #     specific interface) in .env so the auth+rate-limit layer is what's
+  #     actually doing the protecting.
+  #
+  # Requires mcp/proxy/.htpasswd to exist first -- see
+  # mcp/proxy/.htpasswd.example for how to generate it. It is gitignored
+  # and must never be committed.
+  sigrepo-mcp-proxy:
+    container_name: sigrepo-mcp-proxy
+    image: nginx:alpine
+    depends_on:
+      - sigrepo-mcp
+    networks:
+      - db-net
+    ports:
+      - "${MCP_PROXY_BIND:-127.0.0.1}:${MCP_PROXY_PORT:-8021}:8021"
+    restart: always
+    volumes:
+      - ./mcp/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./mcp/proxy/.htpasswd:/etc/nginx/.htpasswd:ro
+
 networks:
   db-net:
     external: true   
