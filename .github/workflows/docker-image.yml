@@ -18,25 +18,18 @@ jobs:
             dockerfile: mysql/Dockerfile
             build_args: |
               mysql_image=mysql:8.0-bookworm
-            tags_extra: ""
+            extra_repos: ""
           - image_repo: sigrepo-api
             context: .
             dockerfile: Dockerfile
             build_args: |
               R_VERSION=4.4.3
               SIGREPO_BRANCH=master
-            tags_extra: |
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo-shiny:latest
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo-shiny:${{ github.sha }}
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo:latest
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo:${{ github.sha }}
+            extra_repos: "sigrepo-shiny,sigrepo"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -48,17 +41,42 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # secrets.DOCKERHUB_USERNAME can't be referenced inside strategy.matrix
+      # (GitHub Actions resolves matrix values before secrets are injected
+      # into the job, and rejects the whole workflow file at parse time if
+      # you try) -- matrix.extra_repos above holds plain repo names instead,
+      # and this step does the secret-prefixed tag construction where
+      # secrets actually is valid: a step's env:/run:.
+      - name: Compute extra image tags
+        id: extra_tags
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          EXTRA_REPOS: ${{ matrix.extra_repos }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "tags<<TAGS_EOF"
+            if [ -n "$EXTRA_REPOS" ]; then
+              IFS=',' read -ra EXTRAS <<< "$EXTRA_REPOS"
+              for repo in "${EXTRAS[@]}"; do
+                echo "${DOCKERHUB_USERNAME}/${repo}:latest"
+                echo "${DOCKERHUB_USERNAME}/${repo}:${SHA}"
+              done
+            fi
+            echo "TAGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and push ${{ matrix.image_repo }}
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           build-args: ${{ matrix.build_args }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_repo }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_repo }}:${{ github.sha }}
-            ${{ matrix.tags_extra }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ steps.extra_tags.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.image_repo }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_repo }}
