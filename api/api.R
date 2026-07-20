@@ -113,6 +113,10 @@ for (lib_file in base::sort(base::list.files(base::file.path(sigrepo_server_path
   base::source(lib_file, local = TRUE)
 }
 
+# Resolved once at boot so /init_db_genesets, /geneset_resources/ensure, and
+# /init_db's combined bootstrap all share the same cache lookup.
+msigdb_cache_dir <- default_msigdb_cache_dir(sigrepo_server_path)
+
 #* Initiate database with schemas and reference tables
 #* @param admin_key
 #' @post /init_db

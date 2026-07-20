@@ -83,7 +83,6 @@ for (lib_file in c(
   base::file.path(sigrepo_server_path, "api", "lib", "common.R"),
   base::file.path(sigrepo_server_path, "api", "lib", "auth.R"),
   base::file.path(sigrepo_server_path, "api", "lib", "signature.R"),
-  base::file.path(sigrepo_server_path, "api", "lib", "msigdb_cache.R"),
   base::file.path(sigrepo_server_path, "api", "lib", "msigdb_genesets_admin.R"),
   base::file.path(sigrepo_server_path, "mcp", "lib", "queries.R"),
   base::file.path(sigrepo_server_path, "mcp", "lib", "tools.R")
