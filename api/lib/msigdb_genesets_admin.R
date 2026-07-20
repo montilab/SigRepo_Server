@@ -1,5 +1,4 @@
-# Populates the on-disk MSigDB cache (the same cache api/lib/msigdb_cache.R's
-# /annotate/* routes read from) and registers it into
+# Populates the on-disk MSigDB cache and registers it into
 # geneset_resources/geneset_entries. Backs /init_db_genesets, and /init_db's
 # combined bootstrap.
 #
@@ -7,12 +6,82 @@
 # scripts/register_msigdb_cache.R, restructured as plain functions with no
 # top-level execution and no commandArgs() -- those two scripts remain
 # untouched for manual/offline use; this is what lets the same population
-# step run from a running API process instead. Reuses msigdb_cache_file()
-# from api/lib/msigdb_cache.R for the cache filename convention so anything
-# written here is immediately visible to /annotate/genesets -- duplicating
-# that logic a third time would risk the two silently drifting apart.
+# step run from a running API process instead.
+
+# msigdb_slugify()/msigdb_cache_file()/default_msigdb_cache_dir() below
+# (and msigdb_collection_metadata() further down) are deliberately
+# duplicated from api/lib/msigdb_cache.R rather than sourced from it: that
+# file lives on a separate, not-yet-merged branch (the "Annotate" work, 14
+# commits deep in codex/react-modern-redesign, itself not its own PR), and
+# this branch shouldn't depend on code that isn't reachable from its own
+# history. When that work merges, these four should be deleted here and
+# the shared versions used instead -- same filename convention, so nothing
+# written by this file needs to change, just where these functions are
+# defined.
+msigdb_slugify <- function(x) {
+  x <- base::gsub("[^A-Za-z0-9]+", "_", x)
+  x <- base::gsub("_+", "_", x)
+  base::gsub("^_|_$", "", x)
+}
+
+msigdb_cache_file <- function(cache_dir, species, collection, subcollection = "") {
+  species_slug <- msigdb_slugify(species)
+  subcollection_slug <- if (!base::is.null(subcollection) && base::nzchar(subcollection)) {
+    msigdb_slugify(subcollection)
+  } else {
+    "all"
+  }
+  base::file.path(cache_dir, base::sprintf("%s__%s__%s.rds", species_slug, collection, subcollection_slug))
+}
+
+default_msigdb_cache_dir <- function(sigrepo_server_path) {
+  env_cache_dir <- base::Sys.getenv("MSIGDB_CACHE_DIR", unset = "")
+  if (base::nzchar(env_cache_dir)) {
+    return(base::normalizePath(env_cache_dir, winslash = "/", mustWork = FALSE))
+  }
+  base::normalizePath(base::file.path(sigrepo_server_path, "shiny", "data", "msigdb_genesets"), winslash = "/", mustWork = FALSE)
+}
 
 msigdb_genesets_species_default <- c("Homo sapiens", "Mus musculus")
+
+# Also duplicated from api/lib/msigdb_cache.R for the same not-yet-merged-
+# dependency reason as the three functions above -- a static reference
+# table, no side effects, safe to have two copies of temporarily.
+msigdb_collection_metadata <- function() {
+  base::data.frame(
+    collection = c(
+      "H", "C1",
+      base::rep("C2", 8),
+      base::rep("C3", 4),
+      base::rep("C4", 3),
+      base::rep("C5", 4),
+      "C6",
+      base::rep("C7", 2),
+      "C8"
+    ),
+    collection_label = c(
+      "Hallmark (H)", "Positional (C1)",
+      base::rep("Curated (C2)", 8),
+      base::rep("Regulatory Target (C3)", 4),
+      base::rep("Computational (C4)", 3),
+      base::rep("Ontology (C5)", 4),
+      "Oncogenic Signature (C6)",
+      base::rep("Immunologic Signature (C7)", 2),
+      "Cell Type Signature (C8)"
+    ),
+    subcollection = c(
+      "", "",
+      "CGP", "CP", "CP:BIOCARTA", "CP:KEGG_LEGACY", "CP:KEGG_MEDICUS", "CP:PID", "CP:REACTOME", "CP:WIKIPATHWAYS",
+      "MIR:MIRDB", "MIR:MIR_LEGACY", "TFT:GTRD", "TFT:TFT_LEGACY",
+      "3CA", "CGN", "CM",
+      "GO:BP", "GO:CC", "GO:MF", "HPO",
+      "",
+      "IMMUNESIGDB", "VAX",
+      ""
+    ),
+    stringsAsFactors = FALSE
+  )
+}
 
 # H (Hallmark), C2 (curated: canonical pathways), C5 (ontology: GO terms) --
 # what typical signature enrichment work actually reaches for. Everything
@@ -20,8 +89,6 @@ msigdb_genesets_species_default <- c("Homo sapiens", "Mus musculus")
 # oncogenic, immunologic, cell-type) is real but specialized, and pulling
 # all of it for every species by default made a fresh bootstrap
 # disproportionately slow for collections most installs won't touch.
-# Derived from msigdb_collection_metadata() (api/lib/msigdb_cache.R) rather
-# than hardcoded a second time, so the two can't drift apart.
 msigdb_curated_collection_table <- function() {
   msigdb_collection_metadata() |>
     dplyr::filter(.data$collection %in% c("H", "C2", "C5")) |>
@@ -30,8 +97,8 @@ msigdb_curated_collection_table <- function() {
 }
 
 # One species/collection/subcollection combo's gene sets, as a named list of
-# gene-symbol vectors -- the same shape resolve_msigdb_genesets() expects
-# when it reads a cache file back for /annotate/genesets.
+# gene-symbol vectors -- readRDS(cache_file) always gets this same shape
+# back, whichever code reads it.
 fetch_msigdb_geneset_table <- function(species, collection, subcollection = "") {
   msigdbr_args <- base::list(species = species)
   msigdbr_formals <- base::names(base::formals(msigdbr::msigdbr))
