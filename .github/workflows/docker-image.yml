@@ -9,6 +9,15 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      # The Docker Hub *login* identity (secrets.DOCKERHUB_USERNAME, a bot
+      # account) is not the same thing as the *namespace* images should be
+      # published under. montibot is a member of the montilab org with push
+      # access to it, but pushing to "montibot/sigrepo" and "montilab/sigrepo"
+      # are different repos on different accounts -- images must go to the
+      # shared org namespace so docker-compose.yml (which hardcodes
+      # montilab/...) actually picks them up.
+      DOCKERHUB_NAMESPACE: montilab
     strategy:
       fail-fast: false
       matrix:
@@ -41,16 +50,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # secrets.DOCKERHUB_USERNAME can't be referenced inside strategy.matrix
-      # (GitHub Actions resolves matrix values before secrets are injected
-      # into the job, and rejects the whole workflow file at parse time if
-      # you try) -- matrix.extra_repos above holds plain repo names instead,
-      # and this step does the secret-prefixed tag construction where
-      # secrets actually is valid: a step's env:/run:.
+      # matrix.extra_repos holds plain repo names (see note in the job-level
+      # env above for why the namespace isn't secrets.DOCKERHUB_USERNAME).
       - name: Compute extra image tags
         id: extra_tags
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           EXTRA_REPOS: ${{ matrix.extra_repos }}
           SHA: ${{ github.sha }}
         run: |
@@ -59,8 +63,8 @@ jobs:
             if [ -n "$EXTRA_REPOS" ]; then
               IFS=',' read -ra EXTRAS <<< "$EXTRA_REPOS"
               for repo in "${EXTRAS[@]}"; do
-                echo "${DOCKERHUB_USERNAME}/${repo}:latest"
-                echo "${DOCKERHUB_USERNAME}/${repo}:${SHA}"
+                echo "${DOCKERHUB_NAMESPACE}/${repo}:latest"
+                echo "${DOCKERHUB_NAMESPACE}/${repo}:${SHA}"
               done
             fi
             echo "TAGS_EOF"
@@ -75,8 +79,8 @@ jobs:
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_repo }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_repo }}:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ github.sha }}
             ${{ steps.extra_tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.image_repo }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image_repo }}
