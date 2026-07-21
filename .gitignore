@@ -13,7 +13,6 @@
 .mysql_env
 .Renviron
 .env.dev
-mcp/proxy/.htpasswd
 docker-compose-build-version-local.yml
 Dockerfile-local
 build.log
