@@ -49,8 +49,8 @@ services:
   # Agentic AI-facing MCP server. No `ports:` mapping on purpose -- it's only
   # reachable by other containers on db-net, not published to the host/
   # internet, since its only auth today is a per-call api_key with no rate
-  # limiting. Use an SSH tunnel or a reverse proxy with its own auth in front
-  # if remote agent access is needed.
+  # limiting. Use an SSH tunnel or the rate-limiting reverse proxy below
+  # (sigrepo-mcp-proxy) if remote agent access is needed.
   sigrepo-mcp:
     container_name: sigrepo-mcp
     platform: linux/amd64
@@ -65,20 +65,19 @@ services:
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/mcp/mcp-server.sh"]
 
   # The only way in to sigrepo-mcp: it has no host port of its own (see
-  # above), so this is the sole published port for MCP access. Adds a
-  # second auth layer (HTTP basic auth, distinct from sigrepo-mcp's own
-  # per-call api_key) and rate limiting in front, per mcp/proxy/nginx.conf.
+  # above), so this is the sole published port for MCP access. Adds rate
+  # limiting in front, per mcp/proxy/nginx.conf -- auth is just sigrepo-mcp's
+  # own per-call api_key (the same SigRepo account credential used by the
+  # REST API), not a second, unrelated login.
   #
   # Same compose file covers both deployment shapes:
   #   - one person, local machine: leave MCP_PROXY_BIND at its default
   #     (127.0.0.1) -- nothing outside this machine can reach it.
   #   - shared server, multiple people: set MCP_PROXY_BIND=0.0.0.0 (or a
-  #     specific interface) in .env so the auth+rate-limit layer is what's
-  #     actually doing the protecting.
-  #
-  # Requires mcp/proxy/.htpasswd to exist first -- see
-  # mcp/proxy/.htpasswd.example for how to generate it. It is gitignored
-  # and must never be committed.
+  #     specific interface) in .env -- but prefer routing through a
+  #     TLS-terminating reverse proxy already on the box (see
+  #     docker-compose-vm.yml's deployment notes) over binding this directly
+  #     to a public interface, since this proxy itself only speaks plain HTTP.
   sigrepo-mcp-proxy:
     container_name: sigrepo-mcp-proxy
     image: nginx:alpine
@@ -91,7 +90,6 @@ services:
     restart: always
     volumes:
       - ./mcp/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./mcp/proxy/.htpasswd:/etc/nginx/.htpasswd:ro
 
 volumes:
   sigrepo-db-data:
