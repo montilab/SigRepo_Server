@@ -117,6 +117,35 @@ export async function getVocabulary(): Promise<Vocabulary> {
   };
 }
 
+export interface NamedCount {
+  name: string;
+  value: number;
+}
+
+export interface RecentSignature {
+  signature_hashkey: string;
+  signature_name: string;
+  assay_type: string;
+  user_name: string;
+  date_created: string;
+}
+
+export interface Insights {
+  total_signatures: number;
+  total_users: number;
+  total_organisms: number;
+  total_assays: number;
+  by_organism: NamedCount[];
+  by_assay: NamedCount[];
+  top_contributors: NamedCount[];
+  recent_signatures: RecentSignature[];
+}
+
+export async function getInsights(recentLimit = 5): Promise<Insights> {
+  const query = new URLSearchParams({ api_key: requireApiKey(), recent_limit: String(recentLimit) });
+  return apiFetch<Insights>(`/insights?${query.toString()}`);
+}
+
 // Mirrors the full `signatures` table (mysql/schema/signatures.sql), plus
 // the joined organism/phenotype/sample_type/platform_name lookups and a
 // computed feature_count. See search_signatures() in api/lib/signature.R.

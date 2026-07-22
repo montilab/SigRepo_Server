@@ -5,7 +5,6 @@ import { getAuth, logout } from "./api/client";
 import AppShell from "./components/AppShell";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
-import InsightsPage from "./pages/InsightsPage";
 import SignaturesPage from "./pages/SignaturesPage";
 import CollectionsPage from "./pages/CollectionsPage";
 import AnnotatePage from "./pages/AnnotatePage";
@@ -29,7 +28,6 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/insights" element={<InsightsPage />} />
           <Route path="/signatures" element={<SignaturesPage />} />
           <Route path="/collections" element={<CollectionsPage />} />
           <Route path="/annotate" element={<AnnotatePage />} />
