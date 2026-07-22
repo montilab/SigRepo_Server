@@ -6,7 +6,7 @@
 # 4. You can end patterns with a forward slash (/) to specify a directory.
 # 5. You can negate a pattern by starting it with an exclamation point (!).
 
-# Ignore specific files 
+# Ignore specific files
 .Rhistory
 .DS_Store
 .Rapp.history

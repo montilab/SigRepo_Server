@@ -34,7 +34,6 @@ Imports:
   msigdbr,
   plumber,
   promises,
-  plumber,
   rmarkdown,
   RMySQL,
   sendmailR,

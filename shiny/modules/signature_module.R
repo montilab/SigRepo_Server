@@ -150,14 +150,6 @@ signature_module_ui <- function(id) {
         flex-wrap: wrap;
       }
 
-      ", page_selector, " .signature-source-filter {
-        min-width: 220px;
-      }
-
-      ", page_selector, " .signature-source-filter .form-group {
-        margin-bottom: 0;
-      }
-
       ", page_selector, " .signature-basket-list {
         display: flex;
         flex-direction: column;
@@ -216,38 +208,6 @@ signature_module_ui <- function(id) {
       ", page_selector, " .signature-create-help {
         margin-bottom: 12px;
         color: #597189;
-      }
-
-      ", page_selector, " .signature-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-      }
-
-      ", page_selector, " .signature-badge-local {
-        background: #eef3f7;
-        color: #35506b;
-      }
-
-      ", page_selector, " .signature-badge-remote {
-        background: #e6f2fb;
-        color: #0f4d7c;
-      }
-
-      ", page_selector, " .signature-badge-status {
-        background: #eef7ed;
-        color: #2c6a3f;
-      }
-
-      ", page_selector, " .signature-source-note {
-        margin-top: 8px;
-        color: #597189;
-        font-size: 13px;
       }
 
       ", page_selector, " .signature-actions .btn,
@@ -313,21 +273,6 @@ signature_module_ui <- function(id) {
           ),
           div(
             class = "signature-toolbar-secondary",
-            div(
-              class = "signature-source-filter",
-              selectInput(
-                ns("source_filter"),
-                "Source",
-                choices = c(
-                  "All Sources" = "all",
-                  "Local Only" = "local",
-                  "Connected Nodes" = "remote"
-                ),
-                selected = "all"
-              )
-            ),
-            actionButton(ns("manage_connections_btn"), "Manage Connections"),
-            actionButton(ns("refresh_sources_btn"), "Refresh Sources"),
             uiOutput(ns("signature_actions"))
           )
         ),
@@ -365,28 +310,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     create_upload_error <- reactiveVal(NULL)
     create_detected_columns <- reactiveVal(NULL)
 
-    mock_connected_nodes <- reactive({
-      data.frame(
-        node_id = c("monti_proteomics", "gtex_public"),
-        node_name = c("Monti Lab Proteomics", "GTEx Public Atlas"),
-        lab_name = c("Monti Lab", "GTEx Consortium"),
-        status = c("Connected", "Connected"),
-        signatures = c(148, 312),
-        last_sync = c("2026-05-12 08:35", "2026-05-12 08:41"),
-        stringsAsFactors = FALSE
-      )
-    })
-
-    source_badge_html <- function(source_type, source_label) {
-      badge_class <- if (identical(source_type, "remote")) {
-        "signature-badge signature-badge-remote"
-      } else {
-        "signature-badge signature-badge-local"
-      }
-
-      as.character(tags$span(class = badge_class, source_label))
-    }
-
     action_dropdown_ui <- function(id_suffix = "primary", items) {
       dropdown_id <- ns(paste0("signature_actions_menu_", id_suffix))
 
@@ -422,114 +345,9 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       )
     }
 
-    build_mock_remote_signatures <- function(local_df) {
-      template_cols <- names(local_df)
-      template <- as.list(stats::setNames(rep(list(NA), length(template_cols)), template_cols))
-
-      remote_rows <- list(
-        modifyList(template, list(
-          signature_id = "remote_monti_001",
-          signature_name = "Aging_Proteome_Liver_Young_vs_Old",
-          user_name = "Monti Lab",
-          visibility = "Public",
-          date_created = "2026-04-18",
-          organism = "Homo sapiens",
-          assay_type = "proteomics",
-          sample_type = "liver",
-          phenotype = "aging",
-          description = "Public proteomics aging signature shared from a connected SigRepo node."
-        )),
-        modifyList(template, list(
-          signature_id = "remote_gtex_014",
-          signature_name = "GTEx_Heart_Left_Ventricle_Sex_Bias",
-          user_name = "GTEx Consortium",
-          visibility = "Public",
-          date_created = "2026-03-29",
-          organism = "Homo sapiens",
-          assay_type = "transcriptomics",
-          sample_type = "heart",
-          phenotype = "sex bias",
-          description = "Remote transcriptomic signature surfaced through the federated catalog."
-        )),
-        modifyList(template, list(
-          signature_id = "remote_monti_023",
-          signature_name = "Tumor_Secretome_Response_IFNg",
-          user_name = "Monti Lab",
-          visibility = "Public",
-          date_created = "2026-05-01",
-          organism = "Mus musculus",
-          assay_type = "proteomics",
-          sample_type = "tumor",
-          phenotype = "immune response",
-          description = "Example shared signature from an external node for source-aware browsing."
-        ))
-      )
-
-      remote_df <- do.call(rbind, lapply(remote_rows, function(row) {
-        as.data.frame(row, stringsAsFactors = FALSE)
-      }))
-
-      remote_df$source_type <- "remote"
-      remote_df$source_label <- c("Monti Lab Proteomics", "GTEx Public Atlas", "Monti Lab Proteomics")
-      remote_df$source_display <- vapply(
-        seq_len(nrow(remote_df)),
-        function(i) source_badge_html(remote_df$source_type[[i]], remote_df$source_label[[i]]),
-        character(1)
-      )
-      remote_df$source_owner <- remote_df$user_name
-      remote_df$signature_mode <- "Catalog"
-      remote_df$difexp_ready <- c("On demand", "On demand", "On demand")
-      remote_df
-    }
-
-    displayed_signature_db <- reactive({
-      local_df <- signature_db()
-      local_df$source_type <- "local"
-      local_df$source_label <- "Local SigRepo"
-      local_df$source_display <- vapply(
-        seq_len(nrow(local_df)),
-        function(i) source_badge_html(local_df$source_type[[i]], local_df$source_label[[i]]),
-        character(1)
-      )
-      local_df$source_owner <- if ("user_name" %in% names(local_df)) local_df$user_name else "Unknown owner"
-      local_df$signature_mode <- "Full access"
-      local_df$difexp_ready <- "Available"
-
-      remote_df <- build_mock_remote_signatures(local_df)
-      combined_df <- rbind(local_df, remote_df)
-
-      filter_value <- input$source_filter
-      if (is.null(filter_value) || !nzchar(filter_value)) {
-        filter_value <- "all"
-      }
-      if (identical(filter_value, "local")) {
-        combined_df <- combined_df[combined_df$source_type == "local", , drop = FALSE]
-      } else if (identical(filter_value, "remote")) {
-        combined_df <- combined_df[combined_df$source_type == "remote", , drop = FALSE]
-      }
-
-      preferred_front <- intersect(
-        c(
-          "signature_id", "signature_name", "source_display", "source_owner", "signature_mode",
-          "difexp_ready", "organism", "assay_type", "sample_type", "phenotype",
-          "user_name", "date_created", "visibility"
-        ),
-        names(combined_df)
-      )
-      remaining_cols <- setdiff(names(combined_df), preferred_front)
-      combined_df <- combined_df[, c(preferred_front, remaining_cols), drop = FALSE]
-
-      combined_df
-    })
-
     current_signature_feature_set <- reactive({
       req(signature_feature_set())
       signature_feature_set()
-    })
-
-    selected_signature_is_remote <- reactive({
-      sig <- selected_sig()
-      !is.null(sig) && "source_type" %in% names(sig) && identical(sig$source_type[[1]], "remote")
     })
 
     signature_field_value <- function(sig_df, field, default = "Not available") {
@@ -873,50 +691,11 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       )
     }
 
-    mock_remote_metadata <- function(sig) {
-      data.frame(
-        Field = c(
-          "signature_name", "source", "access_mode", "visibility", "owner",
-          "organism", "assay_type", "sample_type", "phenotype", "description"
-        ),
-        Value = c(
-          signature_field_value(sig, "signature_name"),
-          signature_field_value(sig, "source_label"),
-          "Remote catalog preview",
-          signature_field_value(sig, "visibility"),
-          signature_field_value(sig, "user_name"),
-          signature_field_value(sig, "organism"),
-          signature_field_value(sig, "assay_type"),
-          signature_field_value(sig, "sample_type"),
-          signature_field_value(sig, "phenotype"),
-          signature_field_value(sig, "description")
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-
-    mock_remote_feature_set <- function(sig) {
-      data.frame(
-        feature_name = c("ALB", "APOA1", "SERPINA1", "HP", "TF"),
-        symbol = c("ALB", "APOA1", "SERPINA1", "HP", "TF"),
-        score = c(3.42, 2.87, 2.66, -2.11, -2.45),
-        direction = c("+", "+", "+", "-", "-"),
-        group_label = c("All Features", "All Features", "All Features", "All Features", "All Features"),
-        source_note = rep(
-          paste("Preview from", signature_field_value(sig, "source_label")),
-          5
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-
     output$signature_tbl <- renderDT({
-      df <- displayed_signature_db()
+      df <- signature_db()
 
       hidden_columns <- integer(0)
-      hidden_names <- c(
-        "source_type", "source_label", "description", "source_owner"
-      )
+      hidden_names <- c("description")
       for (col_name in hidden_names) {
         if (col_name %in% names(df)) {
           hidden_columns <- c(hidden_columns, match(col_name, names(df)) - 1)
@@ -956,7 +735,7 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
         last_clicked_row(detail_row)
       }
 
-      df <- displayed_signature_db()
+      df <- signature_db()
       sig <- df[detail_row, , drop = FALSE]
       selected_sig(sig)
       signature_feature_set(NULL)
@@ -976,49 +755,29 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
         )
       }
 
-      is_remote <- identical(signature_field_value(sig, "source_type", "local"), "remote")
-
-      dropdown_items <- if (is_remote) {
-        list(
-          list(id = "remote_source_details_btn", label = "Source Details", class = ""),
-          list(id = "remote_copy_id_btn", label = "Copy Remote ID", class = "")
-        )
-      } else {
-        list(
-          list(id = "update_btn", label = "Update Signature", class = ""),
-          list(id = "access_btn", label = "Manage Access", class = ""),
-          list(id = "delete_btn", label = "Delete Signature", class = "signature-action-danger")
-        )
-      }
+      dropdown_items <- list(
+        list(id = "update_btn", label = "Update Signature", class = ""),
+        list(id = "access_btn", label = "Manage Access", class = ""),
+        list(id = "delete_btn", label = "Delete Signature", class = "signature-action-danger")
+      )
 
         div(
           class = "signature-toolbar",
           div(
             class = "signature-selected",
             tags$span(class = "signature-label", "Selected Signature"),
-            tags$span(class = "signature-name", signature_field_value(sig, "signature_name")),
-            div(
-              class = "signature-source-note",
-              HTML(source_badge_html(
-                signature_field_value(sig, "source_type", "local"),
-                signature_field_value(sig, "source_label", "Local SigRepo")
-              ))
-            )
+            tags$span(class = "signature-name", signature_field_value(sig, "signature_name"))
           ),
           div(
             class = "signature-actions",
             actionButton(ns("view_btn"), "View", class = "btn-primary"),
-            if (is_remote) {
-              actionButton(ns("import_remote_btn"), "Import Local Copy")
-            } else {
-              downloadButton(ns("download_btn"), "Download")
-            },
+            downloadButton(ns("download_btn"), "Download"),
             action_dropdown_ui(
-              id_suffix = if (is_remote) "remote" else "local",
+              id_suffix = "local",
               items = dropdown_items
             ),
-            if (!is_remote) actionButton(ns("add_to_basket_btn"), "Add to Basket"),
-            if (!is_remote) actionButton(ns("add_selected_to_basket_btn"), "Add Selected Rows")
+            actionButton(ns("add_to_basket_btn"), "Add to Basket"),
+            actionButton(ns("add_selected_to_basket_btn"), "Add Selected Rows")
           )
         )
     })
@@ -1122,14 +881,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
                 class = "signature-summary-item",
                 tags$strong("Created"),
                 tags$span(signature_field_value(sig, "date_created"))
-              ),
-              div(
-                class = "signature-summary-item",
-                tags$strong("Source"),
-                HTML(source_badge_html(
-                  signature_field_value(sig, "source_type", "local"),
-                  signature_field_value(sig, "source_label", "Local SigRepo")
-                ))
               )
             ),
             div(
@@ -1162,14 +913,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
             class = "signature-summary-item",
             tags$strong("Created"),
             tags$span(signature_field_value(sig, "date_created"))
-          ),
-          div(
-            class = "signature-summary-item",
-            tags$strong("Source"),
-            HTML(source_badge_html(
-              signature_field_value(sig, "source_type", "local"),
-              signature_field_value(sig, "source_label", "Local SigRepo")
-            ))
           )
         ),
         tabsetPanel(
@@ -1198,15 +941,11 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       req(selected_sig())
 
       sig <- selected_sig()
-      df <- if (selected_signature_is_remote()) {
-        mock_remote_metadata(sig)
-      } else {
-        data.frame(
-          Field = names(sig),
-          Value = unlist(sig[1, ], use.names = FALSE),
-          stringsAsFactors = FALSE
-        )
-      }
+      df <- data.frame(
+        Field = names(sig),
+        Value = unlist(sig[1, ], use.names = FALSE),
+        stringsAsFactors = FALSE
+      )
 
       DatatableFX(
         df,
@@ -1251,17 +990,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     observeEvent(input$view_btn, {
       req(selected_sig())
 
-      if (selected_signature_is_remote()) {
-        signature_feature_set(mock_remote_feature_set(selected_sig()))
-        signature_difexp(NULL)
-        showNotification(
-          "Loaded remote catalog preview. This mock branch is showing a federated feature-set preview without pulling the full remote payload yet.",
-          type = "message",
-          duration = 8
-        )
-        return()
-      }
-
       tryCatch({
         signature_feature_set(fetch_signature_feature_set(selected_sig()$signature_id[[1]]))
         signature_difexp(NULL)
@@ -1277,15 +1005,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
 
     observeEvent(input$load_difexp_btn, {
       req(selected_sig(), signature_feature_set())
-
-      if (selected_signature_is_remote()) {
-        showNotification(
-          "Remote differential expression is not connected yet in this mock. The final version would fetch this on demand from the source SigRepo node.",
-          type = "warning",
-          duration = 8
-        )
-        return()
-      }
 
       tryCatch({
         sig_obj <- fetch_selected_signature(selected_sig()$signature_id[[1]])
@@ -1311,14 +1030,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     observeEvent(input$add_to_basket_btn, {
       req(selected_sig())
 
-      if (selected_signature_is_remote()) {
-        showNotification(
-          "Remote signatures are view-only in this prototype. Import them locally before adding them to a basket.",
-          type = "warning"
-        )
-        return()
-      }
-
       basket_df <- basket_signatures()
       sig <- selected_sig()
 
@@ -1339,7 +1050,7 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
 
     observeEvent(input$add_selected_to_basket_btn, {
       selected_rows <- input$signature_tbl_rows_selected
-      df <- displayed_signature_db()
+      df <- signature_db()
 
       if (length(selected_rows) == 0) {
         showNotification("Highlight one or more signature rows first.", type = "warning")
@@ -1347,16 +1058,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       }
 
       selected_df <- df[selected_rows, , drop = FALSE]
-      selected_df <- selected_df[selected_df$source_type == "local", , drop = FALSE]
-
-      if (nrow(selected_df) == 0) {
-        showNotification(
-          "The current multi-select only supports local signatures. Remote rows are preview-only in this prototype.",
-          type = "warning",
-          duration = 8
-        )
-        return()
-      }
 
       basket_df <- basket_signatures()
 
@@ -1391,101 +1092,6 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
           uiOutput(ns("basket_actions")),
           DT::DTOutput(ns("basket_table"))
         )
-      )
-    })
-
-    observeEvent(input$manage_connections_btn, {
-      showModal(
-        modalDialog(
-          title = "Connected SigRepo Nodes",
-          size = "l",
-          easyClose = TRUE,
-          footer = modalButton("Close"),
-          p(
-            class = "signature-helper",
-            "This is a UI mock for federation. The next step would be replacing these sample nodes with records from the federation catalog."
-          ),
-          DT::DTOutput(ns("connected_nodes_table"))
-        )
-      )
-    })
-
-    output$connected_nodes_table <- DT::renderDataTable({
-      node_df <- mock_connected_nodes()
-      node_df$status <- vapply(
-        node_df$status,
-        function(x) as.character(tags$span(class = "signature-badge signature-badge-status", x)),
-        character(1)
-      )
-
-      DatatableFX(
-        node_df,
-        hidden_columns = integer(0),
-        scrollY = "260px",
-        escape = FALSE
-      )
-    }, server = TRUE)
-
-    observeEvent(input$refresh_sources_btn, {
-      showNotification(
-        "Refreshed the mocked connected-node catalog. This button can later trigger a live federation sync.",
-        type = "message",
-        duration = 6
-      )
-    })
-
-    observeEvent(input$import_remote_btn, {
-      req(selected_sig(), selected_signature_is_remote())
-
-      showModal(
-        modalDialog(
-          title = "Import Remote Signature",
-          easyClose = TRUE,
-          footer = tagList(modalButton("Close")),
-          p(
-            sprintf(
-              "Prototype flow: '%s' would be copied from %s into the local SigRepo so it can be downloaded, edited, or added to a basket.",
-              signature_field_value(selected_sig(), "signature_name"),
-              signature_field_value(selected_sig(), "source_label")
-            )
-          ),
-          p(
-            class = "signature-helper",
-            "When we wire the real federation endpoints, this action can call the source node, fetch the full signature payload, and save a local copy."
-          )
-        )
-      )
-    })
-
-    observeEvent(input$remote_source_details_btn, {
-      req(selected_sig(), selected_signature_is_remote())
-
-      showModal(
-        modalDialog(
-          title = "Remote Source Details",
-          easyClose = TRUE,
-          footer = modalButton("Close"),
-          p(strong("Source Node:"), signature_field_value(selected_sig(), "source_label")),
-          p(strong("Owner:"), signature_field_value(selected_sig(), "user_name")),
-          p(strong("Visibility:"), signature_field_value(selected_sig(), "visibility")),
-          p(
-            class = "signature-helper",
-            "This prototype is showing source-aware actions in the same place the live federation metadata would appear."
-          )
-        )
-      )
-    })
-
-    observeEvent(input$remote_copy_id_btn, {
-      req(selected_sig(), selected_signature_is_remote())
-
-      showNotification(
-        paste(
-          "Remote signature ID:",
-          signature_field_value(selected_sig(), "signature_id")
-        ),
-        type = "message",
-        duration = 8
       )
     })
 
