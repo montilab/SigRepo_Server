@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
-  BarChart3,
   Dna,
   Layers,
   FlaskConical,
@@ -16,7 +15,6 @@ import { getAuth } from "../api/client";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/insights", label: "Insights", icon: BarChart3 },
   { to: "/signatures", label: "Signatures", icon: Dna },
   { to: "/collections", label: "Collections", icon: Layers },
   { to: "/annotate", label: "Annotate", icon: FlaskConical },

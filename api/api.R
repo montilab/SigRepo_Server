@@ -711,6 +711,38 @@ vocabulary <- function(res, api_key = ""){
   })
 }
 
+#* Repository-wide summary stats for the web frontend's Dashboard/Insights
+#* page (totals, signature counts by organism/assay/contributor, and the
+#* most recently created signatures).
+#* @param api_key
+#* @param recent_limit
+#' @get /insights
+insights_route <- function(res, api_key = "", recent_limit = 5){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    result <- repository_insights(conn = conn, is_admin = identical(auth$user_role, "admin"), recent_limit = recent_limit)
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+
+    json_response(res, 200, payload = base::list(
+      total_signatures = result$total_signatures,
+      total_users = result$total_users,
+      total_organisms = result$total_organisms,
+      total_assays = result$total_assays,
+      by_organism = compact_table(result$by_organism),
+      by_assay = compact_table(result$by_assay),
+      top_contributors = compact_table(result$top_contributors),
+      recent_signatures = compact_table(result$recent_signatures)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Insights lookup failed: %s", err$message))
+  })
+}
+
 #* Search signatures by organism/phenotype/assay_type/keyword
 #* @param api_key
 #* @param organism
