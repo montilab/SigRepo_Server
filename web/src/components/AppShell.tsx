@@ -1,17 +1,33 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Sidebar from "./Sidebar";
 
-export default function AppShell({ onLogOut, children }: { onLogOut: () => void; children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("sr-sidebar-collapsed") === "1");
+const COLLAPSE_KEY = "sr-sidebar-collapsed";
 
-  useEffect(() => {
-    localStorage.setItem("sr-sidebar-collapsed", collapsed ? "1" : "0");
-  }, [collapsed]);
+export default function AppShell({ onLogOut, children }: { onLogOut: () => void; children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function toggle() {
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore storage failures */
+      }
+      return next;
+    });
+  }
 
   return (
     <div className={"app-shell" + (collapsed ? " app-shell-collapsed" : "")}>
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} onLogOut={onLogOut} />
-      <main className="app-content">{children}</main>
+      <Sidebar onLogOut={onLogOut} collapsed={collapsed} onToggle={toggle} />
+      <main className="app-main">{children}</main>
     </div>
   );
 }

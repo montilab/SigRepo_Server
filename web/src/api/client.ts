@@ -11,6 +11,7 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -95,6 +96,7 @@ export async function login(userName: string, password: string): Promise<AuthUse
 export function logout() {
   setAuth(null);
 }
+
 
 export interface Vocabulary {
   organism: string[];
@@ -186,6 +188,12 @@ export interface SearchSignaturesParams {
   assay_type?: string;
   keyword?: string;
   limit?: number;
+  offset?: number;
+}
+
+export interface SignaturesPage {
+  rows: SignatureSummary[];
+  total: number;
 }
 
 export async function searchSignatures(params: SearchSignaturesParams = {}): Promise<SignatureSummary[]> {
@@ -200,6 +208,152 @@ export async function searchSignatures(params: SearchSignaturesParams = {}): Pro
     `/signatures/search?${query.toString()}`
   );
   return raw.signatures ?? [];
+}
+
+// Server-side paginated variant (DT `server = TRUE`): asks for one page and
+// returns both that page's rows and the TOTAL count of matching rows, so the
+// caller can render pager controls without pulling every row up front.
+export async function searchSignaturesPage(params: SearchSignaturesParams = {}): Promise<SignaturesPage> {
+  const query = new URLSearchParams({ api_key: requireApiKey() });
+  if (params.organism) query.set("organism", params.organism);
+  if (params.phenotype) query.set("phenotype", params.phenotype);
+  if (params.assay_type) query.set("assay_type", params.assay_type);
+  if (params.keyword) query.set("keyword", params.keyword);
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.offset != null) query.set("offset", String(params.offset));
+
+  const raw = await apiFetch<{ count: number; signatures: SignatureSummary[] }>(
+    `/signatures/search?${query.toString()}`
+  );
+  return { rows: raw.signatures ?? [], total: Number(raw.count) || 0 };
+}
+
+// ---------- Compare (OmicSignature::compare_omic_signatures) ----------
+
+// A labeled similarity matrix: values[i][j] is row i vs col j (null where the
+// comparison couldn't be computed, e.g. a KS column with no difexp).
+export interface CompareMatrix {
+  rows: string[];
+  cols: string[];
+  values: (number | null)[][];
+}
+
+// One label pairing carries the measures relevant to the method: overlap ->
+// jaccard/pvalue/counts; ks_rank/ks_score -> score/pvalue.
+export interface ComparePairing {
+  jaccard?: CompareMatrix;
+  pvalue?: CompareMatrix;
+  counts?: CompareMatrix;
+  score?: CompareMatrix;
+  // Per-signature retained feature-set size (split out of the counts matrix,
+  // which carries it as an extra "size" row/col server-side).
+  sizes?: { name: string; size: number | null }[];
+}
+
+export type CompareMeasure = "jaccard" | "pvalue" | "counts" | "score";
+
+// Which real group_label each "level" resolved to, per signature and per input
+// list -- so levels can be named honestly instead of guessed from "level1".
+export interface CompareLabelOrder {
+  list: string;
+  signature: string;
+  levels: string[];
+}
+
+// One signature in matrix row/col order, so the UI can map a clicked heatmap
+// cell back to real signatures (for the GSEA leading-edge drill-down).
+export interface CompareSignatureMeta {
+  name: string;
+  hashkey: string;
+  direction_type: string | null;
+}
+
+export interface CompareResult {
+  method: string;
+  primary_measure: CompareMeasure;
+  measures: CompareMeasure[];
+  pairings: string[];
+  comparisons: Record<string, ComparePairing>;
+  signatures: CompareSignatureMeta[];
+  // Set only for a two-list run: matrices are rectangular, rows = query
+  // (signatures), cols = reference.
+  reference_signatures: CompareSignatureMeta[] | null;
+  two_list: boolean;
+  label_order: CompareLabelOrder[] | null;
+  skipped: string[];
+}
+
+// GSEA enrichment-plot data for one geneset-vs-ranking pair.
+export interface LeadingEdgeResult {
+  geneset_name: string;
+  ranking_name: string;
+  geneset_label: string;
+  ranking_label: string;
+  ranking_contrast: string;
+  n_ranked: number;
+  n_geneset: number;
+  NES: number | null;
+  pvalue: number | null;
+  ES: number | null;
+  leading_edge: string[];
+  curve: { rank: number; ES: number }[];
+  ticks: number[];
+}
+
+export interface LeadingEdgeParams {
+  geneset_hashkey: string;
+  ranking_hashkey: string;
+  geneset_level?: number;
+  ranking_level?: number;
+  score_cutoff?: number;
+  adj_p_cutoff?: number;
+  min_features?: number;
+}
+
+export async function compareLeadingEdge(params: LeadingEdgeParams): Promise<LeadingEdgeResult> {
+  return apiFetch<LeadingEdgeResult>("/signatures/compare/leading_edge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: requireApiKey(), ...params }),
+  });
+}
+
+export interface CompareParams {
+  signature_hashkeys: string[];
+  // When set, runs a two-list (query vs reference) comparison instead of
+  // comparing signature_hashkeys against themselves.
+  reference_hashkeys?: string[];
+  method: string;
+  score_cutoff?: number;
+  adj_p_cutoff?: number;
+  min_features?: number;
+  max_feature?: number;
+  // {hashkey: [level1, level2]} -- explicit level matching for signatures whose
+  // group_labels differ (e.g. treated/control vs up/down).
+  label_pairing?: Record<string, string[]>;
+  label_pairing2?: Record<string, string[]>;
+  adjust?: boolean;
+  gsea_score?: "NES" | "ES";
+}
+
+export async function compareSignatures(params: CompareParams): Promise<CompareResult> {
+  const raw = await apiFetch<CompareResult>("/signatures/compare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: requireApiKey(), ...params }),
+  });
+  // Single-element fields auto-unbox server-side; normalize the list-shaped ones.
+  const asArray = <T,>(v: T[] | T | null | undefined): T[] =>
+    Array.isArray(v) ? v : v == null ? [] : [v];
+  return {
+    ...raw,
+    measures: asArray(raw.measures),
+    pairings: asArray(raw.pairings),
+    signatures: asArray(raw.signatures),
+    skipped: asArray(raw.skipped),
+    reference_signatures: raw.reference_signatures ? asArray(raw.reference_signatures) : null,
+    label_order: raw.label_order ? asArray(raw.label_order) : null,
+  };
 }
 
 export interface SignatureFeature {
@@ -231,6 +385,52 @@ export async function getSignatureContext(
     }),
   });
   return raw.context;
+}
+
+// ---------- Rummagene (literature-mined gene sets) ----------
+
+export interface RummageneHit {
+  term: string;
+  description: string | null;
+  n_geneset: number | null;
+  n_overlap: number | null;
+  odds_ratio: number | null;
+  pvalue: number | null;
+  adj_pvalue: number | null;
+  n_sets: number | null;
+  pmcid: string | null;
+  title: string | null;
+  doi: string | null;
+  year: number | null;
+  pmc_url: string | null;
+}
+
+export interface RummageneResult {
+  total_count: number;
+  query_size: number;
+  hits: RummageneHit[];
+  signature_name?: string | null;
+}
+
+// Enrich a signature's genes (resolved server-side from its hashkey) against
+// Rummagene's ~1M literature-mined gene sets, returning matches + PMC links.
+export async function rummageneEnrich(params: {
+  signatureHashkey?: string;
+  genes?: string[];
+  limit?: number;
+}): Promise<RummageneResult> {
+  const raw = await apiFetch<RummageneResult>("/rummagene/enrich", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      signature_hashkey: params.signatureHashkey,
+      genes: params.genes,
+      limit: params.limit ?? 25,
+    }),
+  });
+  // A single hit can auto-unbox server-side; normalize hits back to an array.
+  return { ...raw, hits: Array.isArray(raw.hits) ? raw.hits : raw.hits ? [raw.hits] : [] };
 }
 
 export async function deleteSignature(signatureHashkey: string): Promise<void> {

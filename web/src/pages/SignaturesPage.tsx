@@ -1,146 +1,49 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Plus, Upload, Search, Download, Trash2, ShoppingBasket, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Upload, Search, Download, Trash2, ShoppingBasket, Eye, X } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
+import { SkeletonRows } from "../components/Skeleton";
 import {
-  searchSignatures,
-  getSignatureContext,
+  searchSignaturesPage,
   deleteSignature,
-  getDifexp,
   downloadSignatureExport,
   downloadSignatureBasket,
   uploadSignature,
-  getAuth,
   type SignatureSummary,
-  type SignatureContext,
-  type DifexpResult,
 } from "../api/client";
+
+const PAGE_SIZE = 25;
 import { useBasket, addToBasket, removeFromBasket, clearBasket, isInBasket } from "../basket";
-
-// Client-side approximation of the API's delete_signature() rule (editor/
-// admin role, owner unless admin) so the button doesn't appear for requests
-// that will just 403. Doesn't know about per-signature signature_access
-// grants (an editor explicitly granted access to someone else's signature),
-// so it can hide the button in a few cases the API would actually allow --
-// the API is the real authority either way.
-function canDelete(signature: SignatureSummary): boolean {
-  const auth = getAuth();
-  if (!auth) return false;
-  if (auth.user_role === "admin") return true;
-  return auth.user_role === "editor" && auth.user_name === signature.user_name;
-}
-
-// Mirrors build_signature_from_upload()'s own check: editor or admin, any owner.
-function canUpload(): boolean {
-  const auth = getAuth();
-  return auth?.user_role === "editor" || auth?.user_role === "admin";
-}
-
-function formatLabel(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
+import { canDeleteSignature, canUploadSignature } from "../permissions";
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   return String(value);
 }
 
-function hasValue(value: unknown): boolean {
-  return value !== null && value !== undefined && value !== "";
-}
-
-interface MetadataField {
-  key: string;
-  label: string;
-  render?: (value: unknown) => ReactNode;
-}
-
-// Groups the raw signature row (every column of `signatures`, plus the
-// joined organism/phenotype/sample_type/platform_name) into labeled
-// sections instead of one flat alphabetical dump. Excludes:
-//  - signature_id/organism_id/phenotype_id/platform_id/sample_type_id --
-//    internal foreign keys; the joined human-readable columns replace them.
-//  - signature_name/assay_type -- already shown in the drawer title/subtitle.
-//  - signature_hashkey -- an internal lookup key, not metadata; shown as a
-//    small reference line under the title instead.
-// Fields with no value are dropped individually, and a whole section is
-// skipped if none of its fields have a value.
-const METADATA_SECTIONS: { title: string; fields: MetadataField[] }[] = [
-  {
-    title: "Classification",
-    fields: [
-      { key: "organism", label: "Organism" },
-      { key: "phenotype", label: "Phenotype" },
-      { key: "sample_type", label: "Sample Type" },
-      { key: "platform_name", label: "Platform" },
-      { key: "direction_type", label: "Direction Type" },
-    ],
-  },
-  {
-    title: "Cutoffs & Thresholds",
-    fields: [
-      { key: "score_cutoff", label: "Score Cutoff" },
-      { key: "logfc_cutoff", label: "LogFC Cutoff" },
-      { key: "p_value_cutoff", label: "P-value Cutoff" },
-      { key: "adj_p_cutoff", label: "Adj. P Cutoff" },
-      { key: "cutoff_description", label: "Cutoff Description" },
-    ],
-  },
-  {
-    title: "Differential Expression",
-    fields: [
-      {
-        key: "has_difexp",
-        label: "Has Difexp",
-        render: (v) => <Badge tone={v === 1 ? "success" : "neutral"}>{v === 1 ? "Yes" : "No"}</Badge>,
-      },
-      { key: "num_of_difexp", label: "# Difexp" },
-      { key: "num_up_regulated", label: "# Up" },
-      { key: "num_down_regulated", label: "# Down" },
-    ],
-  },
-  {
-    title: "Details",
-    fields: [
-      { key: "description", label: "Description" },
-      { key: "covariates", label: "Covariates" },
-      { key: "keywords", label: "Keywords" },
-      { key: "PMID", label: "PMID" },
-      { key: "year", label: "Year" },
-      { key: "others", label: "Others" },
-    ],
-  },
-  {
-    title: "Provenance",
-    fields: [
-      { key: "user_name", label: "Owner" },
-      { key: "date_created", label: "Created" },
-      {
-        key: "visibility",
-        label: "Visibility",
-        render: (v) => <Badge tone={v === 1 ? "success" : "neutral"}>{v === 1 ? "Public" : "Private"}</Badge>,
-      },
-    ],
-  },
-];
-
 export default function SignaturesPage() {
   const [rows, setRows] = useState<SignatureSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0); // 0-based
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
 
+  // Server-side pagination (DT `server = TRUE`): fetch only the current page
+  // from the API instead of pulling every signature up front. `query` and
+  // `page` both drive the fetch; a new search resets back to page 0.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    searchSignatures({ keyword: query || undefined, limit: 100 })
-      .then((results) => {
+    searchSignaturesPage({ keyword: query || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE })
+      .then(({ rows: results, total: totalCount }) => {
         if (!cancelled) {
           setRows(results);
+          setTotal(totalCount);
           setLoadError(null);
         }
       })
@@ -154,25 +57,18 @@ export default function SignaturesPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, refreshTick]);
+  }, [query, page, refreshTick]);
 
+  // Mirrors the Shiny app's pattern: clicking a row just selects it and
+  // reveals an action bar (View/Export/Add to Basket/Delete) above the
+  // table -- it doesn't navigate anywhere by itself. Only "View" opens the
+  // dedicated detail tab.
   const [active, setActive] = useState<SignatureSummary | null>(null);
-  const [tab, setTab] = useState<"signature" | "difexp">("signature");
-  const [context, setContext] = useState<SignatureContext | null>(null);
-  const [contextLoading, setContextLoading] = useState(false);
+
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const [difexp, setDifexp] = useState<DifexpResult | null>(null);
-  const [difexpLoading, setDifexpLoading] = useState(false);
-  const [difexpError, setDifexpError] = useState<string | null>(null);
-
-  function selectSignature(row: SignatureSummary) {
-    setActive(row);
-    setTab("signature");
-    setDifexp(null);
-    setDifexpError(null);
-  }
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   async function handleDelete() {
     if (!active) return;
@@ -181,30 +77,14 @@ export default function SignaturesPage() {
     setDeleteError(null);
     try {
       await deleteSignature(active.signature_hashkey);
-      setRows((prev) => prev.filter((r) => r.signature_hashkey !== active.signature_hashkey));
       setActive(null);
+      setRefreshTick((t) => t + 1);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Could not delete signature.");
     } finally {
       setDeleting(false);
     }
   }
-
-  async function handleLoadDifexp() {
-    if (!active) return;
-    setDifexpLoading(true);
-    setDifexpError(null);
-    try {
-      setDifexp(await getDifexp(active.signature_hashkey));
-    } catch (err) {
-      setDifexpError(err instanceof Error ? err.message : "Could not load difexp.");
-    } finally {
-      setDifexpLoading(false);
-    }
-  }
-
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
 
   async function handleExport() {
     if (!active) return;
@@ -263,30 +143,10 @@ export default function SignaturesPage() {
     }
   }
 
-  useEffect(() => {
-    if (!active) {
-      setContext(null);
-      return;
-    }
-    let cancelled = false;
-    setContextLoading(true);
-    getSignatureContext(active.signature_hashkey)
-      .then((ctx) => {
-        if (!cancelled) setContext(ctx);
-      })
-      .catch(() => {
-        if (!cancelled) setContext(null);
-      })
-      .finally(() => {
-        if (!cancelled) setContextLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [active]);
-
-  // Every signatures-table column (mysql/schema/signatures.sql), via the
-  // human-readable joined names instead of raw foreign keys.
+  // A curated, at-a-glance subset of the signatures table. The full metadata
+  // (cutoffs, difexp counts, description, PMID, hashkey, etc.) lives on the
+  // signature detail view -- this table is for scanning/finding, not for
+  // showing every column.
   const columns: Column<SignatureSummary>[] = useMemo(
     () => [
       { key: "signature_name", label: "Signature", render: (r) => <span className="cell-strong">{r.signature_name}</span> },
@@ -296,48 +156,24 @@ export default function SignaturesPage() {
       { key: "phenotype", label: "Phenotype", filterable: true, render: (r) => r.phenotype ?? "—" },
       { key: "sample_type", label: "Sample Type", filterable: true, render: (r) => r.sample_type ?? "—" },
       { key: "platform_name", label: "Platform", filterable: true, render: (r) => r.platform_name ?? "—" },
-      { key: "feature_count", label: "Features", align: "right" },
-      {
-        key: "has_difexp",
-        label: "Has Difexp",
-        render: (r) => <Badge tone={r.has_difexp === 1 ? "success" : "neutral"}>{r.has_difexp === 1 ? "Yes" : "No"}</Badge>,
-      },
-      { key: "num_of_difexp", label: "# Difexp", align: "right", render: (r) => formatValue(r.num_of_difexp) },
-      { key: "num_up_regulated", label: "# Up", align: "right", render: (r) => formatValue(r.num_up_regulated) },
-      { key: "num_down_regulated", label: "# Down", align: "right", render: (r) => formatValue(r.num_down_regulated) },
-      { key: "score_cutoff", label: "Score Cutoff", align: "right", render: (r) => formatValue(r.score_cutoff) },
-      { key: "logfc_cutoff", label: "LogFC Cutoff", align: "right", render: (r) => formatValue(r.logfc_cutoff) },
-      { key: "p_value_cutoff", label: "P-value Cutoff", align: "right", render: (r) => formatValue(r.p_value_cutoff) },
-      { key: "adj_p_cutoff", label: "Adj. P Cutoff", align: "right", render: (r) => formatValue(r.adj_p_cutoff) },
-      { key: "cutoff_description", label: "Cutoff Description", render: (r) => formatValue(r.cutoff_description) },
-      { key: "covariates", label: "Covariates", render: (r) => formatValue(r.covariates) },
-      { key: "keywords", label: "Keywords", render: (r) => formatValue(r.keywords) },
-      { key: "PMID", label: "PMID", render: (r) => formatValue(r.PMID) },
       { key: "year", label: "Year", render: (r) => formatValue(r.year) },
-      { key: "others", label: "Others", render: (r) => formatValue(r.others) },
-      { key: "description", label: "Description", render: (r) => formatValue(r.description) },
       { key: "user_name", label: "Owner" },
-      { key: "date_created", label: "Created" },
       {
         key: "visibility",
         label: "Visibility",
+        filterable: true,
         render: (r) => <Badge tone={r.visibility === 1 ? "success" : "neutral"}>{r.visibility === 1 ? "Public" : "Private"}</Badge>,
       },
-      { key: "signature_hashkey", label: "Hashkey", render: (r) => <span className="cell-mono">{r.signature_hashkey}</span> },
     ],
     []
   );
 
-  const difexpColumns = useMemo(() => {
-    if (!difexp || difexp.rows.length === 0) return [];
-    return Object.keys(difexp.rows[0]);
-  }, [difexp]);
-
   return (
     <div className="page">
       <PageHeader
+        variant="bar"
         title="Signatures"
-        subtitle={loading ? "Loading signatures…" : `${rows.length} signatures across the repository`}
+        subtitle={loading ? "Loading signatures…" : `${total} signatures across the repository`}
         actions={
           <>
             <button className="btn btn-secondary" onClick={() => setBasketOpen(true)}>
@@ -346,7 +182,7 @@ export default function SignaturesPage() {
             <button className="btn btn-secondary">
               <Plus size={16} /> Create
             </button>
-            {canUpload() && (
+            {canUploadSignature() && (
               <button className="btn btn-primary" onClick={() => setShowUpload((s) => !s)}>
                 <Upload size={16} /> Upload
               </button>
@@ -400,35 +236,29 @@ export default function SignaturesPage() {
               className="input input-flush"
               placeholder="Search signatures…"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(0);
+              }}
             />
           </div>
         </div>
-        {loadError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{loadError}</p>}
-        <DataTable
-          columns={columns}
-          rows={rows}
-          rowKey="signature_hashkey"
-          selectedKey={active?.signature_hashkey ?? null}
-          onSelectRow={selectSignature}
-          emptyLabel={loading ? "Loading…" : "No signatures match your filters"}
-        />
-      </Card>
 
-      <Drawer
-        open={active !== null}
-        onClose={() => setActive(null)}
-        title={active?.signature_name ?? ""}
-        subtitle={active ? `${active.organism ?? "—"} · ${active.assay_type}` : ""}
-        size="wide"
-        footer={
-          active && (
-            <>
-              {canDelete(active) && (
-                <button className="btn btn-secondary" onClick={handleDelete} disabled={deleting}>
-                  <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete"}
-                </button>
-              )}
+        {active && (
+          <div className="signature-action-bar">
+            <div className="signature-action-name">
+              <span className="signature-action-label">Selected</span>
+              <span className="cell-strong">{active.signature_name}</span>
+            </div>
+            <div className="signature-action-buttons">
+              <a
+                className="btn btn-primary"
+                href={`/signatures/${active.signature_hashkey}`}
+                target="_blank"
+                rel="noopener"
+              >
+                <Eye size={15} /> View
+              </a>
               <button className="btn btn-secondary" onClick={handleExport} disabled={exporting}>
                 <Download size={15} /> {exporting ? "Exporting…" : "Export"}
               </button>
@@ -439,127 +269,38 @@ export default function SignaturesPage() {
               >
                 <ShoppingBasket size={15} /> {isInBasket(active.signature_hashkey) ? "In Basket" : "Add to Basket"}
               </button>
-              <button className="btn btn-primary">Run enrichment</button>
-            </>
-          )
-        }
-      >
-        {active && (
-          <>
-            {deleteError && <p className="login-error">{deleteError}</p>}
-            {exportError && <p className="login-error">{exportError}</p>}
-
-            <div className="segmented" style={{ marginBottom: 16 }}>
-              <button
-                className={"segmented-btn" + (tab === "signature" ? " segmented-btn-active" : "")}
-                onClick={() => setTab("signature")}
-              >
-                Signature
-              </button>
-              <button
-                className={"segmented-btn" + (tab === "difexp" ? " segmented-btn-active" : "")}
-                onClick={() => setTab("difexp")}
-              >
-                Difexp
+              {canDeleteSignature(active.user_name) && (
+                <button className="btn btn-secondary" onClick={handleDelete} disabled={deleting}>
+                  <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete"}
+                </button>
+              )}
+              <button className="icon-btn" onClick={() => setActive(null)} title="Clear selection">
+                <X size={16} />
               </button>
             </div>
-
-            {tab === "signature" && (
-              <>
-                {contextLoading && <p className="cell-sub">Loading metadata…</p>}
-                {!contextLoading && context && (
-                  <p className="cell-sub cell-mono" style={{ marginBottom: 18 }}>{context.signature.signature_hashkey as string}</p>
-                )}
-                {!contextLoading && context && METADATA_SECTIONS.map((section) => {
-                  const fields = section.fields.filter((f) => hasValue(context.signature[f.key]));
-                  if (fields.length === 0) return null;
-                  return (
-                    <div key={section.title} style={{ marginBottom: 22 }}>
-                      <h4 className="detail-section-title">{section.title}</h4>
-                      <dl className="detail-list">
-                        {fields.map((f) => (
-                          <div key={f.key}>
-                            <dt>{f.label}</dt>
-                            <dd>{f.render ? f.render(context.signature[f.key]) : formatValue(context.signature[f.key])}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </div>
-                  );
-                })}
-
-                <h4 className="detail-section-title">Top features</h4>
-                {contextLoading && <p className="cell-sub">Loading features…</p>}
-                {!contextLoading && context && context.features.length > 0 && (
-                  <table className="dt-table dt-table-flush dt-table-compact">
-                    <thead>
-                      <tr>
-                        <th>Feature</th>
-                        <th className="dt-right">Score</th>
-                        <th className="dt-right">Direction</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {context.features.map((f, i) => {
-                        const score = typeof f.score === "number" ? f.score : Number(f.score);
-                        const label = f.probe_id ?? String(f.feature_id ?? i);
-                        return (
-                          <tr key={label}>
-                            <td className="cell-strong">{label}</td>
-                            <td className="dt-right cell-mono">{Number.isFinite(score) ? score.toFixed(2) : "—"}</td>
-                            <td className="dt-right">
-                              <Badge tone={score >= 0 ? "success" : "danger"}>{score >= 0 ? "Up" : "Down"}</Badge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-                {!contextLoading && context && context.features.length === 0 && (
-                  <p className="cell-sub">No features recorded for this signature.</p>
-                )}
-              </>
-            )}
-
-            {tab === "difexp" && (
-              <>
-                {!difexp && (
-                  <button className="btn btn-secondary" onClick={handleLoadDifexp} disabled={difexpLoading}>
-                    {difexpLoading ? "Loading difexp…" : "Load difexp"}
-                  </button>
-                )}
-                {difexpError && <p className="login-error">{difexpError}</p>}
-                {difexp && difexp.message && <p className="cell-sub">{difexp.message}</p>}
-                {difexp && difexp.rows.length > 0 && (
-                  <div className="dt-scroll" style={{ marginTop: 12 }}>
-                    <table className="dt-table dt-table-flush dt-table-compact">
-                      <thead>
-                        <tr>
-                          {difexpColumns.map((col) => (
-                            <th key={col}>{formatLabel(col)}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {difexp.rows.map((row, i) => (
-                          <tr key={i}>
-                            {difexpColumns.map((col) => (
-                              <td key={col} className="cell-mono">
-                                {formatValue(row[col])}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </>
+          </div>
         )}
-      </Drawer>
+        {deleteError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{deleteError}</p>}
+        {exportError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{exportError}</p>}
+
+        {loadError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{loadError}</p>}
+        {loading && rows.length === 0 ? (
+          <SkeletonRows rows={10} cols={6} />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey="signature_hashkey"
+            selectedKey={active?.signature_hashkey ?? null}
+            onSelectRow={setActive}
+            emptyLabel="No signatures match your filters"
+            scrollable
+            maxHeight={560}
+            searchable={false}
+            serverPagination={{ page, pageSize: PAGE_SIZE, total, onPageChange: setPage }}
+          />
+        )}
+      </Card>
 
       <Drawer
         open={basketOpen}
