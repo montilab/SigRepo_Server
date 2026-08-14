@@ -33,6 +33,7 @@ Imports:
   mcptools,
   msigdbr,
   plumber,
+  pool,
   promises,
   rmarkdown,
   RMySQL,

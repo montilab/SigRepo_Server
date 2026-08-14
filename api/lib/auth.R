@@ -45,7 +45,10 @@ lookup_user_by_api_key <- function(api_key) {
 
   conn <- NULL
   user_tbl <- base::tryCatch({
-    conn <- SigRepo::conn_init(conn_handler = conn_handler)
+    # Pooled connection (see db_connect_local in common.R). Previously this used
+    # conn_init(), opening a fresh connection on every authenticated request just
+    # to validate the api_key -- the pool reuses a warm one instead.
+    conn <- db_connect_local()
     SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "users",
