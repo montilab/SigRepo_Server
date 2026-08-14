@@ -3,10 +3,10 @@ env_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
 
 shiny_path <- if (file.exists(file.path(getwd(), "app_src", "bootstrap.R"))) {
   normalizePath(getwd())
-} else if (file.exists(file.path(getwd(), "shiny", "app_src", "bootstrap.R"))) {
-  normalizePath(file.path(getwd(), "shiny"))
+} else if (file.exists(file.path(getwd(), "legacy_app", "app_src", "bootstrap.R"))) {
+  normalizePath(file.path(getwd(), "legacy_app"))
 } else if (nzchar(env_root)) {
-  file.path(normalizePath(env_root), "shiny")
+  file.path(normalizePath(env_root), "legacy_app")
 } else {
   stop("Cannot resolve Shiny app path. Set SIGREPO_SERVER_DIR or run from the repo/app directory.")
 }

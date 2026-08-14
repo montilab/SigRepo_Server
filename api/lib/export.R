@@ -1,6 +1,6 @@
 # Signature export/download for the Signatures page "basket" (bulk
 # download of selected signatures), ported from the Shiny app's basket
-# feature in shiny/modules/signature_module.R.
+# feature in legacy_app/modules/signature_module.R.
 #
 # Doesn't call SigRepo::getSignature() -- like SigRepo::runHypeR(), it
 # authorizes via SigRepo::checkPermissions(), which reads the *DB

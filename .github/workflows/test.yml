@@ -6,7 +6,7 @@ on:
     paths:
       - "api/**"
       - "mcp/**"
-      - "shiny/modules/**"
+      - "legacy_app/modules/**"
       - "mysql/schema/**"
       - "tests/**"
       - "DESCRIPTION"

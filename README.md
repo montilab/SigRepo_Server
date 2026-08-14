@@ -31,8 +31,11 @@ The server is a set of containerized services:
     the analysis endpoints (signature comparison, enrichment) so that
     analysis runs server-side rather than requiring users to download
     whole signatures.
--   **Web interface** — a dashboard for exploring and interacting with
-    the database without installing the R client.
+-   **Web interface** — a React single-page app, built to static assets
+    and served by nginx, which also proxies `/api` to the API container so
+    the browser talks to a single origin. It replaced the R Shiny
+    dashboard as the served UI; the Shiny app is preserved under
+    `legacy_app/` and is no longer started by the compose stack.
 -   **MCP server** — a
     <a href="https://modelcontextprotocol.io" target="_blank">Model
     Context Protocol</a> endpoint that lets AI agents search signatures,
@@ -81,8 +84,6 @@ signatures:
 
 Active work, not yet part of the deployed stack:
 
--   **A modernized web interface** (React) for browsing, inspecting, and
-    comparing signatures, replacing the current R Shiny dashboard.
 -   **AI-assisted signature authoring** — an agent service that reads a
     study's differential-expression output and description, proposes
     metadata from SigRepo's controlled vocabularies, and emits a

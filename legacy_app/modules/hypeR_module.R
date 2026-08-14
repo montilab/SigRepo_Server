@@ -81,11 +81,11 @@ msigdb_cache_dir <- function() {
 
   cache_dir_candidates <- unique(c(
     if (nzchar(shiny_path)) file.path(shiny_path, "data", "msigdb_genesets"),
-    if (nzchar(server_root)) file.path(server_root, "shiny", "data", "msigdb_genesets"),
+    if (nzchar(server_root)) file.path(server_root, "data", "msigdb_genesets"),
     file.path(getwd(), "data", "msigdb_genesets"),
-    file.path(getwd(), "shiny", "data", "msigdb_genesets"),
+    file.path(getwd(), "data", "msigdb_genesets"),
     file.path("data", "msigdb_genesets"),
-    file.path("shiny", "data", "msigdb_genesets")
+    file.path("data", "msigdb_genesets")
   ))
 
   existing_cache_dir <- cache_dir_candidates[dir.exists(cache_dir_candidates)]

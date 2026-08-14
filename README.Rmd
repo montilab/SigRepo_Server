@@ -30,7 +30,7 @@ The server is a set of containerized services:
 
 - **MySQL database** — initializes and manages the SigRepo schema, storing signatures, collections, users, controlled vocabularies (organisms, platforms, sample types, assay types), and gene set resources. Per-signature differential-expression (*difexp*) tables are held in a companion object store.
 - **Plumber REST API** — the single access path to the data. It defines the schema, loads reference tables, stores and retrieves difexp objects, authenticates every call by `api_key`, and exposes the analysis endpoints (signature comparison, enrichment) so that analysis runs server-side rather than requiring users to download whole signatures.
-- **Web interface** — a dashboard for exploring and interacting with the database without installing the R client.
+- **Web interface** — a React single-page app, built to static assets and served by nginx, which also proxies `/api` to the API container so the browser talks to a single origin. It replaced the R Shiny dashboard as the served UI; the Shiny app is preserved under `legacy_app/` and is no longer started by the compose stack.
 - **MCP server** — a [Model Context Protocol](https://modelcontextprotocol.io){target="_blank"} endpoint that lets AI agents search signatures, retrieve signature context, compare signatures, browse gene sets, and run enrichment, grounded in the stored data. It sits behind a rate-limiting reverse proxy and is reachable at <https://sigrepo.org/mcp/>.
 
 Because analyses are exposed as discrete API endpoints over a common signature representation, additional analysis engines and external gene-set resources can be added as new endpoints without changing the database schema.
@@ -54,7 +54,6 @@ Beyond storage and retrieval, the API supports analysis over stored signatures:
 
 Active work, not yet part of the deployed stack:
 
-- **A modernized web interface** (React) for browsing, inspecting, and comparing signatures, replacing the current R Shiny dashboard.
 - **AI-assisted signature authoring** — an agent service that reads a study's differential-expression output and description, proposes metadata from SigRepo's controlled vocabularies, and emits a validated OmicSignature for the depositor to review, so contributing a signature becomes a review step rather than a curation task.
 - **Additional external gene-set resources** for matching stored signatures against published gene sets.
 

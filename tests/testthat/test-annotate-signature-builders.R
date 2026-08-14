@@ -1,4 +1,4 @@
-source(testthat::test_path("../../shiny/modules/annotate_module.R"), local = FALSE)
+source(testthat::test_path("../../legacy_app/modules/annotate_module.R"), local = FALSE)
 
 test_that("hypergeometric enrichment uses signature table and splits categorical scores", {
   sig_objs <- list(list(
