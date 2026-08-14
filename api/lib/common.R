@@ -1,15 +1,57 @@
 # Shared request/response/DB helpers used across every endpoint domain.
 # Depends on the `serializers` list defined in api.R.
 
+# Connection handling.
+#
+# We keep a small pool of warm MySQL connections instead of opening a fresh one
+# per request. Opening a connection costs ~100ms against a remote DB, and every
+# authenticated request otherwise opened at least two (one to validate the
+# api_key, one to do the work); pooling reuses a warm connection (~0ms) instead.
+#
+# The important property: callers keep using db_connect_local() +
+# dbGetQuery(conn, ...) + dbDisconnect(conn) EXACTLY as before. db_connect_local()
+# now hands out a checked-out pooled connection; dbDisconnect() on it *returns it
+# to the pool* rather than closing it (this is pool's documented behavior, and is
+# verified). So no call site needs to change. This is only safe because nothing
+# in this codebase relies on same-connection session state -- no transactions,
+# no LAST_INSERT_ID, no temporary tables, no session variables.
+.db_pool <- base::new.env(parent = base::emptyenv())
+
+db_pool <- function() {
+  if (base::is.null(.db_pool$pool) || !pool::dbIsValid(.db_pool$pool)) {
+    .db_pool$pool <- pool::dbPool(
+      drv = RMySQL::MySQL(),
+      dbname = base::Sys.getenv("DB_NAME"),
+      host = base::Sys.getenv("DB_LOCAL_HOST"),
+      port = base::as.integer(base::Sys.getenv("DB_PORT")),
+      user = base::Sys.getenv("DB_USER"),
+      password = base::Sys.getenv("DB_PASSWORD"),
+      minSize = 1,
+      maxSize = 8,
+      idleTimeout = 300,
+      # Validate a connection at most once per 5 min instead of on every
+      # checkout -- otherwise, since each query checks a connection out, we'd pay
+      # an extra validation round-trip per query against the remote DB. idle
+      # connections are closed after idleTimeout, so a checked-out one is always
+      # either fresh or recently validated.
+      validationInterval = 300
+    )
+  }
+  .db_pool$pool
+}
+
 db_connect_local <- function() {
-  DBI::dbConnect(
-    drv = RMySQL::MySQL(),
-    dbname = base::Sys.getenv("DB_NAME"),
-    host = base::Sys.getenv("DB_LOCAL_HOST"),
-    port = base::as.integer(base::Sys.getenv("DB_PORT")),
-    user = base::Sys.getenv("DB_USER"),
-    password = base::Sys.getenv("DB_PASSWORD")
-  )
+  db_pool()
+}
+
+# Endpoints call dbDisconnect(conn) at the end of each request. Now that conn is
+# the pool, there is nothing for the caller to disconnect -- the pool checks a
+# connection out and returns it around every individual query on its own. Pool's
+# own dbDisconnect method errors ("Not supported for pool objects"), so we make
+# it a harmless no-op. This is what lets every existing dbDisconnect(conn) call
+# site stay unchanged, with no risk of leaking a checked-out connection.
+if (base::requireNamespace("pool", quietly = TRUE)) {
+  methods::setMethod("dbDisconnect", "Pool", function(conn, ...) base::invisible(TRUE))
 }
 
 json_response <- function(res, status = 200, payload = NULL) {
