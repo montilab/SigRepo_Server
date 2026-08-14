@@ -72,22 +72,40 @@ test_that("search_signatures filters by organism/keyword and hides invisible row
   conn <- db_connect_local()
   on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
 
+  # search_signatures() returns list(rows, total) so the caller can page: rows
+  # is the requested page, total is how many rows match the filters overall.
   by_organism <- search_signatures(conn, organism = "CI Test Organism", is_admin = TRUE)
-  expect_true("CI Test Signature" %in% by_organism$signature_name)
+  expect_true("CI Test Signature" %in% by_organism$rows$signature_name)
 
   by_keyword <- search_signatures(conn, keyword = "CI Test Signature", is_admin = TRUE)
-  expect_true(nrow(by_keyword) >= 1)
-  expect_true(all(grepl("CI Test", by_keyword$signature_name, fixed = TRUE)))
+  expect_true(nrow(by_keyword$rows) >= 1)
+  expect_true(all(grepl("CI Test", by_keyword$rows$signature_name, fixed = TRUE)))
 
   none <- search_signatures(conn, organism = "No Such Organism", is_admin = TRUE)
-  expect_equal(nrow(none), 0)
+  expect_equal(nrow(none$rows), 0)
+  expect_equal(none$total, 0)
 
   # The seeded signature is visibility = 1 (public) per fixtures/seed.sql, so
   # it should also surface for a non-admin search -- this only proves the
   # is_admin flag doesn't wrongly hide visible rows, not that hidden rows are
   # filtered (seed.sql has no hidden signature to assert against).
   as_viewer <- search_signatures(conn, organism = "CI Test Organism", is_admin = FALSE)
-  expect_true("CI Test Signature" %in% as_viewer$signature_name)
+  expect_true("CI Test Signature" %in% as_viewer$rows$signature_name)
+})
+
+test_that("search_signatures reports the full match count independent of the page size", {
+  skip_if_no_test_db()
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  full <- search_signatures(conn, is_admin = TRUE)
+  page <- search_signatures(conn, is_admin = TRUE, limit = 1)
+
+  # A one-row page still reports every matching row, which is what lets the web
+  # app render pager controls without fetching everything.
+  expect_equal(nrow(page$rows), min(1, nrow(full$rows)))
+  expect_equal(page$total, full$total)
+  expect_true(page$total >= nrow(page$rows))
 })
 
 test_that("delete_signature enforces caller role/ownership and removes child rows", {

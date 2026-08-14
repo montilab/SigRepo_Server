@@ -300,16 +300,16 @@ test_that("run_enrichment runs multiple signatures at once and skips ones that c
   exec_sql("
     INSERT INTO signatures
       (signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
-    SELECT signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, 'ci_admin', 1, 'ci_test_signature_hashkey_0001'
+    SELECT signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, 'ci_admin', 1, 'ci_test_signature_hashkey_dup1'
     FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'
   ")
   on.exit({
-    exec_sql("DELETE FROM signature_feature_set WHERE signature_id = (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0001')")
-    exec_sql("DELETE FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0001'")
+    exec_sql("DELETE FROM signature_feature_set WHERE signature_id = (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_dup1')")
+    exec_sql("DELETE FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_dup1'")
   }, add = TRUE)
   exec_sql("
     INSERT INTO signature_feature_set (signature_id, feature_id, probe_id, score, group_label, assay_type, sig_feature_hashkey)
-    SELECT (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0001'),
+    SELECT (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_dup1'),
            feature_id, probe_id, score, group_label, assay_type, MD5(CONCAT(sig_feature_hashkey, '_dup'))
     FROM signature_feature_set
     WHERE signature_id = (SELECT signature_id FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000')
@@ -321,7 +321,7 @@ test_that("run_enrichment runs multiple signatures at once and skips ones that c
   # duplicate-label disambiguation), plus one unresolvable hashkey
   # (exercises skip-on-partial-failure).
   result <- run_enrichment(
-    auth, c("ci_test_signature_hashkey_0000", "ci_test_signature_hashkey_0001", "does-not-exist-hashkey"),
+    auth, c("ci_test_signature_hashkey_0000", "ci_test_signature_hashkey_dup1", "does-not-exist-hashkey"),
     test = "hypergeometric", species = "Homo sapiens", collection = "H", fdr = 1,
     difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
   )
