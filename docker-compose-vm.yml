@@ -133,6 +133,49 @@ services:
     volumes:
       - ./mcp/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
+  # AI skill-runner. Wraps the Claude Agent SDK so the rest of the stack (R
+  # client, Plumber API, React UI) can run our .claude/skills/*/SKILL.md skills
+  # -- e.g. create-omic-signature -- on this box, right next to R / OmicSignature
+  # / the difexp files / the MCP server. Built FROM montilab/sigrepo:latest so the
+  # agent inherits R + all packages a skill actually needs to run (see
+  # agent/Dockerfile).
+  #
+  # Like sigrepo-mcp it deliberately has NO `ports:` mapping: it's reachable only
+  # by other containers on db-net, as http://sigrepo-agent:8808, and is
+  # additionally gated by a shared token (AGENT_TOKEN). NEVER publish it to the
+  # host/internet -- it runs an agent with Bash + filesystem access. Secrets
+  # (ANTHROPIC_API_KEY, AGENT_TOKEN) live in .agent_env (see agent/.env.example).
+  sigrepo-agent:
+    container_name: sigrepo-agent
+    platform: linux/amd64
+    build:
+      context: ./agent
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo-api
+      - sigrepo-mcp
+    env_file:
+      - .agent_env
+    environment:
+      - AGENT_SKILLS_CWD=/SigRepo
+      - AGENT_SKILLS=all
+      - AGENT_PERMISSION_MODE=bypassPermissions
+      # Website assistant (/chat): the internal MCP + API it grounds against.
+      - AGENT_MCP_URL=http://sigrepo-mcp:8021/
+      - SIGREPO_API_URL=http://sigrepo-api:3838
+    networks:
+      - db-net
+    restart: always
+    volumes:
+      - *difexp-volume
+      - *sigrepo-volume
+      - *sigrepo-server-volume
+      - *omic-signature-volume
+      - *hyper-volume
+      - .Renviron:/SigRepo_Server/.Renviron
+    expose:
+      - "8808"
+
 networks:
   db-net:
     external: true
