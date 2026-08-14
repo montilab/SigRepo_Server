@@ -1,5 +1,5 @@
 # MSigDB gene set resolution: on-disk cache first, live fetch only if
-# explicitly allowed. Mirrors legacy_app/modules/hypeR_module.R's caching
+# explicitly allowed. Mirrors the retired Shiny app's hypeR caching
 # functions (msigdb_cache_dir/msigdb_cache_file/load_cached_msigdb_genesets/
 # runtime_msigdb_fetch_allowed/fetch_msigdb_table) so the API and the Shiny
 # app share the same cache directory and behavior -- ported rather than
