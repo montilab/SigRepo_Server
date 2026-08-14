@@ -21,10 +21,10 @@ local_tempdir <- function() {
   dir
 }
 
-# The repo's real pre-built cache (shiny/data/msigdb_genesets) -- using it
+# The repo's real pre-built cache (data/msigdb_genesets) -- using it
 # directly means run_enrichment can be tested without hitting the network,
 # same as the API does whenever this cache is present.
-real_msigdb_cache_dir <- testthat::test_path("../../shiny/data/msigdb_genesets")
+real_msigdb_cache_dir <- testthat::test_path("../../data/msigdb_genesets")
 
 test_that("enrichment_reference_table maps assay_type to the right features table", {
   expect_equal(enrichment_reference_table("transcriptomics"), "transcriptomics_features")

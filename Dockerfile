@@ -117,14 +117,14 @@ EXPOSE 3838
 ENV MCP_PORT=8021
 EXPOSE 8021
 
-# Copy bash script that starts shiny-server
-COPY shiny/shiny-server.sh ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
+# Copy bash script that starts the legacy Shiny app
+COPY legacy_app/shiny-server.sh ${SIGREPO_SERVER_DIR}/legacy_app/shiny-server.sh
 
 # Convert bash script from Windows style line endings to Unix-like control characters
-RUN dos2unix ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
+RUN dos2unix ${SIGREPO_SERVER_DIR}/legacy_app/shiny-server.sh
 
 # Allow permissions to execute the bash script
-RUN chmod a+x ${SIGREPO_SERVER_DIR}/shiny/shiny-server.sh
+RUN chmod a+x ${SIGREPO_SERVER_DIR}/legacy_app/shiny-server.sh
 
 # Copy bash script that starts api-server
 COPY api/api-server.sh ${SIGREPO_SERVER_DIR}/api/api-server.sh

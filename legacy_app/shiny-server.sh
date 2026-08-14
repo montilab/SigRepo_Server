@@ -14,4 +14,4 @@ then
 fi
 
 # Start shiny server
-exec Rscript ${SIGREPO_SERVER_DIR}/shiny/run_sigrepo_shiny.R 2>&1
+exec Rscript ${SIGREPO_SERVER_DIR}/legacy_app/run_sigrepo_shiny.R 2>&1

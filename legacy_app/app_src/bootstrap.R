@@ -112,12 +112,12 @@ shiny_path <- if (nzchar(getOption("sigrepo.shiny_path", ""))) {
   normalizePath(getOption("sigrepo.shiny_path"))
 } else if (file.exists(file.path(getwd(), "app_src", "bootstrap.R"))) {
   normalizePath(getwd())
-} else if (file.exists(file.path(getwd(), "shiny", "app_src", "bootstrap.R"))) {
-  normalizePath(file.path(getwd(), "shiny"))
+} else if (file.exists(file.path(getwd(), "legacy_app", "app_src", "bootstrap.R"))) {
+  normalizePath(file.path(getwd(), "legacy_app"))
 } else {
   env_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
   if (nzchar(env_root)) {
-    file.path(normalizePath(env_root), "shiny")
+    file.path(normalizePath(env_root), "legacy_app")
   } else {
     stop("Cannot resolve Shiny app path in bootstrap.")
   }
@@ -125,8 +125,8 @@ shiny_path <- if (nzchar(getOption("sigrepo.shiny_path", ""))) {
 
 # If the resolved directory is the repo root, shift to the shiny app directory.
 if (!file.exists(file.path(shiny_path, "modules", "home_module.R")) &&
-    file.exists(file.path(shiny_path, "shiny", "modules", "home_module.R"))) {
-  shiny_path <- normalizePath(file.path(shiny_path, "shiny"))
+    file.exists(file.path(shiny_path, "legacy_app", "modules", "home_module.R"))) {
+  shiny_path <- normalizePath(file.path(shiny_path, "legacy_app"))
 }
 
 options(sigrepo.shiny_path = shiny_path)

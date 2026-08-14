@@ -111,7 +111,7 @@ EOF
 
 # Stop previously containers
 echo "Shut down existing containers. Enter the admin password if prompted for permission...."
-sudo docker stop sigrepo-mysql sigrepo-api sigrepo-shiny &>/dev/null || echo ""
+sudo docker stop sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null || echo ""
 
 # Removing previously images
 echo "Remove existing images. Enter the admin password if prompted for permission..."
@@ -140,11 +140,11 @@ find_available_port () {
 echo "Locate open ports to host MySQL database, API, and Shiny..."
 DB_PORT=$( find_available_port 3306 )
 API_PORT=$( find_available_port 8020 )
-SHINY_PORT=$( find_available_port 8050 )
+WEB_PORT=$( find_available_port 8050 )
 
 echo "DB PORT: ${DB_PORT}"
 echo "API PORT: ${API_PORT}"
-echo "SHINY PORT: ${SHINY_PORT}"
+echo "WEB PORT: ${WEB_PORT}"
 
 echo "Configure docker-compose.yml file to initialize the containers..."
 cat > "${MYSQL_DIR}/docker-compose.yml" <<EOF
@@ -192,21 +192,19 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  sigrepo-shiny:
-    container_name: sigrepo-shiny
+  sigrepo-web:
+    container_name: sigrepo-web
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    build:
+      context: ./web
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
     networks:
       - db-net
     ports:
-      - ${SHINY_PORT}:3838
+      - ${WEB_PORT}:80
     restart: always
-    volumes:
-      - .Renviron:/SigRepo_Server/.Renviron
-    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
 networks:
   db-net:
@@ -258,15 +256,15 @@ echo "DB_HOST = '${DB_HOST}'" >> "${MYSQL_DIR}/.Renviron"
 echo "API_HOST = '${CONTAINER_API_HOST}'" >> "${MYSQL_DIR}/.Renviron" 
 echo "API_PORT = '${CONTAINER_API_PORT}'" >> "${MYSQL_DIR}/.Renviron" 
 
-# Start sigrepo-shiny containers
-echo "Start the sigrepo-shiny container. If prompted, enter the admin password to give permission..."
-sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny
+# Start sigrepo-web containers
+echo "Start the sigrepo-web container. If prompted, enter the admin password to give permission..."
+sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-web
 
 # Done
 echo ""
 echo "SigRepo setup is complete!"
 echo "SigRepo MySQL database is currently deployed at port ${DB_PORT}"
 echo "SigRepo API is currently deployed at ${SERVER_URL}:${API_PORT}/__docs__/"
-echo "SigRepo Shiny is currently deployed at ${SERVER_URL}:${SHINY_PORT}"
+echo "The SigRepo web interface is currently deployed at ${SERVER_URL}:${WEB_PORT}"
 echo ""
 

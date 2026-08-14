@@ -1,11 +1,11 @@
 # MSigDB gene set resolution: on-disk cache first, live fetch only if
-# explicitly allowed. Mirrors shiny/modules/hypeR_module.R's caching
+# explicitly allowed. Mirrors legacy_app/modules/hypeR_module.R's caching
 # functions (msigdb_cache_dir/msigdb_cache_file/load_cached_msigdb_genesets/
 # runtime_msigdb_fetch_allowed/fetch_msigdb_table) so the API and the Shiny
 # app share the same cache directory and behavior -- ported rather than
 # reused directly since the Shiny module isn't part of the SigRepo package
 # and isn't sourced into the API process. Cache is built by
-# scripts/build_msigdb_cache.R; see shiny/data/msigdb_genesets/manifest.csv.
+# scripts/build_msigdb_cache.R; see data/msigdb_genesets/manifest.csv.
 #
 # cache_dir is always passed explicitly (never read from a global), matching
 # how difexp_dir is threaded through api/lib/difexp.R -- keeps these
@@ -51,14 +51,14 @@ msigdb_collection_metadata <- function() {
 }
 
 # Resolves the configured cache dir: MSIGDB_CACHE_DIR if set, else
-# <sigrepo_server_path>/shiny/data/msigdb_genesets (matching the Shiny app's
-# own default, so both apps share a cache by default in a normal checkout).
+# <sigrepo_server_path>/data/msigdb_genesets, the shared cache the API, the
+# MCP server, and the legacy Shiny app all read from.
 default_msigdb_cache_dir <- function(sigrepo_server_path) {
   env_cache_dir <- base::Sys.getenv("MSIGDB_CACHE_DIR", unset = "")
   if (base::nzchar(env_cache_dir)) {
     return(base::normalizePath(env_cache_dir, winslash = "/", mustWork = FALSE))
   }
-  base::normalizePath(base::file.path(sigrepo_server_path, "shiny", "data", "msigdb_genesets"), winslash = "/", mustWork = FALSE)
+  base::normalizePath(base::file.path(sigrepo_server_path, "data", "msigdb_genesets"), winslash = "/", mustWork = FALSE)
 }
 
 # Real species list msigdbr supports (static/local, no network) -- matches
