@@ -35,7 +35,7 @@ library("OmicSignature")
 
 The `SigRepo` package includes a suite of functions for easily storing and managing biological signatures and its constituents. Currently, `Sigrepo` is capable of storing, searching, and retrieving signatures and its signature collections from a MySQL Database. See <a href="">here</a> for how set-up the MySQL database with the appropriate schema.
 
-In order to interact with a suite of functions in `SigRepo` package, the input data must represent an R6 object for the representation of signatures and signature collections, and they can be created using our proprietary package, <a href="https://github.com/montilab/OmicSignature">OmicSignature</a>. 
+In order to interact with a suite of functions in `SigRepo` package, the input data must represent an R6 object for the representation of signatures and signature collections, and they can be created using our in-house package, <a href="https://github.com/montilab/OmicSignature">OmicSignature</a>.
 
 For more information click the links below.
 
