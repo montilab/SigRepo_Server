@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Filter, Search } from "lucide-react";
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export interface Column<T> {
   key: keyof T;
@@ -19,7 +21,7 @@ export default function DataTable<T extends object>({
   rowKey,
   selectedKey,
   onSelectRow,
-  pageSize = 8,
+  pageSize = 10,
   emptyLabel = "No rows to display",
   scrollable = false,
   maxHeight = 420,
@@ -27,6 +29,8 @@ export default function DataTable<T extends object>({
   selectedKeys,
   onToggleRow,
   onToggleAll,
+  searchable = true,
+  serverPagination,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -47,13 +51,32 @@ export default function DataTable<T extends object>({
   selectedKeys?: Set<string>;
   onToggleRow?: (row: T) => void;
   onToggleAll?: (rows: T[], checked: boolean) => void;
+  // Global "Search:" box (DT-style) that matches against every column's
+  // rendered value. Works in both paginated and scrollable modes; pass
+  // searchable={false} on pages that already provide their own search box.
+  searchable?: boolean;
+  // Server-side pagination (DT `server = TRUE`): the parent fetches one page
+  // at a time and passes it in as `rows`, plus the total match count. The
+  // table then renders pager controls from `total` and calls onPageChange
+  // instead of slicing rows itself. Client-side sort/column-filters are
+  // suppressed in this mode since they can't span pages the table hasn't
+  // loaded; drive those through the parent's query instead.
+  serverPagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+  };
 }) {
   const [sortKey, setSortKey] = useState<keyof T | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [page, setPage] = useState(0);
+  const [pageSizeState, setPageSizeState] = useState(pageSize);
+  const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Record<string, Set<string>>>({});
   const [openFilterKey, setOpenFilterKey] = useState<string | null>(null);
   const popoverContainerRef = useRef<HTMLSpanElement | null>(null);
+  const showSearch = searchable;
 
   useEffect(() => {
     if (!openFilterKey) return;
@@ -86,15 +109,24 @@ export default function DataTable<T extends object>({
 
   const filtered = useMemo(() => {
     const activeKeys = Object.keys(filters).filter((k) => filters[k].size > 0);
-    if (activeKeys.length === 0) return rows;
-    return rows.filter((row) =>
-      activeKeys.every((key) => {
-        const col = columns.find((c) => String(c.key) === key);
-        if (!col) return true;
-        return filters[key].has(String(row[col.key] ?? ""));
-      })
-    );
-  }, [rows, columns, filters]);
+    let result = rows;
+    if (activeKeys.length > 0) {
+      result = result.filter((row) =>
+        activeKeys.every((key) => {
+          const col = columns.find((c) => String(c.key) === key);
+          if (!col) return true;
+          return filters[key].has(String(row[col.key] ?? ""));
+        })
+      );
+    }
+    const needle = search.trim().toLowerCase();
+    if (showSearch && needle) {
+      result = result.filter((row) =>
+        columns.some((col) => String(row[col.key] ?? "").toLowerCase().includes(needle))
+      );
+    }
+    return result;
+  }, [rows, columns, filters, search, showSearch]);
 
   const sorted = [...filtered].sort((a, b) => {
     if (!sortKey) return 0;
@@ -104,11 +136,35 @@ export default function DataTable<T extends object>({
     return sortAsc ? String(av ?? "").localeCompare(String(bv ?? "")) : String(bv ?? "").localeCompare(String(av ?? ""));
   });
 
-  const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const safePage = Math.min(page, pageCount - 1);
-  const paged = scrollable ? sorted : sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  // Server mode: `rows` is already the current page from the parent; the table
+  // must not sort/filter/slice it (those can't span pages it hasn't loaded).
+  const server = !!serverPagination;
+
+  const effectivePageSize = server ? serverPagination!.pageSize : scrollable ? sorted.length || 1 : pageSizeState;
+  const pageCount = server
+    ? Math.max(1, Math.ceil(serverPagination!.total / serverPagination!.pageSize))
+    : Math.max(1, Math.ceil(sorted.length / effectivePageSize));
+  const safePage = server ? serverPagination!.page : Math.min(page, pageCount - 1);
+  const paged = server ? rows : scrollable ? sorted : sorted.slice(safePage * effectivePageSize, safePage * effectivePageSize + effectivePageSize);
+  const goToPage = server ? (p: number) => serverPagination!.onPageChange(p) : (p: number) => setPage(p);
 
   const allVisibleSelected = selectable && paged.length > 0 && paged.every((row) => selectedKeys?.has(String(row[rowKey])));
+
+  // Windowed page numbers around the current page (DT-style: first, last,
+  // and a small run around safePage, with "…" gaps elsewhere).
+  const pageNumbers = useMemo(() => {
+    const out: (number | "ellipsis")[] = [];
+    const last = pageCount - 1;
+    const window = 1;
+    for (let i = 0; i <= last; i++) {
+      if (i === 0 || i === last || Math.abs(i - safePage) <= window) {
+        out.push(i);
+      } else if (out[out.length - 1] !== "ellipsis") {
+        out.push("ellipsis");
+      }
+    }
+    return out;
+  }, [pageCount, safePage]);
 
   function toggleSort(key: keyof T) {
     if (sortKey === key) setSortAsc((a) => !a);
@@ -139,6 +195,41 @@ export default function DataTable<T extends object>({
 
   return (
     <div className="dt">
+      {showSearch && (
+        <div className={"dt-toolbar" + (scrollable ? " dt-toolbar-search-only" : "")}>
+          {!scrollable && (
+            <label className="dt-pagesize">
+              Show
+              <select
+                value={pageSizeState}
+                onChange={(e) => {
+                  setPageSizeState(Number(e.target.value));
+                  setPage(0);
+                }}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              entries
+            </label>
+          )}
+          <label className="dt-search">
+            <Search size={14} className="dt-search-icon" />
+            <input
+              type="text"
+              placeholder="Search…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+            />
+          </label>
+        </div>
+      )}
       <div className={"dt-scroll" + (scrollable ? " dt-scroll-bounded" : "")} style={scrollable ? { maxHeight } : undefined}>
         <table className="dt-table">
           <thead>
@@ -157,21 +248,25 @@ export default function DataTable<T extends object>({
                 const key = String(col.key);
                 const activeCount = filters[key]?.size ?? 0;
                 return (
-                  <th key={key} className={col.align === "right" ? "dt-right" : ""}>
+                  <th key={key} className={(col.align === "right" ? "dt-right" : "") + (server ? " dt-th-nosort" : "")}>
                     <span className="dt-th">
-                      <span className="dt-th-sort" onClick={() => toggleSort(col.key)}>
-                        {col.label}
-                        {sortKey === col.key ? (
-                          sortAsc ? (
-                            <ChevronUp size={13} />
+                      {server ? (
+                        <span className="dt-th-static">{col.label}</span>
+                      ) : (
+                        <span className="dt-th-sort" onClick={() => toggleSort(col.key)}>
+                          {col.label}
+                          {sortKey === col.key ? (
+                            sortAsc ? (
+                              <ChevronUp size={13} />
+                            ) : (
+                              <ChevronDown size={13} />
+                            )
                           ) : (
-                            <ChevronDown size={13} />
-                          )
-                        ) : (
-                          <ChevronsUpDown size={13} className="dt-sort-idle" />
-                        )}
-                      </span>
-                      {col.filterable && (
+                            <ChevronsUpDown size={13} className="dt-sort-idle" />
+                          )}
+                        </span>
+                      )}
+                      {col.filterable && !server && (
                         <span
                           className="dt-filter-wrap"
                           ref={openFilterKey === key ? popoverContainerRef : undefined}
@@ -253,23 +348,79 @@ export default function DataTable<T extends object>({
           </tbody>
         </table>
       </div>
-      {!scrollable && sorted.length > pageSize && (
+      {server ? (
         <div className="dt-foot">
           <span className="dt-count">
-            {safePage * pageSize + 1}–{Math.min(sorted.length, safePage * pageSize + pageSize)} of {sorted.length}
+            {serverPagination!.total === 0
+              ? "0 entries"
+              : `Showing ${safePage * effectivePageSize + 1} to ${safePage * effectivePageSize + paged.length} of ${serverPagination!.total} entries`}
           </span>
-          <div className="dt-pager">
-            <button className="btn btn-ghost btn-sm" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
-              Previous
-            </button>
-            <button
-              className="btn btn-ghost btn-sm"
-              disabled={safePage >= pageCount - 1}
-              onClick={() => setPage(safePage + 1)}
-            >
-              Next
-            </button>
-          </div>
+          {pageCount > 1 && (
+            <div className="dt-pager">
+              <button className="dt-page-btn" disabled={safePage === 0} onClick={() => goToPage(safePage - 1)}>
+                Previous
+              </button>
+              {pageNumbers.map((n, i) =>
+                n === "ellipsis" ? (
+                  <span key={`e${i}`} className="dt-page-ellipsis">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={n}
+                    className={"dt-page-btn dt-page-num" + (n === safePage ? " dt-page-num-active" : "")}
+                    onClick={() => goToPage(n)}
+                  >
+                    {n + 1}
+                  </button>
+                )
+              )}
+              <button className="dt-page-btn" disabled={safePage >= pageCount - 1} onClick={() => goToPage(safePage + 1)}>
+                Next
+              </button>
+            </div>
+          )}
+        </div>
+      ) : scrollable ? (
+        <div className="dt-foot">
+          <span className="dt-count">
+            {sorted.length} {sorted.length === 1 ? "entry" : "entries"}
+            {sorted.length !== rows.length ? ` (filtered from ${rows.length} total)` : ""}
+          </span>
+        </div>
+      ) : (
+        <div className="dt-foot">
+          <span className="dt-count">
+            {sorted.length === 0
+              ? "0 entries"
+              : `Showing ${safePage * effectivePageSize + 1} to ${Math.min(sorted.length, safePage * effectivePageSize + effectivePageSize)} of ${sorted.length} entries`}
+            {sorted.length !== rows.length ? ` (filtered from ${rows.length} total)` : ""}
+          </span>
+          {pageCount > 1 && (
+            <div className="dt-pager">
+              <button className="dt-page-btn" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
+                Previous
+              </button>
+              {pageNumbers.map((n, i) =>
+                n === "ellipsis" ? (
+                  <span key={`e${i}`} className="dt-page-ellipsis">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={n}
+                    className={"dt-page-btn dt-page-num" + (n === safePage ? " dt-page-num-active" : "")}
+                    onClick={() => setPage(n)}
+                  >
+                    {n + 1}
+                  </button>
+                )
+              )}
+              <button className="dt-page-btn" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)}>
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
