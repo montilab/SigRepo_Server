@@ -54,7 +54,7 @@ export default function BrowsePage() {
 
   return (
     <div className="page">
-      <PageHeader title="Browse" subtitle="Search the transcriptomic and proteomic reference feature catalog." />
+      <PageHeader title="Reference Browser" subtitle="Search the transcriptomic and proteomic reference feature catalog." />
 
       <div className="browse-layout">
         <Card title="Filters" className="browse-filters">

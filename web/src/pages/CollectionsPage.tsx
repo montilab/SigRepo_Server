@@ -5,6 +5,7 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
+import { SkeletonRows } from "../components/Skeleton";
 import {
   searchCollections,
   getCollectionDetail,
@@ -185,9 +186,9 @@ export default function CollectionsPage() {
     {
       key: "visibility",
       label: "Visibility",
+      filterable: true,
       render: (r) => <Badge tone={r.visibility === 1 ? "success" : "neutral"}>{r.visibility === 1 ? "Public" : "Private"}</Badge>,
     },
-    { key: "date_created", label: "Created", align: "right", render: (r) => <span className="cell-muted">{r.date_created}</span> },
   ];
 
   return (
@@ -231,14 +232,20 @@ export default function CollectionsPage() {
       {loadError && <p className="login-error">{loadError}</p>}
 
       <Card padded={false}>
-        <DataTable
-          columns={columns}
-          rows={collections}
-          rowKey="collection_hashkey"
-          selectedKey={active?.collection_hashkey ?? null}
-          onSelectRow={setActive}
-          emptyLabel={loading ? "Loading…" : "No collections yet"}
-        />
+        {loading && collections.length === 0 ? (
+          <SkeletonRows rows={6} cols={4} />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={collections}
+            rowKey="collection_hashkey"
+            selectedKey={active?.collection_hashkey ?? null}
+            onSelectRow={setActive}
+            emptyLabel="No collections yet"
+            scrollable
+            maxHeight={460}
+          />
+        )}
       </Card>
 
       <Drawer

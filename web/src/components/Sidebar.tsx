@@ -9,28 +9,28 @@ import {
   MessageSquare,
   LogOut,
   PanelLeftClose,
-  PanelLeft,
+  PanelLeftOpen,
 } from "lucide-react";
 import { getAuth } from "../api/client";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Home", icon: LayoutDashboard },
   { to: "/signatures", label: "Signatures", icon: Dna },
   { to: "/collections", label: "Collections", icon: Layers },
   { to: "/annotate", label: "Annotate", icon: FlaskConical },
   { to: "/compare", label: "Compare", icon: GitCompare },
-  { to: "/browse", label: "Browse", icon: Database },
+  { to: "/browse", label: "Browsing", icon: Database },
   { to: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 export default function Sidebar({
+  onLogOut,
   collapsed,
   onToggle,
-  onLogOut,
 }: {
+  onLogOut: () => void;
   collapsed: boolean;
   onToggle: () => void;
-  onLogOut: () => void;
 }) {
   const auth = getAuth();
   const userName = auth?.user_name ?? "Guest";
@@ -38,14 +38,14 @@ export default function Sidebar({
   const initials = userName.slice(0, 2).toUpperCase();
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-head">
+    <aside className={"sidebar" + (collapsed ? " sidebar-collapsed" : "")}>
+      <div className="sidebar-top">
         <div className="brand">
           <div className="brand-mark">SR</div>
           {!collapsed && <span className="brand-name">SigRepo</span>}
         </div>
-        <button className="icon-btn sidebar-toggle" onClick={onToggle} title={collapsed ? "Expand" : "Collapse"}>
-          {collapsed ? <PanelLeft size={17} /> : <PanelLeftClose size={17} />}
+        <button className="sidebar-toggle" onClick={onToggle} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
       </div>
 
@@ -54,35 +54,26 @@ export default function Sidebar({
           <NavLink
             key={to}
             to={to}
+            className={({ isActive }) => "sidebar-item" + (isActive ? " sidebar-item-active" : "")}
             title={collapsed ? label : undefined}
-            className={({ isActive }) => "nav-item" + (isActive ? " nav-item-active" : "")}
           >
-            <Icon size={18} className="nav-icon" />
+            <Icon size={18} className="sidebar-icon" />
             {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
 
-      <div className="sidebar-foot">
-        <div className="user-chip">
-          <div className="avatar">{initials}</div>
-          {!collapsed && (
-            <div className="user-meta">
-              <span className="user-name">{userName}</span>
-              <span className="user-role">{role}</span>
-            </div>
-          )}
-          {!collapsed && (
-            <button className="icon-btn" onClick={onLogOut} title="Log out">
-              <LogOut size={16} />
-            </button>
-          )}
-        </div>
-        {collapsed && (
-          <button className="icon-btn sidebar-logout-collapsed" onClick={onLogOut} title="Log out">
-            <LogOut size={16} />
-          </button>
+      <div className="sidebar-user">
+        <div className="avatar">{initials}</div>
+        {!collapsed && (
+          <div className="user-meta">
+            <span className="user-name">{userName}</span>
+            <span className="user-role">{role}</span>
+          </div>
         )}
+        <button className="icon-btn" onClick={onLogOut} title="Log out">
+          <LogOut size={16} />
+        </button>
       </div>
     </aside>
   );
