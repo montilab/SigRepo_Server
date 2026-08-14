@@ -8,20 +8,27 @@
 # row. A non-admin user with explicit access to a hidden signature can still
 # retrieve it directly via /read/signature_context if they already know its
 # hashkey; it just won't surface via search. Under-returning is the safe default.
+# Returns a paginated page of results as list(rows = <data.frame>,
+# total = <integer count of all matching rows>). `total` backs server-side
+# pagination on the Signatures page (DT-style server = TRUE): the client asks
+# for one `limit`-sized page at `offset` and renders pager controls from
+# `total`, instead of pulling every row up front.
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
-                               keyword = NULL, limit = 20, is_admin = FALSE) {
+                               keyword = NULL, limit = 20, offset = 0, is_admin = FALSE) {
   limit <- base::suppressWarnings(base::as.integer(limit[1]))
   if (base::is.na(limit) || limit < 1) {
     limit <- 20
   }
   limit <- base::min(limit, 100)
 
-  # s.* so the Signatures page table can show every signatures-table column,
-  # not just a curated subset -- plus the human-readable joined names instead
-  # of the raw *_id foreign keys, and a computed feature_count.
-  query <- "
-    SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform_name,
-           (SELECT COUNT(*) FROM signature_feature_set sfs WHERE sfs.signature_id = s.signature_id) AS feature_count
+  offset <- base::suppressWarnings(base::as.integer(offset[1]))
+  if (base::is.na(offset) || offset < 0) {
+    offset <- 0
+  }
+
+  # One FROM + WHERE, shared by the COUNT(*) and the page query so the total
+  # and the page always agree on which rows match.
+  from_where <- "
     FROM signatures s
     LEFT JOIN organisms o ON s.organism_id = o.organism_id
     LEFT JOIN phenotypes p ON s.phenotype_id = p.phenotype_id
@@ -31,28 +38,38 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
   "
 
   if (!is_admin) {
-    query <- base::paste(query, "AND s.visibility = 1")
+    from_where <- base::paste(from_where, "AND s.visibility = 1")
   }
   if (!is.null(organism) && base::nzchar(base::trimws(organism[1]))) {
-    query <- base::paste(query, "AND o.organism =", DBI::dbQuoteLiteral(conn, base::trimws(organism[1])))
+    from_where <- base::paste(from_where, "AND o.organism =", DBI::dbQuoteLiteral(conn, base::trimws(organism[1])))
   }
   if (!is.null(phenotype) && base::nzchar(base::trimws(phenotype[1]))) {
-    query <- base::paste(query, "AND p.phenotype =", DBI::dbQuoteLiteral(conn, base::trimws(phenotype[1])))
+    from_where <- base::paste(from_where, "AND p.phenotype =", DBI::dbQuoteLiteral(conn, base::trimws(phenotype[1])))
   }
   if (!is.null(assay_type) && base::nzchar(base::trimws(assay_type[1]))) {
-    query <- base::paste(query, "AND s.assay_type =", DBI::dbQuoteLiteral(conn, base::trimws(assay_type[1])))
+    from_where <- base::paste(from_where, "AND s.assay_type =", DBI::dbQuoteLiteral(conn, base::trimws(assay_type[1])))
   }
   if (!is.null(keyword) && base::nzchar(base::trimws(keyword[1]))) {
     like <- DBI::dbQuoteLiteral(conn, base::sprintf("%%%s%%", base::trimws(keyword[1])))
-    query <- base::paste(query, base::sprintf(
+    from_where <- base::paste(from_where, base::sprintf(
       "AND (s.signature_name LIKE %s OR s.description LIKE %s OR s.keywords LIKE %s)",
       like, like, like
     ))
   }
 
-  query <- base::paste(query, "ORDER BY s.signature_name ASC LIMIT", limit)
+  total <- DBI::dbGetQuery(conn, base::paste("SELECT COUNT(*) AS n", from_where))$n[1]
 
-  DBI::dbGetQuery(conn, query)
+  # s.* plus the human-readable joined names instead of raw *_id foreign keys.
+  # feature_count is intentionally NOT selected here: the Signatures list no
+  # longer shows it, and its per-row correlated subquery was the main cost of
+  # this query. The detail view computes its own count when a row is opened.
+  query <- base::paste(
+    "SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform_name",
+    from_where,
+    "ORDER BY s.signature_name ASC LIMIT", limit, "OFFSET", offset
+  )
+
+  base::list(rows = DBI::dbGetQuery(conn, query), total = total)
 }
 
 fetch_signature_context <- function(signature_hashkey, include_features = TRUE, max_features = 50, auth = NULL) {

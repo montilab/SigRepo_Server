@@ -597,6 +597,152 @@ read_group_signatures <- function(req, res, api_key = "", signature_hashkeys = "
   })
 }
 
+#* Compare multiple signatures (overlap / KS) via OmicSignature::compare_omic_signatures
+#* @param api_key
+#* @param signature_hashkeys
+#* @param method
+#* @param score_cutoff
+#* @param adj_p_cutoff
+#* @param min_features
+#* @param reference_hashkeys
+#* @param max_feature
+#* @param label_pairing
+#* @param label_pairing2
+#* @param adjust
+#* @param gsea_score
+#' @post /signatures/compare
+compare_signatures_route <- function(req, res, api_key = "", signature_hashkeys = "",
+                                     method = "overlap", score_cutoff = 0,
+                                     adj_p_cutoff = 0.05, min_features = 5,
+                                     max_feature = 500) {
+
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  # The React client POSTs signature_hashkeys as a JSON array. Read it straight
+  # from the parsed body first: plumber also binds that array onto the
+  # signature_hashkeys parameter, so testing the parameter with json_scalar()
+  # (which only sees its first element) would wrongly take the comma-split
+  # branch and keep a single hashkey. The query-string branch is a fallback for
+  # non-JSON callers (?signature_hashkeys=a,b).
+  signature_hashkeys <- if (!base::is.null(body$signature_hashkeys)) {
+    json_vector(body$signature_hashkeys)
+  } else {
+    json_vector(base::strsplit(json_scalar(signature_hashkeys), ",", fixed = TRUE)[[1]])
+  }
+  # Optional second list: a two-list (query vs reference) comparison. Same
+  # array-binding caveat as signature_hashkeys above.
+  reference_hashkeys <- if (!base::is.null(body$reference_hashkeys)) {
+    json_vector(body$reference_hashkeys)
+  } else {
+    base::character()
+  }
+  method <- if (is.null(body$method)) json_scalar(method) else json_scalar(body$method)
+  score_cutoff <- if (is.null(body$score_cutoff)) score_cutoff else body$score_cutoff
+  adj_p_cutoff <- if (is.null(body$adj_p_cutoff)) adj_p_cutoff else body$adj_p_cutoff
+  min_features <- if (is.null(body$min_features)) min_features else body$min_features
+  max_feature <- if (is.null(body$max_feature)) max_feature else body$max_feature
+  # {hashkey|name: [level1, level2], ...}; translated to sig-name keys in compare.R.
+  label_pairing <- body$label_pairing
+  label_pairing2 <- body$label_pairing2
+  adjust <- base::isTRUE(base::as.logical(json_scalar(body$adjust, "false")))
+  gsea_score <- json_scalar(body$gsea_score, "NES")
+  if (!gsea_score %in% c("NES", "ES")) gsea_score <- "NES"
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  two_list <- base::length(reference_hashkeys) > 0
+  if (!two_list && base::length(signature_hashkeys) < 2) {
+    return(json_error(res, 404, "Provide at least two signature_hashkeys, or a reference_hashkeys set to compare against."))
+  }
+  if (two_list && base::length(signature_hashkeys) < 1) {
+    return(json_error(res, 404, "Provide at least one query signature_hashkey."))
+  }
+
+  score_cutoff <- base::suppressWarnings(base::as.numeric(score_cutoff[1]))
+  if (base::is.na(score_cutoff) || score_cutoff < 0) score_cutoff <- 0
+  adj_p_cutoff <- base::suppressWarnings(base::as.numeric(adj_p_cutoff[1]))
+  if (base::is.na(adj_p_cutoff) || adj_p_cutoff < 0 || adj_p_cutoff > 1) adj_p_cutoff <- 0.05
+  min_features <- base::suppressWarnings(base::as.integer(min_features[1]))
+  if (base::is.na(min_features) || min_features < 3) min_features <- 5
+  max_feature <- base::suppressWarnings(base::as.integer(max_feature[1]))
+  if (base::is.na(max_feature) || max_feature < 10) max_feature <- 500
+
+  base::tryCatch({
+    payload <- compare_signatures_result(
+      auth = auth,
+      signature_hashkeys = signature_hashkeys,
+      reference_hashkeys = reference_hashkeys,
+      method = method,
+      difexp_dir = difexp_dir,
+      score_cutoff = score_cutoff,
+      adj_p_cutoff = adj_p_cutoff,
+      min_features = min_features,
+      max_feature = max_feature,
+      label_pairing = label_pairing,
+      label_pairing2 = label_pairing2,
+      adjust = adjust,
+      gsea_score = gsea_score
+    )
+    json_response(res, 200, payload)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature comparison failed: %s", err$message))
+  })
+}
+
+#* GSEA leading-edge / enrichment-plot data for one geneset-vs-ranking pair
+#* @param api_key
+#* @param geneset_hashkey
+#* @param ranking_hashkey
+#* @param geneset_level
+#* @param ranking_level
+#* @param score_cutoff
+#* @param adj_p_cutoff
+#* @param min_features
+#' @post /signatures/compare/leading_edge
+compare_leading_edge_route <- function(req, res, api_key = "", geneset_hashkey = "", ranking_hashkey = "",
+                                       geneset_level = 1, ranking_level = 1,
+                                       score_cutoff = 0, adj_p_cutoff = 0.05, min_features = 5) {
+
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  geneset_hashkey <- if (identical(json_scalar(geneset_hashkey), "")) json_scalar(body$geneset_hashkey) else json_scalar(geneset_hashkey)
+  ranking_hashkey <- if (identical(json_scalar(ranking_hashkey), "")) json_scalar(body$ranking_hashkey) else json_scalar(ranking_hashkey)
+  geneset_level <- if (is.null(body$geneset_level)) geneset_level else body$geneset_level
+  ranking_level <- if (is.null(body$ranking_level)) ranking_level else body$ranking_level
+  score_cutoff <- if (is.null(body$score_cutoff)) score_cutoff else body$score_cutoff
+  adj_p_cutoff <- if (is.null(body$adj_p_cutoff)) adj_p_cutoff else body$adj_p_cutoff
+  min_features <- if (is.null(body$min_features)) min_features else body$min_features
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  if (identical(geneset_hashkey, "") || identical(ranking_hashkey, "")) {
+    return(json_error(res, 404, "Provide geneset_hashkey and ranking_hashkey."))
+  }
+
+  base::tryCatch({
+    payload <- compare_leading_edge(
+      auth = auth,
+      geneset_hashkey = geneset_hashkey,
+      ranking_hashkey = ranking_hashkey,
+      geneset_level = geneset_level,
+      ranking_level = ranking_level,
+      difexp_dir = difexp_dir,
+      score_cutoff = base::suppressWarnings(base::as.numeric(score_cutoff[1])),
+      adj_p_cutoff = base::suppressWarnings(base::as.numeric(adj_p_cutoff[1])),
+      min_features = base::suppressWarnings(base::as.integer(min_features[1]))
+    )
+    json_response(res, 200, payload)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Leading-edge computation failed: %s", err$message))
+  })
+}
+
 #* Delete difexp from the database
 #* @param api_key
 #* @param signature_hashkey
@@ -692,6 +838,117 @@ login <- function(req, res, user_name = "", password = ""){
   ))
 }
 
+#* Resolve the account name + role for an api_key. Used by the agent
+#* skill-runner (agent/runner.py) to admin-gate the website assistant --
+#* it never trusts the browser's own role claim, it re-checks here.
+#* @parser json
+#* @param api_key
+#' @post /whoami
+whoami <- function(req, res, api_key = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  json_response(res, 200, payload = base::list(
+    user_name = auth$user_name,
+    user_role = auth$user_role
+  ))
+}
+
+#* Enrich a gene set against Rummagene's ~1M literature-mined gene sets
+#* (rummagene.com -- gene sets extracted from PMC supplementary tables). Accepts
+#* an explicit `genes` list, or a `signature_hashkey` whose curated gene symbols
+#* are resolved server-side (the same resolution over-representation enrichment
+#* uses). Returns the matching published gene sets with their PMC links.
+#* @parser json
+#* @param api_key
+#* @param genes
+#* @param signature_hashkey
+#* @param limit
+#' @post /rummagene/enrich
+rummagene_enrich_route <- function(req, res, api_key = "", genes = NULL, signature_hashkey = "", limit = 25){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  genes_vec <- if (!base::is.null(body$genes)) {
+    json_vector(body$genes)
+  } else if (!base::is.null(genes)) {
+    json_vector(genes)
+  } else {
+    base::character()
+  }
+  genes_vec <- genes_vec[!genes_vec %in% c("", NA)]
+
+  signature_name <- NULL
+  hk <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+
+  # No explicit genes but a signature was given -> resolve its curated gene
+  # symbols. First try the reference-table path over-representation enrichment
+  # uses; if that yields nothing (common for non-human signatures whose features
+  # are Ensembl IDs with no gene_symbol in the reference tables), fall back to
+  # the signature's difexp, which often carries symbols directly.
+  if (base::length(genes_vec) == 0 && !identical(hk, "")) {
+    resolved <- base::tryCatch(
+      resolve_single_enrichment_query(auth, hk, "hypergeometric", difexp_dir),
+      error = function(e) base::list(ok = FALSE, reason = "error", message = base::conditionMessage(e))
+    )
+    if (base::isTRUE(resolved$ok)) {
+      genes_vec <- resolved$query
+      signature_name <- resolved$signature_name
+    } else {
+      difexp_syms <- base::tryCatch(
+        rummagene_signature_symbols_from_difexp(auth, hk, difexp_dir),
+        error = function(e) NULL
+      )
+      if (!base::is.null(difexp_syms) && base::length(difexp_syms) >= 2) {
+        genes_vec <- difexp_syms
+        signature_name <- resolved$signature_name
+      } else {
+        reason <- resolved$reason %||% "unknown"
+        msg <- base::switch(
+          reason,
+          no_gene_symbols = base::paste0(
+            "No gene symbols are available for this signature. Its features are stored as ",
+            "Ensembl/other IDs with no gene-symbol mapping in SigRepo's reference tables ",
+            "(common for non-human signatures), and its difexp table did not provide symbols ",
+            "either, so there is nothing to match against Rummagene, which is keyed on gene symbols."
+          ),
+          no_features = "This signature has no features recorded to enrich.",
+          unsupported_assay_type = resolved$message %||%
+            "Rummagene enrichment needs gene symbols, which this signature's assay type does not provide.",
+          not_found = "Signature not found, or you do not have access to it.",
+          resolved$message %||% base::sprintf("Could not resolve gene symbols for this signature (%s).", reason)
+        )
+        return(json_error(res, 422, msg))
+      }
+    }
+  }
+
+  if (base::length(genes_vec) < 2) {
+    return(json_error(res, 400, "Provide at least two gene symbols, or a signature_hashkey with resolvable gene symbols."))
+  }
+
+  result <- base::tryCatch(
+    rummagene_enrich(genes = genes_vec, limit = base::as.integer(json_scalar(limit, "25"))),
+    error = function(e) e
+  )
+  if (base::inherits(result, "error")) {
+    return(json_error(res, 502, base::sprintf("Rummagene enrichment failed: %s", base::conditionMessage(result))))
+  }
+
+  result$signature_name <- signature_name
+  json_response(res, 200, payload = result)
+}
+
 #* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
 #* @param api_key
 #' @get /vocabulary
@@ -750,8 +1007,9 @@ insights_route <- function(res, api_key = "", recent_limit = 5){
 #* @param assay_type
 #* @param keyword
 #* @param limit
+#* @param offset
 #' @get /signatures/search
-search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20){
+search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0){
   auth <- validate_api_key(res, api_key)
   if (is_json_error(auth)) {
     return(auth)
@@ -759,19 +1017,24 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
 
   base::tryCatch({
     conn <- db_connect_local()
-    results <- search_signatures(
+    result <- search_signatures(
       conn = conn,
       organism = json_scalar(organism),
       phenotype = json_scalar(phenotype),
       assay_type = json_scalar(assay_type),
       keyword = json_scalar(keyword),
       limit = limit,
+      offset = offset,
       is_admin = identical(auth$user_role, "admin")
     )
     base::suppressWarnings(DBI::dbDisconnect(conn))
+    # `count` is the TOTAL number of matching rows (for pagination), not the
+    # size of this page. `signatures` is just the requested page.
     json_response(res, 200, payload = base::list(
-      count = base::nrow(results),
-      signatures = compact_table(results, max_rows = 100)
+      count = result$total,
+      limit = base::as.integer(limit),
+      offset = base::as.integer(offset),
+      signatures = compact_table(result$rows, max_rows = 100)
     ))
   }, error = function(err) {
     json_error(res, 500, base::sprintf("Signature search failed: %s", err$message))
