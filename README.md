@@ -34,8 +34,8 @@ The server is a set of containerized services:
 -   **Web interface** — a React single-page app, built to static assets
     and served by nginx, which also proxies `/api` to the API container so
     the browser talks to a single origin. It replaced the R Shiny
-    dashboard as the served UI; the Shiny app is preserved under
-    `legacy_app/` and is no longer started by the compose stack.
+    dashboard, which is archived in
+    [SigRepo_Server_Legacy](https://github.com/montilab/SigRepo_Server_Legacy).
 -   **MCP server** — a
     <a href="https://modelcontextprotocol.io" target="_blank">Model
     Context Protocol</a> endpoint that lets AI agents search signatures,
