@@ -50,8 +50,14 @@ db_connect_local <- function() {
 # own dbDisconnect method errors ("Not supported for pool objects"), so we make
 # it a harmless no-op. This is what lets every existing dbDisconnect(conn) call
 # site stay unchanged, with no risk of leaking a checked-out connection.
-if (base::requireNamespace("pool", quietly = TRUE)) {
-  methods::setMethod("dbDisconnect", "Pool", function(conn, ...) base::invisible(TRUE))
+#
+# The generic is passed as DBI::dbDisconnect rather than by name: setMethod()
+# resolves a character name against attached packages, and this file is also
+# sourced standalone by the tests, where DBI is loaded but not attached. Naming
+# it there fails with "no existing definition for function 'dbDisconnect'".
+if (base::requireNamespace("pool", quietly = TRUE) &&
+    base::requireNamespace("DBI", quietly = TRUE)) {
+  methods::setMethod(DBI::dbDisconnect, "Pool", function(conn, ...) base::invisible(TRUE))
 }
 
 json_response <- function(res, status = 200, payload = NULL) {
