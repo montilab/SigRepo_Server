@@ -68,31 +68,28 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  sigrepo-shiny:
-    container_name: sigrepo-shiny
+  # The SigRepo web interface (React), served as static assets by nginx, which
+  # also proxies /api to sigrepo-api so the browser talks to a single origin.
+  # This replaced the R Shiny dashboard as the served UI. The Shiny app now
+  # lives in https://github.com/montilab/SigRepo_Server_Legacy.
+  sigrepo-web:
+    container_name: sigrepo-web
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    build:
+      context: ./web
     depends_on:
-      - sigrepo-mysql
       - sigrepo-api
     networks:
       - db-net
     ports:
-      - 8050:3838
+      - 8050:80
     restart: always
-    volumes:
-      - *hyper-volume
-      - *sigrepo-volume
-      - *sigrepo-server-volume   
-      - *omic-signature-volume
-      - .Renviron:/SigRepo_Server/.Renviron
-    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
 
   # Agentic AI-facing MCP server. No `ports:` mapping on purpose -- it's only
   # reachable by other containers on db-net, not published to the host/
   # internet, since its only auth today is a per-call api_key with no rate
-  # limiting. Use an SSH tunnel or a reverse proxy with its own auth in front
-  # if remote agent access is needed.
+  # limiting. Use an SSH tunnel or the rate-limiting reverse proxy below
+  # (sigrepo-mcp-proxy) if remote agent access is needed.
   sigrepo-mcp:
     container_name: sigrepo-mcp
     platform: linux/amd64
@@ -108,8 +105,31 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/mcp/mcp-server.sh"]
 
+  # The only way in to sigrepo-mcp: it has no host port of its own (see
+  # above), so this is the sole published port for MCP access. Adds rate
+  # limiting in front, per mcp/proxy/nginx.conf -- auth is just sigrepo-mcp's
+  # own per-call api_key (the same SigRepo account credential used by the
+  # REST API), not a second, unrelated login.
+  #
+  # This proxy only speaks plain HTTP, so on this VM it stays bound to
+  # 127.0.0.1 (the default) and is reached from outside only via the
+  # TLS-terminating nginx already running natively on this host, which
+  # proxies https://sigrepo.org/mcp/ to it -- see
+  # /etc/nginx/conf.d/sigrepo.org.conf on the server itself (not tracked in
+  # this repo).
+  sigrepo-mcp-proxy:
+    container_name: sigrepo-mcp-proxy
+    image: nginx:alpine
+    depends_on:
+      - sigrepo-mcp
+    networks:
+      - db-net
+    ports:
+      - "${MCP_PROXY_BIND:-127.0.0.1}:${MCP_PROXY_PORT:-8021}:8021"
+    restart: always
+    volumes:
+      - ./mcp/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
 networks:
   db-net:
-    external: true   
-    
-    
+    external: true

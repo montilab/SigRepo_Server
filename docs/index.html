@@ -63,30 +63,64 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><p><br></p>
-<p><strong>SigRepo_Server</strong> is a reproducible framework that enables users to deploy a <strong>SigRepo</strong> database server either locally or on a Linux-based cloud platform, and interact with it through a set of API endpoints and a user-friendly web interface built with R Shiny.</p>
-<p>The server architecture composes of three core components: a <strong>MySQL Database Server</strong>, a set of <strong>Plumber APIs</strong> endpoints, and a <strong>Shiny Dashboard</strong>.</p>
-<ul>
-<li>The <strong>MySQL Database Server</strong> handles the initialization and management of the <strong>SigRepo</strong> database, which stores biological signatures, collections, and their associated metadata.<br>
-</li>
-<li>The <strong>Plumber APIs</strong> provide endpoints to define the database schema, load essential reference tables (such as organisms, platforms, sample types, etc.), and lastly, store and retrieve <em>difexp</em> objects associated with specific signatures.</li>
-<li>Finally, the <strong>Shiny Dashboard</strong> offers a user-friendly web interface that connects to both the database and APIs. Through this dashboard, users can import, update, or delete their own signatures or collections in the database using a set of functions from our R client package - <a href="https://github.com/montilab/SigRepo" class="external-link"><strong>SigRepo</strong></a>
-</li>
-</ul>
+<div class="section level1">
+<div class="page-header"><h1 id="sigrepo_server">SigRepo_Server<a class="anchor" aria-label="anchor" href="#sigrepo_server"></a>
+</h1></div>
+<p><strong>SigRepo_Server</strong> is the server half of <a href="https://github.com/montilab/SigRepo" target="_blank" class="external-link"><strong>SigRepo</strong></a>, a platform for storing, sharing, and comparing omic signatures. It is a reproducible framework for deploying a SigRepo instance — locally or on a Linux-based cloud host — and for interacting with it through a REST API, a web interface, and an MCP server for AI agents.</p>
+<p>The client half is the <a href="https://github.com/montilab/SigRepo" target="_blank" class="external-link"><strong>SigRepo</strong></a> R package; signatures themselves are represented as R6 objects defined by <a href="https://github.com/montilab/OmicSignature" target="_blank" class="external-link"><strong>OmicSignature</strong></a>, our in-house package.</p>
 <div class="section level2">
-<h2 id="mysql-database-server">MySQL Database Server<a class="anchor" aria-label="anchor" href="#mysql-database-server"></a>
+<h2 id="architecture">Architecture<a class="anchor" aria-label="anchor" href="#architecture"></a>
 </h2>
-<p>Our team has deployed a <strong>“SigRepo” MySQL Database Server</strong> on <a href="https://www.digitalocean.com/" class="external-link"><strong>Digital Ocean</strong></a>, a cloud-based infrastructure platform used for hosting and managing applications.</p>
+<p>The server is a set of containerized services:</p>
 <ul>
-<li><p>To access the signatures and collections stored in our database, <a target="_blank" href="https://sigrepo.org" class="external-link">VISIT OUR WEBSITE</a> to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to be added.</p></li>
-<li><p><a href="https://montilab.github.io/SigRepo/index.html" target="_blank" class="external-link">To connect and interact with our database using our “SigRepo” package</a></p></li>
-<li><p><a href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html" target="_blank">To install a “SigRepo” database instance on your local machine</a></p></li>
+<li>
+<strong>MySQL database</strong> — initializes and manages the SigRepo schema, storing signatures, collections, users, controlled vocabularies (organisms, platforms, sample types, assay types), and gene set resources. Per-signature differential-expression (<em>difexp</em>) tables are held in a companion object store.</li>
+<li>
+<strong>Plumber REST API</strong> — the single access path to the data. It defines the schema, loads reference tables, stores and retrieves difexp objects, authenticates every call by <code>api_key</code>, and exposes the analysis endpoints (signature comparison, enrichment) so that analysis runs server-side rather than requiring users to download whole signatures.</li>
+<li>
+<strong>Web interface</strong> — a React single-page app, built to static assets and served by nginx, which also proxies <code>/api</code> to the API container so the browser talks to a single origin. It replaced the R Shiny dashboard, which is archived in <a href="https://github.com/montilab/SigRepo_Server_Legacy" class="external-link">SigRepo_Server_Legacy</a>.</li>
+<li>
+<strong>MCP server</strong> — a <a href="https://modelcontextprotocol.io" target="_blank" class="external-link">Model Context Protocol</a> endpoint that lets AI agents search signatures, retrieve signature context, compare signatures, browse gene sets, and run enrichment, grounded in the stored data. It sits behind a rate-limiting reverse proxy and is reachable at <a href="https://sigrepo.org/mcp/" class="external-link uri">https://sigrepo.org/mcp/</a>.</li>
+</ul>
+<p>Because analyses are exposed as discrete API endpoints over a common signature representation, additional analysis engines and external gene-set resources can be added as new endpoints without changing the database schema.</p>
+</div>
+<div class="section level2">
+<h2 id="our-deployed-instance">Our deployed instance<a class="anchor" aria-label="anchor" href="#our-deployed-instance"></a>
+</h2>
+<p>Our team runs a SigRepo server on <a href="https://www.digitalocean.com/" target="_blank" class="external-link"><strong>DigitalOcean</strong></a>.</p>
+<ul>
+<li>To access the signatures and collections stored in our database, <a target="_blank" href="https://sigrepo.org" class="external-link">VISIT OUR WEBSITE</a> to create an account or <a href="mailto:sigrepo@bu.edu">CONTACT US</a> to be added.</li>
+<li><a href="https://montilab.github.io/SigRepo/index.html" target="_blank" class="external-link">To connect and interact with our database using the “SigRepo” R package</a></li>
+<li><a href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html" target="_blank">To install a “SigRepo” database instance on your local machine</a></li>
 </ul>
 </div>
 <div class="section level2">
-<h2 id="shiny-dashboard">Shiny Dashboard<a class="anchor" aria-label="anchor" href="#shiny-dashboard"></a>
+<h2 id="analysis-endpoints">Analysis endpoints<a class="anchor" aria-label="anchor" href="#analysis-endpoints"></a>
 </h2>
-<p>We’ve developed an R Shiny Dashboard that would allow users to explore and interact with our <strong>SigRepo</strong> database directly without the need to install or maintain our client package.</p>
-<p>See our web portal at <a target="_blank" href="https://sigrepo.org" class="external-link">https://sigrepo.org</a> for more details.</p>
+<p>Beyond storage and retrieval, the API supports analysis over stored signatures:</p>
+<ul>
+<li>
+<strong>Signature comparison</strong> — any set of signatures can be compared by feature overlap (Jaccard index with Fisher exact tests), by rank-based Kolmogorov–Smirnov statistics, or by GSEA, returning similarity matrices and, for GSEA, per-pair leading-edge data. Bi-directional signatures are compared per matched group label.</li>
+<li>
+<strong>Gene set enrichment</strong> — over-representation and rank-based enrichment against MSigDB via <a href="https://github.com/montilab/hypeR" target="_blank" class="external-link">hypeR</a>, with MSigDB collections cached server-side.</li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="in-development">In development<a class="anchor" aria-label="anchor" href="#in-development"></a>
+</h2>
+<p>Active work, not yet part of the deployed stack:</p>
+<ul>
+<li>
+<strong>AI-assisted signature authoring</strong> — an agent service that reads a study’s differential-expression output and description, proposes metadata from SigRepo’s controlled vocabularies, and emits a validated OmicSignature for the depositor to review, so contributing a signature becomes a review step rather than a curation task.</li>
+<li>
+<strong>Additional external gene-set resources</strong> for matching stored signatures against published gene sets.</li>
+</ul>
+</div>
+<div class="section level2">
+<h2 id="deployment">Deployment<a class="anchor" aria-label="anchor" href="#deployment"></a>
+</h2>
+<p>See the <a href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html" target="_blank">installation guide</a> for standing up your own instance. The stack is defined with <code>docker compose</code>; the MySQL service, the API, the web app, and the MCP server each run as their own container on a shared internal network, with only the intended ports published.</p>
+</div>
 </div>
 
   </main><aside class="col-md-3"><div class="links">

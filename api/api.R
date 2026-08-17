@@ -97,7 +97,11 @@ function(req){
 # Create a list of serializers to return the object ####
 serializers <- base::list(
   "html" = plumber::serializer_html(),
-  "json" = plumber::serializer_json(),
+  # Encode json_response() payloads exactly once, with the same options the
+  # helper used to apply by hand -- see api/lib/common.R. (The difexp routes
+  # keep their own hand-rolled jsonlite::toJSON + plumber's default
+  # serializer, which the SigRepo R client double-decodes on purpose.)
+  "json" = plumber::serializer_json(auto_unbox = TRUE, null = "null", na = "null", pretty = TRUE),
   "csv" = plumber::serializer_csv(),
   "rds" = plumber::serializer_rds(),
   "pdf" = plumber::serializer_pdf(),
@@ -112,6 +116,11 @@ serializers <- base::list(
 for (lib_file in base::sort(base::list.files(base::file.path(sigrepo_server_path, "api", "lib"), pattern = "\\.R$", full.names = TRUE))) {
   base::source(lib_file, local = TRUE)
 }
+
+# Resolved once at boot (default_msigdb_cache_dir lives in api/lib/msigdb_cache.R)
+# so /init_db_genesets, /geneset_resources/ensure, /init_db's combined
+# bootstrap, and every /annotate/* request all share the same cache lookup.
+msigdb_cache_dir <- default_msigdb_cache_dir(sigrepo_server_path)
 
 #* Initiate database with schemas and reference tables
 #* @param admin_key
@@ -128,6 +137,9 @@ init_db <- function(res, admin_key){
 
     print("Upload reference tables to the database...")
     generate_db_tables(conn_handler = conn_handler, sigrepo_server_path = sigrepo_server_path)
+
+    print("Building and registering MSigDB gene sets...")
+    generate_msigdb_genesets(conn_handler = conn_handler, cache_dir = msigdb_cache_dir)
 
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized the database."))
   }, error = function(err){
@@ -190,6 +202,78 @@ init_db_tables <- function(res, admin_key){
     generate_db_tables(conn_handler = conn_handler, sigrepo_server_path = sigrepo_server_path)
 
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized reference tables for the database."))
+  }, error = function(err){
+    print(err)
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
+  })
+}
+
+#* Build and register the MSigDB gene-set cache (geneset_resources/geneset_entries).
+#* Defaults to the curated H/C2/C5 set; pass full_sweep=true for every
+#* collection msigdbr knows about (meaningfully slower).
+#* @param admin_key
+#* @param full_sweep
+#' @post /init_db_genesets
+init_db_genesets <- function(res, admin_key, full_sweep = FALSE){
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  collection_table <- if (normalize_flag(full_sweep, default = FALSE)) "all" else NULL
+
+  base::tryCatch({
+    print("Building and registering MSigDB gene sets...")
+    manifest_df <- generate_msigdb_genesets(
+      conn_handler = conn_handler, cache_dir = msigdb_cache_dir, collection_table = collection_table
+    )
+
+    json_response(res, 200, base::data.frame(MESSAGES = base::sprintf(
+      "Finished building and registering %d MSigDB geneset resource(s).", base::nrow(manifest_df)
+    )))
+  }, error = function(err){
+    print(err)
+    json_error(res, 500, base::sprintf("ERROR: %s", err))
+  })
+}
+
+#* Return a geneset_resources row for one species/collection/subcollection,
+#* fetching and registering it from MSigDB on the fly if it isn't already in
+#* the database. Available to any authenticated user, not admin-gated --
+#* MSigDB content is public reference data, not user content; the write
+#* itself still runs via the API's own privileged connection regardless of
+#* the caller's own role, same as every other geneset-registering route.
+#* @parser json
+#* @param api_key
+#* @param species
+#* @param collection
+#* @param subcollection
+#' @post /geneset_resources/ensure
+ensure_geneset_resource_route <- function(req, res, api_key = "", species = "", collection = "", subcollection = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  species <- if (identical(json_scalar(species), "")) json_scalar(body$species) else json_scalar(species)
+  collection <- if (identical(json_scalar(collection), "")) json_scalar(body$collection) else json_scalar(collection)
+  subcollection <- if (identical(json_scalar(subcollection), "")) json_scalar(body$subcollection) else json_scalar(subcollection)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  if (identical(species, "") || identical(collection, "")) {
+    return(json_error(res, 404, "species and collection are required."))
+  }
+
+  base::tryCatch({
+    result <- ensure_msigdb_geneset_resource(
+      conn_handler = conn_handler, cache_dir = msigdb_cache_dir,
+      species = species, collection = collection, subcollection = subcollection
+    )
+
+    payload <- result$resource
+    payload$fetched_on_demand <- result$fetched
+    json_response(res, 200, payload)
   }, error = function(err){
     print(err)
     json_error(res, 500, base::sprintf("ERROR: %s", err))
@@ -351,7 +435,7 @@ retrieve_db_table <- function(res, admin_key, db_table_name, search_var = "", se
 #' @post /store_difexp
 store_difexp <- function(res, api_key, signature_hashkey, difexp){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -371,7 +455,7 @@ store_difexp <- function(res, api_key, signature_hashkey, difexp){
 #' @get /get_difexp
 get_difexp <- function(res, api_key, signature_hashkey){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -407,7 +491,7 @@ read_signature_context <- function(req, res, api_key = "", signature_hashkey = "
   max_features <- if (is.null(body$max_features)) max_features else body$max_features
 
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -464,7 +548,7 @@ read_group_signatures <- function(req, res, api_key = "", signature_hashkeys = "
   similarity_threshold <- if (is.null(body$similarity_threshold)) similarity_threshold else body$similarity_threshold
 
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -513,13 +597,159 @@ read_group_signatures <- function(req, res, api_key = "", signature_hashkeys = "
   })
 }
 
+#* Compare multiple signatures (overlap / KS) via OmicSignature::compare_omic_signatures
+#* @param api_key
+#* @param signature_hashkeys
+#* @param method
+#* @param score_cutoff
+#* @param adj_p_cutoff
+#* @param min_features
+#* @param reference_hashkeys
+#* @param max_feature
+#* @param label_pairing
+#* @param label_pairing2
+#* @param adjust
+#* @param gsea_score
+#' @post /signatures/compare
+compare_signatures_route <- function(req, res, api_key = "", signature_hashkeys = "",
+                                     method = "overlap", score_cutoff = 0,
+                                     adj_p_cutoff = 0.05, min_features = 5,
+                                     max_feature = 500) {
+
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  # The React client POSTs signature_hashkeys as a JSON array. Read it straight
+  # from the parsed body first: plumber also binds that array onto the
+  # signature_hashkeys parameter, so testing the parameter with json_scalar()
+  # (which only sees its first element) would wrongly take the comma-split
+  # branch and keep a single hashkey. The query-string branch is a fallback for
+  # non-JSON callers (?signature_hashkeys=a,b).
+  signature_hashkeys <- if (!base::is.null(body$signature_hashkeys)) {
+    json_vector(body$signature_hashkeys)
+  } else {
+    json_vector(base::strsplit(json_scalar(signature_hashkeys), ",", fixed = TRUE)[[1]])
+  }
+  # Optional second list: a two-list (query vs reference) comparison. Same
+  # array-binding caveat as signature_hashkeys above.
+  reference_hashkeys <- if (!base::is.null(body$reference_hashkeys)) {
+    json_vector(body$reference_hashkeys)
+  } else {
+    base::character()
+  }
+  method <- if (is.null(body$method)) json_scalar(method) else json_scalar(body$method)
+  score_cutoff <- if (is.null(body$score_cutoff)) score_cutoff else body$score_cutoff
+  adj_p_cutoff <- if (is.null(body$adj_p_cutoff)) adj_p_cutoff else body$adj_p_cutoff
+  min_features <- if (is.null(body$min_features)) min_features else body$min_features
+  max_feature <- if (is.null(body$max_feature)) max_feature else body$max_feature
+  # {hashkey|name: [level1, level2], ...}; translated to sig-name keys in compare.R.
+  label_pairing <- body$label_pairing
+  label_pairing2 <- body$label_pairing2
+  adjust <- base::isTRUE(base::as.logical(json_scalar(body$adjust, "false")))
+  gsea_score <- json_scalar(body$gsea_score, "NES")
+  if (!gsea_score %in% c("NES", "ES")) gsea_score <- "NES"
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  two_list <- base::length(reference_hashkeys) > 0
+  if (!two_list && base::length(signature_hashkeys) < 2) {
+    return(json_error(res, 404, "Provide at least two signature_hashkeys, or a reference_hashkeys set to compare against."))
+  }
+  if (two_list && base::length(signature_hashkeys) < 1) {
+    return(json_error(res, 404, "Provide at least one query signature_hashkey."))
+  }
+
+  score_cutoff <- base::suppressWarnings(base::as.numeric(score_cutoff[1]))
+  if (base::is.na(score_cutoff) || score_cutoff < 0) score_cutoff <- 0
+  adj_p_cutoff <- base::suppressWarnings(base::as.numeric(adj_p_cutoff[1]))
+  if (base::is.na(adj_p_cutoff) || adj_p_cutoff < 0 || adj_p_cutoff > 1) adj_p_cutoff <- 0.05
+  min_features <- base::suppressWarnings(base::as.integer(min_features[1]))
+  if (base::is.na(min_features) || min_features < 3) min_features <- 5
+  max_feature <- base::suppressWarnings(base::as.integer(max_feature[1]))
+  if (base::is.na(max_feature) || max_feature < 10) max_feature <- 500
+
+  base::tryCatch({
+    payload <- compare_signatures_result(
+      auth = auth,
+      signature_hashkeys = signature_hashkeys,
+      reference_hashkeys = reference_hashkeys,
+      method = method,
+      difexp_dir = difexp_dir,
+      score_cutoff = score_cutoff,
+      adj_p_cutoff = adj_p_cutoff,
+      min_features = min_features,
+      max_feature = max_feature,
+      label_pairing = label_pairing,
+      label_pairing2 = label_pairing2,
+      adjust = adjust,
+      gsea_score = gsea_score
+    )
+    json_response(res, 200, payload)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature comparison failed: %s", err$message))
+  })
+}
+
+#* GSEA leading-edge / enrichment-plot data for one geneset-vs-ranking pair
+#* @param api_key
+#* @param geneset_hashkey
+#* @param ranking_hashkey
+#* @param geneset_level
+#* @param ranking_level
+#* @param score_cutoff
+#* @param adj_p_cutoff
+#* @param min_features
+#' @post /signatures/compare/leading_edge
+compare_leading_edge_route <- function(req, res, api_key = "", geneset_hashkey = "", ranking_hashkey = "",
+                                       geneset_level = 1, ranking_level = 1,
+                                       score_cutoff = 0, adj_p_cutoff = 0.05, min_features = 5) {
+
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  geneset_hashkey <- if (identical(json_scalar(geneset_hashkey), "")) json_scalar(body$geneset_hashkey) else json_scalar(geneset_hashkey)
+  ranking_hashkey <- if (identical(json_scalar(ranking_hashkey), "")) json_scalar(body$ranking_hashkey) else json_scalar(ranking_hashkey)
+  geneset_level <- if (is.null(body$geneset_level)) geneset_level else body$geneset_level
+  ranking_level <- if (is.null(body$ranking_level)) ranking_level else body$ranking_level
+  score_cutoff <- if (is.null(body$score_cutoff)) score_cutoff else body$score_cutoff
+  adj_p_cutoff <- if (is.null(body$adj_p_cutoff)) adj_p_cutoff else body$adj_p_cutoff
+  min_features <- if (is.null(body$min_features)) min_features else body$min_features
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  if (identical(geneset_hashkey, "") || identical(ranking_hashkey, "")) {
+    return(json_error(res, 404, "Provide geneset_hashkey and ranking_hashkey."))
+  }
+
+  base::tryCatch({
+    payload <- compare_leading_edge(
+      auth = auth,
+      geneset_hashkey = geneset_hashkey,
+      ranking_hashkey = ranking_hashkey,
+      geneset_level = geneset_level,
+      ranking_level = ranking_level,
+      difexp_dir = difexp_dir,
+      score_cutoff = base::suppressWarnings(base::as.numeric(score_cutoff[1])),
+      adj_p_cutoff = base::suppressWarnings(base::as.numeric(adj_p_cutoff[1])),
+      min_features = base::suppressWarnings(base::as.integer(min_features[1]))
+    )
+    json_response(res, 200, payload)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Leading-edge computation failed: %s", err$message))
+  })
+}
+
 #* Delete difexp from the database
 #* @param api_key
 #* @param signature_hashkey
 #' @delete /delete_difexp
 delete_difexp <- function(res, api_key, signature_hashkey){
   auth <- validate_api_key(res, api_key)
-  if (base::is.character(auth)) {
+  if (is_json_error(auth)) {
     return(auth)
   }
 
@@ -574,4 +804,759 @@ activate_user <- function(res, user_name, api_key){
   }
 
   json_response(res, 200, base::data.frame(MESSAGES = MESSAGES))
+}
+
+#* Log in with a username and password; returns the account's api_key on success
+#* @parser json
+#* @param user_name
+#* @param password
+#' @post /login
+login <- function(req, res, user_name = "", password = ""){
+  body <- request_json_body(req)
+  user_name <- if (identical(json_scalar(user_name), "")) json_scalar(body$user_name) else json_scalar(user_name)
+  password <- if (identical(json_scalar(password), "")) json_scalar(body$password) else json_scalar(password)
+
+  if (identical(user_name, "") || identical(password, "")) {
+    return(json_error(res, 400, "user_name and password are required."))
+  }
+
+  # One generic 401 for unknown user / wrong password / inactive account --
+  # authenticate_user() deliberately doesn't distinguish them.
+  auth <- base::tryCatch(
+    authenticate_user(user_name, password),
+    error = function(err) NULL
+  )
+
+  if (is.null(auth)) {
+    return(json_error(res, 401, "Invalid username or password."))
+  }
+
+  json_response(res, 200, payload = base::list(
+    user_name = auth$user_name,
+    user_role = auth$user_role,
+    api_key = auth$api_key
+  ))
+}
+
+#* Resolve the account name + role for an api_key. Used by the agent
+#* skill-runner (agent/runner.py) to admin-gate the website assistant --
+#* it never trusts the browser's own role claim, it re-checks here.
+#* @parser json
+#* @param api_key
+#' @post /whoami
+whoami <- function(req, res, api_key = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  json_response(res, 200, payload = base::list(
+    user_name = auth$user_name,
+    user_role = auth$user_role
+  ))
+}
+
+#* Enrich a gene set against Rummagene's ~1M literature-mined gene sets
+#* (rummagene.com -- gene sets extracted from PMC supplementary tables). Accepts
+#* an explicit `genes` list, or a `signature_hashkey` whose curated gene symbols
+#* are resolved server-side (the same resolution over-representation enrichment
+#* uses). Returns the matching published gene sets with their PMC links.
+#* @parser json
+#* @param api_key
+#* @param genes
+#* @param signature_hashkey
+#* @param limit
+#' @post /rummagene/enrich
+rummagene_enrich_route <- function(req, res, api_key = "", genes = NULL, signature_hashkey = "", limit = 25){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  genes_vec <- if (!base::is.null(body$genes)) {
+    json_vector(body$genes)
+  } else if (!base::is.null(genes)) {
+    json_vector(genes)
+  } else {
+    base::character()
+  }
+  genes_vec <- genes_vec[!genes_vec %in% c("", NA)]
+
+  signature_name <- NULL
+  hk <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+
+  # No explicit genes but a signature was given -> resolve its curated gene
+  # symbols. First try the reference-table path over-representation enrichment
+  # uses; if that yields nothing (common for non-human signatures whose features
+  # are Ensembl IDs with no gene_symbol in the reference tables), fall back to
+  # the signature's difexp, which often carries symbols directly.
+  if (base::length(genes_vec) == 0 && !identical(hk, "")) {
+    resolved <- base::tryCatch(
+      resolve_single_enrichment_query(auth, hk, "hypergeometric", difexp_dir),
+      error = function(e) base::list(ok = FALSE, reason = "error", message = base::conditionMessage(e))
+    )
+    if (base::isTRUE(resolved$ok)) {
+      genes_vec <- resolved$query
+      signature_name <- resolved$signature_name
+    } else {
+      difexp_syms <- base::tryCatch(
+        rummagene_signature_symbols_from_difexp(auth, hk, difexp_dir),
+        error = function(e) NULL
+      )
+      if (!base::is.null(difexp_syms) && base::length(difexp_syms) >= 2) {
+        genes_vec <- difexp_syms
+        signature_name <- resolved$signature_name
+      } else {
+        reason <- resolved$reason %||% "unknown"
+        msg <- base::switch(
+          reason,
+          no_gene_symbols = base::paste0(
+            "No gene symbols are available for this signature. Its features are stored as ",
+            "Ensembl/other IDs with no gene-symbol mapping in SigRepo's reference tables ",
+            "(common for non-human signatures), and its difexp table did not provide symbols ",
+            "either, so there is nothing to match against Rummagene, which is keyed on gene symbols."
+          ),
+          no_features = "This signature has no features recorded to enrich.",
+          unsupported_assay_type = resolved$message %||%
+            "Rummagene enrichment needs gene symbols, which this signature's assay type does not provide.",
+          not_found = "Signature not found, or you do not have access to it.",
+          resolved$message %||% base::sprintf("Could not resolve gene symbols for this signature (%s).", reason)
+        )
+        return(json_error(res, 422, msg))
+      }
+    }
+  }
+
+  if (base::length(genes_vec) < 2) {
+    return(json_error(res, 400, "Provide at least two gene symbols, or a signature_hashkey with resolvable gene symbols."))
+  }
+
+  result <- base::tryCatch(
+    rummagene_enrich(genes = genes_vec, limit = base::as.integer(json_scalar(limit, "25"))),
+    error = function(e) e
+  )
+  if (base::inherits(result, "error")) {
+    return(json_error(res, 502, base::sprintf("Rummagene enrichment failed: %s", base::conditionMessage(result))))
+  }
+
+  result$signature_name <- signature_name
+  json_response(res, 200, payload = result)
+}
+
+#* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
+#* @param api_key
+#' @get /vocabulary
+vocabulary <- function(res, api_key = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    vocab <- list_vocabulary(conn)
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    json_response(res, 200, payload = vocab)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Vocabulary lookup failed: %s", err$message))
+  })
+}
+
+#* Repository-wide summary stats for the web frontend's Dashboard/Insights
+#* page (totals, signature counts by organism/assay/contributor, and the
+#* most recently created signatures).
+#* @param api_key
+#* @param recent_limit
+#' @get /insights
+insights_route <- function(res, api_key = "", recent_limit = 5){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    result <- repository_insights(conn = conn, is_admin = identical(auth$user_role, "admin"), recent_limit = recent_limit)
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+
+    json_response(res, 200, payload = base::list(
+      total_signatures = result$total_signatures,
+      total_users = result$total_users,
+      total_organisms = result$total_organisms,
+      total_assays = result$total_assays,
+      by_organism = compact_table(result$by_organism),
+      by_assay = compact_table(result$by_assay),
+      top_contributors = compact_table(result$top_contributors),
+      recent_signatures = compact_table(result$recent_signatures)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Insights lookup failed: %s", err$message))
+  })
+}
+
+#* Search signatures by organism/phenotype/assay_type/keyword
+#* @param api_key
+#* @param organism
+#* @param phenotype
+#* @param assay_type
+#* @param keyword
+#* @param limit
+#* @param offset
+#' @get /signatures/search
+search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    result <- search_signatures(
+      conn = conn,
+      organism = json_scalar(organism),
+      phenotype = json_scalar(phenotype),
+      assay_type = json_scalar(assay_type),
+      keyword = json_scalar(keyword),
+      limit = limit,
+      offset = offset,
+      is_admin = identical(auth$user_role, "admin")
+    )
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    # `count` is the TOTAL number of matching rows (for pagination), not the
+    # size of this page. `signatures` is just the requested page.
+    json_response(res, 200, payload = base::list(
+      count = result$total,
+      limit = base::as.integer(limit),
+      offset = base::as.integer(offset),
+      signatures = compact_table(result$rows, max_rows = 100)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature search failed: %s", err$message))
+  })
+}
+
+#* Delete a signature (editor/admin, and owner unless admin)
+#* @param api_key
+#* @param signature_hashkey
+#' @delete /signatures/delete
+delete_signature_route <- function(res, api_key = "", signature_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  signature_hashkey <- json_scalar(signature_hashkey)
+  if (identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- delete_signature(auth = auth, signature_hashkey = signature_hashkey)
+
+    if (!result$ok && identical(result$reason, "not_found")) {
+      return(json_error(res, 404, base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey)))
+    }
+
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to delete this signature."))
+    }
+
+    json_response(res, 200, payload = base::list(
+      MESSAGES = base::sprintf("Signature '%s' has been deleted.", result$signature_name)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature delete failed: %s", err$message))
+  })
+}
+
+#* Search collections visible to the caller
+#* @param api_key
+#* @param keyword
+#* @param limit
+#' @get /collections/search
+search_collections_route <- function(res, api_key = "", keyword = "", limit = 50){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    conn <- db_connect_local()
+    results <- search_collections(conn = conn, auth = auth, keyword = json_scalar(keyword), limit = limit)
+    base::suppressWarnings(DBI::dbDisconnect(conn))
+    json_response(res, 200, payload = base::list(
+      count = base::nrow(results),
+      collections = compact_table(results, max_rows = 200)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection search failed: %s", err$message))
+  })
+}
+
+#* Collection metadata plus its member signatures
+#* @parser json
+#* @param api_key
+#* @param collection_hashkey
+#' @post /collections/detail
+collection_detail_route <- function(req, res, api_key = "", collection_hashkey = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  collection_hashkey <- if (identical(json_scalar(collection_hashkey), "")) json_scalar(body$collection_hashkey) else json_scalar(collection_hashkey)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (identical(collection_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- get_collection_detail(auth = auth, collection_hashkey = collection_hashkey)
+
+    if (!result$ok && identical(result$reason, "not_found")) {
+      return(json_error(res, 404, base::sprintf("No collection found for collection_hashkey = '%s'.", collection_hashkey)))
+    }
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to view this collection."))
+    }
+
+    json_response(res, 200, payload = base::list(
+      collection = result$collection,
+      signatures = result$signatures
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection detail lookup failed: %s", err$message))
+  })
+}
+
+#* Create a collection owned by the caller (editor/admin)
+#* @parser json
+#* @param api_key
+#* @param collection_name
+#* @param description
+#* @param visibility
+#' @post /collections/create
+create_collection_route <- function(req, res, api_key = "", collection_name = "", description = "", visibility = "false"){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  collection_name <- if (identical(json_scalar(collection_name), "")) json_scalar(body$collection_name) else json_scalar(collection_name)
+  description <- if (identical(json_scalar(description), "")) json_scalar(body$description) else json_scalar(description)
+  visibility <- if (is.null(body$visibility)) visibility else body$visibility
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    result <- create_collection(
+      auth = auth,
+      collection_name = collection_name,
+      description = description,
+      visibility = normalize_flag(visibility, default = FALSE) == 1
+    )
+
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to create a collection."))
+    }
+    if (!result$ok && identical(result$reason, "invalid")) {
+      return(json_error(res, 400, result$message))
+    }
+    if (!result$ok && identical(result$reason, "duplicate")) {
+      return(json_error(res, 409, result$message))
+    }
+
+    json_response(res, 200, payload = base::list(collection_hashkey = result$collection_hashkey))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection create failed: %s", err$message))
+  })
+}
+
+#* Delete a collection (editor/admin, and owner unless admin)
+#* @param api_key
+#* @param collection_hashkey
+#' @delete /collections/delete
+delete_collection_route <- function(res, api_key = "", collection_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  collection_hashkey <- json_scalar(collection_hashkey)
+  if (identical(collection_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- delete_collection_by_hashkey(auth = auth, collection_hashkey = collection_hashkey)
+
+    if (!result$ok && identical(result$reason, "not_found")) {
+      return(json_error(res, 404, base::sprintf("No collection found for collection_hashkey = '%s'.", collection_hashkey)))
+    }
+    if (!result$ok && identical(result$reason, "forbidden")) {
+      return(json_error(res, 403, "You do not have permission to delete this collection."))
+    }
+
+    json_response(res, 200, payload = base::list(
+      MESSAGES = base::sprintf("Collection '%s' has been deleted.", result$collection_name)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Collection delete failed: %s", err$message))
+  })
+}
+
+#* Add a signature to a collection (editor/admin, with access to both)
+#* @parser json
+#* @param api_key
+#* @param collection_hashkey
+#* @param signature_hashkey
+#' @post /collections/signatures/add
+add_signature_to_collection_route <- function(req, res, api_key = "", collection_hashkey = "", signature_hashkey = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  collection_hashkey <- if (identical(json_scalar(collection_hashkey), "")) json_scalar(body$collection_hashkey) else json_scalar(collection_hashkey)
+  signature_hashkey <- if (identical(json_scalar(signature_hashkey), "")) json_scalar(body$signature_hashkey) else json_scalar(signature_hashkey)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (identical(collection_hashkey, "") || identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey and signature_hashkey are required."))
+  }
+
+  base::tryCatch({
+    result <- add_signature_to_collection(auth = auth, collection_hashkey = collection_hashkey, signature_hashkey = signature_hashkey)
+    collection_signature_error_response(res, result, collection_hashkey, signature_hashkey)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Adding signature to collection failed: %s", err$message))
+  })
+}
+
+#* Remove a signature from a collection (editor/admin, with access to both)
+#* @param api_key
+#* @param collection_hashkey
+#* @param signature_hashkey
+#' @delete /collections/signatures/remove
+remove_signature_from_collection_route <- function(res, api_key = "", collection_hashkey = "", signature_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  collection_hashkey <- json_scalar(collection_hashkey)
+  signature_hashkey <- json_scalar(signature_hashkey)
+  if (identical(collection_hashkey, "") || identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "collection_hashkey and signature_hashkey are required."))
+  }
+
+  base::tryCatch({
+    result <- remove_signature_from_collection(auth = auth, collection_hashkey = collection_hashkey, signature_hashkey = signature_hashkey)
+    collection_signature_error_response(res, result, collection_hashkey, signature_hashkey)
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Removing signature from collection failed: %s", err$message))
+  })
+}
+
+#* MSigDB species options for the Annotate picker (matches the Shiny app's
+#* species picker; static/local, no network)
+#* @param api_key
+#' @get /annotate/msigdb-species
+msigdb_species_route <- function(res, api_key = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    json_response(res, 200, payload = base::list(species = msigdb_species_options()))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Could not list MSigDB species: %s", err$message))
+  })
+}
+
+#* MSigDB collection/subcollection options for the Annotate picker (the
+#* fixed Collection/Subcollection matrix, with human-readable labels --
+#* matches the Shiny app's picker, see api/lib/msigdb_cache.R)
+#* @param api_key
+#' @get /annotate/msigdb-collections
+msigdb_collections_route <- function(res, api_key = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    json_response(res, 200, payload = base::list(collections = msigdb_collection_metadata()))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Could not list MSigDB collections: %s", err$message))
+  })
+}
+
+#* Resolve (from cache, or live if MSIGDB_ALLOW_RUNTIME_FETCH) a gene set
+#* collection ahead of running enrichment, mirroring the Shiny app's
+#* separate "Fetch Genesets" step
+#* @parser json
+#* @param api_key
+#* @param species
+#* @param collection
+#* @param subcollection
+#' @post /annotate/genesets
+annotate_genesets_route <- function(req, res, api_key = "", species = "Homo sapiens", collection = "H", subcollection = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  species <- if (is.null(body$species)) species else json_scalar(body$species)
+  collection <- if (is.null(body$collection)) collection else json_scalar(body$collection)
+  subcollection <- if (is.null(body$subcollection)) subcollection else json_scalar(body$subcollection)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  base::tryCatch({
+    result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection)
+    if (!result$ok) {
+      return(json_error(res, 404, result$message))
+    }
+    json_response(res, 200, payload = base::list(
+      n_genesets = base::length(result$genesets),
+      source = result$source
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Could not resolve gene sets: %s", err$message))
+  })
+}
+
+#* Run gene set enrichment for one or more signatures at once (hypeR's own
+#* multi-signature support) against an MSigDB collection
+#* @parser json
+#* @param api_key
+#* @param signature_hashkeys
+#* @param test
+#* @param species
+#* @param collection
+#* @param subcollection
+#* @param fdr
+#' @post /annotate/run
+annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", test = "hypergeometric",
+                                species = "Homo sapiens", collection = "H", subcollection = "", fdr = 0.05){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  # Accepts either signature_hashkeys (array) or the older singular
+  # signature_hashkey, so a single-signature run still works either way.
+  signature_hashkeys <- if (base::is.null(body$signature_hashkeys)) {
+    json_vector(signature_hashkeys)
+  } else {
+    json_vector(body$signature_hashkeys)
+  }
+  if (base::length(signature_hashkeys) == 0) {
+    singular <- if (base::is.null(body$signature_hashkey)) NULL else json_scalar(body$signature_hashkey)
+    if (!base::is.null(singular) && base::nzchar(singular)) {
+      signature_hashkeys <- singular
+    }
+  }
+  test <- if (identical(json_scalar(test), "")) "hypergeometric" else json_scalar(test)
+  species <- if (is.null(body$species)) species else json_scalar(body$species)
+  collection <- if (is.null(body$collection)) collection else json_scalar(body$collection)
+  subcollection <- if (is.null(body$subcollection)) subcollection else json_scalar(body$subcollection)
+  fdr <- if (is.null(body$fdr)) fdr else body$fdr
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (base::length(signature_hashkeys) == 0) {
+    return(json_error(res, 404, "signature_hashkeys cannot be empty."))
+  }
+  if (!test %in% c("hypergeometric", "kstest")) {
+    return(json_error(res, 400, "test must be 'hypergeometric' or 'kstest'."))
+  }
+
+  fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
+  if (base::is.na(fdr) || fdr <= 0 || fdr > 1) {
+    fdr <- 0.05
+  }
+
+  base::tryCatch({
+    result <- run_enrichment(
+      auth = auth,
+      signature_hashkeys = signature_hashkeys,
+      test = test,
+      species = species,
+      collection = collection,
+      subcollection = if (identical(subcollection, "")) NULL else subcollection,
+      fdr = fdr,
+      difexp_dir = difexp_dir,
+      msigdb_cache_dir = msigdb_cache_dir
+    )
+
+    if (!result$ok) {
+      status <- switch(result$reason,
+        "no_signatures" = 400,
+        "not_found" = 404,
+        "no_features" = 404,
+        "no_difexp" = 404,
+        "no_gene_symbols" = 404,
+        "unsupported_assay_type" = 400,
+        "unsupported_difexp_shape" = 400,
+        "invalid_geneset" = 400,
+        "not_cached" = 404,
+        "fetch_failed" = 502,
+        500
+      )
+      message <- if (!base::is.null(result$message)) {
+        result$message
+      } else {
+        switch(result$reason,
+          "not_found" = "No signature found for the selected signature(s).",
+          "no_features" = "The selected signature has no stored features.",
+          "no_difexp" = "The selected signature has no stored difexp, which rank-based (kstest) enrichment requires.",
+          "no_gene_symbols" = "None of the selected signature's features could be mapped to a gene symbol.",
+          "Enrichment failed."
+        )
+      }
+      return(json_error(res, status, message))
+    }
+
+    json_response(res, 200, payload = base::list(
+      test = test,
+      collection = collection,
+      subcollection = subcollection,
+      fdr = fdr,
+      geneset_source = result$geneset_source,
+      dotplot_png = result$dotplot_png,
+      signatures = result$resolved,
+      skipped = result$skipped,
+      results = compact_table(result$results, max_rows = 500)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))
+  })
+}
+
+#* Download a single signature as an RDS file (metadata + features + difexp)
+#* @param api_key
+#* @param signature_hashkey
+#' @get /signatures/export
+signature_export_route <- function(res, api_key = "", signature_hashkey = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  signature_hashkey <- json_scalar(signature_hashkey)
+  if (identical(signature_hashkey, "")) {
+    return(json_error(res, 404, "signature_hashkey cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- build_signature_export(auth, signature_hashkey, difexp_dir)
+    if (!result$ok) {
+      return(json_error(res, 404, base::sprintf("No signature found for signature_hashkey = '%s'.", signature_hashkey)))
+    }
+
+    res$serializer <- serializers[["rds"]]
+    plumber::as_attachment(
+      result$export,
+      filename = base::sprintf("signature_%s.rds", export_safe_filename(result$signature_name))
+    )
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature export failed: %s", err$message))
+  })
+}
+
+#* Download a zip of RDS exports for a basket of signatures (skips any the
+#* caller can no longer see; check the X-Basket-Included/X-Basket-Skipped
+#* response headers)
+#* @parser json
+#* @param api_key
+#* @param signature_hashkeys
+#' @post /signatures/export-batch
+signature_export_batch_route <- function(req, res, api_key = "", signature_hashkeys = ""){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  signature_hashkeys <- if (base::is.null(body$signature_hashkeys)) json_vector(signature_hashkeys) else json_vector(body$signature_hashkeys)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  if (base::length(signature_hashkeys) == 0) {
+    return(json_error(res, 404, "signature_hashkeys cannot be empty."))
+  }
+
+  base::tryCatch({
+    result <- build_signature_basket_zip(auth, signature_hashkeys, difexp_dir)
+    if (!result$ok) {
+      return(json_error(res, 404, "None of the requested signatures could be exported."))
+    }
+
+    raw_bytes <- base::readBin(result$zip_path, "raw", base::file.info(result$zip_path)$size)
+    base::unlink(result$zip_path)
+
+    res$setHeader("X-Basket-Included", base::length(result$included))
+    res$setHeader("X-Basket-Skipped", base::length(result$skipped))
+    res$serializer <- plumber::serializer_content_type("application/zip")
+    plumber::as_attachment(
+      raw_bytes,
+      filename = base::sprintf("signature_basket_%s.zip", base::format(base::Sys.Date(), "%Y%m%d"))
+    )
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Basket export failed: %s", err$message))
+  })
+}
+
+#* Upload a signature from an .rds file shaped like /signatures/export's
+#* own output (editor/admin; transcriptomics/proteomics only)
+#* @parser multi
+#* @parser rds
+#* @param api_key
+#* @param visibility
+#* @param signature_file:file
+#' @post /signatures/upload
+signature_upload_route <- function(res, api_key = "", visibility = "false", signature_file){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  if (base::missing(signature_file) || base::length(signature_file) == 0) {
+    return(json_error(res, 400, "signature_file is required."))
+  }
+
+  base::tryCatch({
+    result <- build_signature_from_upload(
+      auth = auth,
+      uploaded = signature_file[[1]],
+      visibility = normalize_flag(visibility, default = FALSE) == 1,
+      difexp_dir = difexp_dir
+    )
+
+    if (!result$ok) {
+      status <- switch(result$reason,
+        "forbidden" = 403,
+        "invalid_upload" = 400,
+        "unsupported_assay_type" = 400,
+        "unknown_features" = 400,
+        "duplicate" = 409,
+        500
+      )
+      message <- if (!base::is.null(result$message)) result$message else "Signature upload failed."
+      return(json_error(res, status, message))
+    }
+
+    json_response(res, 200, payload = base::list(
+      signature_hashkey = result$signature_hashkey,
+      MESSAGES = base::sprintf("Signature '%s' uploaded.", result$signature_name)
+    ))
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Signature upload failed: %s", err$message))
+  })
 }
