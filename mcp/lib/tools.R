@@ -153,6 +153,14 @@ mcp_run_enrichment <- function(api_key, signature_hashkey, geneset_resource_id =
   ))
 }
 
+mcp_rummagene_enrich <- function(api_key, genes, limit = 25) {
+  require_api_key(api_key)
+  # rummagene_enrich() comes from api/lib/rummagene.R (sourced by
+  # run_sigrepo_mcp.R). Public Rummagene API; api_key is only used to gate the
+  # tool, consistent with every other MCP tool.
+  mcp_json(rummagene_enrich(genes = genes, limit = limit))
+}
+
 build_mcp_tools <- function() {
   list(
     ellmer::tool(
@@ -281,6 +289,19 @@ build_mcp_tools <- function() {
         limit = ellmer::type_integer("Maximum ranked results returned per query (default 20, max 100)", required = FALSE)
       ),
       name = "run_enrichment"
+    ),
+    ellmer::tool(
+      mcp_rummagene_enrich,
+      "Enrich a gene set against Rummagene (rummagene.com): ~1M gene sets mined from the supplementary tables of PMC articles. Returns the most-overlapping published gene sets, each with its source paper (pmcid, title, PMC url), overlap count, and Fisher-exact p-value. Use this to find published papers whose reported gene sets resemble a set of genes -- e.g. the genes of a SigRepo signature (get them via get_signature_context first).",
+      arguments = list(
+        api_key = ellmer::type_string("SigRepo API key"),
+        genes = ellmer::type_array(
+          ellmer::type_string(),
+          "Gene symbols to enrich, e.g. ['STAT3','IL6','JAK1']"
+        ),
+        limit = ellmer::type_integer("Maximum number of matches to return (default 25)", required = FALSE)
+      ),
+      name = "rummagene_enrich"
     )
   )
 }

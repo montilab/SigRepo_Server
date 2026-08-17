@@ -72,7 +72,7 @@ devtools::load_all(sigrepo_dir, quiet = TRUE)
 
 cache_dir <- Sys.getenv(
   "MSIGDB_CACHE_DIR",
-  unset = file.path(repo_root, "shiny", "data", "msigdb_genesets")
+  unset = file.path(repo_root, "data", "msigdb_genesets")
 )
 cache_dir <- normalizePath(cache_dir, winslash = "/", mustWork = FALSE)
 

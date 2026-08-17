@@ -2,6 +2,76 @@
 # /read/signature_context and /read/group_signatures endpoints.
 # Depends on api/lib/common.R (db_connect_local, compact_table).
 
+# Compact search/list results for the Signatures page. Deliberately does not
+# consult the per-signature signature_access ACL the way fetch_signature_context()
+# does for a single record -- that's an expensive join across every candidate
+# row. A non-admin user with explicit access to a hidden signature can still
+# retrieve it directly via /read/signature_context if they already know its
+# hashkey; it just won't surface via search. Under-returning is the safe default.
+# Returns a paginated page of results as list(rows = <data.frame>,
+# total = <integer count of all matching rows>). `total` backs server-side
+# pagination on the Signatures page (DT-style server = TRUE): the client asks
+# for one `limit`-sized page at `offset` and renders pager controls from
+# `total`, instead of pulling every row up front.
+search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
+                               keyword = NULL, limit = 20, offset = 0, is_admin = FALSE) {
+  limit <- base::suppressWarnings(base::as.integer(limit[1]))
+  if (base::is.na(limit) || limit < 1) {
+    limit <- 20
+  }
+  limit <- base::min(limit, 100)
+
+  offset <- base::suppressWarnings(base::as.integer(offset[1]))
+  if (base::is.na(offset) || offset < 0) {
+    offset <- 0
+  }
+
+  # One FROM + WHERE, shared by the COUNT(*) and the page query so the total
+  # and the page always agree on which rows match.
+  from_where <- "
+    FROM signatures s
+    LEFT JOIN organisms o ON s.organism_id = o.organism_id
+    LEFT JOIN phenotypes p ON s.phenotype_id = p.phenotype_id
+    LEFT JOIN sample_types st ON s.sample_type_id = st.sample_type_id
+    LEFT JOIN platforms pl ON s.platform_id = pl.platform_id
+    WHERE 1=1
+  "
+
+  if (!is_admin) {
+    from_where <- base::paste(from_where, "AND s.visibility = 1")
+  }
+  if (!is.null(organism) && base::nzchar(base::trimws(organism[1]))) {
+    from_where <- base::paste(from_where, "AND o.organism =", DBI::dbQuoteLiteral(conn, base::trimws(organism[1])))
+  }
+  if (!is.null(phenotype) && base::nzchar(base::trimws(phenotype[1]))) {
+    from_where <- base::paste(from_where, "AND p.phenotype =", DBI::dbQuoteLiteral(conn, base::trimws(phenotype[1])))
+  }
+  if (!is.null(assay_type) && base::nzchar(base::trimws(assay_type[1]))) {
+    from_where <- base::paste(from_where, "AND s.assay_type =", DBI::dbQuoteLiteral(conn, base::trimws(assay_type[1])))
+  }
+  if (!is.null(keyword) && base::nzchar(base::trimws(keyword[1]))) {
+    like <- DBI::dbQuoteLiteral(conn, base::sprintf("%%%s%%", base::trimws(keyword[1])))
+    from_where <- base::paste(from_where, base::sprintf(
+      "AND (s.signature_name LIKE %s OR s.description LIKE %s OR s.keywords LIKE %s)",
+      like, like, like
+    ))
+  }
+
+  total <- DBI::dbGetQuery(conn, base::paste("SELECT COUNT(*) AS n", from_where))$n[1]
+
+  # s.* plus the human-readable joined names instead of raw *_id foreign keys.
+  # feature_count is intentionally NOT selected here: the Signatures list no
+  # longer shows it, and its per-row correlated subquery was the main cost of
+  # this query. The detail view computes its own count when a row is opened.
+  query <- base::paste(
+    "SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform_name",
+    from_where,
+    "ORDER BY s.signature_name ASC LIMIT", limit, "OFFSET", offset
+  )
+
+  base::list(rows = DBI::dbGetQuery(conn, query), total = total)
+}
+
 fetch_signature_context <- function(signature_hashkey, include_features = TRUE, max_features = 50, auth = NULL) {
   conn <- NULL
 
@@ -202,4 +272,84 @@ draft_signature_groups <- function(similarity_tbl, threshold = 0.10) {
   unique_groups <- base::unique(base::lapply(groups, sort))
   base::names(unique_groups) <- base::sprintf("group_%s", base::seq_along(unique_groups))
   unique_groups
+}
+
+# Delete a signature and its child rows, authorizing against the *calling*
+# user (auth$user_name/auth$user_role, resolved from their api_key by
+# validate_api_key()) rather than SigRepo::deleteSignature()'s own
+# checkPermissions(), which authorizes against the DB connection's own
+# login. The REST API always connects as one shared service account
+# (see conn_handler in api.R), so checkPermissions() would authorize every
+# request as that shared account instead of the real api_key holder -- it
+# only does the right thing in Shiny, where each session's DB connection
+# genuinely is logged in as that person (see shiny/app_src/app_server.R).
+# Depends on api/lib/common.R (db_connect_local) and api/lib/difexp.R
+# (delete_difexp_rds) and the `difexp_dir` global defined in api.R.
+#
+# Returns list(ok = TRUE, signature_name = ...) on success, or
+# list(ok = FALSE, reason = "not_found" | "forbidden") otherwise.
+delete_signature <- function(auth, signature_hashkey) {
+  conn <- NULL
+
+  base::tryCatch({
+    conn <- db_connect_local()
+
+    signature_tbl <- SigRepo::lookup_table_sql(
+      conn = conn,
+      db_table_name = "signatures",
+      return_var = c("signature_id", "signature_name", "user_name", "has_difexp"),
+      filter_coln_var = "signature_hashkey",
+      filter_coln_val = base::list("signature_hashkey" = signature_hashkey),
+      check_db_table = TRUE
+    )
+
+    if (base::nrow(signature_tbl) == 0) {
+      return(base::list(ok = FALSE, reason = "not_found"))
+    }
+
+    signature_id <- signature_tbl$signature_id[1]
+    owner <- signature_tbl$user_name[1]
+    signature_name <- signature_tbl$signature_name[1]
+    has_difexp <- base::isTRUE(base::as.logical(signature_tbl$has_difexp[1]))
+
+    if (!auth$user_role %in% c("editor", "admin")) {
+      return(base::list(ok = FALSE, reason = "forbidden"))
+    }
+
+    if (!identical(auth$user_role, "admin") && !identical(auth$user_name, owner)) {
+      access_tbl <- SigRepo::lookup_table_sql(
+        conn = conn,
+        db_table_name = "signature_access",
+        return_var = c("signature_id", "user_name", "access_type"),
+        filter_coln_var = c("signature_id", "user_name", "access_type"),
+        filter_coln_val = base::list(
+          "signature_id" = signature_id,
+          "user_name" = auth$user_name,
+          "access_type" = c("owner", "editor")
+        ),
+        filter_var_by = c("AND", "AND"),
+        check_db_table = TRUE
+      )
+
+      if (base::nrow(access_tbl) == 0) {
+        return(base::list(ok = FALSE, reason = "forbidden"))
+      }
+    }
+
+    # Children before parent so this works without disabling FK checks.
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_feature_set WHERE signature_id = %d", signature_id))
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_access WHERE signature_id = %d", signature_id))
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_collection_access WHERE signature_id = %d", signature_id))
+    DBI::dbExecute(conn, base::sprintf("DELETE FROM signatures WHERE signature_id = %d", signature_id))
+
+    if (has_difexp) {
+      delete_difexp_rds(difexp_dir, signature_hashkey)
+    }
+
+    base::list(ok = TRUE, signature_name = signature_name)
+  }, finally = {
+    if (!is.null(conn)) {
+      base::suppressWarnings(DBI::dbDisconnect(conn))
+    }
+  })
 }
