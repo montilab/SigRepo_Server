@@ -75,6 +75,11 @@ services:
   sigrepo-web:
     container_name: sigrepo-web
     platform: linux/amd64
+    # image + build together on purpose: `docker compose pull` fetches the
+    # CI-published image (so a deploy never compiles the bundle on the VM),
+    # while `docker compose build sigrepo-web` still rebuilds from ./web when
+    # testing an uncommitted change on the box.
+    image: montilab/sigrepo-web:latest
     build:
       context: ./web
     depends_on:
