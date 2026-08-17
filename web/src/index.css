@@ -1,0 +1,154 @@
+/* ============================================================================
+   SigRepo design tokens + base reset
+   "Blue analytical" — surfaces washed with the navbar's navy, one blue
+   accent, a warmer data-viz palette used to color-code cards.
+   ========================================================================== */
+
+:root {
+  /* Surfaces (soft blue wash instead of neutral gray) */
+  --bg: #eaf1fb;
+  --surface: #ffffff;
+  --surface-hover: #eef4fc;
+  --surface-sunken: #eef4fc;
+
+  /* Table-specific surfaces -- deliberately NOT the same pale blue as --bg,
+     so tables read as a crisp, distinct surface instead of blending into
+     the page wash. Neutral/near-white stripe, more saturated header. */
+  --table-header-bg: #dce7f6;
+  --table-stripe: #f4f6fa;
+
+  /* Borders (blue-tinted) */
+  --border: #d7e3f2;
+  --border-strong: #bcd0e9;
+  --border-subtle: #e6eef9;
+
+  /* Text */
+  --text: #101828;
+  --text-secondary: #545c6b;
+  --text-muted: #98a1b0;
+
+  /* Accent (blue, tied to the navbar) */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-active: #1e40af;
+  --accent-subtle: #e8f0fe;
+  --accent-border: #bfd7fb;
+  --accent-text: #1d4ed8;
+
+  /* Semantic */
+  --success: #067647;
+  --success-subtle: #ecfdf3;
+  --success-border: #abefc6;
+  --warning: #b54708;
+  --warning-subtle: #fffaeb;
+  --warning-border: #fedf89;
+  --danger: #b42318;
+  --danger-subtle: #fef3f2;
+  --danger-border: #fecdca;
+
+  /* Navbar (matches the R Shiny navbarPage blue) */
+  --navbar-bg: #004080;
+  --navbar-bg-active: #003366;
+  --navbar-text: #ffffff;
+  --navbar-text-muted: #a9c2e0;
+
+  /* Data-viz palette, and a matching subtle tint for each -- used to
+     color-code stat cards/icons so they don't all read as the same accent. */
+  --viz-1: #2563eb;
+  --viz-1-subtle: #e8f0fe;
+  --viz-2: #0ea5e9;
+  --viz-2-subtle: #e3f4fd;
+  --viz-3: #14b8a6;
+  --viz-3-subtle: #e2f7f4;
+  --viz-4: #f59e0b;
+  --viz-4-subtle: #fef3e0;
+  --viz-5: #ec4899;
+  --viz-5-subtle: #fdecf4;
+  --viz-grid: #e6eef9;
+
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.16);
+
+  /* Type */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--accent-subtle);
+}
+
+/* Slim, modern scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid var(--bg);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

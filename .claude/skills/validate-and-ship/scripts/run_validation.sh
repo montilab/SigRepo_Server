@@ -85,7 +85,7 @@ cd "${SIGREPO_SERVER_DIR}"
 #
 # MSIGDB_CACHE_DIR here is just as load-bearing as --no-environ, in a
 # different way: without it, /init_db's geneset-population step falls back
-# to shiny/data/msigdb_genesets -- the real, tracked-in-git cache directory
+# to data/msigdb_genesets -- the real, tracked-in-git cache directory
 # -- and overwrites it with this throwaway run's fetch. Caught this by
 # actually running the script and checking `git status` afterward; the
 # manifest files came back modified. Never skip that check when touching

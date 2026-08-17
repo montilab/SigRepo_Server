@@ -20,6 +20,7 @@ install_if_missing(bootstrap_pkgs)
 # Parse DESCRIPTION (DCF format)
 desc <- read.dcf("DESCRIPTION")
 imports_field <- if ("Imports" %in% colnames(desc)) desc[1, "Imports"] else ""
+remotes_field <- if ("Remotes" %in% colnames(desc)) desc[1, "Remotes"] else ""
 
 parse_pkg_names <- function(field) {
   if (!nzchar(field)) return(character(0))
@@ -28,7 +29,19 @@ parse_pkg_names <- function(field) {
   x[x != ""]
 }
 
-required_pkgs <- unique(parse_pkg_names(imports_field))
+# Anything listed in Remotes comes from GitHub, not CRAN, and is installed
+# separately (see the remotes::install_github calls in Dockerfile and
+# .github/workflows/test.yml). Attempting them here resolves to a different
+# package or none at all: hypeR, for instance, pulls kableExtra -> svglite ->
+# textshaping from CRAN, which needs system libraries the runners do not all
+# have, and fails the whole install before the correct GitHub version is ever
+# fetched. Strip the "owner/" prefix and any "@ref" suffix to get the package
+# name to exclude.
+remote_pkgs <- parse_pkg_names(remotes_field)
+remote_pkgs <- sub("^.*/", "", remote_pkgs)
+remote_pkgs <- sub("@.*$", "", remote_pkgs)
+
+required_pkgs <- setdiff(unique(parse_pkg_names(imports_field)), remote_pkgs)
 
 bioc_available <- tryCatch(BiocManager::available(), error = function(e) character(0))
 bioc_pkgs <- intersect(required_pkgs, bioc_available)
