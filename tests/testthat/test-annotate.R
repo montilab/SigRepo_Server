@@ -21,9 +21,10 @@ local_tempdir <- function() {
   dir
 }
 
-# The repo's real pre-built cache (data/msigdb_genesets) -- using it
-# directly means run_enrichment can be tested without hitting the network,
-# same as the API does whenever this cache is present.
+# The checkout's own gene-set cache (data/msigdb_genesets). It is not committed
+# -- it is built on demand by /init_db_genesets -- so the tests below skip when
+# it is absent. When it is there, using it directly means run_enrichment can be
+# tested without hitting the network, same as the API does.
 real_msigdb_cache_dir <- testthat::test_path("../../data/msigdb_genesets")
 
 test_that("enrichment_reference_table maps assay_type to the right features table", {

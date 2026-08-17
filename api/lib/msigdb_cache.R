@@ -51,8 +51,10 @@ msigdb_collection_metadata <- function() {
 }
 
 # Resolves the configured cache dir: MSIGDB_CACHE_DIR if set, else
-# <sigrepo_server_path>/data/msigdb_genesets, the shared cache the API, the
-# MCP server, and the legacy Shiny app all read from.
+# <sigrepo_server_path>/data/msigdb_genesets, the shared cache the API and the
+# MCP server both read from. It is not committed: it is derived data, populated
+# on demand by /init_db_genesets (or as part of /init_db), and a miss simply
+# returns NULL so a fresh checkout works before the cache is built.
 default_msigdb_cache_dir <- function(sigrepo_server_path) {
   env_cache_dir <- base::Sys.getenv("MSIGDB_CACHE_DIR", unset = "")
   if (base::nzchar(env_cache_dir)) {
