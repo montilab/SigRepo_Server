@@ -115,7 +115,7 @@ sudo docker stop sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null
 
 # Removing previously images
 echo "Remove existing images. Enter the admin password if prompted for permission..."
-sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest &>/dev/null || echo ""
+sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest montilab/sigrepo-web:latest &>/dev/null || echo ""
 
 echo "Clean out the stopped containers and cached images. Enter 'y' to procced..."
 sudo docker system prune -a || echo ""
@@ -195,8 +195,7 @@ services:
   sigrepo-web:
     container_name: sigrepo-web
     platform: linux/amd64
-    build:
-      context: ./web
+    image: montilab/sigrepo-web:latest
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
