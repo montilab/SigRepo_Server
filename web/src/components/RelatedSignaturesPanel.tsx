@@ -58,7 +58,9 @@ export default function RelatedSignaturesPanel({ signatureHashkey }: { signature
           <div className="rel-summary cell-sub">
             {result.total === 0
               ? `No other signature shares any of these ${result.query_size} genes.`
-              : `${result.total} signature${result.total === 1 ? "" : "s"} share genes with these ${result.query_size}.`}
+              : result.total === 1
+                ? `1 signature shares genes with these ${result.query_size}.`
+                : `${result.total} signatures share genes with these ${result.query_size}.`}
           </div>
 
           {result.total > 0 && (
