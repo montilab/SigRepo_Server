@@ -2,7 +2,12 @@ name: test
 
 on:
   push:
-    branches: [main, master]
+    # dev is the integration branch: work lands there first and only reaches
+    # master for a release, so the suite has to run here or changes go
+    # unverified until release time. The image build (docker-image.yml)
+    # deliberately still fires on master only -- publishing on every dev merge
+    # is the expensive part, and nothing consumes a dev image.
+    branches: [main, master, dev]
     paths:
       - "api/**"
       - "mcp/**"
@@ -12,7 +17,7 @@ on:
       - "install_r_packages.R"
       - ".github/workflows/test.yml"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
   workflow_dispatch:
 
 jobs:
