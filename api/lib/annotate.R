@@ -15,7 +15,16 @@
 # Depends on api/lib/common.R (db_connect_local), api/lib/signature.R
 # (fetch_signature_context), and api/lib/difexp.R (load_difexp_rds).
 
-`%||%` <- function(x, y) if (base::is.null(x) || base::is.na(x)) y else x
+# NULL-or-missing coalesce. The length guard is load-bearing: api.R sources
+# api/lib/*.R alphabetically, so this definition wins over the one in
+# rummagene.R and is what every later file actually gets. Without the guard,
+# `is.na(x)` on anything longer than one element yields a vector, and since R
+# 4.3 `||` rejects that outright -- which is how `enrich$nodes %||% list()` in
+# rummagene.R died with "'length = 25' in coercion to 'logical(1)'" for a
+# perfectly valid 25-node response. Length 0 would fail the same way.
+`%||%` <- function(x, y) {
+  if (base::is.null(x) || (base::length(x) == 1L && base::is.na(x))) y else x
+}
 
 # assay_type -> the reference table holding feature_id -> gene_symbol.
 # Enrichment against MSigDB needs gene symbols; only these two assay types
