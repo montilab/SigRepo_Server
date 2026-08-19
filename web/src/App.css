@@ -2338,3 +2338,111 @@ a.rmg-item-title:hover {
   border-radius: var(--r-sm);
   padding: 2px 7px;
 }
+
+/* Related-signatures panel. Shares the Rummagene panel's structure so the two
+   read as siblings on the detail page; what differs is that each row is a
+   navigation target, not an external link. */
+.rel-card {
+  margin-top: 16px;
+}
+.rel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.rel-title {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--text-secondary);
+}
+.rel-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rel-summary {
+  margin-bottom: 8px;
+}
+.rel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rel-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 2px;
+  border-top: 1px solid var(--border-subtle);
+}
+.rel-item:first-child {
+  border-top: none;
+}
+/* A real <button>: the row navigates, so it must be reachable by keyboard and
+   announced as an action rather than as text. */
+.rel-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rel-name {
+  font-weight: 550;
+  color: var(--text-primary);
+}
+.rel-item-main:hover .rel-name {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+/* The matched genes can run to hundreds of symbols; one clipped line keeps the
+   row scannable, with the full list in the title attribute. */
+.rel-genes {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.rel-metrics {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+.rel-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.rel-chevron {
+  color: var(--text-muted);
+  flex: none;
+}
+@media (max-width: 560px) {
+  .rel-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .rel-metrics {
+    justify-content: flex-end;
+  }
+}
