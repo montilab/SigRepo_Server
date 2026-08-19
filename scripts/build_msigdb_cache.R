@@ -27,7 +27,7 @@ species_to_cache <- c(
 )
 
 repo_root <- find_repo_root()
-default_output_dir <- file.path(repo_root, "shiny", "data", "msigdb_genesets")
+default_output_dir <- file.path(repo_root, "data", "msigdb_genesets")
 output_dir <- Sys.getenv("MSIGDB_CACHE_DIR", unset = default_output_dir)
 output_dir <- normalizePath(output_dir, winslash = "/", mustWork = FALSE)
 

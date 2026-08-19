@@ -1,36 +1,94 @@
+/* ============================================================================
+   SigRepo design tokens + base reset
+   "Blue analytical" — surfaces washed with the navbar's navy, one blue
+   accent, a warmer data-viz palette used to color-code cards.
+   ========================================================================== */
+
 :root {
+  /* Surfaces (soft blue wash instead of neutral gray) */
+  --bg: #eaf1fb;
+  --surface: #ffffff;
+  --surface-hover: #eef4fc;
+  --surface-sunken: #eef4fc;
+
+  /* Table-specific surfaces -- deliberately NOT the same pale blue as --bg,
+     so tables read as a crisp, distinct surface instead of blending into
+     the page wash. Neutral/near-white stripe, more saturated header. */
+  --table-header-bg: #dce7f6;
+  --table-stripe: #f4f6fa;
+
+  /* Borders (blue-tinted) */
+  --border: #d7e3f2;
+  --border-strong: #bcd0e9;
+  --border-subtle: #e6eef9;
+
+  /* Text */
+  --text: #101828;
+  --text-secondary: #545c6b;
+  --text-muted: #98a1b0;
+
+  /* Accent (blue, tied to the navbar) */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-active: #1e40af;
+  --accent-subtle: #e8f0fe;
+  --accent-border: #bfd7fb;
+  --accent-text: #1d4ed8;
+
+  /* Semantic */
+  --success: #067647;
+  --success-subtle: #ecfdf3;
+  --success-border: #abefc6;
+  --warning: #b54708;
+  --warning-subtle: #fffaeb;
+  --warning-border: #fedf89;
+  --danger: #b42318;
+  --danger-subtle: #fef3f2;
+  --danger-border: #fecdca;
+
+  /* Navbar (matches the R Shiny navbarPage blue) */
   --navbar-bg: #004080;
-  --navbar-border: #003366;
+  --navbar-bg-active: #003366;
+  --navbar-text: #ffffff;
+  --navbar-text-muted: #a9c2e0;
 
-  --text-heading: #17324d;
-  --text-body: #3f556b;
-  --text-muted: #597189;
-  --text-label: #4e6782;
+  /* Data-viz palette, and a matching subtle tint for each -- used to
+     color-code stat cards/icons so they don't all read as the same accent. */
+  --viz-1: #2563eb;
+  --viz-1-subtle: #e8f0fe;
+  --viz-2: #0ea5e9;
+  --viz-2-subtle: #e3f4fd;
+  --viz-3: #14b8a6;
+  --viz-3-subtle: #e2f7f4;
+  --viz-4: #f59e0b;
+  --viz-4-subtle: #fef3e0;
+  --viz-5: #ec4899;
+  --viz-5-subtle: #fdecf4;
+  --viz-grid: #e6eef9;
 
-  --card-bg: #ffffff;
-  --card-border: #d9e3ec;
-  --card-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
+  /* Radii */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 14px;
+  --r-pill: 999px;
 
-  --stat-bg: #f6f9fc;
-  --stat-border: #e1ebf2;
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.16);
 
-  --empty-bg: #f8fbfd;
-  --empty-border: #c5d5e3;
+  /* Type */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  --primary: #1c5d87;
-  --primary-dark: #154a6c;
-  --primary-light: #e7f1f9;
-
-  --badge-local-bg: #eef3f7;
-  --badge-local-fg: #35506b;
-  --badge-remote-bg: #e6f2fb;
-  --badge-remote-fg: #0f4d7c;
-  --badge-status-bg: #eef7ed;
-  --badge-status-fg: #2c6a3f;
-
-  --page-bg: #eef3f8;
-
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -45,15 +103,52 @@ body,
 
 body {
   margin: 0;
-  background: var(--page-bg);
-  color: var(--text-body);
-  -webkit-font-smoothing: antialiased;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
 }
 
 button {
   font-family: inherit;
+  cursor: pointer;
 }
 
-a {
-  color: var(--primary);
+::selection {
+  background: var(--accent-subtle);
+}
+
+/* Slim, modern scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-pill);
+  border: 3px solid var(--bg);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
 }

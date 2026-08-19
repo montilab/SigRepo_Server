@@ -87,26 +87,43 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  sigrepo-shiny:
-    container_name: sigrepo-shiny
+  # The SigRepo web interface (React), served as static assets by nginx, which
+  # also proxies /api to sigrepo-api so the browser talks to a single origin.
+  # This replaced the R Shiny dashboard as the served UI. The Shiny app now
+  # lives in https://github.com/montilab/SigRepo_Server_Legacy.
+  sigrepo-web:
+    container_name: sigrepo-web
+    platform: linux/amd64
+    build:
+      context: ./web
+    depends_on:
+      - sigrepo-api
+    networks:
+      - db-net
+    ports:
+      - 8050:80
+    restart: always
+
+  # Agentic AI-facing MCP server. No `ports:` mapping on purpose -- it's only
+  # reachable by other containers on db-net, not published to the host/
+  # internet, since its only auth today is a per-call api_key with no rate
+  # limiting. Use an SSH tunnel or a reverse proxy with its own auth in front
+  # if remote agent access is needed.
+  sigrepo-mcp:
+    container_name: sigrepo-mcp
     platform: linux/amd64
     image: sigrepo:latest
     depends_on:
       - sigrepo-mysql
       - sigrepo-client
-      - sigrepo-api
     networks:
       - db-net
-    ports:
-      - 8050:3838
     restart: always
     volumes:
       - *sigrepo-volume
-      - *sigrepo-server-volume   
-      - *omic-signature-volume
-      - *hyper-volume   
+      - *sigrepo-server-volume
       - .Renviron:/SigRepo_Server/.Renviron
-    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/shiny/shiny-server.sh"]
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/mcp/mcp-server.sh"]
 
 networks:
   db-net:

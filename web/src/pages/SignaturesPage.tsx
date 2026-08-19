@@ -1,137 +1,351 @@
-import { useState } from "react";
-import { Plus, Upload } from "lucide-react";
-import PageHero from "../components/PageHero";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Upload, Search, Download, Trash2, ShoppingBasket, Eye, X } from "lucide-react";
+import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
+import Badge from "../components/Badge";
+import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
-import { signatures, featurePreview, type Signature } from "../data/mock";
+import { SkeletonRows } from "../components/Skeleton";
+import {
+  searchSignaturesPage,
+  deleteSignature,
+  downloadSignatureExport,
+  downloadSignatureBasket,
+  uploadSignature,
+  type SignatureSummary,
+} from "../api/client";
+
+const PAGE_SIZE = 25;
+import { useBasket, addToBasket, removeFromBasket, clearBasket, isInBasket } from "../basket";
+import { canDeleteSignature, canUploadSignature } from "../permissions";
+
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return String(value);
+}
 
 export default function SignaturesPage() {
-  const [sourceFilter, setSourceFilter] = useState<"all" | "local" | "remote">("all");
-  const [selected, setSelected] = useState<Signature | null>(signatures[0]);
+  const [rows, setRows] = useState<SignatureSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0); // 0-based
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  const filtered = signatures.filter((s) => sourceFilter === "all" || s.source_type === sourceFilter);
+  // Server-side pagination (DT `server = TRUE`): fetch only the current page
+  // from the API instead of pulling every signature up front. `query` and
+  // `page` both drive the fetch; a new search resets back to page 0.
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    searchSignaturesPage({ keyword: query || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE })
+      .then(({ rows: results, total: totalCount }) => {
+        if (!cancelled) {
+          setRows(results);
+          setTotal(totalCount);
+          setLoadError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : "Could not load signatures.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, page, refreshTick]);
 
-  const columns: Column<Signature>[] = [
-    { key: "signature_name", label: "Signature" },
-    {
-      key: "source_type",
-      label: "Source",
-      render: (row) => (
-        <span className={"badge " + (row.source_type === "remote" ? "badge-remote" : "badge-local")}>
-          {row.source_label}
-        </span>
-      ),
-    },
-    { key: "organism", label: "Organism" },
-    { key: "assay_type", label: "Assay" },
-    { key: "phenotype", label: "Phenotype" },
-    { key: "user_name", label: "Owner" },
-    { key: "visibility", label: "Visibility" },
-    { key: "date_created", label: "Created" },
-  ];
+  // Mirrors the Shiny app's pattern: clicking a row just selects it and
+  // reveals an action bar (View/Export/Add to Basket/Delete) above the
+  // table -- it doesn't navigate anywhere by itself. Only "View" opens the
+  // dedicated detail tab.
+  const [active, setActive] = useState<SignatureSummary | null>(null);
+
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!active) return;
+    if (!window.confirm(`Delete "${active.signature_name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteSignature(active.signature_hashkey);
+      setActive(null);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete signature.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function handleExport() {
+    if (!active) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadSignatureExport(active.signature_hashkey);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Could not export signature.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // ---------- Basket (bulk download), ported from the Shiny app's basket ----------
+
+  const basket = useBasket();
+  const [basketOpen, setBasketOpen] = useState(false);
+  const [basketDownloading, setBasketDownloading] = useState(false);
+  const [basketError, setBasketError] = useState<string | null>(null);
+
+  async function handleDownloadBasket() {
+    setBasketDownloading(true);
+    setBasketError(null);
+    try {
+      await downloadSignatureBasket(basket.map((b) => b.signature_hashkey));
+    } catch (err) {
+      setBasketError(err instanceof Error ? err.message : "Could not download basket.");
+    } finally {
+      setBasketDownloading(false);
+    }
+  }
+
+  // ---------- Upload (re-add a signature from an /signatures/export .rds file) ----------
+
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadVisible, setUploadVisible] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function handleUpload() {
+    if (!uploadFile) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      await uploadSignature(uploadFile, uploadVisible);
+      setShowUpload(false);
+      setUploadFile(null);
+      setUploadVisible(false);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Could not upload signature.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // A curated, at-a-glance subset of the signatures table. The full metadata
+  // (cutoffs, difexp counts, description, PMID, hashkey, etc.) lives on the
+  // signature detail view -- this table is for scanning/finding, not for
+  // showing every column.
+  const columns: Column<SignatureSummary>[] = useMemo(
+    () => [
+      { key: "signature_name", label: "Signature", render: (r) => <span className="cell-strong">{r.signature_name}</span> },
+      { key: "organism", label: "Organism", filterable: true, render: (r) => <span className="cell-italic">{r.organism ?? "—"}</span> },
+      { key: "assay_type", label: "Assay", filterable: true, render: (r) => <Badge tone="neutral">{r.assay_type}</Badge> },
+      { key: "direction_type", label: "Direction Type", filterable: true },
+      { key: "phenotype", label: "Phenotype", filterable: true, render: (r) => r.phenotype ?? "—" },
+      { key: "sample_type", label: "Sample Type", filterable: true, render: (r) => r.sample_type ?? "—" },
+      { key: "platform_name", label: "Platform", filterable: true, render: (r) => r.platform_name ?? "—" },
+      { key: "year", label: "Year", render: (r) => formatValue(r.year) },
+      { key: "user_name", label: "Owner" },
+      {
+        key: "visibility",
+        label: "Visibility",
+        filterable: true,
+        render: (r) => <Badge tone={r.visibility === 1 ? "success" : "neutral"}>{r.visibility === 1 ? "Public" : "Private"}</Badge>,
+      },
+    ],
+    []
+  );
 
   return (
     <div className="page">
-      <PageHero
-        gradient="linear-gradient(135deg, #143a5a 0%, #245f86 100%)"
-        title="Browse Signatures"
-        description="Select a signature from the repository to review metadata, raw signature values, and differential expression in one place."
+      <PageHeader
+        variant="bar"
+        title="Signatures"
+        subtitle={loading ? "Loading signatures…" : `${total} signatures across the repository`}
+        actions={
+          <>
+            <button className="btn btn-secondary" onClick={() => setBasketOpen(true)}>
+              <ShoppingBasket size={16} /> Basket ({basket.length})
+            </button>
+            <button className="btn btn-secondary">
+              <Plus size={16} /> Create
+            </button>
+            {canUploadSignature() && (
+              <button className="btn btn-primary" onClick={() => setShowUpload((s) => !s)}>
+                <Upload size={16} /> Upload
+              </button>
+            )}
+          </>
+        }
       />
 
-      <Card>
-        <div className="toolbar">
-          <div className="toolbar-group">
-            <button className="btn btn-default">
-              <Plus size={16} /> Create Signature
-            </button>
-            <button className="btn btn-primary">
-              <Upload size={16} /> Upload Signature
-            </button>
-            <span className="badge badge-status">Basket (0)</span>
+      {showUpload && (
+        <Card title="Upload signature">
+          <p className="cell-sub" style={{ marginBottom: 12 }}>
+            Upload an .rds file produced by a signature's "Export" download to re-add it under your account.
+          </p>
+          <div className="field">
+            <span className="field-label">Signature file (.rds)</span>
+            <input
+              className="input"
+              type="file"
+              accept=".rds"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            />
           </div>
-          <div className="toolbar-group">
-            <select
-              className="select-input"
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value as typeof sourceFilter)}
+          <label className="dt-filter-option" style={{ marginTop: 12, padding: 0 }}>
+            <input type="checkbox" checked={uploadVisible} onChange={(e) => setUploadVisible(e.target.checked)} />
+            <span>Public</span>
+          </label>
+          {uploadError && <p className="login-error">{uploadError}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button className="btn btn-primary" disabled={!uploadFile || uploading} onClick={handleUpload}>
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowUpload(false);
+                setUploadFile(null);
+                setUploadError(null);
+              }}
             >
-              <option value="all">All Sources</option>
-              <option value="local">Local Only</option>
-              <option value="remote">Connected Nodes</option>
-            </select>
-            <button className="btn btn-default">Manage Connections</button>
-            <button className="btn btn-default">Refresh Sources</button>
+              Cancel
+            </button>
+          </div>
+        </Card>
+      )}
+
+      <Card padded={false}>
+        <div className="toolbar">
+          <div className="input-affix toolbar-search">
+            <Search size={15} className="toolbar-search-icon" />
+            <input
+              className="input input-flush"
+              placeholder="Search signatures…"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(0);
+              }}
+            />
           </div>
         </div>
-        <p className="card-helper">
-          Highlight one or more rows to add them to the basket. The most recently clicked row becomes the active
-          selection, and View will load its full contents on demand.
-        </p>
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          rowKey="signature_id"
-          selectedKey={selected?.signature_id ?? null}
-          onSelectRow={setSelected}
-        />
-      </Card>
 
-      <Card title="Selected Signature" helper="Selecting a row updates the active signature. Use View to load the full metadata and data tables below.">
-        {!selected ? (
-          <div className="empty-state">No signature selected.</div>
+        {active && (
+          <div className="signature-action-bar">
+            <div className="signature-action-name">
+              <span className="signature-action-label">Selected</span>
+              <span className="cell-strong">{active.signature_name}</span>
+            </div>
+            <div className="signature-action-buttons">
+              <a
+                className="btn btn-primary"
+                href={`/signatures/${active.signature_hashkey}`}
+                target="_blank"
+                rel="noopener"
+              >
+                <Eye size={15} /> View
+              </a>
+              <button className="btn btn-secondary" onClick={handleExport} disabled={exporting}>
+                <Download size={15} /> {exporting ? "Exporting…" : "Export"}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => addToBasket(active)}
+                disabled={isInBasket(active.signature_hashkey)}
+              >
+                <ShoppingBasket size={15} /> {isInBasket(active.signature_hashkey) ? "In Basket" : "Add to Basket"}
+              </button>
+              {canDeleteSignature(active.user_name) && (
+                <button className="btn btn-secondary" onClick={handleDelete} disabled={deleting}>
+                  <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete"}
+                </button>
+              )}
+              <button className="icon-btn" onClick={() => setActive(null)} title="Clear selection">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+        {deleteError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{deleteError}</p>}
+        {exportError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{exportError}</p>}
+
+        {loadError && <p className="login-error" style={{ margin: "0 16px 12px" }}>{loadError}</p>}
+        {loading && rows.length === 0 ? (
+          <SkeletonRows rows={10} cols={6} />
         ) : (
-          <>
-            <div className="selected-header">
-              <span className="selected-label">Selection</span>
-              <span className="selected-name">{selected.signature_name}</span>
-            </div>
-            <div className="stat-grid" style={{ marginTop: 14 }}>
-              <div className="stat-card">
-                <span className="stat-label">Organism</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.organism}</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Assay Type</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.assay_type}</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Sample Type</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.sample_type}</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-label">Phenotype</span>
-                <span className="stat-value" style={{ fontSize: 16 }}>{selected.phenotype}</span>
-              </div>
-            </div>
-            <p className="card-helper" style={{ marginTop: 14 }}>{selected.description}</p>
-            <h4 style={{ marginBottom: 8 }}>Top Features (preview)</h4>
-            <table className="dt-table dt-table-compact">
-              <thead>
-                <tr>
-                  <th>Feature</th>
-                  <th>Symbol</th>
-                  <th>Score</th>
-                  <th>Direction</th>
-                </tr>
-              </thead>
-              <tbody>
-                {featurePreview.map((f) => (
-                  <tr key={f.feature_name}>
-                    <td>{f.feature_name}</td>
-                    <td>{f.symbol}</td>
-                    <td>{f.score.toFixed(2)}</td>
-                    <td>
-                      <span className={"badge " + (f.direction === "+" ? "badge-status" : "badge-remote")}>
-                        {f.direction}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey="signature_hashkey"
+            selectedKey={active?.signature_hashkey ?? null}
+            onSelectRow={setActive}
+            emptyLabel="No signatures match your filters"
+            scrollable
+            maxHeight={560}
+            searchable={false}
+            serverPagination={{ page, pageSize: PAGE_SIZE, total, onPageChange: setPage }}
+          />
         )}
       </Card>
+
+      <Drawer
+        open={basketOpen}
+        onClose={() => setBasketOpen(false)}
+        title="Basket"
+        subtitle={`${basket.length} signature${basket.length === 1 ? "" : "s"}`}
+        footer={
+          basket.length > 0 && (
+            <>
+              <button className="btn btn-secondary" onClick={clearBasket}>
+                Clear Basket
+              </button>
+              <button className="btn btn-primary" onClick={handleDownloadBasket} disabled={basketDownloading}>
+                <Download size={15} /> {basketDownloading ? "Downloading…" : "Download Basket"}
+              </button>
+            </>
+          )
+        }
+      >
+        {basketError && <p className="login-error">{basketError}</p>}
+        {basket.length === 0 ? (
+          <p className="cell-sub">No signatures in the basket yet. Open a signature and click "Add to Basket".</p>
+        ) : (
+          <div className="member-list">
+            {basket.map((item) => (
+              <div className="member-item" key={item.signature_hashkey}>
+                <div>
+                  <span className="cell-strong">{item.signature_name}</span>
+                  <span className="cell-sub">{item.organism ?? "—"} · {item.phenotype ?? "—"}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Badge tone="neutral">{item.assay_type}</Badge>
+                  <button
+                    className="icon-btn"
+                    onClick={() => removeFromBasket(item.signature_hashkey)}
+                    title="Remove from basket"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 }

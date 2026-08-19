@@ -6,7 +6,7 @@
 # 4. You can end patterns with a forward slash (/) to specify a directory.
 # 5. You can negate a pattern by starting it with an exclamation point (!).
 
-# Ignore specific files 
+# Ignore specific files
 .Rhistory
 .DS_Store
 .Rapp.history
@@ -26,3 +26,8 @@ build.log
 # Ignore folders
 .Rproj.user/
 docs/
+.Renviron.local
+
+# Cached MSigDB gene sets. Derived data, ~14MB, rebuilt on demand by the API's
+# /init_db_genesets (or /init_db) endpoint rather than shipped in the repo.
+data/msigdb_genesets/

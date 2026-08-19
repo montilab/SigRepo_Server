@@ -5,7 +5,7 @@ on:
     branches: [main, master]
     paths:
       - "api/**"
-      - "shiny/modules/**"
+      - "mcp/**"
       - "mysql/schema/**"
       - "tests/**"
       - "DESCRIPTION"
@@ -96,8 +96,33 @@ jobs:
 
       - name: Install hypeR and OmicSignature
         run: |
-          Rscript -e 'remotes::install_github("montilab/OmicSignature", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
-          Rscript -e 'remotes::install_github("montilab/hypeR", dependencies = c("Depends", "Imports", "LinkingTo"), upgrade = "never")'
+          Rscript -e '
+            # install_github() can fail to fetch the tarball, print the error,
+            # and still exit 0 -- seen on 2026-08-17, when a GitHub API blip
+            # left OmicSignature uninstalled and the job carried on to fail nine
+            # test files deep with "The package OmicSignature is required".
+            # Retry the fetch, then check installed.packages() rather than the
+            # exit status, so a genuine failure stops here where the cause is
+            # readable. This only ever bites on a cache miss; the R library
+            # cache normally carries both packages over from a prior run.
+            repos <- c(OmicSignature = "montilab/OmicSignature", hypeR = "montilab/hypeR")
+            for (pkg in names(repos)) {
+              for (attempt in 1:3) {
+                try(remotes::install_github(
+                  repos[[pkg]],
+                  dependencies = c("Depends", "Imports", "LinkingTo"),
+                  upgrade = "never"
+                ))
+                if (pkg %in% rownames(installed.packages())) break
+                message(sprintf("%s not installed after attempt %d; retrying...", pkg, attempt))
+                Sys.sleep(15 * attempt)
+              }
+            }
+            missing <- setdiff(names(repos), rownames(installed.packages()))
+            if (length(missing) > 0) {
+              stop("Failed to install from GitHub after 3 attempts: ", paste(missing, collapse = ", "))
+            }
+          '
 
       - name: Load MySQL schema
         run: |
@@ -131,3 +156,32 @@ jobs:
       - name: Show API log on failure
         if: failure()
         run: cat /tmp/api.log || true
+
+      - name: Boot MCP server and smoke-check tools/list
+        env:
+          MCP_PORT: 8021
+        run: |
+          Rscript mcp/run_sigrepo_mcp.R > /tmp/mcp.log 2>&1 &
+          echo $! > /tmp/mcp.pid
+          for i in $(seq 1 30); do
+            curl -fsS -X POST http://127.0.0.1:8021 -H "Content-Type: application/json" \
+              -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          response=$(curl -fsS -X POST http://127.0.0.1:8021 -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
+          echo "$response"
+          echo "$response" | grep -q '"search_signatures"'
+          echo "$response" | grep -q '"get_signature_context"'
+          echo "$response" | grep -q '"compare_signatures"'
+          echo "$response" | grep -q '"list_vocabulary"'
+          echo "$response" | grep -q '"search_collections"'
+          echo "$response" | grep -q '"search_geneset_resources"'
+          echo "$response" | grep -q '"search_geneset_entries"'
+          echo "$response" | grep -q '"search_features"'
+          echo "$response" | grep -q '"run_enrichment"'
+          kill "$(cat /tmp/mcp.pid)" || true
+
+      - name: Show MCP server log on failure
+        if: failure()
+        run: cat /tmp/mcp.log || true

@@ -9,6 +9,15 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      # The Docker Hub *login* identity (secrets.DOCKERHUB_USERNAME, a bot
+      # account) is not the same thing as the *namespace* images should be
+      # published under. montibot is a member of the montilab org with push
+      # access to it, but pushing to "montibot/sigrepo" and "montilab/sigrepo"
+      # are different repos on different accounts -- images must go to the
+      # shared org namespace so docker-compose.yml (which hardcodes
+      # montilab/...) actually picks them up.
+      DOCKERHUB_NAMESPACE: montilab
     strategy:
       fail-fast: false
       matrix:
@@ -18,25 +27,34 @@ jobs:
             dockerfile: mysql/Dockerfile
             build_args: |
               mysql_image=mysql:8.0-bookworm
-            tags_extra: ""
+            extra_repos: ""
           - image_repo: sigrepo-api
             context: .
             dockerfile: Dockerfile
             build_args: |
               R_VERSION=4.4.3
               SIGREPO_BRANCH=master
-            tags_extra: |
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo-shiny:latest
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo-shiny:${{ github.sha }}
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo:latest
-              ${{ secrets.DOCKERHUB_USERNAME }}/sigrepo:${{ github.sha }}
+            # "sigrepo" is load-bearing: docker-compose.yml pulls the API and
+            # MCP services from montilab/sigrepo:latest. The old sigrepo-shiny
+            # alias is gone -- it published this same API image under a name
+            # implying it served the Shiny dashboard, which no longer exists
+            # here (it moved to SigRepo_Server_Legacy). The served UI is now
+            # sigrepo-web, built below from its own Dockerfile rather than
+            # aliased onto this one.
+            extra_repos: "sigrepo"
+          # The React interface that replaced the Shiny dashboard. Until now it
+          # had no published image at all -- docker-compose.yml only carried a
+          # `build:` stanza, so every deployment had to compile the bundle on
+          # the server. Publishing it makes deploying a pull like the others.
+          - image_repo: sigrepo-web
+            context: web
+            dockerfile: web/Dockerfile
+            build_args: ""
+            extra_repos: ""
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -48,17 +66,37 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # matrix.extra_repos holds plain repo names (see note in the job-level
+      # env above for why the namespace isn't secrets.DOCKERHUB_USERNAME).
+      - name: Compute extra image tags
+        id: extra_tags
+        env:
+          EXTRA_REPOS: ${{ matrix.extra_repos }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "tags<<TAGS_EOF"
+            if [ -n "$EXTRA_REPOS" ]; then
+              IFS=',' read -ra EXTRAS <<< "$EXTRA_REPOS"
+              for repo in "${EXTRAS[@]}"; do
+                echo "${DOCKERHUB_NAMESPACE}/${repo}:latest"
+                echo "${DOCKERHUB_NAMESPACE}/${repo}:${SHA}"
+              done
+            fi
+            echo "TAGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and push ${{ matrix.image_repo }}
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           build-args: ${{ matrix.build_args }}
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_repo }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_repo }}:${{ github.sha }}
-            ${{ matrix.tags_extra }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ github.sha }}
+            ${{ steps.extra_tags.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.image_repo }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image_repo }}
