@@ -97,6 +97,44 @@ export function logout() {
   setAuth(null);
 }
 
+export interface RegistrationInput {
+  userName: string;
+  password: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  affiliation?: string;
+}
+
+// Both of these return the server's own message rather than a fixed string:
+// registration reports whether the admin notification also went out, and the
+// reset reply is deliberately identical whether or not the account exists, so
+// neither can be summarised safely on the client.
+export async function register(input: RegistrationInput): Promise<string> {
+  const data = await apiFetch<{ MESSAGES?: string | string[] }>("/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_name: input.userName,
+      password: input.password,
+      user_email: input.email,
+      user_first: input.firstName ?? "",
+      user_last: input.lastName ?? "",
+      user_affiliation: input.affiliation ?? "",
+    }),
+  });
+  return extractMessage(data) ?? "Registration submitted.";
+}
+
+export async function requestPasswordReset(identifier: string): Promise<string> {
+  const data = await apiFetch<{ MESSAGES?: string | string[] }>("/forgot_password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier }),
+  });
+  return extractMessage(data) ?? "If that account exists, a temporary password has been sent.";
+}
+
 
 export interface Vocabulary {
   organism: string[];

@@ -838,6 +838,60 @@ login <- function(req, res, user_name = "", password = ""){
   ))
 }
 
+#* Self-service registration, matching the Shiny portal's form. Creates the
+#* account inactive and emails the administrator to approve it; the account
+#* cannot log in until /activate_user runs. No api_key: the caller by
+#* definition does not have one yet.
+#* @parser json
+#* @param user_name
+#* @param password
+#* @param user_email
+#* @param user_first
+#* @param user_last
+#* @param user_affiliation
+#' @post /register
+register_route <- function(req, res, user_name = "", password = "", user_email = "",
+                           user_first = "", user_last = "", user_affiliation = ""){
+  body <- request_json_body(req)
+  pick <- function(param, key) {
+    if (identical(json_scalar(param), "")) json_scalar(body[[key]]) else json_scalar(param)
+  }
+
+  result <- register_new_user(
+    user_name = pick(user_name, "user_name"),
+    password = if (identical(json_scalar(password), "")) json_scalar(body$password) else json_scalar(password),
+    user_email = pick(user_email, "user_email"),
+    user_first = pick(user_first, "user_first"),
+    user_last = pick(user_last, "user_last"),
+    user_affiliation = pick(user_affiliation, "user_affiliation")
+  )
+
+  if (!base::isTRUE(result$ok)) {
+    return(json_error(res, 400, result$reason))
+  }
+
+  json_response(res, 200, base::data.frame(MESSAGES = result$reason, stringsAsFactors = FALSE))
+}
+
+#* Request a temporary password. Takes either a username or the email on the
+#* account. Always answers the same way whether or not the account exists, so
+#* this cannot be used to find out who has one.
+#* @parser json
+#* @param identifier
+#' @post /forgot_password
+forgot_password_route <- function(req, res, identifier = ""){
+  body <- request_json_body(req)
+  identifier <- if (identical(json_scalar(identifier), "")) json_scalar(body$identifier) else json_scalar(identifier)
+
+  result <- request_password_reset(identifier)
+
+  if (!base::isTRUE(result$ok)) {
+    return(json_error(res, 400, result$reason))
+  }
+
+  json_response(res, 200, base::data.frame(MESSAGES = result$reason, stringsAsFactors = FALSE))
+}
+
 #* Resolve the account name + role for an api_key. Used by the agent
 #* skill-runner (agent/runner.py) to admin-gate the website assistant --
 #* it never trusts the browser's own role claim, it re-checks here.
