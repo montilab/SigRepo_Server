@@ -2,7 +2,12 @@ name: test
 
 on:
   push:
-    branches: [main, master]
+    # dev is the integration branch: work lands there first and only reaches
+    # master for a release, so the suite has to run here or changes go
+    # unverified until release time. The image build (docker-image.yml)
+    # deliberately still fires on master only -- publishing on every dev merge
+    # is the expensive part, and nothing consumes a dev image.
+    branches: [main, master, dev]
     paths:
       - "api/**"
       - "mcp/**"
@@ -12,12 +17,24 @@ on:
       - "install_r_packages.R"
       - ".github/workflows/test.yml"
   pull_request:
-    branches: [main, master]
+    branches: [main, master, dev]
   workflow_dispatch:
 
 jobs:
   testthat-integration:
     runs-on: ubuntu-latest
+    # Run inside the image this repository already publishes. It is built from
+    # the same Dockerfile that installs the apt list and every R package the
+    # suite needs, so installing them again on a bare runner was rebuilding an
+    # environment we ship anyway.
+    #
+    # That install was the entire cost of this job. Across recent runs
+    # `Install system dependencies` + `setup-r` took 39%, 86%, 85% and 98% of
+    # total wall time; one run spent 96.8 of 98.4 minutes there to run a test
+    # suite that finished in 24 seconds. Both steps are uncached network work
+    # and varied 100x between runs. The R library cache was never the problem --
+    # it hit every time, including on that 98 minute run.
+    container: montilab/sigrepo:latest
     concurrency:
       group: test-${{ github.event_name != 'pull_request' || github.run_id }}
       cancel-in-progress: true
@@ -40,8 +57,11 @@ jobs:
 
     env:
       DB_NAME: sigrepo_test
-      DB_LOCAL_HOST: 127.0.0.1
-      DB_HOST: 127.0.0.1
+      # 'mysql' is the service label below. Inside a container the job joins
+      # the service network directly, where 127.0.0.1 is the job's own
+      # container -- the published port only exists on the runner host.
+      DB_LOCAL_HOST: mysql
+      DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: sigrepo_root_pw
@@ -62,36 +82,37 @@ jobs:
           repository: montilab/SigRepo
           path: external/SigRepo
 
-      - name: Install system dependencies
+      # The image ships libmysqlclient for RMySQL but not the mysql CLI, which
+      # the schema-load and seed steps below use. One small package, ~5s.
+      - name: Install the MySQL client
         run: |
-          sudo apt-get update --allow-releaseinfo-change --fix-missing
-          sudo apt-get -y --no-install-recommends install \
-            build-essential pkg-config cmake \
-            libcurl4-openssl-dev libssl-dev libxml2-dev \
-            default-libmysqlclient-dev librsvg2-dev libudunits2-dev \
-            libv8-dev libsodium-dev libbz2-dev liblzma-dev \
-            tcl8.6-dev tk8.6-dev libabsl-dev libuv1-dev
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends default-mysql-client
 
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          use-public-rspm: true
+      # Everything the suite imports is already in the image; these two are in
+      # Suggests, so the Dockerfile's dependency install skips them.
+      - name: Install test-only packages
+        run: Rscript -e 'install.packages(c("testthat", "pkgload"), repos = "https://cloud.r-project.org")'
 
-      - name: Cache R library
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-rlibs-${{ hashFiles('DESCRIPTION', 'external/SigRepo/DESCRIPTION') }}
-          restore-keys: |
-            ${{ runner.os }}-rlibs-
-
-      - name: Install SigRepo_Server R dependencies
+      # Kept as a safety net for a change that adds a dependency the published
+      # image predates -- install_r_packages.R skips anything already present,
+      # so on an up-to-date image this is a no-op rather than a reinstall.
+      - name: Install any dependency the image predates
         run: Rscript install_r_packages.R
 
-      - name: Install SigRepo's own dependencies (loaded via pkgload, not installed itself)
+      # Same intent for SigRepo's own imports. Guarded on installed.packages()
+      # because install.packages() reinstalls unconditionally, and all of these
+      # are already in the image -- calling it directly would spend a minute
+      # rebuilding what is there.
+      - name: Install any SigRepo dependency the image predates
         run: |
           Rscript -e '
-            BiocManager::install(c("limma", "biomaRt"), ask = FALSE, update = FALSE)
-            install.packages(c("digest", "purrr", "readr", "rlang", "pkgload", "testthat"))
+            have <- rownames(installed.packages())
+            bioc <- setdiff(c("limma", "biomaRt"), have)
+            if (length(bioc)) BiocManager::install(bioc, ask = FALSE, update = FALSE)
+            cran <- setdiff(c("digest", "purrr", "readr", "rlang"), have)
+            if (length(cran)) install.packages(cran)
+            cat("installed:", if (length(c(bioc, cran))) paste(c(bioc, cran), collapse = ", ") else "nothing needed", "\n")
           '
 
       - name: Install hypeR and OmicSignature
@@ -131,10 +152,10 @@ jobs:
             for f in mysql/schema/*.sql; do cat "$f"; echo ";"; done
             echo "SET FOREIGN_KEY_CHECKS=1;"
           } > /tmp/schema.sql
-          mysql -h127.0.0.1 -uroot -psigrepo_root_pw sigrepo_test < /tmp/schema.sql
+          mysql -h"$DB_HOST" -uroot -psigrepo_root_pw sigrepo_test < /tmp/schema.sql
 
       - name: Seed test fixtures
-        run: mysql -h127.0.0.1 -uroot -psigrepo_root_pw sigrepo_test < tests/testthat/fixtures/seed.sql
+        run: mysql -h"$DB_HOST" -uroot -psigrepo_root_pw sigrepo_test < tests/testthat/fixtures/seed.sql
 
       - name: Run testthat
         run: testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
