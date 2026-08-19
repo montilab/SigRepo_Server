@@ -135,6 +135,48 @@ export async function requestPasswordReset(identifier: string): Promise<string> 
   return extractMessage(data) ?? "If that account exists, a temporary password has been sent.";
 }
 
+export interface GeneSearchHit {
+  signature_hashkey: string;
+  signature_name: string;
+  assay_type: string | null;
+  organism: string | null;
+  phenotype: string | null;
+  n_overlap: number;
+  n_signature_genes: number;
+  n_query_genes: number;
+  jaccard: number;
+  matched_genes: string | null;
+}
+
+export interface GeneSearchResult {
+  query_size: number;
+  source_signature: string | null;
+  total: number;
+  hits: GeneSearchHit[];
+}
+
+// Find signatures by the genes they contain. Pass `genes` to search a list, or
+// `signatureHashkey` to use that signature's own genes -- the server resolves
+// them and excludes the source signature from its own results.
+export async function searchSignaturesByGenes(input: {
+  genes?: string[];
+  signatureHashkey?: string;
+  limit?: number;
+  minOverlap?: number;
+}): Promise<GeneSearchResult> {
+  return apiFetch<GeneSearchResult>("/signatures/search_by_genes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      genes: input.genes ?? [],
+      signature_hashkey: input.signatureHashkey ?? "",
+      limit: input.limit ?? 20,
+      min_overlap: input.minOverlap ?? 1,
+    }),
+  });
+}
+
 
 export interface Vocabulary {
   organism: string[];

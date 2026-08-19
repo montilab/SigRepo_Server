@@ -353,3 +353,121 @@ delete_signature <- function(auth, signature_hashkey) {
     }
   })
 }
+
+# Gene-content search: given gene symbols, which signatures contain them?
+#
+# The reverse of the Rummagene lookup, and the direction that lets someone
+# arrive with a gene list and discover signatures without knowing any of them by
+# name. Needs the indexes from scripts/migrate_gene_search_indexes.R to be fast;
+# it is correct without them, just slow.
+#
+# The join is keyed on BOTH feature_id and assay_type, which is load-bearing:
+# feature_id is a separate AUTO_INCREMENT per feature table, so the same id
+# means different genes in transcriptomics_features and proteomics_features and
+# their ranges overlap. Joining on feature_id alone silently matches proteomics
+# features against transcriptomics ones.
+.gene_search_feature_tables <- base::list(
+  transcriptomics = "transcriptomics_features",
+  proteomics = "proteomics_features"
+)
+
+# Returns a data frame ordered by overlap: signature_hashkey, signature_name,
+# organism, phenotype, assay_type, n_overlap, n_signature_genes, jaccard,
+# and matched_genes (comma-separated, capped).
+search_signatures_by_genes <- function(conn, genes, limit = 20, min_overlap = 1,
+                                       exclude_hashkey = NULL, is_admin = FALSE) {
+  genes <- base::unique(base::toupper(base::trimws(base::as.character(genes))))
+  genes <- genes[!base::is.na(genes) & base::nzchar(genes)]
+  if (base::length(genes) == 0) {
+    return(base::data.frame())
+  }
+
+  limit <- base::suppressWarnings(base::as.integer(limit[1]))
+  if (base::is.na(limit) || limit < 1) limit <- 20
+  limit <- base::min(limit, 100)
+
+  min_overlap <- base::suppressWarnings(base::as.integer(min_overlap[1]))
+  if (base::is.na(min_overlap) || min_overlap < 1) min_overlap <- 1
+
+  gene_list <- base::paste(
+    base::vapply(genes, function(g) DBI::dbQuoteLiteral(conn, g), character(1)),
+    collapse = ", "
+  )
+
+  # One branch per feature table, unioned. Each carries its own assay_type so
+  # the join back to signature_feature_set cannot cross tables.
+  branches <- base::vapply(
+    base::names(.gene_search_feature_tables),
+    function(assay) base::sprintf(
+      "SELECT feature_id, UPPER(gene_symbol) AS gene_symbol, %s AS assay_type FROM %s WHERE UPPER(gene_symbol) IN (%s)",
+      DBI::dbQuoteLiteral(conn, assay), .gene_search_feature_tables[[assay]], gene_list
+    ),
+    character(1)
+  )
+  matched_features <- base::paste(branches, collapse = " UNION ALL ")
+
+  where_visibility <- if (is_admin) "" else " AND s.visibility = 1"
+  where_exclude <- if (!base::is.null(exclude_hashkey) && base::nzchar(exclude_hashkey)) {
+    base::paste(" AND s.signature_hashkey <>", DBI::dbQuoteLiteral(conn, exclude_hashkey))
+  } else {
+    ""
+  }
+
+  query <- base::sprintf("
+    SELECT s.signature_hashkey, s.signature_name, s.assay_type,
+           o.organism, p.phenotype,
+           COUNT(DISTINCT g.gene_symbol) AS n_overlap,
+           GROUP_CONCAT(DISTINCT g.gene_symbol ORDER BY g.gene_symbol SEPARATOR ',') AS matched_genes
+    FROM (%s) g
+    JOIN signature_feature_set sfs
+      ON sfs.feature_id = g.feature_id AND sfs.assay_type = g.assay_type
+    JOIN signatures s ON s.signature_id = sfs.signature_id
+    LEFT JOIN organisms o ON s.organism_id = o.organism_id
+    LEFT JOIN phenotypes p ON s.phenotype_id = p.phenotype_id
+    WHERE 1=1%s%s
+    GROUP BY s.signature_id
+    HAVING n_overlap >= %d
+    ORDER BY n_overlap DESC, s.signature_name ASC
+    LIMIT %d",
+    matched_features, where_visibility, where_exclude, min_overlap, limit
+  )
+
+  hits <- DBI::dbGetQuery(conn, query)
+  if (base::nrow(hits) == 0) {
+    return(base::data.frame())
+  }
+
+  # Jaccard needs each hit's own gene count. Done as a second query over just
+  # the returned signatures rather than a correlated subquery in the one above,
+  # which would compute it for every candidate before the LIMIT.
+  hit_keys <- base::paste(
+    base::vapply(hits$signature_hashkey, function(k) DBI::dbQuoteLiteral(conn, k), character(1)),
+    collapse = ", "
+  )
+  size_branches <- base::vapply(
+    base::names(.gene_search_feature_tables),
+    function(assay) base::sprintf(
+      "SELECT s.signature_hashkey, UPPER(f.gene_symbol) AS gene_symbol
+         FROM signatures s
+         JOIN signature_feature_set sfs ON sfs.signature_id = s.signature_id
+         JOIN %s f ON f.feature_id = sfs.feature_id
+        WHERE sfs.assay_type = %s AND s.signature_hashkey IN (%s)
+          AND f.gene_symbol IS NOT NULL AND f.gene_symbol <> ''",
+      .gene_search_feature_tables[[assay]], DBI::dbQuoteLiteral(conn, assay), hit_keys
+    ),
+    character(1)
+  )
+  sizes <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT signature_hashkey, COUNT(DISTINCT gene_symbol) AS n_signature_genes FROM (%s) t GROUP BY signature_hashkey",
+    base::paste(size_branches, collapse = " UNION ALL ")
+  ))
+
+  hits$n_signature_genes <- sizes$n_signature_genes[base::match(hits$signature_hashkey, sizes$signature_hashkey)]
+  hits$n_signature_genes[base::is.na(hits$n_signature_genes)] <- 0L
+  hits$n_query_genes <- base::length(genes)
+
+  union_size <- hits$n_query_genes + hits$n_signature_genes - hits$n_overlap
+  hits$jaccard <- base::ifelse(union_size > 0, base::round(hits$n_overlap / union_size, 5), 0)
+
+  hits
+}

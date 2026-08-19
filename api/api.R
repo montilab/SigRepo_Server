@@ -1003,6 +1003,103 @@ rummagene_enrich_route <- function(req, res, api_key = "", genes = NULL, signatu
   json_response(res, 200, payload = result)
 }
 
+
+#* Find signatures by the genes they contain -- the reverse of
+#* /rummagene/enrich. Give it gene symbols directly, or a signature_hashkey to
+#* use that signature's own genes (which is how the "related signatures" panel
+#* works, with the source signature excluded from its own results).
+#* @parser json
+#* @param api_key
+#* @param genes
+#* @param signature_hashkey
+#* @param limit
+#* @param min_overlap
+#' @post /signatures/search_by_genes
+search_by_genes_route <- function(req, res, api_key = "", genes = NULL, signature_hashkey = "",
+                                  limit = 20, min_overlap = 1){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  genes_vec <- if (!base::is.null(body$genes)) {
+    json_vector(body$genes)
+  } else if (!base::is.null(genes)) {
+    json_vector(genes)
+  } else {
+    base::character()
+  }
+
+  hk <- if (identical(json_scalar(signature_hashkey), "")) {
+    json_scalar(body$signature_hashkey)
+  } else {
+    json_scalar(signature_hashkey)
+  }
+
+  # Given a signature and no genes, resolve its symbols the same way the
+  # Rummagene route does -- reference tables first, then the difexp fallback for
+  # signatures stored as Ensembl/other IDs. Sharing the resolution keeps the two
+  # gene-based features from disagreeing about what a signature's genes are.
+  source_name <- NULL
+  if (base::length(genes_vec) == 0 && !identical(hk, "")) {
+    resolved <- base::tryCatch(
+      resolve_single_enrichment_query(auth, hk, "hypergeometric", difexp_dir),
+      error = function(e) base::list(ok = FALSE, reason = "error")
+    )
+    if (base::isTRUE(resolved$ok)) {
+      genes_vec <- resolved$query
+      source_name <- resolved$signature_name
+    } else {
+      difexp_syms <- base::tryCatch(
+        rummagene_signature_symbols_from_difexp(auth, hk, difexp_dir),
+        error = function(e) NULL
+      )
+      if (!base::is.null(difexp_syms) && base::length(difexp_syms) > 0) {
+        genes_vec <- difexp_syms
+        source_name <- resolved$signature_name
+      } else {
+        return(json_error(res, 422, base::paste0(
+          "Could not resolve gene symbols for this signature. Its features are stored as ",
+          "Ensembl/other IDs with no gene-symbol mapping in SigRepo's reference tables, and ",
+          "its difexp table did not provide symbols either."
+        )))
+      }
+    }
+  }
+
+  if (base::length(genes_vec) == 0) {
+    return(json_error(res, 400, "Provide gene symbols, or a signature_hashkey whose genes can be resolved."))
+  }
+
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  hits <- base::tryCatch(
+    search_signatures_by_genes(
+      conn = conn,
+      genes = genes_vec,
+      limit = base::as.integer(json_scalar(limit, "20")),
+      min_overlap = base::as.integer(json_scalar(min_overlap, "1")),
+      # A signature is never a hit for its own genes.
+      exclude_hashkey = if (identical(hk, "")) NULL else hk,
+      is_admin = identical(auth$user_role, "admin")
+    ),
+    error = function(e) e
+  )
+  if (base::inherits(hits, "error")) {
+    return(json_error(res, 500, base::sprintf("Gene search failed: %s", base::conditionMessage(hits))))
+  }
+
+  json_response(res, 200, payload = base::list(
+    query_size = base::length(genes_vec),
+    source_signature = source_name,
+    total = base::nrow(hits),
+    hits = compact_table(hits, max_rows = 100)
+  ))
+}
 #* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
 #* @param api_key
 #' @get /vocabulary
