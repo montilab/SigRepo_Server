@@ -48,7 +48,9 @@ Suggests:
   BiocManager,
   devtools,
   pkgdown,
-  testthat (>= 3.0.0)
+  signatureSearch,
+  testthat (>= 3.0.0),
+  withr
 Config/testthat/edition: 3
 biocViews: Software, FeatureExtraction
 VignetteBuilder: knitr

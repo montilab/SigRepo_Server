@@ -2446,3 +2446,94 @@ a.rmg-item-title:hover {
     justify-content: flex-end;
   }
 }
+
+/* LINCS perturbation-connectivity panel. Sibling of the Rummagene and
+   related-signatures panels; the difference is that it can be switched off at
+   the deployment level, so it has a state for "configured off" that the others
+   do not need. */
+.lincs-card {
+  margin-top: 16px;
+}
+.lincs-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.lincs-title {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  color: var(--text-secondary);
+}
+.lincs-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+/* Deliberately quiet: this is a statement about how the server is configured,
+   not an error the reader caused or can fix. */
+.lincs-off {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--surface-subtle, transparent);
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.lincs-off svg {
+  flex: none;
+  margin-top: 2px;
+}
+.lincs-summary {
+  margin-bottom: 10px;
+}
+.lincs-tablewrap {
+  overflow-x: auto;
+}
+.lincs-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+  min-width: 480px;
+}
+.lincs-table th,
+.lincs-table td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.lincs-table thead th {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.lincs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.lincs-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lincs-pert {
+  font-weight: 550;
+  color: var(--text-primary);
+}
+/* "reverses" is the interesting case -- a perturbation opposing the signature
+   is the repurposing hypothesis -- so it gets the emphasis, not the warning. */
+.lincs-rev {
+  color: var(--success);
+  font-weight: 600;
+}
+.lincs-mim {
+  color: var(--text-muted);
+}

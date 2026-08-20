@@ -1100,6 +1100,75 @@ search_by_genes_route <- function(req, res, api_key = "", genes = NULL, signatur
     hits = compact_table(hits, max_rows = 100)
   ))
 }
+
+#* Search LINCS for perturbations whose expression profile matches or reverses
+#* this signature. A reversing hit (negative NCS) is the drug-repurposing case.
+#*
+#* Human transcriptomics signatures only -- see api/lib/signature_search.R for
+#* why. Returns 422 with an explanation rather than an empty result when a
+#* signature is out of scope, and 503 when the reference database is not
+#* configured on this deployment.
+#* @parser json
+#* @param api_key
+#* @param signature_hashkey
+#* @param limit
+#' @post /signatures/lincs_search
+lincs_search_route <- function(req, res, api_key = "", signature_hashkey = "", limit = 25){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  hk <- if (identical(json_scalar(signature_hashkey), "")) {
+    json_scalar(body$signature_hashkey)
+  } else {
+    json_scalar(signature_hashkey)
+  }
+  if (identical(hk, "")) {
+    return(json_error(res, 400, "signature_hashkey is required."))
+  }
+
+  result <- lincs_search(auth, hk, limit = base::as.integer(json_scalar(limit, "25")))
+
+  if (!base::isTRUE(result$ok)) {
+    status <- base::switch(
+      result$reason %||% "",
+      unavailable = 503L,
+      not_found = 404L,
+      search_failed = 502L,
+      422L
+    )
+    return(json_error(res, status, result$message %||% "LINCS search could not run."))
+  }
+
+  json_response(res, 200, payload = base::list(
+    signature_name = result$signature_name,
+    n_up = result$n_up,
+    n_down = result$n_down,
+    n_ambiguous = result$n_ambiguous,
+    total = result$total,
+    hits = result$hits
+  ))
+}
+
+#* Whether a LINCS search can run on this deployment, so the UI can hide or
+#* explain the feature instead of offering a button that always fails.
+#* @param api_key
+#' @get /signatures/lincs_status
+lincs_status_route <- function(res, api_key = ""){
+  auth <- validate_api_key(res, json_scalar(api_key))
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  reason <- lincs_unavailable_reason()
+  json_response(res, 200, payload = base::list(
+    available = base::is.null(reason),
+    reason = reason
+  ))
+}
 #* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
 #* @param api_key
 #' @get /vocabulary

@@ -177,6 +177,50 @@ export async function searchSignaturesByGenes(input: {
   });
 }
 
+export interface LincsHit {
+  pert: string;
+  cell: string | null;
+  type: string | null;
+  trend: string | null;
+  WTCS: number | null;
+  WTCS_FDR: number | null;
+  NCS: number | null;
+  N_upset: number | null;
+  N_downset: number | null;
+}
+
+export interface LincsResult {
+  signature_name: string | null;
+  n_up: number;
+  n_down: number;
+  n_ambiguous: number;
+  total: number;
+  hits: LincsHit[];
+}
+
+export interface LincsStatus {
+  available: boolean;
+  reason: string | null;
+}
+
+// Whether this deployment can run a LINCS search at all. The reference database
+// is several GB and is not shipped with the image, so the feature is off unless
+// an operator has configured it -- the panel explains that rather than showing
+// a button that always fails.
+export async function lincsStatus(): Promise<LincsStatus> {
+  return apiFetch<LincsStatus>(`/signatures/lincs_status?api_key=${encodeURIComponent(requireApiKey())}`);
+}
+
+// Perturbations whose expression profile matches or reverses this signature.
+export async function lincsSearch(signatureHashkey: string, limit = 25): Promise<LincsResult> {
+  return apiFetch<LincsResult>("/signatures/lincs_search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: requireApiKey(), signature_hashkey: signatureHashkey, limit }),
+  });
+}
+
+
 
 export interface Vocabulary {
   organism: string[];

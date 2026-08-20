@@ -16,6 +16,7 @@ import {
 import Skeleton from "../components/Skeleton";
 import RummagenePanel from "../components/RummagenePanel";
 import RelatedSignaturesPanel from "../components/RelatedSignaturesPanel";
+import LincsPanel from "../components/LincsPanel";
 import { addToBasket, isInBasket } from "../basket";
 import { canDeleteSignature } from "../permissions";
 
@@ -415,6 +416,7 @@ export default function SignatureDetailPage() {
 
               {hashkey && <RelatedSignaturesPanel signatureHashkey={hashkey} />}
               {hashkey && <RummagenePanel signatureHashkey={hashkey} />}
+              {hashkey && <LincsPanel signatureHashkey={hashkey} />}
             </>
           )}
 
