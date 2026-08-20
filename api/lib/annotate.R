@@ -37,6 +37,29 @@ enrichment_reference_table <- function(assay_type) {
   )
 }
 
+# Column names a difexp may carry gene symbols under. Depositors are not
+# consistent about this: of 297 difexp tables on the production repository, 118
+# use `symbol` and only 39 use `gene_symbol`. Checking a single name silently
+# ignores symbols that are sitting right there, which is what made enrichment
+# fail for signatures whose reference-table symbols are absent.
+#
+# Kept identical to the list rummagene.R accepts, so the two features cannot
+# disagree about whether a signature has usable symbols.
+DIFEXP_SYMBOL_COLUMNS <- c("gene_symbol", "symbol", "geneSymbol", "gene", "hgnc_symbol", "mgi_symbol")
+
+# The first symbol-bearing column actually present and populated, or NULL.
+difexp_symbol_column <- function(difexp_tbl) {
+  for (col in DIFEXP_SYMBOL_COLUMNS) {
+    if (col %in% base::colnames(difexp_tbl)) {
+      candidate <- base::trimws(base::as.character(difexp_tbl[[col]]))
+      if (base::any(!base::is.na(candidate) & base::nzchar(candidate))) {
+        return(col)
+      }
+    }
+  }
+  NULL
+}
+
 # feature_id -> gene_symbol for the given ids, from the appropriate
 # reference table. Returns a named character vector (names = feature_id).
 lookup_gene_symbols <- function(conn, ref_table, feature_ids) {
@@ -141,6 +164,39 @@ resolve_single_enrichment_query <- function(auth, signature_hashkey, test, difex
   if (identical(test, "hypergeometric")) {
     query_vector <- base::unique(symbol_by_probe_id[!base::is.na(symbol_by_probe_id) & base::nzchar(symbol_by_probe_id)])
     query_vector <- base::unname(query_vector)
+
+    # The reference tables are not the only place a symbol can live. 83 of 286
+    # signatures on the production repository resolve to nothing here -- 80 of
+    # them mouse, whose transcriptomics_features.gene_symbol is simply NULL --
+    # while their difexp carries symbols perfectly well. Falling back to the
+    # difexp is what the kstest branch below has always done and what the
+    # Rummagene route does; over-representation was the odd one out, and failed
+    # with "could not be mapped to a gene symbol" for a third of the repository.
+    #
+    # Joined on probe_id so this stays the SIGNATURE's genes rather than the
+    # whole difexp background, which would be a different (and much larger)
+    # query than the user asked for.
+    if (base::length(query_vector) == 0 &&
+        base::isTRUE(base::as.logical(context$signature$has_difexp))) {
+      difexp_tbl <- base::tryCatch(
+        load_difexp_rds(difexp_dir, signature_hashkey),
+        error = function(e) NULL
+      )
+      if (base::is.data.frame(difexp_tbl) && base::nrow(difexp_tbl) > 0 &&
+          "probe_id" %in% base::colnames(difexp_tbl)) {
+        sym_col <- difexp_symbol_column(difexp_tbl)
+        if (!base::is.null(sym_col)) {
+          difexp_map <- stats::setNames(
+            base::trimws(base::as.character(difexp_tbl[[sym_col]])),
+            base::as.character(difexp_tbl$probe_id)
+          )
+          picked <- difexp_map[base::as.character(probe_ids)]
+          picked <- picked[!base::is.na(picked) & base::nzchar(picked)]
+          query_vector <- base::unname(base::unique(picked))
+        }
+      }
+    }
+
     if (base::length(query_vector) == 0) {
       return(base::list(ok = FALSE, reason = "no_gene_symbols", signature_name = signature_name))
     }
@@ -170,11 +226,9 @@ resolve_single_enrichment_query <- function(auth, signature_hashkey, test, difex
   difexp_scores <- base::suppressWarnings(base::as.numeric(difexp_tbl[[score_col]]))
 
   difexp_symbols <- NULL
-  if ("gene_symbol" %in% base::colnames(difexp_tbl)) {
-    candidate <- base::trimws(base::as.character(difexp_tbl$gene_symbol))
-    if (base::any(base::nzchar(candidate) & !base::is.na(candidate))) {
-      difexp_symbols <- candidate
-    }
+  sym_col <- difexp_symbol_column(difexp_tbl)
+  if (!base::is.null(sym_col)) {
+    difexp_symbols <- base::trimws(base::as.character(difexp_tbl[[sym_col]]))
   }
   if (base::is.null(difexp_symbols) && "feature_name" %in% base::colnames(difexp_tbl)) {
     organism_id <- base::suppressWarnings(base::as.integer(context$signature$organism_id))
