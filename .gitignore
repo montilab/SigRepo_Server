@@ -31,3 +31,9 @@ docs/
 # Cached MSigDB gene sets. Derived data, ~14MB, rebuilt on demand by the API's
 # /init_db_genesets (or /init_db) endpoint rather than shipped in the repo.
 data/msigdb_genesets/
+
+# Local development stack (docker-compose-local.yml): its data directory and
+# its credentials. The compose file itself is committed -- these are not.
+.local-data/
+.env.local
+.Renviron.local-stack
