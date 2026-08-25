@@ -1610,13 +1610,65 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
   if (base::length(signature_hashkeys) == 0) {
     return(json_error(res, 404, "signature_hashkeys cannot be empty."))
   }
-  if (!test %in% c("hypergeometric", "kstest", "gsea")) {
-    return(json_error(res, 400, "test must be 'hypergeometric', 'kstest' or 'gsea'."))
+  if (!test %in% c("hypergeometric", "kstest", "gsea", "gem_hypergeo", "gem_weighted")) {
+    return(json_error(res, 400, "test must be 'hypergeometric', 'kstest', 'gsea', 'gem_hypergeo' or 'gem_weighted'."))
   }
 
   fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
   if (base::is.na(fdr) || fdr <= 0 || fdr > 1) {
     fdr <- 0.05
+  }
+
+  # GEM is a different pipeline, not a hypeR variant: hypeR.GEM maps
+  # metabolites to enzyme-coding genes through a genome-scale metabolic model
+  # before enriching, so it takes the OmicSignature rather than a resolved gene
+  # vector. It also runs one signature at a time.
+  if (is_gem_test(test)) {
+    gem <- run_gem_enrichment(
+      auth = auth,
+      signature_hashkey = signature_hashkeys[1],
+      test = test,
+      difexp_dir = difexp_dir,
+      msigdb_cache_dir = msigdb_cache_dir,
+      species = species,
+      collection = collection,
+      subcollection = subcollection,
+      directional = normalize_flag(body$gem_directional, default = TRUE) == 1L,
+      reference_key = { rk <- json_scalar(body$gem_reference_key); if (base::identical(rk, "")) NULL else rk },
+      fdr = fdr
+    )
+    if (!base::isTRUE(gem$ok)) {
+      status <- base::switch(
+        gem$reason %||% "",
+        unavailable = 503L,
+        not_found = 404L,
+        gem_failed = 502L,
+        422L
+      )
+      return(json_error(res, status, gem$message %||% "GEM enrichment could not run."))
+    }
+    # Same envelope as the hypeR path below, so the UI has one result handler.
+    # GEM adds reference_key / gem_method / the mapping counts, and has no
+    # dotplot: hypeR.GEM returns plain tables, not a hypeR object.
+    return(json_response(res, 200, payload = base::list(
+      test = test,
+      collection = collection,
+      subcollection = subcollection,
+      fdr = fdr,
+      geneset_source = gem$geneset_source,
+      dotplot_png = NULL,
+      reference_key = gem$reference_key,
+      gem_method = gem$method,
+      n_metabolites = gem$n_metabolites,
+      n_genes = gem$n_genes,
+      signatures = base::list(base::list(
+        signature_hashkey = signature_hashkeys[1],
+        signature_name = gem$signature_name,
+        label = gem$signature_name
+      )),
+      skipped = base::list(),
+      results = gem$results
+    )))
   }
 
   base::tryCatch({

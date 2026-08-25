@@ -745,6 +745,17 @@ export interface EnrichmentResultRow {
   // Which input signature this hit came from; disambiguated with " (2)",
   // " (3)", etc. if two selected signatures share a signature_name.
   signature_label: string;
+
+  // --- hypeR-GEM runs only ---
+  // GEM reports the genes it hit under `gene_hits` rather than `hits`, and
+  // additionally reports which metabolites mapped onto them -- the step the
+  // hypeR path does not have. The weighted method replaces the plain
+  // `overlap` count with `weighted_overlap`, so both are optional here.
+  gene_hits?: string;
+  metabolite_hits?: string;
+  num_met_hits?: number;
+  ratio_met_hits?: number;
+  weighted_overlap?: number;
 }
 
 export interface EnrichmentRunSignature {
@@ -761,8 +772,10 @@ export interface EnrichmentSkippedSignature {
   message: string | null;
 }
 
+export type EnrichmentTest = "hypergeometric" | "kstest" | "gsea" | "gem_hypergeo" | "gem_weighted";
+
 export interface EnrichmentRun {
-  test: "hypergeometric" | "kstest" | "gsea";
+  test: EnrichmentTest;
   collection: string;
   subcollection: string;
   fdr: number;
@@ -777,15 +790,28 @@ export interface EnrichmentRun {
   signatures: EnrichmentRunSignature[];
   skipped: EnrichmentSkippedSignature[];
   results: EnrichmentResultRow[];
+
+  // --- hypeR-GEM runs only ---
+  // Which metabolite identifier the metabolic model was keyed on, and how far
+  // the metabolite -> gene mapping got. Worth surfacing: a GEM run with a
+  // healthy metabolite count but few mapped genes is thin for a reason the
+  // p-values alone do not show.
+  reference_key?: string;
+  gem_method?: "weighted" | "unweighted";
+  n_metabolites?: number;
+  n_genes?: number;
 }
 
 export interface RunAnnotationParams {
   signatureHashkeys: string[];
-  test: "hypergeometric" | "kstest" | "gsea";
+  test: EnrichmentTest;
   species?: string;
   collection: string;
   subcollection?: string;
   fdr: number;
+  // GEM only. Directional models distinguish the metabolites a reaction
+  // consumes from the ones it produces; ignored by the hypeR tests.
+  gemDirectional?: boolean;
 }
 
 export async function runAnnotation(params: RunAnnotationParams): Promise<EnrichmentRun> {
@@ -800,6 +826,7 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
       collection: params.collection,
       subcollection: params.subcollection ?? "",
       fdr: params.fdr,
+      gem_directional: params.gemDirectional ?? true,
     }),
   });
   return { ...raw, results: raw.results ?? [], signatures: raw.signatures ?? [], skipped: raw.skipped ?? [] };

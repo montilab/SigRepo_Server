@@ -16,6 +16,7 @@ import {
   type MsigdbCollectionOption,
   type GenesetsReadiness,
   type EnrichmentRun,
+  type EnrichmentTest,
 } from "../api/client";
 import { useBasket } from "../basket";
 
@@ -130,8 +131,12 @@ export default function AnnotatePage() {
     }
   }
 
-  const [test, setTest] = useState<"hypergeometric" | "kstest" | "gsea">("hypergeometric");
+  const [test, setTest] = useState<EnrichmentTest>("hypergeometric");
   const [fdr, setFdr] = useState(0.05);
+  // GEM only: directional metabolic models tell a reaction's substrates from
+  // its products, so a metabolite maps to different enzymes depending on
+  // which side it sits on.
+  const [gemDirectional, setGemDirectional] = useState(true);
 
   // Rank-based enrichment needs per-feature scores from difexp, which not
   // every signature has stored. The option stays enabled as long as *any*
@@ -140,9 +145,19 @@ export default function AnnotatePage() {
   // signatures still runs on the ones that qualify instead of hard-blocking.
   const kstestEligibleCount = selectedSignatures.filter((s) => s.has_difexp === 1).length;
   const kstestAvailable = kstestEligibleCount > 0;
+
+  // hypeR-GEM maps metabolites onto the genes whose enzymes act on them, so it
+  // only means anything for a metabolomics signature -- a transcriptomics one
+  // is already genes and there is nothing to map. It also runs one signature
+  // at a time, unlike the hypeR tests.
+  const isGem = test === "gem_hypergeo" || test === "gem_weighted";
+  const metabolomicsCount = selectedSignatures.filter((s) => s.assay_type === "metabolomics").length;
+  const gemAvailable = metabolomicsCount > 0;
+
   useEffect(() => {
-    if (!kstestAvailable && test === "kstest") setTest("hypergeometric");
-  }, [kstestAvailable, test]);
+    if (!kstestAvailable && (test === "kstest" || test === "gsea")) setTest("hypergeometric");
+    if (!gemAvailable && (test === "gem_hypergeo" || test === "gem_weighted")) setTest("hypergeometric");
+  }, [kstestAvailable, gemAvailable, test]);
 
   const [running, setRunning] = useState(false);
   // Which gene set's enrichment curve is open. Only meaningful after a gsea
@@ -156,13 +171,20 @@ export default function AnnotatePage() {
     setRunning(true);
     setRunError(null);
     try {
+      // GEM runs a single signature, so send the first metabolomics one
+      // rather than the whole basket -- the server would ignore the rest
+      // silently otherwise.
+      const hashkeys = isGem
+        ? [(selectedSignatures.find((s) => s.assay_type === "metabolomics") ?? selectedSignatures[0]).signature_hashkey]
+        : Array.from(selectedHashkeys);
       const run = await runAnnotation({
-        signatureHashkeys: Array.from(selectedHashkeys),
+        signatureHashkeys: hashkeys,
         test,
         species,
         collection,
         subcollection: subcollection || undefined,
         fdr,
+        gemDirectional,
       });
       setResult(run);
       setStep(1);
@@ -201,6 +223,10 @@ export default function AnnotatePage() {
   );
 
   const multiSignature = (result?.signatures.length ?? 0) > 1;
+  // Reflects the run that produced the table on screen, not the method
+  // currently chosen in the form -- those diverge as soon as the user changes
+  // the selector without re-running.
+  const isGemResult = result?.test === "gem_hypergeo" || result?.test === "gem_weighted";
 
   const resultColumns: Column<(typeof resultRows)[number]>[] = useMemo(() => {
     const cols: Column<(typeof resultRows)[number]>[] = [
@@ -233,11 +259,14 @@ export default function AnnotatePage() {
       // the counts alongside rather than making the reader divide.
       {
         key: "overlap",
-        label: "Overlap",
+        // GEM's weighted method reports weighted_overlap instead of a plain
+        // count, and both GEM methods add the metabolite -> gene step that the
+        // hypeR tests do not have.
+        label: isGemResult ? (result?.gem_method === "weighted" ? "Weighted overlap" : "Gene overlap") : "Overlap",
         align: "right",
         render: (r) => (
-          <span className="enrich-overlap" title={`${r.overlap} of ${r.geneset} genes; query ${r.signature}, background ${r.background}`}>
-            <span className="cell-mono">{r.overlap}/{r.geneset}</span>
+          <span className="enrich-overlap" title={`${r.weighted_overlap ?? r.overlap} of ${r.geneset} genes; query ${r.signature}, background ${r.background}`}>
+            <span className="cell-mono">{r.weighted_overlap ?? r.overlap}/{r.geneset}</span>
             <span className="enrich-bar" aria-hidden="true">
               <span className="enrich-bar-fill" style={{ width: `${Math.min(100, (r.overlap / Math.max(1, r.geneset)) * 100)}%` }} />
             </span>
@@ -246,12 +275,28 @@ export default function AnnotatePage() {
       },
       {
         key: "hits",
-        label: "Hits",
-        render: (r) => <span className="cell-sub enrich-hits" title={r.hits}>{r.hits}</span>,
+        label: isGemResult ? "Gene hits" : "Hits",
+        render: (r) => {
+          const hits = r.gene_hits ?? r.hits;
+          return <span className="cell-sub enrich-hits" title={hits}>{hits}</span>;
+        },
       }
     );
+    // The metabolites behind the gene hits -- GEM's whole point, and the one
+    // thing a reader cannot reconstruct from the gene list.
+    if (isGemResult) {
+      cols.push({
+        key: "metabolite_hits",
+        label: "Metabolite hits",
+        render: (r) => (
+          <span className="cell-sub enrich-hits" title={r.metabolite_hits ?? ""}>
+            {r.num_met_hits != null ? `${r.num_met_hits} · ` : ""}{r.metabolite_hits ?? "—"}
+          </span>
+        ),
+      });
+    }
     return cols;
-  }, [multiSignature]);
+  }, [multiSignature, isGemResult, result?.gem_method]);
 
   return (
     <div className="page">
@@ -316,13 +361,40 @@ export default function AnnotatePage() {
                       <option value="gsea" disabled={!kstestAvailable}>
                         GSEA — weighted, with leading edge {!kstestAvailable ? "— requires stored difexp" : ""}
                       </option>
+                      {/* hypeR-GEM. Labels match the legacy Shiny app's
+                          "GEM Hypergeometric" / "GEM Weighted". */}
+                      <option value="gem_hypergeo" disabled={!gemAvailable}>
+                        GEM Hypergeometric — via metabolic model {!gemAvailable ? "— requires a metabolomics signature" : ""}
+                      </option>
+                      <option value="gem_weighted" disabled={!gemAvailable}>
+                        GEM Weighted — via metabolic model {!gemAvailable ? "— requires a metabolomics signature" : ""}
+                      </option>
                     </select>
                   </label>
+                  {isGem && (
+                    <label className="field">
+                      <span className="field-label">Metabolic model</span>
+                      <select
+                        className="input"
+                        value={gemDirectional ? "directional" : "undirected"}
+                        onChange={(e) => setGemDirectional(e.target.value === "directional")}
+                      >
+                        <option value="directional">Directional — separate substrates from products</option>
+                        <option value="undirected">Undirected — any reaction the metabolite takes part in</option>
+                      </select>
+                    </label>
+                  )}
                   <label className="field field-slider">
                     <span className="field-label">FDR cutoff <span className="field-value">{fdr.toFixed(2)}</span></span>
                     <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
                   </label>
                 </div>
+                {isGem && metabolomicsCount > 1 && (
+                  <p className="cell-sub" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    <AlertTriangle size={13} /> GEM runs one signature at a time; the first metabolomics signature in your
+                    selection will be used.
+                  </p>
+                )}
                 {test === "kstest" && selectedSignatures.length > 0 && kstestEligibleCount < selectedSignatures.length && (
                   <p className="cell-sub" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
                     <AlertTriangle size={13} /> Only {kstestEligibleCount} of {selectedSignatures.length} selected signatures have stored
@@ -395,7 +467,7 @@ export default function AnnotatePage() {
                 </>
               ) : (
                 <>
-                  <Play size={15} /> Run enrichment{selectedHashkeys.size > 1 ? ` (${selectedHashkeys.size} signatures)` : ""}
+                  <Play size={15} /> Run enrichment{!isGem && selectedHashkeys.size > 1 ? ` (${selectedHashkeys.size} signatures)` : ""}
                 </>
               )}
             </button>
@@ -407,7 +479,10 @@ export default function AnnotatePage() {
         <>
           <Card
             title="Enrichment results"
-            subtitle={`${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}`}
+            subtitle={
+              `${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}` +
+              (isGemResult ? ` · ${result.n_metabolites ?? 0} metabolites → ${result.n_genes ?? 0} genes via ${result.reference_key ?? "refmet_name"}` : "")
+            }
             actions={
               <button className="btn btn-ghost btn-sm" onClick={() => setStep(0)}>
                 <RotateCcw size={14} /> Edit
