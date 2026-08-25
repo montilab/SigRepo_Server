@@ -185,6 +185,70 @@ export default function AnnotatePage() {
     []
   );
 
+  // DataTable needs a stable per-row key; hypeR's output has none, so derive
+  // one. label alone is not unique when several signatures are run together.
+  const resultRows = useMemo(
+    () =>
+      (result?.results ?? []).map((r, i) => ({
+        ...r,
+        rowId: `${r.signature_label}::${r.label}::${i}`,
+      })),
+    [result]
+  );
+
+  const multiSignature = (result?.signatures.length ?? 0) > 1;
+
+  const resultColumns: Column<(typeof resultRows)[number]>[] = useMemo(() => {
+    const cols: Column<(typeof resultRows)[number]>[] = [
+      {
+        key: "label",
+        label: "Gene set",
+        render: (r) => <span className="cell-strong">{r.label}</span>,
+      },
+    ];
+    if (multiSignature) {
+      cols.push({ key: "signature_label", label: "Signature", filterable: true });
+    }
+    cols.push(
+      // FDR first among the numbers: it is what the cutoff is set on and what
+      // people actually rank by.
+      {
+        key: "fdr",
+        label: "FDR",
+        align: "right",
+        render: (r) => <span className="cell-mono enrich-num">{r.fdr < 0.0001 ? r.fdr.toExponential(1) : r.fdr.toFixed(4)}</span>,
+      },
+      {
+        key: "pval",
+        label: "P-value",
+        align: "right",
+        render: (r) => <span className="cell-mono enrich-num">{r.pval.toExponential(1)}</span>,
+      },
+      // overlap / geneset / signature / background were four separate columns
+      // of raw counts. The ratio is the thing being judged, so show that with
+      // the counts alongside rather than making the reader divide.
+      {
+        key: "overlap",
+        label: "Overlap",
+        align: "right",
+        render: (r) => (
+          <span className="enrich-overlap" title={`${r.overlap} of ${r.geneset} genes; query ${r.signature}, background ${r.background}`}>
+            <span className="cell-mono">{r.overlap}/{r.geneset}</span>
+            <span className="enrich-bar" aria-hidden="true">
+              <span className="enrich-bar-fill" style={{ width: `${Math.min(100, (r.overlap / Math.max(1, r.geneset)) * 100)}%` }} />
+            </span>
+          </span>
+        ),
+      },
+      {
+        key: "hits",
+        label: "Hits",
+        render: (r) => <span className="cell-sub enrich-hits" title={r.hits}>{r.hits}</span>,
+      }
+    );
+    return cols;
+  }, [multiSignature]);
+
   return (
     <div className="page">
       <PageHeader title="Annotate" subtitle="Gene set enrichment analysis against MSigDB, powered by hypeR." />
@@ -195,11 +259,11 @@ export default function AnnotatePage() {
 
       {step === 0 && (
         <>
-          <div className="annotate-setup-grid">
+          <div className="annotate-setup">
             <Card
               title="Signatures"
               subtitle="Choose one or more signatures to run enrichment against — hypeR runs them together in a single call."
-              className="annotate-setup-signature"
+              className="annotate-signatures"
               actions={
                 basket.length > 0 && (
                   <button className="btn btn-secondary btn-sm" onClick={handleAddFromBasket}>
@@ -221,12 +285,12 @@ export default function AnnotatePage() {
                 onToggleRow={toggleRow}
                 onToggleAll={toggleAll}
                 scrollable
-                maxHeight={420}
+                maxHeight={560}
                 emptyLabel={signaturesLoading ? "Loading signatures…" : "No signatures available."}
               />
             </Card>
 
-            <div className="annotate-setup-side">
+            <div className="annotate-config">
               <Card
                 title="Method"
                 subtitle={
@@ -369,39 +433,22 @@ export default function AnnotatePage() {
             )}
           </Card>
 
-          <Card padded={false}>
-            <div className="dt-scroll">
-              <table className="dt-table dt-table-flush">
-                <thead>
-                  <tr>
-                    <th>Gene set (label)</th>
-                    {result.signatures.length > 1 && <th>Signature</th>}
-                    <th className="dt-right">P-value</th>
-                    <th className="dt-right">FDR</th>
-                    <th className="dt-right">Query Size</th>
-                    <th className="dt-right">Geneset</th>
-                    <th className="dt-right">Overlap</th>
-                    <th className="dt-right">Background</th>
-                    <th>Hits</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.results.map((r, i) => (
-                    <tr key={`${r.signature_label}-${r.label}-${i}`}>
-                      <td className="cell-strong">{r.label}</td>
-                      {result.signatures.length > 1 && <td>{r.signature_label}</td>}
-                      <td className="dt-right cell-mono">{r.pval.toExponential(1)}</td>
-                      <td className="dt-right cell-mono">{r.fdr.toFixed(4)}</td>
-                      <td className="dt-right cell-mono">{r.signature}</td>
-                      <td className="dt-right cell-mono">{r.geneset}</td>
-                      <td className="dt-right cell-mono">{r.overlap}</td>
-                      <td className="dt-right cell-mono">{r.background}</td>
-                      <td className="cell-sub" style={{ maxWidth: 320 }}>{r.hits}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <Card
+            title="Enriched gene sets"
+            subtitle={`${result.results.length} gene set${result.results.length === 1 ? "" : "s"} below the FDR cutoff. Sort by any column, or search by name.`}
+          >
+            {/* Was a hand-rolled 9-column table with no sort, search or paging,
+                and four raw hypeR counts spread across separate columns. Using
+                the shared DataTable gives the same affordances as every other
+                table in the app, and overlap reads as a proportion of the gene
+                set rather than four numbers to reconcile by eye. */}
+            <DataTable
+              columns={resultColumns}
+              rows={resultRows}
+              rowKey="rowId"
+              pageSize={25}
+              emptyLabel="No gene sets pass the current FDR cutoff."
+            />
             <div className="wizard-nav wizard-nav-padded">
               <button className="btn btn-ghost" onClick={() => { setStep(0); setResult(null); setGenesetStatus(null); }}>
                 <RotateCcw size={15} /> Start over

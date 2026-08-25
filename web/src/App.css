@@ -2081,22 +2081,47 @@ input[type="range"] {
 }
 
 /* ---------- Annotate (enrichment) setup ---------- */
-.annotate-setup-grid {
-  display: grid;
-  /* minmax(0, ...), not a bare fr -- the signature table's natural content
-     width would otherwise expand this track past its share and push the
-     second column off-screen instead of scrolling internally. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 18px;
-  align-items: start;
-}
-.annotate-setup-signature {
-  min-width: 0;
-}
-.annotate-setup-side {
+/* Annotate setup.
+   This was a two-column grid at minmax(0,1fr) / minmax(0,1.2fr), which gave the
+   signature table LESS width than the five small inputs beside it -- so the
+   primary interface on the page was a ~260px table with its own search box,
+   checkbox column, sort chevrons and filter icons competing for the space, and
+   cell text clipped mid-word.
+   The table now takes the full width and the configuration sits beneath it as a
+   band. Five selects and a slider tile comfortably across one row; a table of
+   signatures does not fit in half of one. */
+.annotate-setup {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+.annotate-signatures {
+  min-width: 0;
+}
+/* The two configuration panels side by side, each free to wrap its own fields.
+   Method is narrower than geneset selection, which needs three selects. */
+.annotate-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .annotate-config {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Inside each panel, fields flow horizontally instead of stacking -- they are
+   short controls, and stacking them was what made the panel tall enough to
+   justify putting the table beside it in the first place. */
+.annotate-config .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px 16px;
+  align-items: end;
+}
+.annotate-config .field-slider {
+  min-width: 200px;
 }
 .radio-list-scroll {
   max-height: 480px;
@@ -2445,4 +2470,44 @@ a.rmg-item-title:hover {
   .rel-metrics {
     justify-content: flex-end;
   }
+}
+
+/* Enrichment results: overlap as a proportion.
+   hypeR reports overlap, geneset, query size and background as four separate
+   counts. What a reader is actually judging is how much of the gene set was
+   hit, so show the ratio with a bar and keep the raw counts in the tooltip. */
+/* Numeric cells must not wrap: an FDR of 3.1e-21 broke across two lines,
+   which both looked wrong and made rows in the same table different heights. */
+.enrich-num {
+  white-space: nowrap;
+}
+.enrich-overlap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.enrich-bar {
+  display: inline-block;
+  width: 48px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+  flex: none;
+}
+.enrich-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+/* Hit lists run to hundreds of symbols; one clipped line keeps rows uniform,
+   with the full list on hover. */
+.enrich-hits {
+  display: block;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
