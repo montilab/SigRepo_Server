@@ -1100,6 +1100,90 @@ search_by_genes_route <- function(req, res, api_key = "", genes = NULL, signatur
     hits = compact_table(hits, max_rows = 100)
   ))
 }
+
+#* Running-enrichment curve and leading edge for one gene set against one
+#* signature. hypeR reports a row per gene set but nothing about WHERE in the
+#* ranking the hits fell, which is the part people interpret -- so the curve is
+#* computed here (api/lib/gsea_curve.R) rather than returned by hypeR.
+#*
+#* Kept as its own call rather than embedded in /annotate/run: a run returns up
+#* to hundreds of gene sets and only the one a reader clicks needs a curve.
+#* @parser json
+#* @param api_key
+#* @param signature_hashkey
+#* @param geneset_label
+#* @param species
+#* @param collection
+#* @param subcollection
+#* @param power
+#' @post /annotate/leading_edge
+annotate_leading_edge_route <- function(req, res, api_key = "", signature_hashkey = "", geneset_label = "",
+                                        species = "Homo sapiens", collection = "", subcollection = "", power = 1){
+  body <- request_json_body(req)
+  pick <- function(param, key, default = "") {
+    v <- if (identical(json_scalar(param), "")) json_scalar(body[[key]]) else json_scalar(param)
+    if (identical(v, "")) default else v
+  }
+
+  auth <- validate_api_key(res, pick(api_key, "api_key"))
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  hk <- pick(signature_hashkey, "signature_hashkey")
+  label <- pick(geneset_label, "geneset_label")
+  if (identical(hk, "") || identical(label, "")) {
+    return(json_error(res, 400, "signature_hashkey and geneset_label are both required."))
+  }
+
+  # The ranked query, resolved exactly the way a gsea run resolves it, so the
+  # curve describes the same ranking the run scored.
+  resolved <- base::tryCatch(
+    resolve_single_enrichment_query(auth, hk, "gsea", difexp_dir),
+    error = function(e) base::list(ok = FALSE, reason = "error", message = base::conditionMessage(e))
+  )
+  if (!base::isTRUE(resolved$ok)) {
+    status <- if (identical(resolved$reason, "not_found")) 404L else 422L
+    return(json_error(res, status, resolved$message %||%
+      base::sprintf("Could not resolve a ranked signature for this run (%s).", resolved$reason %||% "unknown")))
+  }
+
+  geneset_result <- resolve_msigdb_genesets(
+    msigdb_cache_dir,
+    pick(species, "species", "Homo sapiens"),
+    pick(collection, "collection"),
+    pick(subcollection, "subcollection")
+  )
+  if (!base::isTRUE(geneset_result$ok)) {
+    return(json_error(res, 404, geneset_result$message %||% "Gene sets are not available for that selection."))
+  }
+
+  genes <- geneset_result$genesets[[label]]
+  if (base::is.null(genes)) {
+    return(json_error(res, 404, base::sprintf("'%s' is not in the selected gene set collection.", label)))
+  }
+
+  pw <- base::suppressWarnings(base::as.numeric(json_scalar(power, "1")))
+  if (base::is.na(pw) || pw < 0) pw <- 1
+
+  curve <- compute_gsea_curve(resolved$query, genes, power = pw)
+  if (base::is.null(curve)) {
+    return(json_error(res, 422, base::sprintf("'%s' does not overlap this signature's ranked genes.", label)))
+  }
+
+  json_response(res, 200, payload = base::list(
+    geneset_label = label,
+    signature_name = resolved$signature_name,
+    n_total = curve$n_total,
+    es_score = curve$es_score,
+    es_index = curve$es_index,
+    es_direction = curve$es_direction,
+    n_leading = curve$n_leading,
+    leading_edge_genes = curve$leading_edge_genes,
+    hit_positions = curve$hit_positions,
+    curve = curve$curve
+  ))
+}
 #* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
 #* @param api_key
 #' @get /vocabulary
@@ -1526,8 +1610,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
   if (base::length(signature_hashkeys) == 0) {
     return(json_error(res, 404, "signature_hashkeys cannot be empty."))
   }
-  if (!test %in% c("hypergeometric", "kstest")) {
-    return(json_error(res, 400, "test must be 'hypergeometric' or 'kstest'."))
+  if (!test %in% c("hypergeometric", "kstest", "gsea")) {
+    return(json_error(res, 400, "test must be 'hypergeometric', 'kstest' or 'gsea'."))
   }
 
   fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
@@ -1568,7 +1652,7 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
         switch(result$reason,
           "not_found" = "No signature found for the selected signature(s).",
           "no_features" = "The selected signature has no stored features.",
-          "no_difexp" = "The selected signature has no stored difexp, which rank-based (kstest) enrichment requires.",
+          "no_difexp" = "The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires.",
           "no_gene_symbols" = "None of the selected signature's features could be mapped to a gene symbol.",
           "Enrichment failed."
         )
