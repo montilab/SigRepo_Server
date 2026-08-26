@@ -2510,4 +2510,32 @@ a.rmg-item-title:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+/* Uniform row heights in data tables.
+   Long signature names (Aging_4mosc1_vt104_vs_DMSO_InVitro_MontiLab2024 and
+   similar) wrapped to two or three lines, so rows in the same table were
+   different heights and the list was hard to scan. Cells are now a single
+   line, clipped with an ellipsis; the full value stays available as a
+   title tooltip and on the detail page, so nothing is lost. */
+.dt-table {
+  table-layout: auto;
+}
+.dt-table tbody td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+/* The signature name is the column most likely to be long and the one people
+   scan by, so it gets more room before clipping. */
+.dt-table tbody td:first-child,
+.dt-table tbody td.dt-col-wide {
+  max-width: 340px;
+}
+/* Badges and other inline-flex children ignore the parent's ellipsis, so they
+   need their own clipping to stay on one line. */
+.dt-table tbody td > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }

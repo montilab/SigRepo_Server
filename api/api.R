@@ -1159,8 +1159,12 @@ insights_route <- function(res, api_key = "", recent_limit = 5){
 #* @param keyword
 #* @param limit
 #* @param offset
+#* @param sort_by One of signature_name, organism, assay_type, direction_type,
+#*   phenotype, sample_type, platform_name, year, user_name, visibility.
+#*   Anything else falls back to signature_name.
+#* @param sort_dir asc (default) or desc
 #' @get /signatures/search
-search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0){
+search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0, sort_by = "", sort_dir = "asc"){
   auth <- validate_api_key(res, api_key)
   if (is_json_error(auth)) {
     return(auth)
@@ -1176,6 +1180,8 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
       keyword = json_scalar(keyword),
       limit = limit,
       offset = offset,
+      sort_by = json_scalar(sort_by),
+      sort_dir = json_scalar(sort_dir, "asc"),
       is_admin = identical(auth$user_role, "admin")
     )
     base::suppressWarnings(DBI::dbDisconnect(conn))
