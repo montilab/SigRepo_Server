@@ -61,14 +61,29 @@ build_omic_signature <- function(db_row, difexp = NULL, require_difexp = TRUE) {
     ))
   }
 
-  if (require_difexp && base::isTRUE(base::as.logical(db_row$has_difexp[1]))) {
-    base::stop(
-      "This signature has a difexp table, and the SigRepo client installed on ",
-      "this server cannot accept one directly (createOmicSignature() is missing ",
-      "the 'difexp' and 'fetch_difexp' arguments). Fetching it would make the ",
-      "API call itself and deadlock. Update the SigRepo client, or use a ",
-      "signature without a difexp table."
-    )
+  if (base::isTRUE(base::as.logical(db_row$has_difexp[1]))) {
+    if (require_difexp) {
+      base::stop(
+        "This signature has a difexp table, and the SigRepo client installed on ",
+        "this server cannot accept one directly (createOmicSignature() is missing ",
+        "the 'difexp' and 'fetch_difexp' arguments). Fetching it would make the ",
+        "API call itself and deadlock. Update the SigRepo client, or use a ",
+        "signature without a difexp table."
+      )
+    }
+
+    # require_difexp = FALSE means the caller genuinely does not need it -- GEM
+    # reads only $signature. But the released client decides for itself: on
+    # `db_signature_tbl$has_difexp[1] == TRUE` it issues an httr::GET to this
+    # API's own /get_difexp. Inside a single-process Plumber worker that is a
+    # self-call, and it deadlocks -- strictly worse than the error above.
+    # Simply skipping the stop() is therefore not enough.
+    #
+    # So tell the client there is nothing to fetch. This zeroes the flag on OUR
+    # COPY of the row for this one constructor call; the database row and every
+    # other caller are untouched, and the OmicSignature just carries no difexp,
+    # which is exactly what a difexp-free caller asked for.
+    db_row$has_difexp <- 0L
   }
 
   SigRepo:::createOmicSignature(
