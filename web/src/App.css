@@ -2631,3 +2631,28 @@ a.rmg-item-title:hover {
   white-space: nowrap;
   max-width: 320px;
 }
+
+/* Enrichment dot plot. Sized by its container, not by the server -- the PNG
+   this replaces rendered 1114x1611px on a three-signature run. */
+.edp { position: relative; }
+.edp-svg { width: 100%; height: auto; display: block; }
+.edp-band { fill: var(--surface-2); }
+.edp-band-alt { fill: transparent; }
+.edp-ylab { font-size: 10px; fill: var(--text-muted); font-family: var(--font-mono); }
+.edp-xlab { font-size: 10px; fill: var(--text-muted); }
+.edp-axis-title { font-size: 11px; fill: var(--text); }
+.edp-dot { cursor: pointer; transition: opacity 120ms; }
+.edp-dot:hover { opacity: 0.75; }
+.edp-legend { display: flex; gap: 14px; padding: 6px 0 0 8px; }
+.edp-legend-item { font-size: 11px; color: var(--text-muted); }
+.edp-tip {
+  position: absolute; top: 8px; right: 8px; max-width: 340px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; font-size: 11.5px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12); pointer-events: none;
+}
+.edp-tip-hits {
+  color: var(--text-muted); font-family: var(--font-mono); font-size: 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
