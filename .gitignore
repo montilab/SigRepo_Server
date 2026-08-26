@@ -31,3 +31,13 @@ docs/
 # Cached MSigDB gene sets. Derived data, ~14MB, rebuilt on demand by the API's
 # /init_db_genesets (or /init_db) endpoint rather than shipped in the repo.
 data/msigdb_genesets/
+
+# Every .Renviron and .env variant, not just the specific names above: these
+# hold database passwords and admin keys, and a new suffix (.local-stack,
+# .staging) must be ignored by default rather than needing a new line here
+# after it has already been committed.
+.Renviron.*
+.env.*
+# Local development stack: the MySQL data directory, difexp files and seed
+# scripts' working files. Machine-specific and disposable.
+.local-data/
