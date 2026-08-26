@@ -20,16 +20,40 @@ const MARGIN = { top: 12, right: 16, bottom: 40, left: 260 };
 const ROW_H = 22;
 const MAX_BODY_H = 420;
 
-// -log10, floored so an FDR of 0 does not produce Infinity.
+// Row labels render at 10px monospace (.edp-ylab); ~0.6em/glyph is a safe
+// average for the font stacks in play. Truncating to what MARGIN.left can
+// actually hold -- minus the tick offset and a little breathing room -- keeps
+// a long pathway name from running past the SVG's left edge; the full name
+// is still one hover away via a <title>.
+const YLAB_MAX_CHARS = Math.max(4, Math.floor((MARGIN.left - 18) / (10 * 0.6)));
+
+function truncateLabel(label: string): string {
+  if (label.length <= YLAB_MAX_CHARS) return label;
+  return label.slice(0, YLAB_MAX_CHARS - 1) + "…";
+}
+
+// -log10(FDR). Only ever called on values that already passed
+// isPlottableFdr below -- an FDR of exactly 0 (a common BH underflow) or any
+// other non-finite value must never reach this, or it defines the whole
+// axis and crushes every genuinely significant dot toward the origin.
 function negLog10(v: number): number {
-  if (!Number.isFinite(v) || v <= 0) return 320;
   return -Math.log10(v);
 }
 
-function radius(overlap: number, maxOverlap: number): number {
-  if (!Number.isFinite(overlap) || overlap <= 0) return 2.5;
+function isPlottableFdr(v: number): boolean {
+  return Number.isFinite(v) && v > 0;
+}
+
+function radius(overlap: number, maxOverlap: number, rowH: number): number {
+  // Dot size must not exceed the row itself: above ~19 rows, MAX_BODY_H
+  // shrinks rowH below ROW_H (the default topN=25 already crosses that
+  // line), so the whole 2.5-10 size range scales down by the same fraction
+  // rowH has shrunk. At rowH == ROW_H, scale == 1 and sizing is exactly what
+  // it was before this fix.
+  const scale = Math.min(1, rowH / ROW_H);
+  if (!Number.isFinite(overlap) || overlap <= 0) return 2.5 * scale;
   const t = Math.sqrt(overlap) / Math.sqrt(Math.max(maxOverlap, 1));
-  return 3 + t * 7;
+  return (3 + t * 7) * scale;
 }
 
 // Single-hue ramp, dark (least significant) to red (most). Matches the
@@ -49,7 +73,9 @@ interface Dot {
   x: number;
   y: number;
   r: number;
-  fill: string;
+  // undefined in single-signature mode -- colour comes from the
+  // .edp-dot-single CSS class instead of a per-dot inline value.
+  fill: string | undefined;
   fdr: number;
   pval: number;
   overlap: number;
@@ -64,7 +90,13 @@ export default function EnrichmentDotPlot({
   signatures: EnrichmentRunSignature[];
   topN?: number;
 }) {
-  const [hover, setHover] = useState<Dot | null>(null);
+  // Only the hovered dot's key is kept in state. The dot itself is looked up
+  // from the current model on every render (below) rather than cached here,
+  // so a `signatures` change that drops or replaces the hovered gene set --
+  // browsers do not reliably fire mouseleave when the hovered node is
+  // replaced by a re-render -- cannot leave a stale tooltip on screen: a key
+  // that no longer resolves simply renders nothing.
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
   const multi = signatures.length > 1;
 
   const model = useMemo(() => {
@@ -90,7 +122,16 @@ export default function EnrichmentDotPlot({
     }));
     const allRows = shown.flatMap((s) => s.rows);
     const maxOverlap = Math.max(1, ...allRows.map((r) => r.overlap ?? 0));
-    const maxNeg = Math.max(1, ...allRows.map((r) => negLog10(r.fdr)));
+
+    // The axis scale comes from genuine signal only. A BH FDR that
+    // underflows to exactly 0 (or is otherwise non-finite) must not get a
+    // say in it, or that one row silently crushes every real dot toward the
+    // origin. Rows that fail isPlottableFdr are instead pinned to whatever
+    // maximum the real data established, once per-dot below. The floor of 1
+    // keeps the axis -- and an all-zero-FDR run, which has no plottable rows
+    // at all -- well-defined rather than dividing by zero.
+    const finiteNeg = allRows.map((r) => r.fdr).filter(isPlottableFdr).map(negLog10);
+    const maxNeg = Math.max(1, ...finiteNeg);
 
     // Plot width is unitless: the viewBox scales to the container.
     const bodyW = 520;
@@ -100,15 +141,15 @@ export default function EnrichmentDotPlot({
     shown.forEach((entry, sigIdx) => {
       for (const row of entry.rows) {
         const yi = rowIndex.get(row.label)!;
-        const neg = negLog10(row.fdr);
+        const neg = isPlottableFdr(row.fdr) ? negLog10(row.fdr) : maxNeg;
         dots.push({
           key: `${entry.sig.label}::${row.label}`,
           label: row.label,
           signature: entry.sig.signature_name,
           x: multi ? colW * (sigIdx + 0.5) : (neg / maxNeg) * bodyW,
           y: rowH * (yi + 0.5),
-          r: radius(row.overlap ?? 0, maxOverlap),
-          fill: multi ? heat(neg / maxNeg) : "#E53935",
+          r: radius(row.overlap ?? 0, maxOverlap, rowH),
+          fill: multi ? heat(neg / maxNeg) : undefined,
           fdr: row.fdr,
           pval: row.pval,
           overlap: row.overlap,
@@ -118,18 +159,37 @@ export default function EnrichmentDotPlot({
       }
     });
 
+    // Top-N is a global cut across every signature's results, so one
+    // signature with many strong hits can fill every slot and leave
+    // another's column with zero dots even though that signature's own
+    // results are non-empty -- it just didn't rank against the rest. Flag
+    // those columns explicitly so an empty column reads as "outranked", not
+    // "no results".
+    const crowdedOut = multi
+      ? shown
+          .map((entry, i) => ({ entry, i, total: (entry.sig.results ?? []).length }))
+          .filter(({ entry, total }) => entry.rows.length === 0 && total > 0)
+          .map(({ entry, i, total }) => ({
+            x: colW * (i + 0.5),
+            signatureName: entry.sig.signature_name,
+            total,
+          }))
+      : [];
+
     // Four ticks across the significance axis, in -log10 units -- plain
     // numbers rather than hypeR's 1e-34 style breaks.
     const ticks = multi
       ? signatures.map((s, i) => ({ x: colW * (i + 0.5), text: s.signature_name }))
       : [0, 0.25, 0.5, 0.75, 1].map((f) => ({ x: f * bodyW, text: (f * maxNeg).toFixed(0) }));
 
-    return { labels, rowH, bodyW, bodyH, dots, ticks, maxOverlap };
+    return { labels, rowH, bodyW, bodyH, dots, ticks, maxOverlap, crowdedOut };
   }, [signatures, topN, multi]);
 
   if (!model) {
     return <p className="muted-note">No gene sets pass the current FDR cutoff.</p>;
   }
+
+  const hover = hoverKey ? model.dots.find((d) => d.key === hoverKey) ?? null : null;
 
   const w = MARGIN.left + model.bodyW + MARGIN.right;
   const h = MARGIN.top + model.bodyH + MARGIN.bottom;
@@ -139,14 +199,20 @@ export default function EnrichmentDotPlot({
       <svg className="edp-svg" viewBox={`0 0 ${w} ${h}`} role="img"
            aria-label="Enrichment dot plot: gene sets by significance">
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-          {model.labels.map((label, i) => (
-            <g key={label}>
-              <rect x={0} y={model.rowH * i} width={model.bodyW} height={model.rowH}
-                    className={i % 2 === 0 ? "edp-band" : "edp-band edp-band-alt"} />
-              <text x={-10} y={model.rowH * (i + 0.5)} className="edp-ylab"
-                    dominantBaseline="middle" textAnchor="end">{label}</text>
-            </g>
-          ))}
+          {model.labels.map((label, i) => {
+            const truncated = truncateLabel(label);
+            return (
+              <g key={label}>
+                <rect x={0} y={model.rowH * i} width={model.bodyW} height={model.rowH}
+                      className={i % 2 === 0 ? "edp-band" : "edp-band edp-band-alt"} />
+                <text x={-10} y={model.rowH * (i + 0.5)} className="edp-ylab"
+                      dominantBaseline="middle" textAnchor="end">
+                  {truncated !== label && <title>{label}</title>}
+                  {truncated}
+                </text>
+              </g>
+            );
+          })}
           {model.ticks.map((t, i) => (
             <text key={i} x={t.x} y={model.bodyH + 16} className="edp-xlab"
                   textAnchor={multi ? "end" : "middle"}
@@ -158,9 +224,17 @@ export default function EnrichmentDotPlot({
             <text x={model.bodyW / 2} y={model.bodyH + 34} className="edp-axis-title"
                   textAnchor="middle">−log10(FDR)</text>
           )}
+          {model.crowdedOut.map((c) => (
+            <text key={`empty-${c.x}`} x={c.x} y={model.bodyH / 2} className="edp-empty-note"
+                  textAnchor="middle" dominantBaseline="middle">
+              <title>{`${c.signatureName}: ${c.total} result${c.total === 1 ? "" : "s"} below the FDR cutoff, none in the shared top ${topN} gene sets shown here`}</title>
+              outranked
+            </text>
+          ))}
           {model.dots.map((d) => (
-            <circle key={d.key} cx={d.x} cy={d.y} r={d.r} fill={d.fill} className="edp-dot"
-                    onMouseEnter={() => setHover(d)} onMouseLeave={() => setHover(null)} />
+            <circle key={d.key} cx={d.x} cy={d.y} r={d.r} fill={d.fill}
+                    className={multi ? "edp-dot" : "edp-dot edp-dot-single"}
+                    onMouseEnter={() => setHoverKey(d.key)} onMouseLeave={() => setHoverKey(null)} />
           ))}
         </g>
       </svg>
