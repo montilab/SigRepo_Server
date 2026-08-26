@@ -1,8 +1,22 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import DataTable, { type Column } from "./DataTable";
 import LeadingEdgePlot from "./LeadingEdgePlot";
 import type { EnrichmentRunSignature } from "../api/client";
+
+// hypeR-GEM's weighted method reports overlap as a genuine float (weighted
+// by metabolite hits); the plain hypeR overlap is always an integer count.
+// Keep whole numbers reading like counts and only show decimals when the
+// value is actually fractional.
+function formatOverlap(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+// Turns free-form text (a signature label) into something safe to use as an
+// HTML id -- ids may not contain whitespace or most punctuation.
+function toDomId(s: string): string {
+  return s.replace(/[^a-zA-Z0-9_-]+/g, "-");
+}
 
 // One signature as a collapsed row that expands to its own gene sets, its
 // hyp$info, and (for a ranked run) the leading-edge curve.
@@ -29,11 +43,27 @@ export default function SignatureResultRow({
   subcollection?: string;
 }) {
   const [openGeneset, setOpenGeneset] = useState<string | null>(null);
+  const bodyId = `srr-body-${toDomId(signature.label)}`;
+
+  // `expanded` is just a prop -- collapsing the row does not unmount this
+  // component, so any open gene set would otherwise sit in state and
+  // silently reappear (refetching its plot) the moment the row is
+  // re-expanded. Closing the row should close its detail panel too.
+  useEffect(() => {
+    if (!expanded) setOpenGeneset(null);
+  }, [expanded]);
 
   const rows = useMemo(
     () => (signature.results ?? []).map((r, i) => ({ ...r, rowId: `${signature.label}::${r.label}::${i}` })),
     [signature]
   );
+
+  // Derive rather than trust the stored id: if the parent re-renders this
+  // row with different signature data, `rows` is recomputed from the new
+  // `signature` prop but `openGeneset` (state) may still name a rowId that
+  // no longer exists. Looking the row up lets a stale selection resolve to
+  // "nothing found" on its own, instead of rendering a blank, erroring panel.
+  const openRow = openGeneset ? rows.find((r) => r.rowId === openGeneset) : undefined;
 
   const columns: Column<(typeof rows)[number]>[] = useMemo(
     () => [
@@ -54,7 +84,7 @@ export default function SignatureResultRow({
         key: "overlap",
         label: "Overlap",
         align: "right",
-        render: (r) => <span className="cell-mono">{r.weighted_overlap ?? r.overlap}/{r.geneset}</span>,
+        render: (r) => <span className="cell-mono">{formatOverlap(r.weighted_overlap ?? r.overlap)}/{r.geneset}</span>,
       },
       {
         key: "hits",
@@ -70,7 +100,7 @@ export default function SignatureResultRow({
 
   return (
     <div className={`srr${expanded ? " srr-open" : ""}`}>
-      <button className="srr-head" onClick={onToggle} aria-expanded={expanded}>
+      <button className="srr-head" onClick={onToggle} aria-expanded={expanded} aria-controls={bodyId} type="button">
         {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
         <span className="srr-name">{signature.signature_name}</span>
         <span className="srr-metric"><b>{signature.n_query}</b><span className="cell-sub">features</span></span>
@@ -81,7 +111,7 @@ export default function SignatureResultRow({
       </button>
 
       {expanded && (
-        <div className="srr-body">
+        <div className="srr-body" id={bodyId}>
           {Object.keys(signature.info ?? {}).length > 0 && (
             <div className="hyp-info">
               {Object.entries(signature.info).map(([k, v]) => (
@@ -106,17 +136,17 @@ export default function SignatureResultRow({
             />
           )}
 
-          {isGsea && openGeneset && (
+          {isGsea && openRow && (
             <div className="le-wrap">
               <div className="le-head">
                 <h4 className="detail-section-title" style={{ margin: 0 }}>
-                  {rows.find((r) => r.rowId === openGeneset)?.label}
+                  {openRow.label}
                 </h4>
-                <button className="btn btn-ghost btn-sm" onClick={() => setOpenGeneset(null)}>Close</button>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => setOpenGeneset(null)}>Close</button>
               </div>
               <LeadingEdgePlot
                 signatureHashkey={signature.signature_hashkey}
-                genesetLabel={rows.find((r) => r.rowId === openGeneset)?.label ?? ""}
+                genesetLabel={openRow.label}
                 species={species}
                 collection={collection}
                 subcollection={subcollection}
