@@ -20,16 +20,58 @@ const MARGIN = { top: 12, right: 16, bottom: 40, left: 260 };
 const ROW_H = 22;
 const MAX_BODY_H = 420;
 
-// Row labels render at 10px monospace (.edp-ylab); ~0.6em/glyph is a safe
-// average for the font stacks in play. Truncating to what MARGIN.left can
-// actually hold -- minus the tick offset and a little breathing room -- keeps
-// a long pathway name from running past the SVG's left edge; the full name
-// is still one hover away via a <title>.
-const YLAB_MAX_CHARS = Math.max(4, Math.floor((MARGIN.left - 18) / (10 * 0.6)));
+// Axis label glyphs render at 10px. Row labels (.edp-ylab) use the monospace
+// stack, where every glyph really is ~0.6em wide -- measuring the actual
+// stack (Menlo) at 10pt confirms ~6.0px/glyph, matching this almost exactly.
+const YLAB_CHAR_PX = 6;
 
-function truncateLabel(label: string): string {
-  if (label.length <= YLAB_MAX_CHARS) return label;
-  return label.slice(0, YLAB_MAX_CHARS - 1) + "…";
+// Row labels: truncating to what MARGIN.left can actually hold -- minus the
+// tick offset and a little breathing room -- keeps a long pathway name from
+// running past the SVG's left edge; the full name is still one hover away
+// via a <title>.
+const YLAB_MAX_CHARS = Math.max(4, Math.floor((MARGIN.left - 18) / YLAB_CHAR_PX));
+
+// Multi-signature mode's x-axis ticks are signature names -- often 30-40+
+// characters, e.g. "Aging_4mosc1_arecoline_vs_PBS_MontiLab2024" -- rendered
+// rotated -35deg with text-anchor "end", pivoting at
+// (tickX, bodyH + XLAB_Y_OFFSET): the classic D3 rotated-label idiom, which
+// anchors the label's *last* character and lets the rest trail away from it.
+// For a rotation of theta degrees, an end-anchored label whose rendered
+// width is L px has its first character land L*sin(theta) further down the
+// page and L*cos(theta) to the left of that anchor. The leftward part is a
+// non-issue here (MARGIN.left is 260px), but the downward part has to fit
+// inside MARGIN.bottom -- which budgeted only 40 - 16 = 24px below the
+// anchor, room for about four rotated characters at any reasonable glyph
+// width. That is exactly why every long label rendered as a clipped tail
+// ("...Lab2024"): the rest of the string was drawn below the viewBox.
+//
+// Fix: give multi mode a taller bottom margin, sized in the same units, and
+// derive how many characters actually fit in it -- mirroring YLAB_MAX_CHARS
+// above, but solved in the opposite direction (there, space was fixed and
+// chars were solved for; here, a margin is chosen and chars follow from it).
+// Single-signature mode's ticks are short, unrotated numbers that were never
+// part of this problem, so MARGIN.bottom (40) is untouched for it.
+//
+// .edp-xlab has no font-family override, so it inherits the proportional
+// --font stack (-apple-system/Segoe UI/Helvetica/Arial), not .edp-ylab's
+// monospace one -- glyph width there varies per character instead of being
+// fixed. Measuring real signature names (incl. an all-caps rendering, wider
+// than the mixed-case names actually stored) against the system UI font at
+// 10pt puts every case at 5.6-6.7px/glyph; XLAB_CHAR_PX below is set above
+// that whole measured range on purpose, so the character budget it produces
+// still leaves slack even for an unusually wide name.
+const XLAB_Y_OFFSET = 16;
+const XLAB_TILT_DEG = 35;
+const XLAB_DESCENDER_PAD = 8; // headroom for glyph descenders past the baseline
+const MARGIN_BOTTOM_MULTI = 110;
+const XLAB_CHAR_PX = 7.5;
+const XLAB_MAX_LABEL_PX =
+  (MARGIN_BOTTOM_MULTI - XLAB_Y_OFFSET - XLAB_DESCENDER_PAD) / Math.sin((XLAB_TILT_DEG * Math.PI) / 180);
+const XLAB_MAX_CHARS = Math.max(6, Math.floor(XLAB_MAX_LABEL_PX / XLAB_CHAR_PX));
+
+function truncateLabel(label: string, maxChars: number): string {
+  if (label.length <= maxChars) return label;
+  return label.slice(0, maxChars - 1) + "…";
 }
 
 // -log10(FDR). Only ever called on values that already passed
@@ -192,7 +234,7 @@ export default function EnrichmentDotPlot({
   const hover = hoverKey ? model.dots.find((d) => d.key === hoverKey) ?? null : null;
 
   const w = MARGIN.left + model.bodyW + MARGIN.right;
-  const h = MARGIN.top + model.bodyH + MARGIN.bottom;
+  const h = MARGIN.top + model.bodyH + (multi ? MARGIN_BOTTOM_MULTI : MARGIN.bottom);
 
   return (
     <div className="edp">
@@ -200,7 +242,7 @@ export default function EnrichmentDotPlot({
            aria-label="Enrichment dot plot: gene sets by significance">
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
           {model.labels.map((label, i) => {
-            const truncated = truncateLabel(label);
+            const truncated = truncateLabel(label, YLAB_MAX_CHARS);
             return (
               <g key={label}>
                 <rect x={0} y={model.rowH * i} width={model.bodyW} height={model.rowH}
@@ -213,13 +255,18 @@ export default function EnrichmentDotPlot({
               </g>
             );
           })}
-          {model.ticks.map((t, i) => (
-            <text key={i} x={t.x} y={model.bodyH + 16} className="edp-xlab"
-                  textAnchor={multi ? "end" : "middle"}
-                  transform={multi ? `rotate(-35 ${t.x} ${model.bodyH + 16})` : undefined}>
-              {t.text}
-            </text>
-          ))}
+          {model.ticks.map((t, i) => {
+            const text = multi ? truncateLabel(t.text, XLAB_MAX_CHARS) : t.text;
+            const y = model.bodyH + XLAB_Y_OFFSET;
+            return (
+              <text key={i} x={t.x} y={y} className="edp-xlab"
+                    textAnchor={multi ? "end" : "middle"}
+                    transform={multi ? `rotate(-${XLAB_TILT_DEG} ${t.x} ${y})` : undefined}>
+                {multi && text !== t.text && <title>{t.text}</title>}
+                {text}
+              </text>
+            );
+          })}
           {!multi && (
             <text x={model.bodyW / 2} y={model.bodyH + 34} className="edp-axis-title"
                   textAnchor="middle">−log10(FDR)</text>

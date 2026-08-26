@@ -861,15 +861,21 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
 }
 
 // The dot plot is no longer part of the run response -- it is fetched on
-// demand, so a run does not pay for a figure nobody opens.
-export function annotateDotplotUrl(params: {
+// demand, so a run does not pay for a figure nobody opens. Fetched as a blob
+// and handed to the caller through downloadBlob's synthetic-click pattern
+// (see below) rather than exposed as a plain URL: a rendered <a href> would
+// put api_key in the DOM, where link hover, "Copy Link Address", view-source
+// and DevTools can all read it, and it would persist in history and the
+// Downloads-list entry. Routing it through fetch() instead means the key
+// only ever travels as a request, never as an attribute.
+export async function downloadDotplot(params: {
   signatureHashkeys: string[];
   test: EnrichmentTest;
   species?: string;
   collection: string;
   subcollection?: string;
   fdr: number;
-}): string {
+}): Promise<void> {
   const q = new URLSearchParams({
     api_key: requireApiKey(),
     signature_hashkeys: params.signatureHashkeys.join(","),
@@ -879,7 +885,7 @@ export function annotateDotplotUrl(params: {
     subcollection: params.subcollection ?? "",
     fdr: String(params.fdr),
   });
-  return `${API_BASE}/annotate/dotplot?${q.toString()}`;
+  await downloadBlob(`/annotate/dotplot?${q.toString()}`, undefined, "enrichment_dotplot.png");
 }
 
 // ---------- Signature export / basket download ----------

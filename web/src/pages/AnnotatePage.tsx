@@ -13,7 +13,7 @@ import {
   getMsigdbCollections,
   fetchGenesets,
   runAnnotation,
-  annotateDotplotUrl,
+  downloadDotplot,
   type SignatureSummary,
   type MsigdbCollectionOption,
   type GenesetsReadiness,
@@ -166,6 +166,9 @@ export default function AnnotatePage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichmentRun | null>(null);
 
+  const [downloadingPlot, setDownloadingPlot] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
   async function handleRun() {
     if (selectedHashkeys.size === 0 || !genesetStatus) return;
     setRunning(true);
@@ -193,6 +196,30 @@ export default function AnnotatePage() {
       setRunError(err instanceof Error ? err.message : "Enrichment failed.");
     } finally {
       setRunning(false);
+    }
+  }
+
+  // Re-runs the enrichment server-side to render the figure, so it can take
+  // a couple of seconds -- fetched via downloadDotplot (blob + synthetic
+  // click) rather than a plain <a href>, which would put the API credential
+  // in the DOM.
+  async function handleDownloadPlot() {
+    if (!result) return;
+    setDownloadingPlot(true);
+    setDownloadError(null);
+    try {
+      await downloadDotplot({
+        signatureHashkeys: result.signatures.map((s) => s.signature_hashkey),
+        test: result.test,
+        species,
+        collection: result.collection,
+        subcollection: result.subcollection,
+        fdr: result.fdr,
+      });
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Could not download plot.");
+    } finally {
+      setDownloadingPlot(false);
     }
   }
 
@@ -432,28 +459,19 @@ export default function AnnotatePage() {
             subtitle={`${totalEnriched} gene set${totalEnriched === 1 ? "" : "s"} across ${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"}`}
             actions={
               !isGemResult && (
-                <a
-                  className="btn btn-secondary btn-sm"
-                  href={annotateDotplotUrl({
-                    signatureHashkeys: result.signatures.map((s) => s.signature_hashkey),
-                    test: result.test,
-                    species,
-                    collection: result.collection,
-                    subcollection: result.subcollection,
-                    fdr: result.fdr,
-                  })}
-                >
-                  <Download size={14} /> Download plot
-                </a>
+                <button className="btn btn-secondary btn-sm" onClick={handleDownloadPlot} disabled={downloadingPlot}>
+                  <Download size={14} /> {downloadingPlot ? "Downloading…" : "Download plot"}
+                </button>
               )
             }
           >
+            {downloadError && <p className="login-error">{downloadError}</p>}
             {totalEnriched > 0 && <EnrichmentDotPlot signatures={result.signatures} />}
             {totalEnriched === 0 && <p className="muted-note">No gene sets pass the current FDR cutoff.</p>}
           </Card>
 
           <Card title="Signatures" subtitle="Select a signature to see its enriched gene sets.">
-            <div className="srr-list">
+            <div>
               {result.signatures.map((sig) => (
                 <SignatureResultRow
                   key={sig.label}
