@@ -281,8 +281,9 @@ test_that("run_enrichment computes real hypergeometric enrichment from the on-di
   expect_true(all(c("Signature Size", "Background", "Test") %in% names(one$info)))
   expect_equal(one$info[["Signature Size"]], "2")
   expect_equal(one$info[["Test"]], "hypergeometric")
-  expect_true(is.character(result$dotplot_png))
-  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+  # The dot plot PNG is no longer embedded here -- see
+  # "run_enrichment no longer embeds a dot plot PNG in every response" below.
+  expect_false("dotplot_png" %in% names(result))
 })
 
 test_that("run_enrichment runs multiple signatures at once and skips ones that can't resolve", {
@@ -350,8 +351,9 @@ test_that("run_enrichment runs multiple signatures at once and skips ones that c
     c("CI Test Signature", "CI Test Signature (2)")
   )
   expect_true(all(vapply(result$signatures, function(x) length(x$results) == x$n_enriched, logical(1))))
-  expect_true(is.character(result$dotplot_png))
-  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+  # The dot plot PNG is no longer embedded here -- see
+  # "run_enrichment no longer embeds a dot plot PNG in every response" below.
+  expect_false("dotplot_png" %in% names(result))
 })
 
 test_that("run_enrichment fails only when every requested signature is unresolvable", {
@@ -490,4 +492,39 @@ test_that("render_hyp_dots_png returns NULL when nothing passes the cutoff", {
   nothing <- hypeR::hypeR(signature = c("NOT_A_GENE_1", "NOT_A_GENE_2"), genesets = gs,
                           test = "hypergeometric", fdr = 0.25, plotting = FALSE, quiet = TRUE)
   expect_null(render_hyp_dots_png(nothing, fdr = 0.25))
+})
+
+test_that("run_enrichment no longer embeds a dot plot PNG in every response", {
+  skip_if_no_test_db()
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  result <- run_enrichment(
+    list(user_name = "ci_admin", user_role = "admin"),
+    "ci_test_signature_hashkey_0000", test = "hypergeometric",
+    species = "Homo sapiens", collection = "H", fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+
+  expect_true(result$ok)
+  # The figure is served from GET /annotate/dotplot now. Embedding it here cost
+  # a 176KB base64 blob on every run whether or not anyone looked at it.
+  expect_null(result$dotplot_png)
+  expect_false("dotplot_png" %in% names(result))
+  # The rest of the shape is untouched.
+  expect_equal(length(result$signatures), 1)
+  expect_true(result$signatures[[1]]$n_enriched > 0)
 })

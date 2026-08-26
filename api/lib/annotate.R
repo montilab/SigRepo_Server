@@ -423,7 +423,7 @@ render_hyp_dots_png <- function(hyp, fdr, res = 130,
 # label, n_query}>, skipped = <list, same shape as above>,
 # results = <data.frame, one row per (signature, geneset) hit, with a
 # signature_label column identifying which input signature it came from>,
-# dotplot_png = <data URI or NULL>, geneset_source = "cache" | "live").
+# geneset_source = "cache" | "live").
 # "gsea" is not a hypeR test name -- hypeR offers hypergeometric and kstest,
 # and GSEA is the kstest with hit weighting turned on. power = 1 weights each
 # hit by its score (what GSEA means); power = 0 is the classic unweighted KS
@@ -509,7 +509,6 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
     resolved = resolved$resolved,
     skipped = resolved$skipped,
     signatures = per_signature,
-    dotplot_png = render_hyp_dots_png(hyp, fdr),
     geneset_source = geneset_result$source
   )
 }
