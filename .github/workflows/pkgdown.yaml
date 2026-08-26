@@ -59,5 +59,23 @@ jobs:
         with:
           token: ${{ secrets.GH_DOCS }}
           branch: gh-pages
-          folder: .
+          # Publish the built site, not the whole repository.
+          #
+          # `folder: .` copied the entire source tree to gh-pages, including
+          # .gitignore -- which contains `docs/`. The action stages with
+          # `git add`, and git only ignores UNTRACKED paths, so already-tracked
+          # files under docs/ kept updating while every NEW file was silently
+          # skipped. Nothing new has reached the published site since `docs/`
+          # entered .gitignore on 2025-10-23.
+          #
+          # That is why the site renders unstyled: pkgdown moved from Bootstrap
+          # 5.3.1 to 5.3.8, index.html (tracked) updated to reference
+          # deps/bootstrap-5.3.8/, and the new directory was never added -- so
+          # the page asks for a stylesheet that returns 404.
+          #
+          # Deploying `docs` into `docs/` keeps the published path the GitHub
+          # Pages setting expects (gh-pages branch, /docs), while no longer
+          # copying the source tree at all.
+          folder: docs
+          target-folder: docs
           clean: false

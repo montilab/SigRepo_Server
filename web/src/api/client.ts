@@ -262,6 +262,10 @@ export interface SignatureSummary {
   feature_count: number;
 }
 
+export type SignatureSortKey =
+  | "signature_name" | "organism" | "assay_type" | "direction_type" | "phenotype"
+  | "sample_type" | "platform_name" | "year" | "user_name" | "visibility";
+
 export interface SearchSignaturesParams {
   organism?: string;
   phenotype?: string;
@@ -269,6 +273,8 @@ export interface SearchSignaturesParams {
   keyword?: string;
   limit?: number;
   offset?: number;
+  sortBy?: SignatureSortKey;
+  sortDir?: "asc" | "desc";
 }
 
 export interface SignaturesPage {
@@ -301,6 +307,11 @@ export async function searchSignaturesPage(params: SearchSignaturesParams = {}):
   if (params.keyword) query.set("keyword", params.keyword);
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.offset != null) query.set("offset", String(params.offset));
+  // Sorting is applied server-side: the client only ever holds one page, so
+  // sorting here would reorder within the page and look like it had sorted the
+  // whole repository.
+  if (params.sortBy) query.set("sort_by", params.sortBy);
+  if (params.sortDir) query.set("sort_dir", params.sortDir);
 
   const raw = await apiFetch<{ count: number; signatures: SignatureSummary[] }>(
     `/signatures/search?${query.toString()}`
