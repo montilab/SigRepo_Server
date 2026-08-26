@@ -181,11 +181,19 @@ export default function EnrichmentDotPlot({
 
     const dots: Dot[] = [];
     shown.forEach((entry, sigIdx) => {
-      for (const row of entry.rows) {
+      // Indexed rather than a plain for..of: a GEM run's group/direction
+      // splits (see SignatureResultRow's "Split" column) all share one
+      // entry.sig.label, so more than one row can carry the same gene-set
+      // label within a single entry (e.g. the same set hit on both the
+      // "up" and "dn" split). Without the row index, those rows produced
+      // identical keys -- duplicate React keys, dots silently sharing a y
+      // band, and the tooltip's `model.dots.find(d => d.key === hoverKey)`
+      // resolving to whichever of them React kept.
+      entry.rows.forEach((row, rowIdx) => {
         const yi = rowIndex.get(row.label)!;
         const neg = isPlottableFdr(row.fdr) ? negLog10(row.fdr) : maxNeg;
         dots.push({
-          key: `${entry.sig.label}::${row.label}`,
+          key: `${entry.sig.label}::${row.label}::${rowIdx}`,
           label: row.label,
           signature: entry.sig.signature_name,
           x: multi ? colW * (sigIdx + 0.5) : (neg / maxNeg) * bodyW,
@@ -198,7 +206,7 @@ export default function EnrichmentDotPlot({
           geneset: row.geneset,
           hits: row.hits ?? "",
         });
-      }
+      });
     });
 
     // Top-N is a global cut across every signature's results, so one

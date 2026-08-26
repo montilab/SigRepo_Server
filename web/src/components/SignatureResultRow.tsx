@@ -65,9 +65,30 @@ export default function SignatureResultRow({
   // "nothing found" on its own, instead of rendering a blank, erroring panel.
   const openRow = openGeneset ? rows.find((r) => r.rowId === openGeneset) : undefined;
 
+  // GEM's runHyperGEM() defaults to splitting a bi-directional signature into
+  // several group/direction pieces (e.g. "all_features_up"/"all_features_dn")
+  // and stamps each row with which split it came from -- otherwise the same
+  // gene set appears twice here with nothing to say which direction is which.
+  // A plain hypeR run never splits, so every row shares one (or no)
+  // signature_label; only show the column when it actually distinguishes rows.
+  const splitLabels = useMemo(
+    () => new Set(rows.map((r) => r.signature_label).filter((v): v is string => !!v)),
+    [rows]
+  );
+  const showSplitColumn = splitLabels.size > 1;
+
   const columns: Column<(typeof rows)[number]>[] = useMemo(
     () => [
       { key: "label", label: "Gene set", render: (r) => <span className="cell-strong">{r.label}</span> },
+      ...(showSplitColumn
+        ? [
+            {
+              key: "signature_label" as const,
+              label: "Split",
+              render: (r: (typeof rows)[number]) => <span className="cell-sub">{r.signature_label}</span>,
+            },
+          ]
+        : []),
       {
         key: "fdr",
         label: "FDR",
@@ -95,7 +116,7 @@ export default function SignatureResultRow({
         },
       },
     ],
-    []
+    [showSplitColumn]
   );
 
   return (
