@@ -199,16 +199,18 @@ run_gem_enrichment <- function(auth, signature_hashkey, test, difexp_dir, msigdb
                       message = geneset_result$message))
   }
 
-  difexp <- NULL
-  if (base::isTRUE(base::as.logical(db_row$has_difexp[1]))) {
-    difexp <- load_difexp_rds(difexp_dir, signature_hashkey)
-  }
-
   gem_species <- .gem_species(species)
   gem_reference_key <- reference_key %||% "refmet_name"
 
+  # GEM never reads a difexp -- SigRepo::runHyperGEM() -> prepareHyperGEMSignatures()
+  # uses omic_signature$signature only -- so this neither loads one from disk
+  # (difexp_dir stays a parameter only so this call signature matches the
+  # hypeR path's) nor passes one to build_omic_signature(). require_difexp =
+  # FALSE tells build_omic_signature() not to refuse a has_difexp = 1
+  # signature just because the installed SigRepo client can't accept a
+  # difexp directly: unlike compare.R, GEM was never going to use it.
   omic_signature <- base::tryCatch(
-    build_omic_signature(db_row = db_row, difexp = difexp),
+    build_omic_signature(db_row = db_row, require_difexp = FALSE),
     error = function(e) e
   )
   if (base::inherits(omic_signature, "error")) {

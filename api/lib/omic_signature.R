@@ -39,7 +39,17 @@
 })
 
 # Returns an OmicSignature, or throws. `difexp` may be NULL.
-build_omic_signature <- function(db_row, difexp = NULL) {
+#
+# `require_difexp` is how a caller that will never read the difexp (GEM: see
+# api/lib/gem_enrichment.R, which only ever uses omic_signature$signature)
+# says so explicitly. Without it, every has_difexp = 1 signature refused
+# below regardless of whether the caller actually wanted the difexp -- which
+# is what made GEM fail on every metabolomics signature on a server running
+# the 2-arg client, even though GEM never touches a difexp at all. Callers
+# that DO read the difexp (compare.R) leave this at its default TRUE, so they
+# keep refusing rather than silently building a signature that is missing
+# data they asked for.
+build_omic_signature <- function(db_row, difexp = NULL, require_difexp = TRUE) {
   # createOmicSignature() is internal (not exported), so it must be reached
   # with ::: rather than ::.
   if (.omic_signature_supports_difexp()) {
@@ -51,7 +61,7 @@ build_omic_signature <- function(db_row, difexp = NULL) {
     ))
   }
 
-  if (base::isTRUE(base::as.logical(db_row$has_difexp[1]))) {
+  if (require_difexp && base::isTRUE(base::as.logical(db_row$has_difexp[1]))) {
     base::stop(
       "This signature has a difexp table, and the SigRepo client installed on ",
       "this server cannot accept one directly (createOmicSignature() is missing ",
