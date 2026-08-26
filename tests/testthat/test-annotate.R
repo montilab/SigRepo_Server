@@ -566,3 +566,71 @@ test_that("run_enrichment_hyp_object returns the hyp object the dot plot route d
   )
   expect_false(missing$ok)
 })
+
+test_that("enrichment_error_response maps no_difexp/unsupported_difexp_shape to 422, not 404", {
+  # The behavior change this test guards: a signature with no difexp (or an
+  # unusable difexp shape) is not "missing" -- it exists and is perfectly
+  # valid, it just can't satisfy a rank-based test. That's 422, not 404.
+  expect_equal(enrichment_error_response("no_difexp")$status, 422L)
+  expect_equal(enrichment_error_response("unsupported_difexp_shape")$status, 422L)
+
+  # Same class of "well-formed request, semantically impossible pairing"
+  # also gets 422.
+  expect_equal(enrichment_error_response("no_gene_symbols")$status, 422L)
+  expect_equal(enrichment_error_response("unsupported_assay_type")$status, 422L)
+
+  # The thing genuinely not existing is still 404 -- unchanged by this task.
+  expect_equal(enrichment_error_response("not_found")$status, 404L)
+  expect_equal(enrichment_error_response("no_features")$status, 404L)
+  expect_equal(enrichment_error_response("not_cached")$status, 404L)
+
+  # A malformed request is still 400 -- unchanged.
+  expect_equal(enrichment_error_response("no_signatures")$status, 400L)
+  expect_equal(enrichment_error_response("invalid_geneset")$status, 400L)
+
+  # An upstream fetch failure is still 502 -- unchanged.
+  expect_equal(enrichment_error_response("fetch_failed")$status, 502L)
+
+  # Unknown/absent reason still falls back to the generic 500 default.
+  expect_equal(enrichment_error_response("something_ive_never_seen")$status, 500L)
+  expect_equal(enrichment_error_response(NULL)$status, 500L)
+})
+
+test_that("enrichment_error_response's no_difexp/unsupported_difexp_shape messages name the requested test", {
+  gsea_msg <- enrichment_error_response("no_difexp", test = "gsea")$message
+  expect_match(gsea_msg, "GSEA", fixed = TRUE)
+  expect_match(gsea_msg, "hypergeometric", fixed = TRUE)
+
+  ks_msg <- enrichment_error_response("no_difexp", test = "kstest")$message
+  expect_match(ks_msg, "the KS test", fixed = TRUE)
+  expect_match(ks_msg, "hypergeometric", fixed = TRUE)
+
+  shape_msg <- enrichment_error_response("unsupported_difexp_shape", test = "gsea")$message
+  expect_match(shape_msg, "GSEA", fixed = TRUE)
+  expect_match(shape_msg, "hypergeometric", fixed = TRUE)
+
+  # No test supplied (the default): existing test-agnostic wording is kept
+  # verbatim, so any call site that can't supply `test` still gets sensible
+  # text rather than an error or a blank spot.
+  no_test_msg <- enrichment_error_response("no_difexp")$message
+  expect_equal(
+    no_test_msg,
+    "The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires."
+  )
+  expect_false(grepl("Try the hypergeometric test", no_test_msg, fixed = TRUE))
+
+  # Messages for reasons this task did not touch keep their exact existing
+  # wording, with or without a `test` supplied.
+  expect_equal(
+    enrichment_error_response("not_found", test = "gsea")$message,
+    "No signature found for the selected signature(s)."
+  )
+  expect_equal(
+    enrichment_error_response("no_gene_symbols")$message,
+    "None of the selected signature's features could be mapped to a gene symbol."
+  )
+
+  # An explicit message always wins over the fallback, test-aware or not.
+  explicit <- enrichment_error_response("no_difexp", message = "custom upstream message", test = "gsea")
+  expect_equal(explicit$message, "custom upstream message")
+})

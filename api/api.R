@@ -1697,7 +1697,7 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
     )
 
     if (!result$ok) {
-      err <- enrichment_error_response(result$reason, result$message)
+      err <- enrichment_error_response(result$reason, result$message, test = test)
       return(json_error(res, err$status, err$message))
     }
 
@@ -1758,7 +1758,7 @@ annotate_dotplot_route <- function(res, api_key = "", signature_hashkeys = "", t
       fdr = fdr, difexp_dir = difexp_dir, msigdb_cache_dir = msigdb_cache_dir
     )
     if (!base::isTRUE(built$ok)) {
-      err <- enrichment_error_response(built$reason, built$message)
+      err <- enrichment_error_response(built$reason, built$message, test = test)
       return(json_error(res, err$status, err$message))
     }
 

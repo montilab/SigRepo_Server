@@ -546,6 +546,51 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
   )
 }
 
+# User-facing name for a requested test, for the messages below -- "GSEA"
+# and "the KS test" read better than the raw "gsea" / "kstest" tokens in a
+# sentence aimed at a human caller. Falls back to the raw token for
+# anything unrecognized rather than guessing at a name for it.
+.enrichment_test_display_name <- function(test) {
+  base::switch(test %||% "",
+    kstest = "the KS test",
+    gsea = "GSEA",
+    hypergeometric = "the hypergeometric test",
+    test
+  )
+}
+
+# Fallback text for reason = "no_difexp". Named for the requested test when
+# one is supplied, so the caller learns both what is missing and what to do
+# about it -- switch to hypergeometric, which is resolved from the
+# signature's curated feature set and never reads difexp in the first
+# place (see resolve_single_enrichment_query()). Without a test (NULL,
+# the default), falls back to the older test-agnostic wording.
+.enrichment_no_difexp_message <- function(test) {
+  if (base::is.null(test)) {
+    return("The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires.")
+  }
+  base::sprintf(
+    "This signature has no stored differential-expression table, which %s requires. Try the hypergeometric test, which uses the signature's feature set instead.",
+    .enrichment_test_display_name(test)
+  )
+}
+
+# Fallback text for reason = "unsupported_difexp_shape". In practice
+# resolve_single_enrichment_query() always supplies its own dynamic
+# `message` for this reason (naming the actual columns found on the
+# offending difexp table), so this fallback is mostly a safety net -- but
+# it follows the same test-aware shape as .enrichment_no_difexp_message()
+# above for the (unlikely) case it is what actually gets shown.
+.enrichment_unsupported_difexp_shape_message <- function(test) {
+  if (base::is.null(test)) {
+    return("The selected signature's stored difexp is not in a shape rank-based enrichment (KS test and GSEA) can use.")
+  }
+  base::sprintf(
+    "This signature's stored differential-expression table is not in a shape %s can use. Try the hypergeometric test, which uses the signature's feature set instead.",
+    .enrichment_test_display_name(test)
+  )
+}
+
 # Maps a failed hypeR-based enrichment result's `reason` (as produced by
 # resolve_single_enrichment_query(), resolve_enrichment_queries(),
 # run_enrichment_hyp_object(), and run_enrichment() above) to an HTTP status
@@ -556,30 +601,49 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
 # of /annotate/run runs a different pipeline (see run_gem_enrichment()) with
 # its own reasons and status codes and does not use this.
 #
+# `test` is the test the caller actually requested ("hypergeometric" /
+# "kstest" / "gsea"). It never changes the status code -- a signature that
+# can't satisfy a rank-based test is equally un-satisfiable whether the
+# caller asked for kstest or gsea -- it only lets the no_difexp /
+# unsupported_difexp_shape fallback messages name the test that failed and
+# point at the way out (hypergeometric, which needs the feature set, not
+# difexp; see resolve_single_enrichment_query()). Optional (NULL default)
+# so any call site that can't supply it keeps working.
+#
+# Status mapping principle -- extend this table when a new reason is added
+# rather than inventing a one-off status elsewhere:
+#   404 - the thing genuinely is not there: not_found, no_features,
+#         not_cached
+#   422 - it exists, but cannot satisfy THIS request: no_difexp,
+#         unsupported_difexp_shape, no_gene_symbols, unsupported_assay_type
+#   400 - the request itself is malformed: no_signatures, invalid_geneset
+#   502 - an upstream fetch failed: fetch_failed
+#
 # An explicit `message` -- most reasons carry one; see the functions above --
 # always wins over the generic fallback text, since it can say things this
 # can't reconstruct from `reason` alone (e.g. which difexp columns were
 # actually found).
 #
 # Returns list(status = <integer>, message = <string>).
-enrichment_error_response <- function(reason, message = NULL) {
+enrichment_error_response <- function(reason, message = NULL, test = NULL) {
   status <- base::switch(reason %||% "",
-    no_signatures = 400L,
     not_found = 404L,
     no_features = 404L,
-    no_difexp = 404L,
-    no_gene_symbols = 404L,
-    unsupported_assay_type = 400L,
-    unsupported_difexp_shape = 400L,
-    invalid_geneset = 400L,
     not_cached = 404L,
+    no_difexp = 422L,
+    unsupported_difexp_shape = 422L,
+    no_gene_symbols = 422L,
+    unsupported_assay_type = 422L,
+    no_signatures = 400L,
+    invalid_geneset = 400L,
     fetch_failed = 502L,
     500L
   )
   fallback_message <- base::switch(reason %||% "",
     not_found = "No signature found for the selected signature(s).",
     no_features = "The selected signature has no stored features.",
-    no_difexp = "The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires.",
+    no_difexp = .enrichment_no_difexp_message(test),
+    unsupported_difexp_shape = .enrichment_unsupported_difexp_shape_message(test),
     no_gene_symbols = "None of the selected signature's features could be mapped to a gene symbol.",
     "Enrichment failed."
   )
