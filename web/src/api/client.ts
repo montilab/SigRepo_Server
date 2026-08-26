@@ -319,6 +319,43 @@ export async function searchSignaturesPage(params: SearchSignaturesParams = {}):
   return { rows: raw.signatures ?? [], total: Number(raw.count) || 0 };
 }
 
+export interface LeadingEdge {
+  geneset_label: string;
+  signature_name: string | null;
+  n_total: number;
+  es_score: number;
+  es_index: number;
+  es_direction: "positive" | "negative";
+  n_leading: number;
+  leading_edge_genes: string[];
+  hit_positions: number[];
+  curve: { position: number[]; running_score: number[] };
+}
+
+// Running-enrichment curve for ONE gene set. Fetched per gene set rather than
+// with the run: a run returns hundreds of rows and only the one a reader opens
+// needs a curve.
+export async function fetchLeadingEdge(params: {
+  signatureHashkey: string;
+  genesetLabel: string;
+  species: string;
+  collection: string;
+  subcollection?: string;
+}): Promise<LeadingEdge> {
+  return apiFetch<LeadingEdge>("/annotate/leading_edge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      signature_hashkey: params.signatureHashkey,
+      geneset_label: params.genesetLabel,
+      species: params.species,
+      collection: params.collection,
+      subcollection: params.subcollection ?? "",
+    }),
+  });
+}
+
 // ---------- Compare (OmicSignature::compare_omic_signatures) ----------
 
 // A labeled similarity matrix: values[i][j] is row i vs col j (null where the
@@ -736,7 +773,7 @@ export interface EnrichmentSkippedSignature {
 }
 
 export interface EnrichmentRun {
-  test: "hypergeometric" | "kstest";
+  test: "hypergeometric" | "kstest" | "gsea";
   collection: string;
   subcollection: string;
   fdr: number;
@@ -755,7 +792,7 @@ export interface EnrichmentRun {
 
 export interface RunAnnotationParams {
   signatureHashkeys: string[];
-  test: "hypergeometric" | "kstest";
+  test: "hypergeometric" | "kstest" | "gsea";
   species?: string;
   collection: string;
   subcollection?: string;

@@ -2539,3 +2539,84 @@ a.rmg-item-title:hover {
   text-overflow: ellipsis;
   vertical-align: middle;
 }
+
+/* GSEA leading-edge plot.
+   Inline SVG rather than a server-rendered PNG: it stays crisp, follows the
+   page theme, and the server does not have to render an image per gene set. */
+.le-wrap {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.le-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.le-hint {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.le-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+.le-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.le-stats > span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.le-stats b {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 15px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.le-dir-pos { color: var(--success); align-self: center; font-weight: 600; }
+.le-dir-neg { color: var(--danger); align-self: center; font-weight: 600; }
+
+.le-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.le-axis { stroke: var(--border-subtle); stroke-width: 1; }
+.le-curve { stroke: var(--accent); stroke-width: 1.8; stroke-linejoin: round; }
+/* The peak is where the leading edge ends -- the single most-read feature of
+   the figure, so it gets its own marker rather than being inferred. */
+.le-peak { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.le-hit { stroke: var(--text-muted); stroke-width: 1; opacity: 0.45; }
+.le-hit-leading { stroke: var(--accent); opacity: 0.95; }
+.le-tick-label { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono, ui-monospace, monospace); }
+
+.le-genes {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.le-genes summary {
+  cursor: pointer;
+  color: var(--accent-text);
+}
+.le-gene-list {
+  margin-top: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  word-break: break-word;
+}

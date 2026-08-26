@@ -361,7 +361,19 @@ render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) 
 # results = <data.frame, one row per (signature, geneset) hit, with a
 # signature_label column identifying which input signature it came from>,
 # dotplot_png = <data URI or NULL>, geneset_source = "cache" | "live").
-run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest"),
+# "gsea" is not a hypeR test name -- hypeR offers hypergeometric and kstest,
+# and GSEA is the kstest with hit weighting turned on. power = 1 weights each
+# hit by its score (what GSEA means); power = 0 is the classic unweighted KS
+# statistic. Keeping them as separate choices matches the Shiny app, which
+# offered "KS Test" and "GSEA" as distinct methods.
+.enrichment_hyper_test <- function(test) {
+  if (identical(test, "hypergeometric")) "hypergeometric" else "kstest"
+}
+.enrichment_power <- function(test) {
+  if (identical(test, "gsea")) 1 else 0
+}
+
+run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
                             species = "Homo sapiens", collection = "H", subcollection = NULL,
                             fdr = 0.05, difexp_dir, msigdb_cache_dir) {
   test <- base::match.arg(test)
@@ -382,7 +394,15 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
   }
 
   hyp <- base::tryCatch(
-    hypeR::hypeR(signature = resolved$queries, genesets = geneset_result$genesets, test = test, fdr = fdr, plotting = FALSE, quiet = TRUE),
+    hypeR::hypeR(
+      signature = resolved$queries,
+      genesets = geneset_result$genesets,
+      test = .enrichment_hyper_test(test),
+      power = .enrichment_power(test),
+      fdr = fdr,
+      plotting = FALSE,
+      quiet = TRUE
+    ),
     error = function(err) {
       structure(base::list(message = err$message), class = "enrichment_run_error")
     }

@@ -5,6 +5,7 @@ import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Stepper from "../components/Stepper";
 import DataTable, { type Column } from "../components/DataTable";
+import LeadingEdgePlot from "../components/LeadingEdgePlot";
 import {
   searchSignatures,
   getMsigdbSpecies,
@@ -129,7 +130,7 @@ export default function AnnotatePage() {
     }
   }
 
-  const [test, setTest] = useState<"hypergeometric" | "kstest">("hypergeometric");
+  const [test, setTest] = useState<"hypergeometric" | "kstest" | "gsea">("hypergeometric");
   const [fdr, setFdr] = useState(0.05);
 
   // Rank-based enrichment needs per-feature scores from difexp, which not
@@ -144,6 +145,9 @@ export default function AnnotatePage() {
   }, [kstestAvailable, test]);
 
   const [running, setRunning] = useState(false);
+  // Which gene set's enrichment curve is open. Only meaningful after a gsea
+  // run; cleared whenever new results replace the old ones.
+  const [openGeneset, setOpenGeneset] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichmentRun | null>(null);
 
@@ -307,6 +311,11 @@ export default function AnnotatePage() {
                       <option value="kstest" disabled={!kstestAvailable}>
                         Rank-based (KS test) {!kstestAvailable ? "— requires stored difexp" : ""}
                       </option>
+                      {/* GSEA is the KS statistic with hits weighted by score;
+                          it has the same stored-difexp requirement. */}
+                      <option value="gsea" disabled={!kstestAvailable}>
+                        GSEA — weighted, with leading edge {!kstestAvailable ? "— requires stored difexp" : ""}
+                      </option>
                     </select>
                   </label>
                   <label className="field field-slider">
@@ -448,7 +457,36 @@ export default function AnnotatePage() {
               rowKey="rowId"
               pageSize={25}
               emptyLabel="No gene sets pass the current FDR cutoff."
+              selectedKey={openGeneset}
+              onSelectRow={result.test === "gsea" ? (r) => setOpenGeneset(openGeneset === r.rowId ? null : r.rowId) : undefined}
             />
+
+            {/* The curve only exists for a ranked run -- there is no ranking to
+                walk after a hypergeometric one, so it is not offered there. */}
+            {result.test === "gsea" &&
+              (openGeneset ? (
+                <div className="le-wrap">
+                  <div className="le-head">
+                    <h4 className="detail-section-title" style={{ margin: 0 }}>
+                      {resultRows.find((r) => r.rowId === openGeneset)?.label}
+                    </h4>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setOpenGeneset(null)}>
+                      Close
+                    </button>
+                  </div>
+                  <LeadingEdgePlot
+                    signatureHashkey={result.signatures[0]?.signature_hashkey ?? ""}
+                    genesetLabel={resultRows.find((r) => r.rowId === openGeneset)?.label ?? ""}
+                    species={species}
+                    collection={collection}
+                    subcollection={subcollection}
+                  />
+                </div>
+              ) : (
+                <p className="cell-sub le-hint">
+                  Select a gene set above to see its running enrichment curve and leading edge.
+                </p>
+              ))}
             <div className="wizard-nav wizard-nav-padded">
               <button className="btn btn-ghost" onClick={() => { setStep(0); setResult(null); setGenesetStatus(null); }}>
                 <RotateCcw size={15} /> Start over
