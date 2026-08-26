@@ -354,21 +354,47 @@ render_hyp_dots_png <- function(hyp, fdr, res = 130,
                                 row_height = 0.30, min_height = 3.2, max_height = 22,
                                 label_char_width = 0.085, panel_width = 5.0, max_width = 20) {
   base::tryCatch({
-    # run_enrichment() always passes hypeR() a named list, so `hyp` is a
-    # multihyp and hyp$data is its per-signature list -- length() is the
-    # signature count. One signature takes merge = FALSE, which returns a list
-    # of per-signature plots; merging a single-signature multihyp instead
-    # raises "rownames<-: invalid rownames length".
-    multi <- base::length(hyp$data) > 1
-    plot_obj <- if (multi) {
-      hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = TRUE)
+    # hyp_dots() behaves differently for each shape hypeR can hand back, and
+    # every combination below is load-bearing:
+    #
+    #   object              merge = TRUE          merge = FALSE
+    #   hyp (single)        bare ggplot           bare ggplot  (merge ignored)
+    #   multihyp (1 sig)    ERROR: rownames       list of 1
+    #   multihyp (N sigs)   bare ggplot           list of N
+    #
+    # This used to branch on `length(hyp$data) > 1`, which is ambiguous: on a
+    # multihyp that is the signature count, but on a hyp it is the COLUMN COUNT
+    # of a data frame (8). It picked a working combination for all three shapes
+    # by coincidence of two unrelated numbers, not by design -- a hyp landed on
+    # merge = TRUE and a one-signature multihyp on merge = FALSE, which happen
+    # to be the two that work. Ask the object what it is instead.
+    is_multi <- methods::is(hyp, "multihyp")
+    n_signatures <- if (is_multi) base::length(hyp$data) else 1L
+
+    # Merging is only meaningful, and only safe, for a multihyp holding more
+    # than one signature: it is the side-by-side comparison. A one-signature
+    # multihyp raises "attempt to set 'rownames'", and a bare hyp ignores the
+    # argument entirely.
+    merged <- is_multi && n_signatures > 1L
+    drawn <- hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = merged)
+
+    # Branch on what came BACK, not on what went in. Indexing [[1]] into a bare
+    # ggplot raises "subscript out of bounds" under ggplot2 4.x, where a ggplot
+    # is an S7 object and [[ dispatches to S7::prop(x, "meta").
+    plot_obj <- if (ggplot2::is_ggplot(drawn)) {
+      drawn
+    } else if (base::is.list(drawn) && base::length(drawn) > 0) {
+      drawn[[1]]
     } else {
-      plots <- hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = FALSE)
-      if (base::length(plots) == 0) return(NULL)
-      plots[[1]]
+      NULL
     }
     if (base::is.null(plot_obj)) return(NULL)
-    if (!multi) plot_obj <- .fix_hyp_dots_scale(plot_obj)
+
+    # The axis correction belongs to the per-signature geometry
+    # (x = label, y = significance). The merged plot is the other one --
+    # x = signature, y = label, significance in the colour -- with no
+    # continuous y to correct.
+    if (!merged) plot_obj <- .fix_hyp_dots_scale(plot_obj)
 
     extent <- .hyp_dots_extent(hyp, fdr)
     if (extent$rows == 0) return(NULL)

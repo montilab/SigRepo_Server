@@ -411,3 +411,83 @@ test_that("run_enrichment falls back to a live MSigDB fetch when nothing is cach
   expect_equal(length(result$signatures), 1)
   expect_true(result$signatures[[1]]$n_enriched > 0)
 })
+
+# --- render_hyp_dots_png across both hypeR object shapes ---------------------
+# hyp_dots() returns different things depending on what it is given, and the
+# renderer has to cope with all of them:
+#
+#   object              merge=TRUE            merge=FALSE
+#   hyp (single)        bare ggplot           bare ggplot   (merge ignored)
+#   multihyp (1 sig)    ERROR: rownames       list of 1
+#   multihyp (N sigs)   bare ggplot           list of N
+#
+# Two traps: indexing [[1]] into a bare ggplot raises "subscript out of bounds"
+# under ggplot2 4.x (a ggplot is an S7 object, so [[ dispatches to
+# S7::prop(x, "meta")), and merging a single-signature multihyp raises
+# "attempt to set 'rownames'". run_enrichment() only ever builds a multihyp, so
+# a single hyp reached the renderer untested.
+
+hyp_dots_test_genesets <- function() {
+  cache <- file.path(real_msigdb_cache_dir, "Homo_sapiens__H__all.rds")
+  if (!file.exists(cache)) return(NULL)
+  readRDS(cache)
+}
+
+test_that("render_hyp_dots_png renders a single hyp object, not just a multihyp", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  signature <- unique(c(utils::head(gs$HALLMARK_FATTY_ACID_METABOLISM, 40),
+                        utils::head(gs$HALLMARK_OXIDATIVE_PHOSPHORYLATION, 30)))
+
+  # A bare hyp -- what hypeR() returns for a plain character signature.
+  single <- hypeR::hypeR(signature = signature, genesets = gs, test = "hypergeometric",
+                         fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  expect_true(methods::is(single, "hyp"))
+  uri <- render_hyp_dots_png(single, fdr = 0.25)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+})
+
+test_that("render_hyp_dots_png renders a one-signature multihyp without merging it", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  signature <- unique(c(utils::head(gs$HALLMARK_FATTY_ACID_METABOLISM, 40),
+                        utils::head(gs$HALLMARK_OXIDATIVE_PHOSPHORYLATION, 30)))
+  one <- hypeR::hypeR(signature = list(A = signature), genesets = gs, test = "hypergeometric",
+                      fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  expect_true(methods::is(one, "multihyp"))
+  uri <- render_hyp_dots_png(one, fdr = 0.25)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+})
+
+test_that("render_hyp_dots_png renders a multi-signature multihyp", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  a <- unique(c(utils::head(gs$HALLMARK_FATTY_ACID_METABOLISM, 40),
+                utils::head(gs$HALLMARK_OXIDATIVE_PHOSPHORYLATION, 30)))
+  b <- unique(c(utils::head(gs$HALLMARK_ADIPOGENESIS, 35), utils::head(gs$HALLMARK_PEROXISOME, 25)))
+  many <- hypeR::hypeR(signature = list(A = a, B = b), genesets = gs, test = "hypergeometric",
+                       fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  uri <- render_hyp_dots_png(many, fdr = 0.25)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+})
+
+test_that("render_hyp_dots_png returns NULL when nothing passes the cutoff", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  # Genes that belong to no Hallmark set: nothing to draw, and the caller
+  # relies on NULL rather than an error to omit the figure.
+  nothing <- hypeR::hypeR(signature = c("NOT_A_GENE_1", "NOT_A_GENE_2"), genesets = gs,
+                          test = "hypergeometric", fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  expect_null(render_hyp_dots_png(nothing, fdr = 0.25))
+})
