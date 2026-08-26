@@ -1740,6 +1740,64 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
   })
 }
 
+#* Download hypeR's own dot plot for an enrichment run as a PNG
+#* @param api_key
+#* @param signature_hashkeys
+#* @param test
+#* @param species
+#* @param collection
+#* @param subcollection
+#* @param fdr
+#' @get /annotate/dotplot
+annotate_dotplot_route <- function(res, api_key = "", signature_hashkeys = "", test = "hypergeometric",
+                                   species = "Homo sapiens", collection = "H", subcollection = "", fdr = 0.05){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  hashkeys <- base::unlist(base::strsplit(json_scalar(signature_hashkeys), ",", fixed = TRUE))
+  hashkeys <- base::trimws(hashkeys)
+  hashkeys <- hashkeys[base::nzchar(hashkeys)]
+  if (base::length(hashkeys) == 0) {
+    return(json_error(res, 400, "signature_hashkeys is required."))
+  }
+
+  test <- json_scalar(test)
+  if (!test %in% c("hypergeometric", "kstest", "gsea")) {
+    return(json_error(res, 400, "The dot plot is a hypeR figure; test must be 'hypergeometric', 'kstest' or 'gsea'."))
+  }
+
+  fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
+  if (base::is.na(fdr) || fdr <= 0 || fdr > 1) {
+    fdr <- 0.05
+  }
+
+  base::tryCatch({
+    built <- run_enrichment_hyp_object(
+      auth = auth, signature_hashkeys = hashkeys, test = test,
+      species = json_scalar(species), collection = json_scalar(collection),
+      subcollection = { sc <- json_scalar(subcollection); if (base::identical(sc, "")) NULL else sc },
+      fdr = fdr, difexp_dir = difexp_dir, msigdb_cache_dir = msigdb_cache_dir
+    )
+    if (!base::isTRUE(built$ok)) {
+      status <- base::switch(built$reason %||% "", no_signatures = 400L, not_found = 404L, not_cached = 404L, fetch_failed = 502L, 500L)
+      return(json_error(res, status, built$message %||% "Could not build the enrichment for this plot."))
+    }
+
+    uri <- render_hyp_dots_png(built$hyp, fdr)
+    if (base::is.null(uri)) {
+      return(json_error(res, 502, "hypeR could not render a dot plot for this run."))
+    }
+
+    raw_bytes <- jsonlite::base64_dec(base::sub("^data:image/png;base64,", "", uri))
+    res$serializer <- plumber::serializer_content_type("image/png")
+    plumber::as_attachment(raw_bytes, filename = "enrichment_dotplot.png")
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Dot plot failed: %s", err$message))
+  })
+}
+
 #* Download a single signature as an RDS file (metadata + features + difexp)
 #* @param api_key
 #* @param signature_hashkey

@@ -436,9 +436,15 @@ render_hyp_dots_png <- function(hyp, fdr, res = 130,
   if (identical(test, "gsea")) 1 else 0
 }
 
-run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
-                            species = "Homo sapiens", collection = "H", subcollection = NULL,
-                            fdr = 0.05, difexp_dir, msigdb_cache_dir) {
+# Resolve queries and run hypeR, stopping at the hyp object.
+#
+# GET /annotate/dotplot needs the hyp object itself, not the tables
+# run_enrichment() derives from it. Factored out rather than caching hyp
+# objects server-side: caching would mean per-caller state in a single-process
+# Plumber API for a figure most runs never download.
+run_enrichment_hyp_object <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
+                                      species = "Homo sapiens", collection = "H", subcollection = NULL,
+                                      fdr = 0.05, difexp_dir, msigdb_cache_dir) {
   test <- base::match.arg(test)
   signature_hashkeys <- base::unique(signature_hashkeys[base::nzchar(signature_hashkeys)])
   if (base::length(signature_hashkeys) == 0) {
@@ -448,7 +454,11 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
   resolved <- resolve_enrichment_queries(auth, signature_hashkeys, test, difexp_dir)
   if (base::length(resolved$queries) == 0) {
     first <- resolved$skipped[[1]]
-    return(base::list(ok = FALSE, reason = first$reason %||% "enrichment_failed", message = first$message, skipped = resolved$skipped))
+    # Carry `skipped` out: run_enrichment()'s error path reports which
+    # signatures were dropped and why, and losing it would silently turn a
+    # partial failure into an unexplained one.
+    return(base::list(ok = FALSE, reason = first$reason %||% "enrichment_failed",
+                      message = first$message, skipped = resolved$skipped))
   }
 
   geneset_result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection %||% "")
@@ -466,13 +476,36 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
       plotting = FALSE,
       quiet = TRUE
     ),
-    error = function(err) {
-      structure(base::list(message = err$message), class = "enrichment_run_error")
-    }
+    error = function(err) structure(base::list(message = err$message), class = "enrichment_run_error")
   )
   if (base::inherits(hyp, "enrichment_run_error")) {
     return(base::list(ok = FALSE, reason = "enrichment_failed", message = hyp$message))
   }
+
+  base::list(ok = TRUE, hyp = hyp, resolved = resolved, geneset_source = geneset_result$source)
+}
+
+run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
+                            species = "Homo sapiens", collection = "H", subcollection = NULL,
+                            fdr = 0.05, difexp_dir, msigdb_cache_dir) {
+  test <- base::match.arg(test)
+  signature_hashkeys <- base::unique(signature_hashkeys[base::nzchar(signature_hashkeys)])
+  if (base::length(signature_hashkeys) == 0) {
+    return(base::list(ok = FALSE, reason = "no_signatures", message = "Select at least one signature."))
+  }
+
+  built <- run_enrichment_hyp_object(
+    auth = auth, signature_hashkeys = signature_hashkeys, test = test,
+    species = species, collection = collection, subcollection = subcollection,
+    fdr = fdr, difexp_dir = difexp_dir, msigdb_cache_dir = msigdb_cache_dir
+  )
+  if (!base::isTRUE(built$ok)) {
+    return(base::list(ok = FALSE, reason = built$reason, message = built$message,
+                      skipped = built$skipped %||% base::list()))
+  }
+  hyp <- built$hyp
+  resolved <- built$resolved
+  geneset_result <- base::list(source = built$geneset_source)
 
   # Keep the hyp object's own shape: one entry per signature, carrying that
   # signature's hyp$info and its own results table.
