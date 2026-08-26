@@ -1,0 +1,16 @@
+DB_NAME="sigrepo"
+DB_HOST="sigrepo-local-mysql"
+DB_LOCAL_HOST="sigrepo-local-mysql"
+DB_PORT=3306
+DB_USER="root"
+DB_PASSWORD="sigrepo_local_dev"
+ADMIN_KEY="728bf7e0c8ccebafde247b83a3e9e83f"
+# Deliberately not a real key: this stack must never send mail. Registration
+# and password reset will report the notification step failed, which is the
+# correct behaviour locally.
+SENDMAIL_KEY="local-no-mail"
+SIGREPO_SERVER_DIR="/SigRepo_Server"
+SIGREPO_DIR="/SigRepo"
+DIFEXP_DIR="/difexp"
+API_HOST="http://127.0.0.1"
+API_PORT=3838
