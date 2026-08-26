@@ -444,3 +444,52 @@ test_that("resolve_feature_ids resolves metabolites by refmet_name and reports u
   expect_false(bad_dict$ok)
   expect_equal(bad_dict$reason, "invalid_upload")
 })
+
+test_that("resolve_feature_ids resolves metabolites case-insensitively, matching the SQL collation", {
+  # metabolite_reference.refmet_name collates utf8_unicode_ci (case-
+  # insensitive), so the SQL lookup already matches 'upload test metabolite'
+  # (or any other case) against a stored 'Upload Test Metabolite'. The R-side
+  # id_by_name[names_in] subscript that follows is an exact, case-sensitive
+  # match, and used to be keyed on the stored casing -- so a differently-cased
+  # upload was found by SQL and then dropped right back out in R, reported as
+  # "not in metabolite_reference" for a name that demonstrably is. RefMet
+  # names are mixed case (Cholic acid, Glucose), so this rejected real
+  # uploads. Deliberately uses a DIFFERENT case than the stored fixture row --
+  # the test above uses the exact stored case and cannot catch this.
+  skip_if_no_test_db()
+
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  hashkey <- "upload_met_test_hashkey_000002"
+  DBI::dbExecute(conn, sprintf("DELETE FROM metabolite_reference WHERE metabolite_hashkey = '%s'", hashkey))
+  on.exit(
+    suppressWarnings(DBI::dbExecute(conn, sprintf("DELETE FROM metabolite_reference WHERE metabolite_hashkey = '%s'", hashkey))),
+    add = TRUE
+  )
+  DBI::dbExecute(conn, sprintf(
+    "INSERT INTO metabolite_reference (refmet_name, is_current, version, metabolite_hashkey) VALUES ('Upload Case Test Metabolite', 1, 1, '%s')",
+    hashkey
+  ))
+  expected_id <- DBI::dbGetQuery(conn, sprintf(
+    "SELECT metabolite_id FROM metabolite_reference WHERE metabolite_hashkey = '%s'", hashkey
+  ))$metabolite_id[1]
+
+  lower_case <- resolve_feature_ids(
+    conn,
+    data.frame(feature_name = "upload case test metabolite", probe_id = "upload case test metabolite", stringsAsFactors = FALSE),
+    "metabolite_reference", organism_id = NA, feature_key = "feature_name",
+    metabolomics_nomenclature = "refmet"
+  )
+  expect_true(lower_case$ok)
+  expect_equal(lower_case$feature_ids, as.integer(expected_id))
+
+  upper_case <- resolve_feature_ids(
+    conn,
+    data.frame(feature_name = "UPLOAD CASE TEST METABOLITE", probe_id = "UPLOAD CASE TEST METABOLITE", stringsAsFactors = FALSE),
+    "metabolite_reference", organism_id = NA, feature_key = "feature_name",
+    metabolomics_nomenclature = "refmet"
+  )
+  expect_true(upper_case$ok)
+  expect_equal(upper_case$feature_ids, as.integer(expected_id))
+})

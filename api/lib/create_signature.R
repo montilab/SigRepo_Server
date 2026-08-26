@@ -270,8 +270,16 @@ resolve_feature_ids <- function(conn, feature_tbl, ref_table, organism_id, featu
     # A metabolite can carry several xref rows for one dictionary; take the
     # first id per identifier so one uploaded row maps to one feature.
     lookup <- lookup[!base::duplicated(lookup$lookup_value), , drop = FALSE]
-    id_by_name <- stats::setNames(lookup$metabolite_id, base::as.character(lookup$lookup_value))
-    resolved <- base::unname(id_by_name[names_in])
+    # Keyed on tolower(): the query above ran case-insensitively (these
+    # columns collate utf8_unicode_ci), so a stored 'Glucose' matches an
+    # uploaded 'glucose' at the SQL layer -- but this subscript is an exact,
+    # case-sensitive R lookup. Left keyed on the stored casing, a
+    # differently-cased upload was found by SQL and then dropped right back
+    # out here, reported as "not in metabolite_reference" for a name that
+    # demonstrably is. RefMet names are mixed case (Cholic acid, Glucose), so
+    # this rejected real uploads.
+    id_by_name <- stats::setNames(lookup$metabolite_id, base::tolower(base::as.character(lookup$lookup_value)))
+    resolved <- base::unname(id_by_name[base::tolower(names_in)])
     unknown <- base::unique(names_in[base::is.na(resolved)])
     if (base::length(unknown) > 0) {
       return(base::list(
