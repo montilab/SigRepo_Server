@@ -545,3 +545,43 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
     geneset_source = geneset_result$source
   )
 }
+
+# Maps a failed hypeR-based enrichment result's `reason` (as produced by
+# resolve_single_enrichment_query(), resolve_enrichment_queries(),
+# run_enrichment_hyp_object(), and run_enrichment() above) to an HTTP status
+# and a human-readable message. POST /annotate/run (its non-GEM branch) and
+# GET /annotate/dotplot both call run_enrichment_hyp_object() and must report
+# the same failure the same way, so this is the one place that mapping is
+# written down rather than kept as two copies that can drift. The GEM branch
+# of /annotate/run runs a different pipeline (see run_gem_enrichment()) with
+# its own reasons and status codes and does not use this.
+#
+# An explicit `message` -- most reasons carry one; see the functions above --
+# always wins over the generic fallback text, since it can say things this
+# can't reconstruct from `reason` alone (e.g. which difexp columns were
+# actually found).
+#
+# Returns list(status = <integer>, message = <string>).
+enrichment_error_response <- function(reason, message = NULL) {
+  status <- base::switch(reason %||% "",
+    no_signatures = 400L,
+    not_found = 404L,
+    no_features = 404L,
+    no_difexp = 404L,
+    no_gene_symbols = 404L,
+    unsupported_assay_type = 400L,
+    unsupported_difexp_shape = 400L,
+    invalid_geneset = 400L,
+    not_cached = 404L,
+    fetch_failed = 502L,
+    500L
+  )
+  fallback_message <- base::switch(reason %||% "",
+    not_found = "No signature found for the selected signature(s).",
+    no_features = "The selected signature has no stored features.",
+    no_difexp = "The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires.",
+    no_gene_symbols = "None of the selected signature's features could be mapped to a gene symbol.",
+    "Enrichment failed."
+  )
+  base::list(status = status, message = message %||% fallback_message)
+}

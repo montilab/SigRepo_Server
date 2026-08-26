@@ -1697,31 +1697,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
     )
 
     if (!result$ok) {
-      status <- switch(result$reason,
-        "no_signatures" = 400,
-        "not_found" = 404,
-        "no_features" = 404,
-        "no_difexp" = 404,
-        "no_gene_symbols" = 404,
-        "unsupported_assay_type" = 400,
-        "unsupported_difexp_shape" = 400,
-        "invalid_geneset" = 400,
-        "not_cached" = 404,
-        "fetch_failed" = 502,
-        500
-      )
-      message <- if (!base::is.null(result$message)) {
-        result$message
-      } else {
-        switch(result$reason,
-          "not_found" = "No signature found for the selected signature(s).",
-          "no_features" = "The selected signature has no stored features.",
-          "no_difexp" = "The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires.",
-          "no_gene_symbols" = "None of the selected signature's features could be mapped to a gene symbol.",
-          "Enrichment failed."
-        )
-      }
-      return(json_error(res, status, message))
+      err <- enrichment_error_response(result$reason, result$message)
+      return(json_error(res, err$status, err$message))
     }
 
     json_response(res, 200, payload = base::list(
@@ -1781,8 +1758,8 @@ annotate_dotplot_route <- function(res, api_key = "", signature_hashkeys = "", t
       fdr = fdr, difexp_dir = difexp_dir, msigdb_cache_dir = msigdb_cache_dir
     )
     if (!base::isTRUE(built$ok)) {
-      status <- base::switch(built$reason %||% "", no_signatures = 400L, not_found = 404L, not_cached = 404L, fetch_failed = 502L, 500L)
-      return(json_error(res, status, built$message %||% "Could not build the enrichment for this plot."))
+      err <- enrichment_error_response(built$reason, built$message)
+      return(json_error(res, err$status, err$message))
     }
 
     uri <- render_hyp_dots_png(built$hyp, fdr)
