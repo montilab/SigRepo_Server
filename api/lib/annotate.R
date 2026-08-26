@@ -413,7 +413,10 @@ render_hyp_dots_png <- function(hyp, fdr, res = 130,
 
 # Runs hypeR::hypeR() across one or more signatures at once (hypeR's own
 # multi-signature support -- a named list in, a `multihyp` out) and shapes
-# the combined result table + native dotplot for the API response.
+# the combined result table for the API response. There is no dotplot here
+# (or anywhere in this response) any more -- that figure now lives behind
+# GET /annotate/dotplot, rendered on demand from the hyp object
+# run_enrichment_hyp_object() below builds, not returned with every run.
 # Signatures that fail to resolve for the requested test are skipped (see
 # resolve_enrichment_queries()) rather than failing the whole request,
 # unless *none* resolve.

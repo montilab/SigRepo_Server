@@ -1648,8 +1648,10 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
       return(json_error(res, status, gem$message %||% "GEM enrichment could not run."))
     }
     # Same envelope as the hypeR path below, so the UI has one result handler.
-    # GEM adds reference_key / gem_method / the mapping counts, and has no
-    # dotplot: hypeR.GEM returns plain tables, not a hypeR object.
+    # GEM adds reference_key / gem_method / the mapping counts. Neither path
+    # embeds a dot plot in this response -- that figure lives behind GET
+    # /annotate/dotplot for the hypeR path, and GEM has no equivalent at all
+    # (hypeR.GEM returns plain tables, not a hypeR object to render one from).
     return(json_response(res, 200, payload = base::list(
       test = test,
       collection = collection,
