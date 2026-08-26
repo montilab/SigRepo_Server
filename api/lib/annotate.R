@@ -448,25 +448,41 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
     return(base::list(ok = FALSE, reason = "enrichment_failed", message = hyp$message))
   }
 
-  result_tables <- base::lapply(base::names(hyp$data), function(label) {
-    df <- hyp$data[[label]]$data
-    if (base::is.null(df) || !base::is.data.frame(df) || base::nrow(df) == 0) {
-      return(NULL)
+  # Keep the hyp object's own shape: one entry per signature, carrying that
+  # signature's hyp$info and its own results table.
+  #
+  # These used to be flattened into a single table with a signature_label
+  # column, which loses what hypeR reports per signature -- signature size,
+  # geneset collection, background -- and forces the reader to disentangle
+  # several signatures' gene sets from one interleaved list. hypeR's own
+  # rctbl_mhyp() presents a multihyp as a row per signature that expands to
+  # that signature's results, and that is the structure this mirrors.
+  per_signature <- base::lapply(resolved$resolved, function(meta) {
+    one <- hyp$data[[meta$label]]
+    df <- if (base::is.null(one)) NULL else one$data
+    if (!base::is.data.frame(df) || base::nrow(df) == 0) {
+      df <- base::data.frame()
+    } else {
+      df <- df[base::order(df$pval), , drop = FALSE]
     }
-    df$signature_label <- label
-    df
+    base::list(
+      signature_hashkey = meta$signature_hashkey,
+      signature_name = meta$signature_name,
+      label = meta$label,
+      n_query = meta$n_query,
+      n_enriched = base::nrow(df),
+      # hyp$info verbatim: hypeR's own reproducibility record (version,
+      # signature size/type, geneset collection, background, cutoffs, test).
+      info = if (base::is.null(one)) base::list() else base::lapply(one$info, base::as.character),
+      results = compact_table(df, max_rows = 500)
+    )
   })
-  result_tables <- result_tables[!base::vapply(result_tables, base::is.null, logical(1))]
-  results_tbl <- if (base::length(result_tables) > 0) do.call(base::rbind, result_tables) else base::data.frame()
-  if (base::nrow(results_tbl) > 0) {
-    results_tbl <- results_tbl[base::order(results_tbl$pval), , drop = FALSE]
-  }
 
   base::list(
     ok = TRUE,
     resolved = resolved$resolved,
     skipped = resolved$skipped,
-    results = results_tbl,
+    signatures = per_signature,
     dotplot_png = render_hyp_dots_png(hyp, fdr),
     geneset_source = geneset_result$source
   )

@@ -268,10 +268,19 @@ test_that("run_enrichment computes real hypergeometric enrichment from the on-di
   expect_equal(result$resolved[[1]]$signature_name, "CI Test Signature")
   expect_equal(length(result$skipped), 0)
   expect_equal(result$geneset_source, "cache")
-  expect_true(is.data.frame(result$results))
-  expect_true(all(c("label", "pval", "fdr", "overlap", "hits", "signature_label") %in% colnames(result$results)))
-  expect_true(all(result$results$signature_label == "CI Test Signature"))
-  expect_true(nrow(result$results) > 0)
+  # Results come back per signature now, mirroring the multihyp shape hypeR
+  # itself uses, rather than one flat table keyed by signature_label.
+  expect_equal(length(result$signatures), 1)
+  one <- result$signatures[[1]]
+  expect_equal(one$signature_name, "CI Test Signature")
+  expect_equal(one$n_query, 2)
+  expect_true(one$n_enriched > 0)
+  expect_equal(length(one$results), one$n_enriched)
+  expect_true(all(c("label", "pval", "fdr", "overlap", "hits") %in% names(one$results[[1]])))
+  # hyp$info carried through verbatim -- hypeR's own reproducibility record.
+  expect_true(all(c("Signature Size", "Background", "Test") %in% names(one$info)))
+  expect_equal(one$info[["Signature Size"]], "2")
+  expect_equal(one$info[["Test"]], "hypergeometric")
   expect_true(is.character(result$dotplot_png))
   expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
 })
@@ -334,7 +343,13 @@ test_that("run_enrichment runs multiple signatures at once and skips ones that c
   expect_equal(length(result$skipped), 1)
   expect_equal(result$skipped[[1]]$signature_hashkey, "does-not-exist-hashkey")
   expect_equal(result$skipped[[1]]$reason, "not_found")
-  expect_setequal(unique(result$results$signature_label), c("CI Test Signature", "CI Test Signature (2)"))
+  # Each signature keeps its own results entry rather than being interleaved.
+  expect_equal(length(result$signatures), 2)
+  expect_setequal(
+    vapply(result$signatures, function(x) x$label, character(1)),
+    c("CI Test Signature", "CI Test Signature (2)")
+  )
+  expect_true(all(vapply(result$signatures, function(x) length(x$results) == x$n_enriched, logical(1))))
   expect_true(is.character(result$dotplot_png))
   expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
 })
@@ -393,5 +408,6 @@ test_that("run_enrichment falls back to a live MSigDB fetch when nothing is cach
 
   expect_true(result$ok)
   expect_equal(result$geneset_source, "live")
-  expect_true(nrow(result$results) > 0)
+  expect_equal(length(result$signatures), 1)
+  expect_true(result$signatures[[1]]$n_enriched > 0)
 })

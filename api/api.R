@@ -1661,13 +1661,26 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
       gem_method = gem$method,
       n_metabolites = gem$n_metabolites,
       n_genes = gem$n_genes,
+      # Same per-signature envelope as the hypeR path. GEM runs one signature,
+      # so this is always a single entry; `info` mirrors hyp$info's role of
+      # recording what the run actually did.
       signatures = base::list(base::list(
         signature_hashkey = signature_hashkeys[1],
         signature_name = gem$signature_name,
-        label = gem$signature_name
+        label = gem$signature_name,
+        n_query = gem$n_metabolites,
+        n_enriched = base::length(gem$results),
+        info = base::list(
+          "Metabolites" = base::as.character(gem$n_metabolites),
+          "Mapped Genes" = base::as.character(gem$n_genes),
+          "Reference Key" = base::as.character(gem$reference_key),
+          "Method" = base::as.character(gem$method),
+          "Genesets" = base::as.character(collection),
+          "FDR" = base::as.character(fdr)
+        ),
+        results = gem$results
       )),
-      skipped = base::list(),
-      results = gem$results
+      skipped = base::list()
     )))
   }
 
@@ -1719,9 +1732,10 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
       fdr = fdr,
       geneset_source = result$geneset_source,
       dotplot_png = result$dotplot_png,
-      signatures = result$resolved,
-      skipped = result$skipped,
-      results = compact_table(result$results, max_rows = 500)
+      # One entry per signature, each with its own hyp$info and results --
+      # the multihyp shape, rather than one interleaved table.
+      signatures = result$signatures,
+      skipped = result$skipped
     ))
   }, error = function(err) {
     json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))

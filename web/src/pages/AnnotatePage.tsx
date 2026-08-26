@@ -163,6 +163,7 @@ export default function AnnotatePage() {
   // Which gene set's enrichment curve is open. Only meaningful after a gsea
   // run; cleared whenever new results replace the old ones.
   const [openGeneset, setOpenGeneset] = useState<string | null>(null);
+  const [openSignatureLabel, setOpenSignatureLabel] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichmentRun | null>(null);
 
@@ -187,6 +188,8 @@ export default function AnnotatePage() {
         gemDirectional,
       });
       setResult(run);
+      setOpenSignatureLabel(run.signatures[0]?.label ?? null);
+      setOpenGeneset(null);
       setStep(1);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : "Enrichment failed.");
@@ -213,20 +216,68 @@ export default function AnnotatePage() {
 
   // DataTable needs a stable per-row key; hypeR's output has none, so derive
   // one. label alone is not unique when several signatures are run together.
+  // Which signature's results are open. hypeR::rctbl_mhyp() renders a multihyp
+  // as one row per signature that expands to that signature's own table; this
+  // is the same idea with an explicit selection, since a run can hold several
+  // signatures whose gene sets should not be read as one list.
+  const openSignature = useMemo(() => {
+    const sigs = result?.signatures ?? [];
+    if (sigs.length === 0) return null;
+    return sigs.find((s) => s.label === openSignatureLabel) ?? sigs[0];
+  }, [result, openSignatureLabel]);
+
   const resultRows = useMemo(
     () =>
-      (result?.results ?? []).map((r, i) => ({
+      (openSignature?.results ?? []).map((r, i) => ({
         ...r,
-        rowId: `${r.signature_label}::${r.label}::${i}`,
+        rowId: `${openSignature?.label ?? ""}::${r.label}::${i}`,
       })),
-    [result]
+    [openSignature]
   );
 
   const multiSignature = (result?.signatures.length ?? 0) > 1;
+  const totalEnriched = (result?.signatures ?? []).reduce((n, s) => n + (s.n_enriched ?? 0), 0);
   // Reflects the run that produced the table on screen, not the method
   // currently chosen in the form -- those diverge as soon as the user changes
   // the selector without re-running.
   const isGemResult = result?.test === "gem_hypergeo" || result?.test === "gem_weighted";
+
+  // The outer table hypeR::rctbl_mhyp() draws for a multihyp: signature, its
+  // size, how many gene sets it enriched, the collection, and the background.
+  // Those last two come straight out of hyp$info, which is hypeR's own record
+  // of what the run did.
+  const signatureRows = useMemo(
+    () =>
+      (result?.signatures ?? []).map((sig) => ({
+        rowId: sig.label,
+        signature: sig.signature_name,
+        size: sig.n_query ?? Number(sig.info?.["Signature Size"] ?? 0),
+        enriched: sig.n_enriched ?? 0,
+        gsets: sig.info?.["Genesets"] ?? result?.collection ?? "—",
+        bg: sig.info?.["Background"] ?? "—",
+      })),
+    [result]
+  );
+
+  const signatureColumns: Column<(typeof signatureRows)[number]>[] = useMemo(
+    () => [
+      { key: "signature", label: "Signature", render: (r) => <span className="cell-strong">{r.signature}</span> },
+      { key: "size", label: "Signature Size", align: "right", render: (r) => <span className="cell-mono">{r.size}</span> },
+      {
+        key: "enriched",
+        label: "Enriched Genesets",
+        align: "right",
+        render: (r) => (
+          <span className="cell-mono">
+            {r.enriched > 0 ? r.enriched : <span className="cell-sub">0</span>}
+          </span>
+        ),
+      },
+      { key: "gsets", label: "Genesets", render: (r) => <span className="cell-sub">{r.gsets}</span> },
+      { key: "bg", label: "Background", align: "right", render: (r) => <span className="cell-mono">{r.bg}</span> },
+    ],
+    []
+  );
 
   const resultColumns: Column<(typeof resultRows)[number]>[] = useMemo(() => {
     const cols: Column<(typeof resultRows)[number]>[] = [
@@ -236,9 +287,6 @@ export default function AnnotatePage() {
         render: (r) => <span className="cell-strong">{r.label}</span>,
       },
     ];
-    if (multiSignature) {
-      cols.push({ key: "signature_label", label: "Signature", filterable: true });
-    }
     cols.push(
       // FDR first among the numbers: it is what the cutoff is set on and what
       // people actually rank by.
@@ -513,7 +561,7 @@ export default function AnnotatePage() {
               rather than reporting an absence-by-design as a failure. */}
           {!isGemResult && (
             <Card>
-              {result.results.length === 0 ? (
+              {totalEnriched === 0 ? (
                 <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
               ) : result.dotplot_png ? (
                 <img src={result.dotplot_png} alt="hypeR enrichment dot plot" style={{ maxWidth: "100%", display: "block", margin: "0 auto" }} />
@@ -522,16 +570,54 @@ export default function AnnotatePage() {
               )}
             </Card>
           )}
-          {isGemResult && result.results.length === 0 && (
+          {isGemResult && totalEnriched === 0 && (
             <Card>
               <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
             </Card>
           )}
 
+          {/* One row per signature, expanding to that signature's own results
+              -- the shape hypeR::rctbl_mhyp() gives a multihyp. Shown whenever
+              a run holds more than one signature; for a single signature the
+              outer row would be pure overhead. */}
+          {multiSignature && (
+            <Card
+              title="Signatures"
+              subtitle="Select a signature to see its enriched gene sets."
+            >
+              <DataTable
+                columns={signatureColumns}
+                rows={signatureRows}
+                rowKey="rowId"
+                pageSize={10}
+                searchable={false}
+                selectedKey={openSignature?.label ?? null}
+                onSelectRow={(r) => {
+                  setOpenSignatureLabel(r.rowId);
+                  setOpenGeneset(null);
+                }}
+              />
+            </Card>
+          )}
+
           <Card
-            title="Enriched gene sets"
-            subtitle={`${result.results.length} gene set${result.results.length === 1 ? "" : "s"} below the FDR cutoff. Sort by any column, or search by name.`}
+            title={multiSignature ? `Enriched gene sets — ${openSignature?.signature_name ?? ""}` : "Enriched gene sets"}
+            subtitle={`${resultRows.length} gene set${resultRows.length === 1 ? "" : "s"} below the FDR cutoff. Sort by any column, or search by name.`}
           >
+            {/* hypeR's own hyp$info for this signature: version, signature
+                size and type, geneset collection, background, cutoffs, test.
+                It is the record of what actually ran, and previously nothing
+                in the UI surfaced it. */}
+            {openSignature && Object.keys(openSignature.info ?? {}).length > 0 && (
+              <div className="hyp-info">
+                {Object.entries(openSignature.info).map(([k, v]) => (
+                  <span className="hyp-info-item" key={k}>
+                    <span className="hyp-info-key">{k}</span>
+                    <span className="hyp-info-val" title={v}>{v}</span>
+                  </span>
+                ))}
+              </div>
+            )}
             {/* Was a hand-rolled 9-column table with no sort, search or paging,
                 and four raw hypeR counts spread across separate columns. Using
                 the shared DataTable gives the same affordances as every other
@@ -561,7 +647,7 @@ export default function AnnotatePage() {
                     </button>
                   </div>
                   <LeadingEdgePlot
-                    signatureHashkey={result.signatures[0]?.signature_hashkey ?? ""}
+                    signatureHashkey={openSignature?.signature_hashkey ?? ""}
                     genesetLabel={resultRows.find((r) => r.rowId === openGeneset)?.label ?? ""}
                     species={species}
                     collection={collection}

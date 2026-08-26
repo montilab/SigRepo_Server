@@ -780,6 +780,16 @@ export interface EnrichmentRunSignature {
   signature_name: string;
   label: string;
   n_query: number;
+  // How many gene sets passed the cutoff for THIS signature.
+  n_enriched: number;
+  // hypeR's own hyp$info, verbatim: hypeR version, signature head/size/type,
+  // geneset collection, background, and the cutoffs and test used. Free-form
+  // on purpose -- it is a reproducibility record whose keys are hypeR's to
+  // choose, and the GEM path fills the same slot with its own equivalents.
+  info: Record<string, string>;
+  // This signature's own enriched gene sets. Previously every signature's
+  // results arrived interleaved in one array keyed by signature_label.
+  results: EnrichmentResultRow[];
 }
 
 export interface EnrichmentSkippedSignature {
@@ -804,9 +814,10 @@ export interface EnrichmentRun {
   // Signatures that were actually run (a signature is dropped here, and
   // listed in `skipped` instead, if e.g. a kstest run was requested but it
   // has no stored difexp).
+  // One entry per signature that ran, each carrying its own info and results
+  // -- the multihyp shape hypeR::rctbl_mhyp() renders.
   signatures: EnrichmentRunSignature[];
   skipped: EnrichmentSkippedSignature[];
-  results: EnrichmentResultRow[];
 
   // --- hypeR-GEM runs only ---
   // Which metabolite identifier the metabolic model was keyed on, and how far
@@ -846,7 +857,11 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
       gem_directional: params.gemDirectional ?? true,
     }),
   });
-  return { ...raw, results: raw.results ?? [], signatures: raw.signatures ?? [], skipped: raw.skipped ?? [] };
+  return {
+    ...raw,
+    signatures: (raw.signatures ?? []).map((s) => ({ ...s, results: s.results ?? [] })),
+    skipped: raw.skipped ?? [],
+  };
 }
 
 // ---------- Signature export / basket download ----------
