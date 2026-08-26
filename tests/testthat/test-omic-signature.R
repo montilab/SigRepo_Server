@@ -100,9 +100,20 @@ test_that("build_omic_signature with require_difexp = FALSE does not refuse a ha
   expect_equal(out, "mocked-omic-signature")
   expect_false(base::is.null(seen))
   expect_equal(seen$conn_handler, "stub-conn-handler")
-  expect_equal(seen$db_signature_tbl, db_row)
   # The 2-arg call shape specifically: no difexp/fetch_difexp passed through.
   expect_equal(base::length(seen$extra), 0)
+
+  # has_difexp is zeroed on the copy handed to the client, and that is the
+  # whole point of this branch. The released client decides for itself whether
+  # to fetch a difexp: on has_difexp == TRUE it issues an httr::GET to this
+  # API's own /get_difexp, which inside a single-process Plumber worker is a
+  # self-call that deadlocks. Passing the row through unchanged would trade a
+  # clear error for a hang.
+  expect_equal(seen$db_signature_tbl$has_difexp, 0L)
+  # Only that flag differs -- the rest of the row is undisturbed, and the
+  # caller's own data frame is not mutated.
+  expect_equal(seen$db_signature_tbl$signature_id, db_row$signature_id)
+  expect_equal(db_row$has_difexp, 1)
 })
 
 test_that("build_omic_signature passes difexp through unchanged when the client supports it, regardless of require_difexp", {
