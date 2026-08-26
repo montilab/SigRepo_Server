@@ -148,11 +148,15 @@ test_that("build_signature_from_upload rejects viewers and unsupported assay typ
   expect_false(forbidden$ok)
   expect_equal(forbidden$reason, "forbidden")
 
+  # methylomics, not metabolomics: metabolomics uploads now, and so do
+  # genetic_variants. methylomics is the one assay type still unsupported, and
+  # SigRepo::addSignature() rejects it too (showAssayTypeErrorMessage).
   upload <- export_shape_upload("Bad Assay Test")
-  upload$metadata$assay_type <- "metabolomics"
+  upload$metadata$assay_type <- "methylomics"
   bad_assay <- build_signature_from_upload(editor_auth, upload, difexp_dir = tempdir())
   expect_false(bad_assay$ok)
   expect_equal(bad_assay$reason, "unsupported_assay_type")
+  expect_match(bad_assay$message, "metabolomics", fixed = TRUE)
 })
 
 test_that("build_signature_from_upload rejects unknown organism/platform/sample_type and unknown features (export shape)", {
@@ -319,4 +323,124 @@ test_that("build_signature_from_upload rolls back the signature row if feature i
 
   leftover <- query_sql("SELECT * FROM signatures WHERE signature_name = 'Rollback Test'")
   expect_equal(nrow(leftover), 0)
+})
+
+# --- assay types beyond transcriptomics/proteomics ---------------------------
+# Upload was silently limited to the two assay types annotate can map to gene
+# symbols, because it reused enrichment_reference_table(). The repository holds
+# metabolomics and genetic-variants signatures, and the GEM annotate methods
+# exist to serve metabolomics, so neither could be uploaded through the API.
+
+test_that("upload_reference_table covers every assay type SigRepo::addSignature dispatches on", {
+  expect_equal(upload_reference_table("transcriptomics"), "transcriptomics_features")
+  expect_equal(upload_reference_table("proteomics"), "proteomics_features")
+  expect_equal(upload_reference_table("metabolomics"), "metabolite_reference")
+  expect_equal(upload_reference_table("genetic_variants"), "genetic_variants_features")
+  # Unsupported in the client too (showAssayTypeErrorMessage).
+  expect_null(upload_reference_table("methylomics"))
+  expect_null(upload_reference_table("nonsense"))
+})
+
+test_that("upload_reference_id_column knows metabolite_reference's key is not called feature_id", {
+  expect_equal(upload_reference_id_column("metabolite_reference"), "metabolite_id")
+  expect_equal(upload_reference_id_column("transcriptomics_features"), "feature_id")
+  expect_equal(upload_reference_id_column("genetic_variants_features"), "feature_id")
+})
+
+test_that("resolve_metabolomics_nomenclature reads either shape and defaults to refmet", {
+  # OmicSignature: metadata$others, the same key SigRepo::addSignature takes.
+  expect_equal(
+    resolve_metabolomics_nomenclature(list(others = list(metabolomics_nomenclature = "hmdb")), data.frame()),
+    "hmdb"
+  )
+  # /signatures/export: recorded per feature instead.
+  expect_equal(
+    resolve_metabolomics_nomenclature(list(), data.frame(nomenclature_type = c("inchikey", "inchikey"), stringsAsFactors = FALSE)),
+    "inchikey"
+  )
+  # metadata wins when both are present.
+  expect_equal(
+    resolve_metabolomics_nomenclature(
+      list(others = list(metabolomics_nomenclature = "smiles")),
+      data.frame(nomenclature_type = "refmet", stringsAsFactors = FALSE)
+    ),
+    "smiles"
+  )
+  expect_equal(resolve_metabolomics_nomenclature(list(), data.frame()), "refmet")
+  # resolveMetabolomicsFeatureConfig() treats these as one dictionary.
+  expect_equal(
+    resolve_metabolomics_nomenclature(list(others = list(metabolomics_nomenclature = "refmet_name")), data.frame()),
+    "refmet"
+  )
+})
+
+test_that("upload_others_value records the metabolite dictionary so the signature can be read back", {
+  # createOmicSignature() stops without it, so a metabolomics signature stored
+  # without one could never be exported, compared, or GEM-enriched again.
+  expect_equal(upload_others_value(list(), "refmet"), "metabolomics_nomenclature: refmet")
+  expect_equal(
+    upload_others_value(list(others = "note: something"), "hmdb"),
+    "note: something; metabolomics_nomenclature: hmdb"
+  )
+  # An OmicSignature holds `others` as a list.
+  expect_equal(
+    upload_others_value(list(others = list(note = "something")), "refmet"),
+    "note: something; metabolomics_nomenclature: refmet"
+  )
+  # Don't duplicate one the uploader already set.
+  expect_equal(
+    upload_others_value(list(others = "metabolomics_nomenclature: smiles"), "refmet"),
+    "metabolomics_nomenclature: smiles"
+  )
+  # Non-metabolomics uploads are left alone.
+  expect_null(upload_others_value(list(), NULL))
+  expect_equal(upload_others_value(list(others = "note: x"), NULL), "note: x")
+})
+
+test_that("resolve_feature_ids resolves metabolites by refmet_name and reports unknown ones", {
+  skip_if_no_test_db()
+
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  hashkey <- "upload_met_test_hashkey_000001"
+  DBI::dbExecute(conn, sprintf("DELETE FROM metabolite_reference WHERE metabolite_hashkey = '%s'", hashkey))
+  on.exit(
+    suppressWarnings(DBI::dbExecute(conn, sprintf("DELETE FROM metabolite_reference WHERE metabolite_hashkey = '%s'", hashkey))),
+    add = TRUE
+  )
+  DBI::dbExecute(conn, sprintf(
+    "INSERT INTO metabolite_reference (refmet_name, is_current, version, metabolite_hashkey) VALUES ('Upload Test Metabolite', 1, 1, '%s')",
+    hashkey
+  ))
+  expected_id <- DBI::dbGetQuery(conn, sprintf(
+    "SELECT metabolite_id FROM metabolite_reference WHERE metabolite_hashkey = '%s'", hashkey
+  ))$metabolite_id[1]
+
+  ok <- resolve_feature_ids(
+    conn,
+    data.frame(feature_name = "Upload Test Metabolite", probe_id = "Upload Test Metabolite", stringsAsFactors = FALSE),
+    "metabolite_reference", organism_id = NA, feature_key = "feature_name",
+    metabolomics_nomenclature = "refmet"
+  )
+  expect_true(ok$ok)
+  expect_equal(ok$feature_ids, as.integer(expected_id))
+
+  missing <- resolve_feature_ids(
+    conn,
+    data.frame(feature_name = "Not A Real Metabolite At All", probe_id = "x", stringsAsFactors = FALSE),
+    "metabolite_reference", organism_id = NA, feature_key = "feature_name",
+    metabolomics_nomenclature = "refmet"
+  )
+  expect_false(missing$ok)
+  expect_equal(missing$reason, "unknown_features")
+  expect_match(missing$message, "Not A Real Metabolite At All", fixed = TRUE)
+
+  bad_dict <- resolve_feature_ids(
+    conn, data.frame(feature_name = "x", probe_id = "x", stringsAsFactors = FALSE),
+    "metabolite_reference", organism_id = NA, feature_key = "feature_name",
+    metabolomics_nomenclature = "not_a_dictionary"
+  )
+  expect_false(bad_dict$ok)
+  expect_equal(bad_dict$reason, "invalid_upload")
 })
