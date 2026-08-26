@@ -807,10 +807,6 @@ export interface EnrichmentRun {
   subcollection: string;
   fdr: number;
   geneset_source: "cache" | "live";
-  // hyp_dots() rendered server-side to a PNG (hypeR's own dotplot, not a
-  // reimplementation, merged into one combined plot for multi-signature
-  // runs), as a data: URI ready for an <img src>.
-  dotplot_png: string | null;
   // Signatures that were actually run (a signature is dropped here, and
   // listed in `skipped` instead, if e.g. a kstest run was requested but it
   // has no stored difexp).
@@ -862,6 +858,28 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
     signatures: (raw.signatures ?? []).map((s) => ({ ...s, results: s.results ?? [] })),
     skipped: raw.skipped ?? [],
   };
+}
+
+// The dot plot is no longer part of the run response -- it is fetched on
+// demand, so a run does not pay for a figure nobody opens.
+export function annotateDotplotUrl(params: {
+  signatureHashkeys: string[];
+  test: EnrichmentTest;
+  species?: string;
+  collection: string;
+  subcollection?: string;
+  fdr: number;
+}): string {
+  const q = new URLSearchParams({
+    api_key: requireApiKey(),
+    signature_hashkeys: params.signatureHashkeys.join(","),
+    test: params.test,
+    species: params.species ?? "Homo sapiens",
+    collection: params.collection,
+    subcollection: params.subcollection ?? "",
+    fdr: String(params.fdr),
+  });
+  return `${API_BASE}/annotate/dotplot?${q.toString()}`;
 }
 
 // ---------- Signature export / basket download ----------
