@@ -507,15 +507,26 @@ export default function AnnotatePage() {
             )}
           </Card>
 
-          <Card>
-            {result.results.length === 0 ? (
+          {/* The dot plot is hypeR's own hyp_dots() output, rendered server-side
+              from the hypeR object. hypeR.GEM returns plain tables and no such
+              object, so a GEM run has nothing to draw -- drop the card entirely
+              rather than reporting an absence-by-design as a failure. */}
+          {!isGemResult && (
+            <Card>
+              {result.results.length === 0 ? (
+                <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
+              ) : result.dotplot_png ? (
+                <img src={result.dotplot_png} alt="hypeR enrichment dot plot" style={{ maxWidth: "100%", display: "block", margin: "0 auto" }} />
+              ) : (
+                <p className="muted-note">Dot plot could not be rendered for this run.</p>
+              )}
+            </Card>
+          )}
+          {isGemResult && result.results.length === 0 && (
+            <Card>
               <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
-            ) : result.dotplot_png ? (
-              <img src={result.dotplot_png} alt="hypeR enrichment dot plot" style={{ maxWidth: "100%", display: "block", margin: "0 auto" }} />
-            ) : (
-              <p className="muted-note">Dot plot could not be rendered for this run.</p>
-            )}
-          </Card>
+            </Card>
+          )}
 
           <Card
             title="Enriched gene sets"
