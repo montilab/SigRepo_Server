@@ -2646,7 +2646,6 @@ a.rmg-item-title:hover {
 /* Single-signature mode carries no colour-by-FDR encoding (x already does
    that job), so every dot is one flat colour from the chart palette rather
    than a one-off hex baked into the component. */
-.edp-dot-single { fill: var(--viz-1); }
 .edp-legend { display: flex; gap: 14px; padding: 6px 0 0 8px; }
 .edp-legend-item { font-size: 11px; color: var(--text-muted); }
 /* Marks a signature's column that has zero dots only because the global
@@ -2680,3 +2679,20 @@ a.rmg-item-title:hover {
 .srr-metric b { font-family: var(--mono, ui-monospace, monospace); font-size: 12.5px; }
 .srr-metric-wide { min-width: 84px; }
 .srr-body { padding: 0 14px 14px; }
+
+/* hypeR's dotted FDR = 0.05 line, and the legend's colour-ramp swatch. */
+.edp-cutoff {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.edp-legend-swatch {
+  display: inline-block;
+  width: 34px;
+  height: 8px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 4px;
+  /* Same endpoints as the dots: hypeR's #E53935 -> #114357. */
+  background: linear-gradient(to right, #E53935, #114357);
+}

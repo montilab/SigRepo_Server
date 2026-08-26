@@ -6,19 +6,29 @@ import type { EnrichmentRunSignature } from "../api/client";
 // run and dominated the page; an SVG scales to its container so it cannot; and
 // hovering a dot can show the numbers that a static image can only encode.
 //
-// Encoding differs by run size, on purpose:
+// Encoding follows hypeR::hyp_dots() rather than reinventing one, so this
+// figure and the downloadable PNG read the same way:
 //
-//   one signature   x = -log10(FDR), size = overlap, no colour
-//   many signatures x = signature,   size = overlap, colour = -log10(FDR)
+//   one signature   x = FDR on a log axis, colour = FDR, size = geneset size
+//   many signatures x = signature,         colour = FDR, size = geneset size
 //
-// With one signature the x position already encodes significance, so colouring
-// by it too is the redundancy behind hypeR's two competing legends. With
-// several, x carries the signature instead, so colour has to carry
-// significance.
+// hyp_dots' own spec, for reference:
+//   aes(x = label, y = significance, color = significance, size = size)
+//   scale_y_continuous(trans = log10_trans())        # y is FDR, then coord_flip
+//   scale_color_continuous(high = "#114357", low = "#E53935", trans = log10)
+//   size_by = "genesets"                             # dot area = geneset size
+//   geom_hline(yintercept = 0.05, linetype = "dotted")
+//
+// Note the axis is FDR ITSELF on a log scale, not -log10(FDR): small values
+// are more significant, so the most significant gene sets sit on the LEFT and
+// the 0.05 cutoff line falls near the right.
 
 const MARGIN = { top: 12, right: 16, bottom: 40, left: 260 };
 const ROW_H = 22;
 const MAX_BODY_H = 420;
+// hypeR draws geom_hline(yintercept = 0.05, linetype = "dotted") on its FDR
+// axis. Same value, same meaning: the conventional significance threshold.
+const FDR_CUTOFF_LINE = 0.05;
 
 // Axis label glyphs render at 10px. Row labels (.edp-ylab) use the monospace
 // stack, where every glyph really is ~0.6em wide -- measuring the actual
@@ -74,37 +84,40 @@ function truncateLabel(label: string, maxChars: number): string {
   return label.slice(0, maxChars - 1) + "…";
 }
 
-// -log10(FDR). Only ever called on values that already passed
-// isPlottableFdr below -- an FDR of exactly 0 (a common BH underflow) or any
-// other non-finite value must never reach this, or it defines the whole
-// axis and crushes every genuinely significant dot toward the origin.
-function negLog10(v: number): number {
-  return -Math.log10(v);
+// log10(FDR), the axis hypeR plots on. Only ever called on values that already
+// passed isPlottableFdr below -- an FDR of exactly 0 (a common BH underflow)
+// or any other non-finite value must never reach this, or it defines the whole
+// axis and crushes every genuinely significant dot against one edge.
+function log10Fdr(v: number): number {
+  return Math.log10(v);
 }
 
 function isPlottableFdr(v: number): boolean {
   return Number.isFinite(v) && v > 0;
 }
 
-function radius(overlap: number, maxOverlap: number, rowH: number): number {
+// hypeR sizes dots by GENESET SIZE (size_by = "genesets"), not by overlap.
+function radius(genesetSize: number, maxGeneset: number, rowH: number): number {
   // Dot size must not exceed the row itself: above ~19 rows, MAX_BODY_H
   // shrinks rowH below ROW_H (the default topN=25 already crosses that
   // line), so the whole 2.5-10 size range scales down by the same fraction
   // rowH has shrunk. At rowH == ROW_H, scale == 1 and sizing is exactly what
   // it was before this fix.
   const scale = Math.min(1, rowH / ROW_H);
-  if (!Number.isFinite(overlap) || overlap <= 0) return 2.5 * scale;
-  const t = Math.sqrt(overlap) / Math.sqrt(Math.max(maxOverlap, 1));
+  if (!Number.isFinite(genesetSize) || genesetSize <= 0) return 2.5 * scale;
+  const t = Math.sqrt(genesetSize) / Math.sqrt(Math.max(maxGeneset, 1));
   return (3 + t * 7) * scale;
 }
 
-// Single-hue ramp, dark (least significant) to red (most). Matches the
-// direction hypeR uses so the two figures read the same way.
+// hypeR's exact ramp: low (most significant) #E53935 red -> high (least)
+// #114357 dark teal. `t` is 0 at the most significant end, 1 at the least.
+const FDR_LOW = { r: 229, g: 57, b: 53 };   // #E53935
+const FDR_HIGH = { r: 17, g: 67, b: 87 };   // #114357
 function heat(t: number): string {
   const c = Math.max(0, Math.min(1, t));
-  const r = Math.round(17 + c * (229 - 17));
-  const g = Math.round(67 + c * (57 - 67));
-  const b = Math.round(87 + c * (53 - 87));
+  const r = Math.round(FDR_LOW.r + c * (FDR_HIGH.r - FDR_LOW.r));
+  const g = Math.round(FDR_LOW.g + c * (FDR_HIGH.g - FDR_LOW.g));
+  const b = Math.round(FDR_LOW.b + c * (FDR_HIGH.b - FDR_LOW.b));
   return `rgb(${r},${g},${b})`;
 }
 
@@ -116,8 +129,8 @@ interface Dot {
   y: number;
   r: number;
   // undefined in single-signature mode -- colour comes from the
-  // .edp-dot-single CSS class instead of a per-dot inline value.
-  fill: string | undefined;
+  // Always set now: colour carries FDR in both layouts, as hypeR does.
+  fill: string;
   fdr: number;
   pval: number;
   overlap: number;
@@ -163,7 +176,7 @@ export default function EnrichmentDotPlot({
       rows: (s.results ?? []).filter((r) => rowIndex.has(r.label)),
     }));
     const allRows = shown.flatMap((s) => s.rows);
-    const maxOverlap = Math.max(1, ...allRows.map((r) => r.overlap ?? 0));
+    const maxGeneset = Math.max(1, ...allRows.map((r) => r.geneset ?? 0));
 
     // The axis scale comes from genuine signal only. A BH FDR that
     // underflows to exactly 0 (or is otherwise non-finite) must not get a
@@ -172,12 +185,26 @@ export default function EnrichmentDotPlot({
     // maximum the real data established, once per-dot below. The floor of 1
     // keeps the axis -- and an all-zero-FDR run, which has no plottable rows
     // at all -- well-defined rather than dividing by zero.
-    const finiteNeg = allRows.map((r) => r.fdr).filter(isPlottableFdr).map(negLog10);
-    const maxNeg = Math.max(1, ...finiteNeg);
-
     // Plot width is unitless: the viewBox scales to the container.
     const bodyW = 520;
     const colW = multi ? bodyW / signatures.length : bodyW;
+
+    const finiteLog = allRows.map((r) => r.fdr).filter(isPlottableFdr).map(log10Fdr);
+    // The axis spans the real data's log10(FDR) range. loMin is the most
+    // significant end (most negative), hiMax the least. A degenerate range
+    // (one distinct value, or none) is widened so dots do not all land on a
+    // single x.
+    const rawLo = finiteLog.length > 0 ? Math.min(...finiteLog) : -2;
+    const rawHi = finiteLog.length > 0 ? Math.max(...finiteLog) : 0;
+    // Always include the 0.05 cutoff line so it is visible on the axis.
+    const cutoffLog = Math.log10(FDR_CUTOFF_LINE);
+    const loMin = Math.min(rawLo, cutoffLog) - 0.25;
+    const hiMax = Math.max(rawHi, cutoffLog) + 0.25;
+    const span = Math.max(hiMax - loMin, 0.5);
+    // FDR ascends left to right, so the most significant sets sit on the left
+    // -- hypeR's orientation.
+    const xForFdr = (fdr: number) => ((log10Fdr(fdr) - loMin) / span) * bodyW;
+
 
     const dots: Dot[] = [];
     shown.forEach((entry, sigIdx) => {
@@ -191,15 +218,20 @@ export default function EnrichmentDotPlot({
       // resolving to whichever of them React kept.
       entry.rows.forEach((row, rowIdx) => {
         const yi = rowIndex.get(row.label)!;
-        const neg = isPlottableFdr(row.fdr) ? negLog10(row.fdr) : maxNeg;
+        // A non-plottable FDR (exactly 0, or non-finite) is pinned to the most
+        // significant end rather than being allowed to define the axis.
+        const t = isPlottableFdr(row.fdr) ? (log10Fdr(row.fdr) - loMin) / span : 0;
         dots.push({
           key: `${entry.sig.label}::${row.label}::${rowIdx}`,
           label: row.label,
           signature: entry.sig.signature_name,
-          x: multi ? colW * (sigIdx + 0.5) : (neg / maxNeg) * bodyW,
+          x: multi ? colW * (sigIdx + 0.5) : (isPlottableFdr(row.fdr) ? xForFdr(row.fdr) : 0),
           y: rowH * (yi + 0.5),
-          r: radius(row.overlap ?? 0, maxOverlap, rowH),
-          fill: multi ? heat(neg / maxNeg) : undefined,
+          r: radius(row.geneset ?? 0, maxGeneset, rowH),
+          // Colour carries FDR in both layouts now, as hypeR does -- it is the
+          // only channel available when x holds the signature, and hypeR uses
+          // it in the single-signature case too.
+          fill: heat(t),
           fdr: row.fdr,
           pval: row.pval,
           overlap: row.overlap,
@@ -226,13 +258,30 @@ export default function EnrichmentDotPlot({
           }))
       : [];
 
-    // Four ticks across the significance axis, in -log10 units -- plain
-    // numbers rather than hypeR's 1e-34 style breaks.
+    // Ticks at whole powers of ten across the range, labelled as FDR values
+    // (1e-34, 1e-21, ...) the way hypeR's axis is.
+    const decadeTicks: { x: number; text: string }[] = [];
+    const firstDecade = Math.ceil(loMin);
+    const lastDecade = Math.floor(hiMax);
+    const decadeCount = lastDecade - firstDecade + 1;
+    // Thin the ticks so long labels cannot overprint on a 520-unit axis.
+    const stride = Math.max(1, Math.ceil(decadeCount / 6));
+    for (let d = firstDecade; d <= lastDecade; d += stride) {
+      decadeTicks.push({
+        x: ((d - loMin) / span) * bodyW,
+        text: d === 0 ? "1" : `1e${d}`,
+      });
+    }
+
     const ticks = multi
       ? signatures.map((s, i) => ({ x: colW * (i + 0.5), text: s.signature_name }))
-      : [0, 0.25, 0.5, 0.75, 1].map((f) => ({ x: f * bodyW, text: (f * maxNeg).toFixed(0) }));
+      : decadeTicks;
 
-    return { labels, rowH, bodyW, bodyH, dots, ticks, maxOverlap, crowdedOut };
+    // hypeR draws a dotted line at FDR = 0.05. Only meaningful on the FDR
+    // axis, so single-signature layout only.
+    const cutoffX = multi ? null : ((cutoffLog - loMin) / span) * bodyW;
+
+    return { labels, rowH, bodyW, bodyH, dots, ticks, maxGeneset, crowdedOut, cutoffX, loMin, span };
   }, [signatures, topN, multi]);
 
   if (!model) {
@@ -277,7 +326,7 @@ export default function EnrichmentDotPlot({
           })}
           {!multi && (
             <text x={model.bodyW / 2} y={model.bodyH + 34} className="edp-axis-title"
-                  textAnchor="middle">−log10(FDR)</text>
+                  textAnchor="middle">FDR</text>
           )}
           {model.crowdedOut.map((c) => (
             <text key={`empty-${c.x}`} x={c.x} y={model.bodyH / 2} className="edp-empty-note"
@@ -286,16 +335,23 @@ export default function EnrichmentDotPlot({
               outranked
             </text>
           ))}
+          {/* hypeR's dotted significance line at FDR = 0.05. */}
+          {model.cutoffX != null && (
+            <line x1={model.cutoffX} x2={model.cutoffX} y1={0} y2={model.bodyH} className="edp-cutoff" />
+          )}
           {model.dots.map((d) => (
             <circle key={d.key} cx={d.x} cy={d.y} r={d.r} fill={d.fill}
-                    className={multi ? "edp-dot" : "edp-dot edp-dot-single"}
+                    className="edp-dot"
                     onMouseEnter={() => setHoverKey(d.key)} onMouseLeave={() => setHoverKey(null)} />
           ))}
         </g>
       </svg>
       <div className="edp-legend">
-        <span className="edp-legend-item">Dot size = overlap (max {model.maxOverlap})</span>
-        {multi && <span className="edp-legend-item">Colour = −log10(FDR)</span>}
+        <span className="edp-legend-item">
+          <span className="edp-legend-swatch" aria-hidden="true" /> Colour = FDR (red = more significant)
+        </span>
+        <span className="edp-legend-item">Dot size = geneset size (max {model.maxGeneset})</span>
+        {!multi && <span className="edp-legend-item edp-legend-cutoff">Dotted line = FDR 0.05</span>}
       </div>
       {hover && (
         <div className="edp-tip">

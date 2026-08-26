@@ -291,10 +291,16 @@ resolve_enrichment_queries <- function(auth, signature_hashkeys, test, difexp_di
 # plot has been showing. Nothing about the figure's size causes it and no
 # amount of resizing fixes it.
 #
-# Replace that one scale with a reverse-log axis -- hypeR's own
-# .reverselog_trans(10), which it defines for this purpose -- so positions and
-# labels agree and the most significant gene sets stay on the right, the
-# orientation hyp_dots intends. Everything else about the plot is left as
+# Replace that one scale with a plain log10 axis whose breaks are computed
+# correctly, so positions and labels agree.
+#
+# Plain log10, NOT a reverse-log: hyp_dots plots the FDR itself
+# (scale_y_continuous(trans = log10_trans()) on `significance`, which holds the
+# raw FDR), so smaller values sit further left and the most significant gene
+# sets belong on the LEFT. An earlier version of this fix used a reverse-log
+# and put them on the right, which silently inverted hypeR's own orientation --
+# and left this PNG reading backwards against the interactive chart, which
+# follows hyp_dots' encoding directly. Everything else about the plot is left as
 # hypeR built it.
 #
 # Only applies to the one-signature plot. The merged multi-signature plot is a
@@ -304,14 +310,7 @@ resolve_enrichment_queries <- function(auth, signature_hashkeys, test, difexp_di
 .fix_hyp_dots_scale <- function(plot_obj) {
   base::tryCatch(
     base::suppressMessages(
-      plot_obj + ggplot2::scale_y_continuous(
-        trans = scales::trans_new(
-          "reverselog-10",
-          transform = function(x) -base::log(x, 10),
-          inverse = function(x) 10^(-x),
-          breaks = scales::log_breaks(base = 10),
-          domain = c(1e-100, Inf)
-        ),
+      plot_obj + ggplot2::scale_y_log10(
         labels = function(v) base::format(v, scientific = TRUE, digits = 2)
       )
     ),
