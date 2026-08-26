@@ -41,3 +41,7 @@ docs/
 # Cached MSigDB gene sets. Derived data, ~14MB, rebuilt on demand by the API's
 # /init_db_genesets (or /init_db) endpoint rather than shipped in the repo.
 data/msigdb_genesets/
+
+# Subagent-driven-development scratch: progress ledger, task briefs, reports
+# and review packages. Recovery state for this machine, not repo content.
+.superpowers/
