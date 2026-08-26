@@ -70,10 +70,27 @@ export function getAuth(): AuthUser | null {
   return currentAuth;
 }
 
+// Anything holding per-user state needs to know when the signed-in user
+// changes, not just when the app first loads -- a login, a logout, or a switch
+// between accounts in the same tab all happen without a page reload. The
+// basket subscribes to this; see web/src/basket.ts.
+const authListeners = new Set<(auth: AuthUser | null) => void>();
+
+export function onAuthChange(listener: (auth: AuthUser | null) => void): () => void {
+  authListeners.add(listener);
+  return () => {
+    authListeners.delete(listener);
+  };
+}
+
 function setAuth(auth: AuthUser | null) {
+  const previousUser = currentAuth?.user_name ?? null;
   currentAuth = auth;
   if (auth) localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
   else localStorage.removeItem(AUTH_KEY);
+  if ((auth?.user_name ?? null) !== previousUser) {
+    authListeners.forEach((listener) => listener(auth));
+  }
 }
 
 function requireApiKey(): string {
