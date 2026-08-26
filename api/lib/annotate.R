@@ -277,18 +277,109 @@ resolve_enrichment_queries <- function(auth, signature_hashkeys, test, difexp_di
 # but merge = TRUE panics if there's only one signature to plot, hence the
 # branch. Returns NULL if there's nothing to plot (e.g. hyp_dots() itself
 # errors on an empty result set).
-render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) {
+# hyp_dots() draws the single-signature FDR axis with
+# scale_y_continuous(trans = log10_trans()).
+# Under ggplot2 4.x the break POSITIONS come back transformed a second time
+# while the labels do not, so on real data the axis reads:
+#
+#   break labels    40      80      120        (sensible -log10(FDR) values)
+#   break positions -1.602  -1.903  -2.079     (= -log10 of those labels)
+#   panel range     -2.2 .. 59.9
+#
+# All three ticks land within half a unit of each other at the extreme left of
+# a 62-unit panel and overprint into an unreadable smudge, which is what the
+# plot has been showing. Nothing about the figure's size causes it and no
+# amount of resizing fixes it.
+#
+# Replace that one scale with a reverse-log axis -- hypeR's own
+# .reverselog_trans(10), which it defines for this purpose -- so positions and
+# labels agree and the most significant gene sets stay on the right, the
+# orientation hyp_dots intends. Everything else about the plot is left as
+# hypeR built it.
+#
+# Only applies to the one-signature plot. The merged multi-signature plot is a
+# different geometry -- aes(x = signature, y = label), gene sets down the y
+# axis and significance in the colour -- with no continuous y to correct, and
+# forcing a continuous scale onto that discrete axis breaks the plot outright.
+.fix_hyp_dots_scale <- function(plot_obj) {
+  base::tryCatch(
+    base::suppressMessages(
+      plot_obj + ggplot2::scale_y_continuous(
+        trans = scales::trans_new(
+          "reverselog-10",
+          transform = function(x) -base::log(x, 10),
+          inverse = function(x) 10^(-x),
+          breaks = scales::log_breaks(base = 10),
+          domain = c(1e-100, Inf)
+        ),
+        labels = function(v) base::format(v, scientific = TRUE, digits = 2)
+      )
+    ),
+    error = function(e) plot_obj
+  )
+}
+
+# The rows hyp_dots() will actually draw, and the longest label among them,
+# for a hyp or a multihyp. Both drive the canvas size below.
+.hyp_dots_extent <- function(hyp, fdr, top = 30) {
+  frames <- if (methods::is(hyp, "multihyp")) {
+    base::lapply(hyp$data, function(h) h$data)
+  } else {
+    base::list(hyp$data)
+  }
+  rows <- 0L
+  longest <- 0L
+  for (df in frames) {
+    if (!base::is.data.frame(df) || base::nrow(df) == 0) next
+    keep <- if ("fdr" %in% base::colnames(df)) df[!base::is.na(df$fdr) & df$fdr <= fdr, , drop = FALSE] else df
+    n <- base::min(base::nrow(keep), top)
+    rows <- rows + n
+    if (n > 0 && "label" %in% base::colnames(keep)) {
+      longest <- base::max(longest, base::max(base::nchar(base::as.character(utils::head(keep$label, n))), 0L))
+    }
+  }
+  base::list(rows = rows, longest_label = longest, panels = base::length(frames))
+}
+
+# hypeR's own dot plot, rendered server-side to a data: URI.
+#
+# The canvas is sized from the plot's contents rather than fixed. It used to be
+# a hard 900x520 at 130 dpi -- 6.9 x 4.0 inches -- for up to 30 gene sets,
+# which crushed the rows together and squeezed the panel so hard that ggplot's
+# x-axis tick labels overprinted into an unreadable smear. Gene set names run
+# past 40 characters (HALLMARK_OXIDATIVE_PHOSPHORYLATION is 35), and the label
+# column is drawn at full size regardless, so the space left for the panel
+# shrinks as the names get longer.
+render_hyp_dots_png <- function(hyp, fdr, res = 130,
+                                row_height = 0.30, min_height = 3.2, max_height = 22,
+                                label_char_width = 0.085, panel_width = 5.0, max_width = 20) {
   base::tryCatch({
-    plot_obj <- if (base::length(hyp$data) > 1) {
+    # run_enrichment() always passes hypeR() a named list, so `hyp` is a
+    # multihyp and hyp$data is its per-signature list -- length() is the
+    # signature count. One signature takes merge = FALSE, which returns a list
+    # of per-signature plots; merging a single-signature multihyp instead
+    # raises "rownames<-: invalid rownames length".
+    multi <- base::length(hyp$data) > 1
+    plot_obj <- if (multi) {
       hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = TRUE)
     } else {
       plots <- hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = FALSE)
       if (base::length(plots) == 0) return(NULL)
       plots[[1]]
     }
+    if (base::is.null(plot_obj)) return(NULL)
+    if (!multi) plot_obj <- .fix_hyp_dots_scale(plot_obj)
+
+    extent <- .hyp_dots_extent(hyp, fdr)
+    if (extent$rows == 0) return(NULL)
+
+    height <- base::max(min_height, base::min(max_height, 1.6 + extent$rows * row_height))
+    width <- base::max(7.0, base::min(max_width, panel_width + extent$longest_label * label_char_width))
+
     tmp <- base::tempfile(fileext = ".png")
     on.exit(base::unlink(tmp), add = TRUE)
-    ggplot2::ggsave(tmp, plot = plot_obj, width = width / res, height = height / res, dpi = res, units = "in", bg = "white")
+    ggplot2::ggsave(tmp, plot = plot_obj, width = width, height = height, dpi = res, units = "in", bg = "white",
+                    limitsize = FALSE)
     raw_bytes <- base::readBin(tmp, "raw", file.info(tmp)$size)
     base::sprintf("data:image/png;base64,%s", jsonlite::base64_enc(raw_bytes))
   }, error = function(err) NULL)
