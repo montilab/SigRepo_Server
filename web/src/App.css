@@ -2510,6 +2510,8 @@ a.rmg-item-title:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
 /* Uniform row heights in data tables.
    Long signature names (Aging_4mosc1_vt104_vs_DMSO_InVitro_MontiLab2024 and
    similar) wrapped to two or three lines, so rows in the same table were
