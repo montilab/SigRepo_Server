@@ -13,8 +13,31 @@
 # pagination on the Signatures page (DT-style server = TRUE): the client asks
 # for one `limit`-sized page at `offset` and renders pager controls from
 # `total`, instead of pulling every row up front.
+# Columns the Signatures list may be ordered by, mapped to the SQL expression
+# that actually sorts them.
+#
+# An allowlist rather than interpolating the caller's string: this value reaches
+# ORDER BY, where quoting cannot protect it the way dbQuoteLiteral protects a
+# WHERE value. Anything not in this map falls back to signature_name.
+#
+# The joined names sort by the human-readable label rather than the underlying
+# *_id -- sorting by foreign key would look arbitrary to a reader.
+.signature_sort_columns <- base::list(
+  signature_name = "s.signature_name",
+  organism       = "o.organism",
+  assay_type     = "s.assay_type",
+  direction_type = "s.direction_type",
+  phenotype      = "p.phenotype",
+  sample_type    = "st.sample_type",
+  platform_name  = "pl.platform_name",
+  year           = "s.year",
+  user_name      = "s.user_name",
+  visibility     = "s.visibility"
+)
+
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
-                               keyword = NULL, limit = 20, offset = 0, is_admin = FALSE) {
+                               keyword = NULL, limit = 20, offset = 0, is_admin = FALSE,
+                               sort_by = NULL, sort_dir = "asc") {
   limit <- base::suppressWarnings(base::as.integer(limit[1]))
   if (base::is.na(limit) || limit < 1) {
     limit <- 20
@@ -63,10 +86,28 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
   # feature_count is intentionally NOT selected here: the Signatures list no
   # longer shows it, and its per-row correlated subquery was the main cost of
   # this query. The detail view computes its own count when a row is opened.
+  # Sorting has to happen in SQL, not in the browser: the client holds one page,
+  # so a client-side sort would silently reorder within the page and look like
+  # it had sorted the whole repository.
+  sort_key <- base::trimws(base::as.character(sort_by %||% ""))
+  sort_expr <- if (base::nzchar(sort_key)) .signature_sort_columns[[sort_key]] else NULL
+  if (base::is.null(sort_expr)) {
+    sort_expr <- "s.signature_name"
+  }
+  sort_dir_sql <- if (base::identical(base::tolower(base::trimws(base::as.character(sort_dir %||% "asc"))), "desc")) "DESC" else "ASC"
+
+  # signature_name breaks ties so paging stays stable: without a unique
+  # tiebreaker, rows with equal sort values can show up on two pages or none.
+  order_clause <- if (base::identical(sort_expr, "s.signature_name")) {
+    base::paste("ORDER BY s.signature_name", sort_dir_sql)
+  } else {
+    base::paste0("ORDER BY ", sort_expr, " ", sort_dir_sql, ", s.signature_name ASC")
+  }
+
   query <- base::paste(
     "SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform_name",
     from_where,
-    "ORDER BY s.signature_name ASC LIMIT", limit, "OFFSET", offset
+    order_clause, "LIMIT", limit, "OFFSET", offset
   )
 
   base::list(rows = DBI::dbGetQuery(conn, query), total = total)

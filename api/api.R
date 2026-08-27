@@ -1100,6 +1100,90 @@ search_by_genes_route <- function(req, res, api_key = "", genes = NULL, signatur
     hits = compact_table(hits, max_rows = 100)
   ))
 }
+
+#* Running-enrichment curve and leading edge for one gene set against one
+#* signature. hypeR reports a row per gene set but nothing about WHERE in the
+#* ranking the hits fell, which is the part people interpret -- so the curve is
+#* computed here (api/lib/gsea_curve.R) rather than returned by hypeR.
+#*
+#* Kept as its own call rather than embedded in /annotate/run: a run returns up
+#* to hundreds of gene sets and only the one a reader clicks needs a curve.
+#* @parser json
+#* @param api_key
+#* @param signature_hashkey
+#* @param geneset_label
+#* @param species
+#* @param collection
+#* @param subcollection
+#* @param power
+#' @post /annotate/leading_edge
+annotate_leading_edge_route <- function(req, res, api_key = "", signature_hashkey = "", geneset_label = "",
+                                        species = "Homo sapiens", collection = "", subcollection = "", power = 1){
+  body <- request_json_body(req)
+  pick <- function(param, key, default = "") {
+    v <- if (identical(json_scalar(param), "")) json_scalar(body[[key]]) else json_scalar(param)
+    if (identical(v, "")) default else v
+  }
+
+  auth <- validate_api_key(res, pick(api_key, "api_key"))
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  hk <- pick(signature_hashkey, "signature_hashkey")
+  label <- pick(geneset_label, "geneset_label")
+  if (identical(hk, "") || identical(label, "")) {
+    return(json_error(res, 400, "signature_hashkey and geneset_label are both required."))
+  }
+
+  # The ranked query, resolved exactly the way a gsea run resolves it, so the
+  # curve describes the same ranking the run scored.
+  resolved <- base::tryCatch(
+    resolve_single_enrichment_query(auth, hk, "gsea", difexp_dir),
+    error = function(e) base::list(ok = FALSE, reason = "error", message = base::conditionMessage(e))
+  )
+  if (!base::isTRUE(resolved$ok)) {
+    status <- if (identical(resolved$reason, "not_found")) 404L else 422L
+    return(json_error(res, status, resolved$message %||%
+      base::sprintf("Could not resolve a ranked signature for this run (%s).", resolved$reason %||% "unknown")))
+  }
+
+  geneset_result <- resolve_msigdb_genesets(
+    msigdb_cache_dir,
+    pick(species, "species", "Homo sapiens"),
+    pick(collection, "collection"),
+    pick(subcollection, "subcollection")
+  )
+  if (!base::isTRUE(geneset_result$ok)) {
+    return(json_error(res, 404, geneset_result$message %||% "Gene sets are not available for that selection."))
+  }
+
+  genes <- geneset_result$genesets[[label]]
+  if (base::is.null(genes)) {
+    return(json_error(res, 404, base::sprintf("'%s' is not in the selected gene set collection.", label)))
+  }
+
+  pw <- base::suppressWarnings(base::as.numeric(json_scalar(power, "1")))
+  if (base::is.na(pw) || pw < 0) pw <- 1
+
+  curve <- compute_gsea_curve(resolved$query, genes, power = pw)
+  if (base::is.null(curve)) {
+    return(json_error(res, 422, base::sprintf("'%s' does not overlap this signature's ranked genes.", label)))
+  }
+
+  json_response(res, 200, payload = base::list(
+    geneset_label = label,
+    signature_name = resolved$signature_name,
+    n_total = curve$n_total,
+    es_score = curve$es_score,
+    es_index = curve$es_index,
+    es_direction = curve$es_direction,
+    n_leading = curve$n_leading,
+    leading_edge_genes = curve$leading_edge_genes,
+    hit_positions = curve$hit_positions,
+    curve = curve$curve
+  ))
+}
 #* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
 #* @param api_key
 #' @get /vocabulary
@@ -1159,8 +1243,12 @@ insights_route <- function(res, api_key = "", recent_limit = 5){
 #* @param keyword
 #* @param limit
 #* @param offset
+#* @param sort_by One of signature_name, organism, assay_type, direction_type,
+#*   phenotype, sample_type, platform_name, year, user_name, visibility.
+#*   Anything else falls back to signature_name.
+#* @param sort_dir asc (default) or desc
 #' @get /signatures/search
-search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0){
+search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0, sort_by = "", sort_dir = "asc"){
   auth <- validate_api_key(res, api_key)
   if (is_json_error(auth)) {
     return(auth)
@@ -1176,6 +1264,8 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
       keyword = json_scalar(keyword),
       limit = limit,
       offset = offset,
+      sort_by = json_scalar(sort_by),
+      sort_dir = json_scalar(sort_dir, "asc"),
       is_admin = identical(auth$user_role, "admin")
     )
     base::suppressWarnings(DBI::dbDisconnect(conn))
@@ -1526,13 +1616,79 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
   if (base::length(signature_hashkeys) == 0) {
     return(json_error(res, 404, "signature_hashkeys cannot be empty."))
   }
-  if (!test %in% c("hypergeometric", "kstest")) {
-    return(json_error(res, 400, "test must be 'hypergeometric' or 'kstest'."))
+  if (!test %in% c("hypergeometric", "kstest", "gsea", "gem_hypergeo", "gem_weighted")) {
+    return(json_error(res, 400, "test must be 'hypergeometric', 'kstest', 'gsea', 'gem_hypergeo' or 'gem_weighted'."))
   }
 
   fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
   if (base::is.na(fdr) || fdr <= 0 || fdr > 1) {
     fdr <- 0.05
+  }
+
+  # GEM is a different pipeline, not a hypeR variant: hypeR.GEM maps
+  # metabolites to enzyme-coding genes through a genome-scale metabolic model
+  # before enriching, so it takes the OmicSignature rather than a resolved gene
+  # vector. It also runs one signature at a time.
+  if (is_gem_test(test)) {
+    gem <- run_gem_enrichment(
+      auth = auth,
+      signature_hashkey = signature_hashkeys[1],
+      test = test,
+      difexp_dir = difexp_dir,
+      msigdb_cache_dir = msigdb_cache_dir,
+      species = species,
+      collection = collection,
+      subcollection = subcollection,
+      directional = normalize_flag(body$gem_directional, default = TRUE) == 1L,
+      reference_key = { rk <- json_scalar(body$gem_reference_key); if (base::identical(rk, "")) NULL else rk },
+      fdr = fdr
+    )
+    if (!base::isTRUE(gem$ok)) {
+      status <- base::switch(
+        gem$reason %||% "",
+        unavailable = 503L,
+        not_found = 404L,
+        gem_failed = 502L,
+        422L
+      )
+      return(json_error(res, status, gem$message %||% "GEM enrichment could not run."))
+    }
+    # Same envelope as the hypeR path below, so the UI has one result handler.
+    # GEM adds reference_key / gem_method / the mapping counts. Neither path
+    # embeds a dot plot in this response -- that figure lives behind GET
+    # /annotate/dotplot for the hypeR path, and GEM has no equivalent at all
+    # (hypeR.GEM returns plain tables, not a hypeR object to render one from).
+    return(json_response(res, 200, payload = base::list(
+      test = test,
+      collection = collection,
+      subcollection = subcollection,
+      fdr = fdr,
+      geneset_source = gem$geneset_source,
+      reference_key = gem$reference_key,
+      gem_method = gem$method,
+      n_metabolites = gem$n_metabolites,
+      n_genes = gem$n_genes,
+      # Same per-signature envelope as the hypeR path. GEM runs one signature,
+      # so this is always a single entry; `info` mirrors hyp$info's role of
+      # recording what the run actually did.
+      signatures = base::list(base::list(
+        signature_hashkey = signature_hashkeys[1],
+        signature_name = gem$signature_name,
+        label = gem$signature_name,
+        n_query = gem$n_metabolites,
+        n_enriched = base::length(gem$results),
+        info = base::list(
+          "Metabolites" = base::as.character(gem$n_metabolites),
+          "Mapped Genes" = base::as.character(gem$n_genes),
+          "Reference Key" = base::as.character(gem$reference_key),
+          "Method" = base::as.character(gem$method),
+          "Genesets" = base::as.character(collection),
+          "FDR" = base::as.character(fdr)
+        ),
+        results = gem$results
+      )),
+      skipped = base::list()
+    )))
   }
 
   base::tryCatch({
@@ -1549,31 +1705,8 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
     )
 
     if (!result$ok) {
-      status <- switch(result$reason,
-        "no_signatures" = 400,
-        "not_found" = 404,
-        "no_features" = 404,
-        "no_difexp" = 404,
-        "no_gene_symbols" = 404,
-        "unsupported_assay_type" = 400,
-        "unsupported_difexp_shape" = 400,
-        "invalid_geneset" = 400,
-        "not_cached" = 404,
-        "fetch_failed" = 502,
-        500
-      )
-      message <- if (!base::is.null(result$message)) {
-        result$message
-      } else {
-        switch(result$reason,
-          "not_found" = "No signature found for the selected signature(s).",
-          "no_features" = "The selected signature has no stored features.",
-          "no_difexp" = "The selected signature has no stored difexp, which rank-based (kstest) enrichment requires.",
-          "no_gene_symbols" = "None of the selected signature's features could be mapped to a gene symbol.",
-          "Enrichment failed."
-        )
-      }
-      return(json_error(res, status, message))
+      err <- enrichment_error_response(result$reason, result$message, test = test)
+      return(json_error(res, err$status, err$message))
     }
 
     json_response(res, 200, payload = base::list(
@@ -1582,13 +1715,71 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
       subcollection = subcollection,
       fdr = fdr,
       geneset_source = result$geneset_source,
-      dotplot_png = result$dotplot_png,
-      signatures = result$resolved,
-      skipped = result$skipped,
-      results = compact_table(result$results, max_rows = 500)
+      # One entry per signature, each with its own hyp$info and results --
+      # the multihyp shape, rather than one interleaved table.
+      signatures = result$signatures,
+      skipped = result$skipped
     ))
   }, error = function(err) {
     json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))
+  })
+}
+
+#* Download hypeR's own dot plot for an enrichment run as a PNG
+#* @param api_key
+#* @param signature_hashkeys
+#* @param test
+#* @param species
+#* @param collection
+#* @param subcollection
+#* @param fdr
+#' @get /annotate/dotplot
+annotate_dotplot_route <- function(res, api_key = "", signature_hashkeys = "", test = "hypergeometric",
+                                   species = "Homo sapiens", collection = "H", subcollection = "", fdr = 0.05){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  hashkeys <- base::unlist(base::strsplit(json_scalar(signature_hashkeys), ",", fixed = TRUE))
+  hashkeys <- base::trimws(hashkeys)
+  hashkeys <- hashkeys[base::nzchar(hashkeys)]
+  if (base::length(hashkeys) == 0) {
+    return(json_error(res, 400, "signature_hashkeys is required."))
+  }
+
+  test <- json_scalar(test)
+  if (!test %in% c("hypergeometric", "kstest", "gsea")) {
+    return(json_error(res, 400, "The dot plot is a hypeR figure; test must be 'hypergeometric', 'kstest' or 'gsea'."))
+  }
+
+  fdr <- base::suppressWarnings(base::as.numeric(fdr[1]))
+  if (base::is.na(fdr) || fdr <= 0 || fdr > 1) {
+    fdr <- 0.05
+  }
+
+  base::tryCatch({
+    built <- run_enrichment_hyp_object(
+      auth = auth, signature_hashkeys = hashkeys, test = test,
+      species = json_scalar(species), collection = json_scalar(collection),
+      subcollection = { sc <- json_scalar(subcollection); if (base::identical(sc, "")) NULL else sc },
+      fdr = fdr, difexp_dir = difexp_dir, msigdb_cache_dir = msigdb_cache_dir
+    )
+    if (!base::isTRUE(built$ok)) {
+      err <- enrichment_error_response(built$reason, built$message, test = test)
+      return(json_error(res, err$status, err$message))
+    }
+
+    uri <- render_hyp_dots_png(built$hyp, fdr)
+    if (base::is.null(uri)) {
+      return(json_error(res, 502, "hypeR could not render a dot plot for this run."))
+    }
+
+    raw_bytes <- jsonlite::base64_dec(base::sub("^data:image/png;base64,", "", uri))
+    res$serializer <- plumber::serializer_content_type("image/png")
+    plumber::as_attachment(raw_bytes, filename = "enrichment_dotplot.png")
+  }, error = function(err) {
+    json_error(res, 500, base::sprintf("Dot plot failed: %s", err$message))
   })
 }
 

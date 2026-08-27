@@ -37,6 +37,28 @@ docker compose -f docker-compose-local.yml -p sigrepo_local restart sigrepo-api
   that the notification step failed. That is correct: this stack must never
   send real mail.
 - **Data lives in `./.local-data/`**, gitignored. Delete it to start clean.
+- **`SIGREPO_DIR` points at the bind-mounted `../SigRepo` checkout**, so the API
+  loads the client with `pkgload::load_all()` from your working copy. Production
+  leaves `SIGREPO_DIR` unset, which makes `load_repo_package()` fall through to
+  the *installed* package built from `montilab/SigRepo@master`.
+
+  **These are different clients, and they have diverged.** A function whose
+  signature changed in an uncommitted working copy will work here and fail on
+  production. That is not hypothetical: `createOmicSignature()` gained
+  `difexp`/`fetch_difexp` arguments locally that are not on master, and the
+  hypeR-GEM feature passed every local test while failing on all three of
+  production's metabolomics signatures.
+
+  To exercise the production path, load the installed client explicitly instead
+  of letting `api.R` pick:
+
+  ```r
+  # In a container Rscript -- library(), NOT pkgload::load_all("/SigRepo")
+  suppressMessages(library(SigRepo))
+  cat(paste(names(formals(SigRepo:::createOmicSignature)), collapse = ", "), "\n")
+  # 2 arguments  -> you are on the production path
+  # 4 arguments  -> you are on the working-copy path
+  ```
 
 ## First run
 
@@ -51,6 +73,15 @@ docker exec sigrepo-local-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" sig
 
 For test fixtures instead of your own data, `tests/testthat/fixtures/seed.sql`
 loads the same way.
+
+Schema alone leaves you with no signatures, no accounts, and no reference
+features — enough to boot, not enough to exercise anything. A repeatable
+alternative is a seed script kept in `.local-data/` (gitignored, so it does not
+ship here): it loads the schema, creates the dev accounts, and imports a
+signature basket downloaded from a real repository via `/signatures/export`.
+That gives you genuine data across all four assay types rather than invented
+fixtures, which matters — synthetic transcriptomics signatures will not exercise
+the metabolomics or genetic-variants paths at all.
 
 ## Accounts
 
@@ -67,6 +98,37 @@ VALUES ('you', MD5(LOWER('<password>')), 'you@local.test', 'admin',
 ```
 
 A `users` row on its own produces an account that can never sign in.
+
+## When the stack comes up with no environment
+
+`.Renviron` is bind-mounted as a **single file**, not a directory:
+
+```
+./.Renviron.local-stack  ->  /SigRepo_Server/.Renviron
+```
+
+If that host file is ever missing when a container starts — deleted, renamed, or
+removed by a branch switch — Docker **silently recreates the mount source as an
+empty directory**. The container then comes up with an unreadable `.Renviron`,
+every `Sys.getenv()` returns `""`, and `DB_LOCAL_HOST` being empty makes RMySQL
+fall back to a local socket:
+
+```
+Failed to connect to database: Error: Can't connect to local MySQL server
+through socket '/var/run/mysqld/mysqld.sock' (2)
+```
+
+That error names MySQL, but MySQL is fine — the environment is missing. Check
+the type of the host path before anything else, because `[ -e ]` is true for the
+directory Docker left behind:
+
+```bash
+[ -f .Renviron.local-stack ] && echo file || echo "NOT A FILE -- this is the bug"
+```
+
+To fix: stop the containers that mount it, `rmdir` the empty directory, restore
+the real file, and start again. Restarting without removing the directory will
+not help — the mount is re-resolved from the host path each time.
 
 ## Resetting
 

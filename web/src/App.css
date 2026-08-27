@@ -2081,22 +2081,47 @@ input[type="range"] {
 }
 
 /* ---------- Annotate (enrichment) setup ---------- */
-.annotate-setup-grid {
-  display: grid;
-  /* minmax(0, ...), not a bare fr -- the signature table's natural content
-     width would otherwise expand this track past its share and push the
-     second column off-screen instead of scrolling internally. */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 18px;
-  align-items: start;
-}
-.annotate-setup-signature {
-  min-width: 0;
-}
-.annotate-setup-side {
+/* Annotate setup.
+   This was a two-column grid at minmax(0,1fr) / minmax(0,1.2fr), which gave the
+   signature table LESS width than the five small inputs beside it -- so the
+   primary interface on the page was a ~260px table with its own search box,
+   checkbox column, sort chevrons and filter icons competing for the space, and
+   cell text clipped mid-word.
+   The table now takes the full width and the configuration sits beneath it as a
+   band. Five selects and a slider tile comfortably across one row; a table of
+   signatures does not fit in half of one. */
+.annotate-setup {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+.annotate-signatures {
+  min-width: 0;
+}
+/* The two configuration panels side by side, each free to wrap its own fields.
+   Method is narrower than geneset selection, which needs three selects. */
+.annotate-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .annotate-config {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Inside each panel, fields flow horizontally instead of stacking -- they are
+   short controls, and stacking them was what made the panel tall enough to
+   justify putting the table beside it in the first place. */
+.annotate-config .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px 16px;
+  align-items: end;
+}
+.annotate-config .field-slider {
+  min-width: 200px;
 }
 .radio-list-scroll {
   max-height: 480px;
@@ -2445,4 +2470,257 @@ a.rmg-item-title:hover {
   .rel-metrics {
     justify-content: flex-end;
   }
+}
+
+/* Enrichment results: overlap as a proportion.
+   hypeR reports overlap, geneset, query size and background as four separate
+   counts. What a reader is actually judging is how much of the gene set was
+   hit, so show the ratio with a bar and keep the raw counts in the tooltip. */
+/* Numeric cells must not wrap: an FDR of 3.1e-21 broke across two lines,
+   which both looked wrong and made rows in the same table different heights. */
+.enrich-num {
+  white-space: nowrap;
+}
+.enrich-overlap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.enrich-bar {
+  display: inline-block;
+  width: 48px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-subtle);
+  overflow: hidden;
+  flex: none;
+}
+.enrich-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+/* Hit lists run to hundreds of symbols; one clipped line keeps rows uniform,
+   with the full list on hover. */
+.enrich-hits {
+  display: block;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+/* Uniform row heights in data tables.
+   Long signature names (Aging_4mosc1_vt104_vs_DMSO_InVitro_MontiLab2024 and
+   similar) wrapped to two or three lines, so rows in the same table were
+   different heights and the list was hard to scan. Cells are now a single
+   line, clipped with an ellipsis; the full value stays available as a
+   title tooltip and on the detail page, so nothing is lost. */
+.dt-table {
+  table-layout: auto;
+}
+.dt-table tbody td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+/* The signature name is the column most likely to be long and the one people
+   scan by, so it gets more room before clipping. */
+.dt-table tbody td:first-child,
+.dt-table tbody td.dt-col-wide {
+  max-width: 340px;
+}
+/* Badges and other inline-flex children ignore the parent's ellipsis, so they
+   need their own clipping to stay on one line. */
+.dt-table tbody td > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+/* GSEA leading-edge plot.
+   Inline SVG rather than a server-rendered PNG: it stays crisp, follows the
+   page theme, and the server does not have to render an image per gene set. */
+.le-wrap {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+.le-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.le-hint {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.le-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+.le-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.le-stats > span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.le-stats b {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 15px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.le-dir-pos { color: var(--success); align-self: center; font-weight: 600; }
+.le-dir-neg { color: var(--danger); align-self: center; font-weight: 600; }
+
+.le-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.le-axis { stroke: var(--border-subtle); stroke-width: 1; }
+.le-curve { stroke: var(--accent); stroke-width: 1.8; stroke-linejoin: round; }
+/* The peak is where the leading edge ends -- the single most-read feature of
+   the figure, so it gets its own marker rather than being inferred. */
+.le-peak { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.le-hit { stroke: var(--text-muted); stroke-width: 1; opacity: 0.45; }
+.le-hit-leading { stroke: var(--accent); opacity: 0.95; }
+.le-tick-label { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono, ui-monospace, monospace); }
+
+.le-genes {
+  margin-top: 12px;
+  font-size: 13px;
+}
+.le-genes summary {
+  cursor: pointer;
+  color: var(--accent-text);
+}
+.le-gene-list {
+  margin-top: 8px;
+  max-height: 140px;
+  overflow-y: auto;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+/* hyp$info strip above a signature's enriched gene sets -- hypeR's own
+   reproducibility record (version, signature size/type, geneset collection,
+   background, cutoffs, test). Wraps rather than scrolls: it is reference
+   material to glance at, not something to navigate. */
+.hyp-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 10px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.hyp-info-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 11.5px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 8px;
+  max-width: 100%;
+}
+.hyp-info-key {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.hyp-info-val {
+  font-family: var(--mono, ui-monospace, monospace);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+/* Enrichment dot plot. Sized by its container, not by the server -- the PNG
+   this replaces rendered 1114x1611px on a three-signature run. */
+.edp { position: relative; }
+.edp-svg { width: 100%; height: auto; display: block; }
+.edp-band { fill: var(--table-stripe); }
+.edp-band-alt { fill: transparent; }
+.edp-ylab { font-size: 10px; fill: var(--text-muted); font-family: var(--mono, ui-monospace, monospace); }
+.edp-xlab { font-size: 10px; fill: var(--text-muted); }
+.edp-axis-title { font-size: 11px; fill: var(--text); }
+.edp-dot { cursor: pointer; transition: opacity 120ms; }
+.edp-dot:hover { opacity: 0.75; }
+/* Single-signature mode carries no colour-by-FDR encoding (x already does
+   that job), so every dot is one flat colour from the chart palette rather
+   than a one-off hex baked into the component. */
+.edp-legend { display: flex; gap: 14px; padding: 6px 0 0 8px; }
+.edp-legend-item { font-size: 11px; color: var(--text-muted); }
+/* Marks a signature's column that has zero dots only because the global
+   top-N cut was won entirely by other signatures -- distinct from a column
+   with genuinely no enriched gene sets. */
+.edp-empty-note { font-size: 10px; font-style: italic; fill: var(--text-muted); }
+.edp-tip {
+  position: absolute; top: 8px; right: 8px; max-width: 340px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; font-size: 11.5px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12); pointer-events: none;
+}
+.edp-tip-hits {
+  color: var(--text-muted); font-family: var(--mono, ui-monospace, monospace); font-size: 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Expandable per-signature result rows. */
+.srr { border-bottom: 1px solid var(--border); }
+.srr:last-child { border-bottom: none; }
+.srr-head {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 14px; background: none; border: none; cursor: pointer;
+  text-align: left; color: var(--text); font: inherit;
+}
+.srr-head:hover { background: var(--surface-hover); }
+.srr-open > .srr-head { background: var(--surface-hover); }
+.srr-name { flex: 1; font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.srr-metric { display: flex; flex-direction: column; align-items: flex-end; min-width: 62px; line-height: 1.15; }
+.srr-metric b { font-family: var(--mono, ui-monospace, monospace); font-size: 12.5px; }
+.srr-metric-wide { min-width: 84px; }
+.srr-body { padding: 0 14px 14px; }
+
+/* hypeR's dotted FDR = 0.05 line, and the legend's colour-ramp swatch. */
+.edp-cutoff {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.edp-legend-swatch {
+  display: inline-block;
+  width: 34px;
+  height: 8px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 4px;
+  /* Same endpoints as the dots: hypeR's #E53935 -> #114357. */
+  background: linear-gradient(to right, #E53935, #114357);
 }
