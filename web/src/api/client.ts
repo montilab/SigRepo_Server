@@ -70,10 +70,27 @@ export function getAuth(): AuthUser | null {
   return currentAuth;
 }
 
+// Anything holding per-user state needs to know when the signed-in user
+// changes, not just when the app first loads -- a login, a logout, or a switch
+// between accounts in the same tab all happen without a page reload. The
+// basket subscribes to this; see web/src/basket.ts.
+const authListeners = new Set<(auth: AuthUser | null) => void>();
+
+export function onAuthChange(listener: (auth: AuthUser | null) => void): () => void {
+  authListeners.add(listener);
+  return () => {
+    authListeners.delete(listener);
+  };
+}
+
 function setAuth(auth: AuthUser | null) {
+  const previousUser = currentAuth?.user_name ?? null;
   currentAuth = auth;
   if (auth) localStorage.setItem(AUTH_KEY, JSON.stringify(auth));
   else localStorage.removeItem(AUTH_KEY);
+  if ((auth?.user_name ?? null) !== previousUser) {
+    authListeners.forEach((listener) => listener(auth));
+  }
 }
 
 function requireApiKey(): string {
@@ -756,6 +773,17 @@ export interface EnrichmentResultRow {
   // Which input signature this hit came from; disambiguated with " (2)",
   // " (3)", etc. if two selected signatures share a signature_name.
   signature_label: string;
+
+  // --- hypeR-GEM runs only ---
+  // GEM reports the genes it hit under `gene_hits` rather than `hits`, and
+  // additionally reports which metabolites mapped onto them -- the step the
+  // hypeR path does not have. The weighted method replaces the plain
+  // `overlap` count with `weighted_overlap`, so both are optional here.
+  gene_hits?: string;
+  metabolite_hits?: string;
+  num_met_hits?: number;
+  ratio_met_hits?: number;
+  weighted_overlap?: number;
 }
 
 export interface EnrichmentRunSignature {
@@ -763,6 +791,16 @@ export interface EnrichmentRunSignature {
   signature_name: string;
   label: string;
   n_query: number;
+  // How many gene sets passed the cutoff for THIS signature.
+  n_enriched: number;
+  // hypeR's own hyp$info, verbatim: hypeR version, signature head/size/type,
+  // geneset collection, background, and the cutoffs and test used. Free-form
+  // on purpose -- it is a reproducibility record whose keys are hypeR's to
+  // choose, and the GEM path fills the same slot with its own equivalents.
+  info: Record<string, string>;
+  // This signature's own enriched gene sets. Previously every signature's
+  // results arrived interleaved in one array keyed by signature_label.
+  results: EnrichmentResultRow[];
 }
 
 export interface EnrichmentSkippedSignature {
@@ -772,31 +810,43 @@ export interface EnrichmentSkippedSignature {
   message: string | null;
 }
 
+export type EnrichmentTest = "hypergeometric" | "kstest" | "gsea" | "gem_hypergeo" | "gem_weighted";
+
 export interface EnrichmentRun {
-  test: "hypergeometric" | "kstest" | "gsea";
+  test: EnrichmentTest;
   collection: string;
   subcollection: string;
   fdr: number;
   geneset_source: "cache" | "live";
-  // hyp_dots() rendered server-side to a PNG (hypeR's own dotplot, not a
-  // reimplementation, merged into one combined plot for multi-signature
-  // runs), as a data: URI ready for an <img src>.
-  dotplot_png: string | null;
   // Signatures that were actually run (a signature is dropped here, and
   // listed in `skipped` instead, if e.g. a kstest run was requested but it
   // has no stored difexp).
+  // One entry per signature that ran, each carrying its own info and results
+  // -- the multihyp shape hypeR::rctbl_mhyp() renders.
   signatures: EnrichmentRunSignature[];
   skipped: EnrichmentSkippedSignature[];
-  results: EnrichmentResultRow[];
+
+  // --- hypeR-GEM runs only ---
+  // Which metabolite identifier the metabolic model was keyed on, and how far
+  // the metabolite -> gene mapping got. Worth surfacing: a GEM run with a
+  // healthy metabolite count but few mapped genes is thin for a reason the
+  // p-values alone do not show.
+  reference_key?: string;
+  gem_method?: "weighted" | "unweighted";
+  n_metabolites?: number;
+  n_genes?: number;
 }
 
 export interface RunAnnotationParams {
   signatureHashkeys: string[];
-  test: "hypergeometric" | "kstest" | "gsea";
+  test: EnrichmentTest;
   species?: string;
   collection: string;
   subcollection?: string;
   fdr: number;
+  // GEM only. Directional models distinguish the metabolites a reaction
+  // consumes from the ones it produces; ignored by the hypeR tests.
+  gemDirectional?: boolean;
 }
 
 export async function runAnnotation(params: RunAnnotationParams): Promise<EnrichmentRun> {
@@ -811,9 +861,42 @@ export async function runAnnotation(params: RunAnnotationParams): Promise<Enrich
       collection: params.collection,
       subcollection: params.subcollection ?? "",
       fdr: params.fdr,
+      gem_directional: params.gemDirectional ?? true,
     }),
   });
-  return { ...raw, results: raw.results ?? [], signatures: raw.signatures ?? [], skipped: raw.skipped ?? [] };
+  return {
+    ...raw,
+    signatures: (raw.signatures ?? []).map((s) => ({ ...s, results: s.results ?? [] })),
+    skipped: raw.skipped ?? [],
+  };
+}
+
+// The dot plot is no longer part of the run response -- it is fetched on
+// demand, so a run does not pay for a figure nobody opens. Fetched as a blob
+// and handed to the caller through downloadBlob's synthetic-click pattern
+// (see below) rather than exposed as a plain URL: a rendered <a href> would
+// put api_key in the DOM, where link hover, "Copy Link Address", view-source
+// and DevTools can all read it, and it would persist in history and the
+// Downloads-list entry. Routing it through fetch() instead means the key
+// only ever travels as a request, never as an attribute.
+export async function downloadDotplot(params: {
+  signatureHashkeys: string[];
+  test: EnrichmentTest;
+  species?: string;
+  collection: string;
+  subcollection?: string;
+  fdr: number;
+}): Promise<void> {
+  const q = new URLSearchParams({
+    api_key: requireApiKey(),
+    signature_hashkeys: params.signatureHashkeys.join(","),
+    test: params.test,
+    species: params.species ?? "Homo sapiens",
+    collection: params.collection,
+    subcollection: params.subcollection ?? "",
+    fdr: String(params.fdr),
+  });
+  await downloadBlob(`/annotate/dotplot?${q.toString()}`, undefined, "enrichment_dotplot.png");
 }
 
 // ---------- Signature export / basket download ----------

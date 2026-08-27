@@ -331,18 +331,134 @@ resolve_enrichment_queries <- function(auth, signature_hashkeys, test, difexp_di
 # but merge = TRUE panics if there's only one signature to plot, hence the
 # branch. Returns NULL if there's nothing to plot (e.g. hyp_dots() itself
 # errors on an empty result set).
-render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) {
-  base::tryCatch({
-    plot_obj <- if (base::length(hyp$data) > 1) {
-      hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = TRUE)
-    } else {
-      plots <- hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = FALSE)
-      if (base::length(plots) == 0) return(NULL)
-      plots[[1]]
+# hyp_dots() draws the single-signature FDR axis with
+# scale_y_continuous(trans = log10_trans()).
+# Under ggplot2 4.x the break POSITIONS come back transformed a second time
+# while the labels do not, so on real data the axis reads:
+#
+#   break labels    40      80      120        (sensible -log10(FDR) values)
+#   break positions -1.602  -1.903  -2.079     (= -log10 of those labels)
+#   panel range     -2.2 .. 59.9
+#
+# All three ticks land within half a unit of each other at the extreme left of
+# a 62-unit panel and overprint into an unreadable smudge, which is what the
+# plot has been showing. Nothing about the figure's size causes it and no
+# amount of resizing fixes it.
+#
+# Replace that one scale with a plain log10 axis whose breaks are computed
+# correctly, so positions and labels agree.
+#
+# Plain log10, NOT a reverse-log: hyp_dots plots the FDR itself
+# (scale_y_continuous(trans = log10_trans()) on `significance`, which holds the
+# raw FDR), so smaller values sit further left and the most significant gene
+# sets belong on the LEFT. An earlier version of this fix used a reverse-log
+# and put them on the right, which silently inverted hypeR's own orientation --
+# and left this PNG reading backwards against the interactive chart, which
+# follows hyp_dots' encoding directly. Everything else about the plot is left as
+# hypeR built it.
+#
+# Only applies to the one-signature plot. The merged multi-signature plot is a
+# different geometry -- aes(x = signature, y = label), gene sets down the y
+# axis and significance in the colour -- with no continuous y to correct, and
+# forcing a continuous scale onto that discrete axis breaks the plot outright.
+.fix_hyp_dots_scale <- function(plot_obj) {
+  base::tryCatch(
+    base::suppressMessages(
+      plot_obj + ggplot2::scale_y_log10(
+        labels = function(v) base::format(v, scientific = TRUE, digits = 2)
+      )
+    ),
+    error = function(e) plot_obj
+  )
+}
+
+# The rows hyp_dots() will actually draw, and the longest label among them,
+# for a hyp or a multihyp. Both drive the canvas size below.
+.hyp_dots_extent <- function(hyp, fdr, top = 30) {
+  frames <- if (methods::is(hyp, "multihyp")) {
+    base::lapply(hyp$data, function(h) h$data)
+  } else {
+    base::list(hyp$data)
+  }
+  rows <- 0L
+  longest <- 0L
+  for (df in frames) {
+    if (!base::is.data.frame(df) || base::nrow(df) == 0) next
+    keep <- if ("fdr" %in% base::colnames(df)) df[!base::is.na(df$fdr) & df$fdr <= fdr, , drop = FALSE] else df
+    n <- base::min(base::nrow(keep), top)
+    rows <- rows + n
+    if (n > 0 && "label" %in% base::colnames(keep)) {
+      longest <- base::max(longest, base::max(base::nchar(base::as.character(utils::head(keep$label, n))), 0L))
     }
+  }
+  base::list(rows = rows, longest_label = longest, panels = base::length(frames))
+}
+
+# hypeR's own dot plot, rendered server-side to a data: URI.
+#
+# The canvas is sized from the plot's contents rather than fixed. It used to be
+# a hard 900x520 at 130 dpi -- 6.9 x 4.0 inches -- for up to 30 gene sets,
+# which crushed the rows together and squeezed the panel so hard that ggplot's
+# x-axis tick labels overprinted into an unreadable smear. Gene set names run
+# past 40 characters (HALLMARK_OXIDATIVE_PHOSPHORYLATION is 35), and the label
+# column is drawn at full size regardless, so the space left for the panel
+# shrinks as the names get longer.
+render_hyp_dots_png <- function(hyp, fdr, res = 130,
+                                row_height = 0.30, min_height = 3.2, max_height = 22,
+                                label_char_width = 0.085, panel_width = 5.0, max_width = 20) {
+  base::tryCatch({
+    # hyp_dots() behaves differently for each shape hypeR can hand back, and
+    # every combination below is load-bearing:
+    #
+    #   object              merge = TRUE          merge = FALSE
+    #   hyp (single)        bare ggplot           bare ggplot  (merge ignored)
+    #   multihyp (1 sig)    ERROR: rownames       list of 1
+    #   multihyp (N sigs)   bare ggplot           list of N
+    #
+    # This used to branch on `length(hyp$data) > 1`, which is ambiguous: on a
+    # multihyp that is the signature count, but on a hyp it is the COLUMN COUNT
+    # of a data frame (8). It picked a working combination for all three shapes
+    # by coincidence of two unrelated numbers, not by design -- a hyp landed on
+    # merge = TRUE and a one-signature multihyp on merge = FALSE, which happen
+    # to be the two that work. Ask the object what it is instead.
+    is_multi <- methods::is(hyp, "multihyp")
+    n_signatures <- if (is_multi) base::length(hyp$data) else 1L
+
+    # Merging is only meaningful, and only safe, for a multihyp holding more
+    # than one signature: it is the side-by-side comparison. A one-signature
+    # multihyp raises "attempt to set 'rownames'", and a bare hyp ignores the
+    # argument entirely.
+    merged <- is_multi && n_signatures > 1L
+    drawn <- hypeR::hyp_dots(hyp, top = 30, fdr = fdr, merge = merged)
+
+    # Branch on what came BACK, not on what went in. Indexing [[1]] into a bare
+    # ggplot raises "subscript out of bounds" under ggplot2 4.x, where a ggplot
+    # is an S7 object and [[ dispatches to S7::prop(x, "meta").
+    plot_obj <- if (ggplot2::is_ggplot(drawn)) {
+      drawn
+    } else if (base::is.list(drawn) && base::length(drawn) > 0) {
+      drawn[[1]]
+    } else {
+      NULL
+    }
+    if (base::is.null(plot_obj)) return(NULL)
+
+    # The axis correction belongs to the per-signature geometry
+    # (x = label, y = significance). The merged plot is the other one --
+    # x = signature, y = label, significance in the colour -- with no
+    # continuous y to correct.
+    if (!merged) plot_obj <- .fix_hyp_dots_scale(plot_obj)
+
+    extent <- .hyp_dots_extent(hyp, fdr)
+    if (extent$rows == 0) return(NULL)
+
+    height <- base::max(min_height, base::min(max_height, 1.6 + extent$rows * row_height))
+    width <- base::max(7.0, base::min(max_width, panel_width + extent$longest_label * label_char_width))
+
     tmp <- base::tempfile(fileext = ".png")
     on.exit(base::unlink(tmp), add = TRUE)
-    ggplot2::ggsave(tmp, plot = plot_obj, width = width / res, height = height / res, dpi = res, units = "in", bg = "white")
+    ggplot2::ggsave(tmp, plot = plot_obj, width = width, height = height, dpi = res, units = "in", bg = "white",
+                    limitsize = FALSE)
     raw_bytes <- base::readBin(tmp, "raw", file.info(tmp)$size)
     base::sprintf("data:image/png;base64,%s", jsonlite::base64_enc(raw_bytes))
   }, error = function(err) NULL)
@@ -350,7 +466,10 @@ render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) 
 
 # Runs hypeR::hypeR() across one or more signatures at once (hypeR's own
 # multi-signature support -- a named list in, a `multihyp` out) and shapes
-# the combined result table + native dotplot for the API response.
+# the combined result table for the API response. There is no dotplot here
+# (or anywhere in this response) any more -- that figure now lives behind
+# GET /annotate/dotplot, rendered on demand from the hyp object
+# run_enrichment_hyp_object() below builds, not returned with every run.
 # Signatures that fail to resolve for the requested test are skipped (see
 # resolve_enrichment_queries()) rather than failing the whole request,
 # unless *none* resolve.
@@ -360,7 +479,7 @@ render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) 
 # label, n_query}>, skipped = <list, same shape as above>,
 # results = <data.frame, one row per (signature, geneset) hit, with a
 # signature_label column identifying which input signature it came from>,
-# dotplot_png = <data URI or NULL>, geneset_source = "cache" | "live").
+# geneset_source = "cache" | "live").
 # "gsea" is not a hypeR test name -- hypeR offers hypergeometric and kstest,
 # and GSEA is the kstest with hit weighting turned on. power = 1 weights each
 # hit by its score (what GSEA means); power = 0 is the classic unweighted KS
@@ -373,9 +492,15 @@ render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) 
   if (identical(test, "gsea")) 1 else 0
 }
 
-run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
-                            species = "Homo sapiens", collection = "H", subcollection = NULL,
-                            fdr = 0.05, difexp_dir, msigdb_cache_dir) {
+# Resolve queries and run hypeR, stopping at the hyp object.
+#
+# GET /annotate/dotplot needs the hyp object itself, not the tables
+# run_enrichment() derives from it. Factored out rather than caching hyp
+# objects server-side: caching would mean per-caller state in a single-process
+# Plumber API for a figure most runs never download.
+run_enrichment_hyp_object <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
+                                      species = "Homo sapiens", collection = "H", subcollection = NULL,
+                                      fdr = 0.05, difexp_dir, msigdb_cache_dir) {
   test <- base::match.arg(test)
   signature_hashkeys <- base::unique(signature_hashkeys[base::nzchar(signature_hashkeys)])
   if (base::length(signature_hashkeys) == 0) {
@@ -385,7 +510,11 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
   resolved <- resolve_enrichment_queries(auth, signature_hashkeys, test, difexp_dir)
   if (base::length(resolved$queries) == 0) {
     first <- resolved$skipped[[1]]
-    return(base::list(ok = FALSE, reason = first$reason %||% "enrichment_failed", message = first$message, skipped = resolved$skipped))
+    # Carry `skipped` out: run_enrichment()'s error path reports which
+    # signatures were dropped and why, and losing it would silently turn a
+    # partial failure into an unexplained one.
+    return(base::list(ok = FALSE, reason = first$reason %||% "enrichment_failed",
+                      message = first$message, skipped = resolved$skipped))
   }
 
   geneset_result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection %||% "")
@@ -403,34 +532,176 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
       plotting = FALSE,
       quiet = TRUE
     ),
-    error = function(err) {
-      structure(base::list(message = err$message), class = "enrichment_run_error")
-    }
+    error = function(err) structure(base::list(message = err$message), class = "enrichment_run_error")
   )
   if (base::inherits(hyp, "enrichment_run_error")) {
     return(base::list(ok = FALSE, reason = "enrichment_failed", message = hyp$message))
   }
 
-  result_tables <- base::lapply(base::names(hyp$data), function(label) {
-    df <- hyp$data[[label]]$data
-    if (base::is.null(df) || !base::is.data.frame(df) || base::nrow(df) == 0) {
-      return(NULL)
-    }
-    df$signature_label <- label
-    df
-  })
-  result_tables <- result_tables[!base::vapply(result_tables, base::is.null, logical(1))]
-  results_tbl <- if (base::length(result_tables) > 0) do.call(base::rbind, result_tables) else base::data.frame()
-  if (base::nrow(results_tbl) > 0) {
-    results_tbl <- results_tbl[base::order(results_tbl$pval), , drop = FALSE]
+  base::list(ok = TRUE, hyp = hyp, resolved = resolved, geneset_source = geneset_result$source)
+}
+
+run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest", "gsea"),
+                            species = "Homo sapiens", collection = "H", subcollection = NULL,
+                            fdr = 0.05, difexp_dir, msigdb_cache_dir) {
+  test <- base::match.arg(test)
+  signature_hashkeys <- base::unique(signature_hashkeys[base::nzchar(signature_hashkeys)])
+  if (base::length(signature_hashkeys) == 0) {
+    return(base::list(ok = FALSE, reason = "no_signatures", message = "Select at least one signature."))
   }
+
+  built <- run_enrichment_hyp_object(
+    auth = auth, signature_hashkeys = signature_hashkeys, test = test,
+    species = species, collection = collection, subcollection = subcollection,
+    fdr = fdr, difexp_dir = difexp_dir, msigdb_cache_dir = msigdb_cache_dir
+  )
+  if (!base::isTRUE(built$ok)) {
+    return(base::list(ok = FALSE, reason = built$reason, message = built$message,
+                      skipped = built$skipped %||% base::list()))
+  }
+  hyp <- built$hyp
+  resolved <- built$resolved
+  geneset_result <- base::list(source = built$geneset_source)
+
+  # Keep the hyp object's own shape: one entry per signature, carrying that
+  # signature's hyp$info and its own results table.
+  #
+  # These used to be flattened into a single table with a signature_label
+  # column, which loses what hypeR reports per signature -- signature size,
+  # geneset collection, background -- and forces the reader to disentangle
+  # several signatures' gene sets from one interleaved list. hypeR's own
+  # rctbl_mhyp() presents a multihyp as a row per signature that expands to
+  # that signature's results, and that is the structure this mirrors.
+  per_signature <- base::lapply(resolved$resolved, function(meta) {
+    one <- hyp$data[[meta$label]]
+    df <- if (base::is.null(one)) NULL else one$data
+    if (!base::is.data.frame(df) || base::nrow(df) == 0) {
+      df <- base::data.frame()
+    } else {
+      df <- df[base::order(df$pval), , drop = FALSE]
+    }
+    base::list(
+      signature_hashkey = meta$signature_hashkey,
+      signature_name = meta$signature_name,
+      label = meta$label,
+      n_query = meta$n_query,
+      n_enriched = base::nrow(df),
+      # hyp$info verbatim: hypeR's own reproducibility record (version,
+      # signature size/type, geneset collection, background, cutoffs, test).
+      info = if (base::is.null(one)) base::list() else base::lapply(one$info, base::as.character),
+      results = compact_table(df, max_rows = 500)
+    )
+  })
 
   base::list(
     ok = TRUE,
     resolved = resolved$resolved,
     skipped = resolved$skipped,
-    results = results_tbl,
-    dotplot_png = render_hyp_dots_png(hyp, fdr),
+    signatures = per_signature,
     geneset_source = geneset_result$source
   )
+}
+
+# User-facing name for a requested test, for the messages below -- "GSEA"
+# and "the KS test" read better than the raw "gsea" / "kstest" tokens in a
+# sentence aimed at a human caller. Falls back to the raw token for
+# anything unrecognized rather than guessing at a name for it.
+.enrichment_test_display_name <- function(test) {
+  base::switch(test %||% "",
+    kstest = "the KS test",
+    gsea = "GSEA",
+    hypergeometric = "the hypergeometric test",
+    test
+  )
+}
+
+# Fallback text for reason = "no_difexp". Named for the requested test when
+# one is supplied, so the caller learns both what is missing and what to do
+# about it -- switch to hypergeometric, which is resolved from the
+# signature's curated feature set and never reads difexp in the first
+# place (see resolve_single_enrichment_query()). Without a test (NULL,
+# the default), falls back to the older test-agnostic wording.
+.enrichment_no_difexp_message <- function(test) {
+  if (base::is.null(test)) {
+    return("The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires.")
+  }
+  base::sprintf(
+    "This signature has no stored differential-expression table, which %s requires. Try the hypergeometric test, which uses the signature's feature set instead.",
+    .enrichment_test_display_name(test)
+  )
+}
+
+# Fallback text for reason = "unsupported_difexp_shape". In practice
+# resolve_single_enrichment_query() always supplies its own dynamic
+# `message` for this reason (naming the actual columns found on the
+# offending difexp table), so this fallback is mostly a safety net -- but
+# it follows the same test-aware shape as .enrichment_no_difexp_message()
+# above for the (unlikely) case it is what actually gets shown.
+.enrichment_unsupported_difexp_shape_message <- function(test) {
+  if (base::is.null(test)) {
+    return("The selected signature's stored difexp is not in a shape rank-based enrichment (KS test and GSEA) can use.")
+  }
+  base::sprintf(
+    "This signature's stored differential-expression table is not in a shape %s can use. Try the hypergeometric test, which uses the signature's feature set instead.",
+    .enrichment_test_display_name(test)
+  )
+}
+
+# Maps a failed hypeR-based enrichment result's `reason` (as produced by
+# resolve_single_enrichment_query(), resolve_enrichment_queries(),
+# run_enrichment_hyp_object(), and run_enrichment() above) to an HTTP status
+# and a human-readable message. POST /annotate/run (its non-GEM branch) and
+# GET /annotate/dotplot both call run_enrichment_hyp_object() and must report
+# the same failure the same way, so this is the one place that mapping is
+# written down rather than kept as two copies that can drift. The GEM branch
+# of /annotate/run runs a different pipeline (see run_gem_enrichment()) with
+# its own reasons and status codes and does not use this.
+#
+# `test` is the test the caller actually requested ("hypergeometric" /
+# "kstest" / "gsea"). It never changes the status code -- a signature that
+# can't satisfy a rank-based test is equally un-satisfiable whether the
+# caller asked for kstest or gsea -- it only lets the no_difexp /
+# unsupported_difexp_shape fallback messages name the test that failed and
+# point at the way out (hypergeometric, which needs the feature set, not
+# difexp; see resolve_single_enrichment_query()). Optional (NULL default)
+# so any call site that can't supply it keeps working.
+#
+# Status mapping principle -- extend this table when a new reason is added
+# rather than inventing a one-off status elsewhere:
+#   404 - the thing genuinely is not there: not_found, no_features,
+#         not_cached
+#   422 - it exists, but cannot satisfy THIS request: no_difexp,
+#         unsupported_difexp_shape, no_gene_symbols, unsupported_assay_type
+#   400 - the request itself is malformed: no_signatures, invalid_geneset
+#   502 - an upstream fetch failed: fetch_failed
+#
+# An explicit `message` -- most reasons carry one; see the functions above --
+# always wins over the generic fallback text, since it can say things this
+# can't reconstruct from `reason` alone (e.g. which difexp columns were
+# actually found).
+#
+# Returns list(status = <integer>, message = <string>).
+enrichment_error_response <- function(reason, message = NULL, test = NULL) {
+  status <- base::switch(reason %||% "",
+    not_found = 404L,
+    no_features = 404L,
+    not_cached = 404L,
+    no_difexp = 422L,
+    unsupported_difexp_shape = 422L,
+    no_gene_symbols = 422L,
+    unsupported_assay_type = 422L,
+    no_signatures = 400L,
+    invalid_geneset = 400L,
+    fetch_failed = 502L,
+    500L
+  )
+  fallback_message <- base::switch(reason %||% "",
+    not_found = "No signature found for the selected signature(s).",
+    no_features = "The selected signature has no stored features.",
+    no_difexp = .enrichment_no_difexp_message(test),
+    unsupported_difexp_shape = .enrichment_unsupported_difexp_shape_message(test),
+    no_gene_symbols = "None of the selected signature's features could be mapped to a gene symbol.",
+    "Enrichment failed."
+  )
+  base::list(status = status, message = message %||% fallback_message)
 }

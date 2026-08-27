@@ -27,6 +27,16 @@ build.log
 .Rproj.user/
 docs/
 .Renviron.local
+# Every .Renviron variant, not just the two spelled out above: these hold
+# database passwords and admin keys, and a new suffix (.local-stack, .staging)
+# should be ignored by default rather than needing a new line here after the
+# fact.
+.Renviron.*
+.env.*
+# Local development stack: MySQL data directory, difexp files, and the seed
+# scripts' working files. Disposable and machine-specific -- rebuilt by
+# .local-data/rebuild_local_db.R.
+.local-data/
 
 # Cached MSigDB gene sets. Derived data, ~14MB, rebuilt on demand by the API's
 # /init_db_genesets (or /init_db) endpoint rather than shipped in the repo.
@@ -36,8 +46,8 @@ data/msigdb_genesets/
 # hold database passwords and admin keys, and a new suffix (.local-stack,
 # .staging) must be ignored by default rather than needing a new line here
 # after it has already been committed.
-.Renviron.*
-.env.*
 # Local development stack: the MySQL data directory, difexp files and seed
 # scripts' working files. Machine-specific and disposable.
-.local-data/
+# Subagent-driven-development scratch: progress ledger, task briefs, reports
+# and review packages. Recovery state for this machine, not repo content.
+.superpowers/

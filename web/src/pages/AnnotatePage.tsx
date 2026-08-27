@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
-import { Play, RotateCcw, Loader2, CheckCircle2, CircleDashed, ShoppingBasket, AlertTriangle } from "lucide-react";
+import { Play, RotateCcw, Loader2, CheckCircle2, CircleDashed, ShoppingBasket, AlertTriangle, Download } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
 import Stepper from "../components/Stepper";
 import DataTable, { type Column } from "../components/DataTable";
-import LeadingEdgePlot from "../components/LeadingEdgePlot";
+import EnrichmentDotPlot from "../components/EnrichmentDotPlot";
+import SignatureResultRow from "../components/SignatureResultRow";
 import {
   searchSignatures,
   getMsigdbSpecies,
   getMsigdbCollections,
   fetchGenesets,
   runAnnotation,
+  downloadDotplot,
   type SignatureSummary,
   type MsigdbCollectionOption,
   type GenesetsReadiness,
   type EnrichmentRun,
+  type EnrichmentTest,
 } from "../api/client";
 import { useBasket } from "../basket";
 
@@ -130,8 +133,12 @@ export default function AnnotatePage() {
     }
   }
 
-  const [test, setTest] = useState<"hypergeometric" | "kstest" | "gsea">("hypergeometric");
+  const [test, setTest] = useState<EnrichmentTest>("hypergeometric");
   const [fdr, setFdr] = useState(0.05);
+  // GEM only: directional metabolic models tell a reaction's substrates from
+  // its products, so a metabolite maps to different enzymes depending on
+  // which side it sits on.
+  const [gemDirectional, setGemDirectional] = useState(true);
 
   // Rank-based enrichment needs per-feature scores from difexp, which not
   // every signature has stored. The option stays enabled as long as *any*
@@ -140,36 +147,79 @@ export default function AnnotatePage() {
   // signatures still runs on the ones that qualify instead of hard-blocking.
   const kstestEligibleCount = selectedSignatures.filter((s) => s.has_difexp === 1).length;
   const kstestAvailable = kstestEligibleCount > 0;
+
+  // hypeR-GEM maps metabolites onto the genes whose enzymes act on them, so it
+  // only means anything for a metabolomics signature -- a transcriptomics one
+  // is already genes and there is nothing to map. It also runs one signature
+  // at a time, unlike the hypeR tests.
+  const isGem = test === "gem_hypergeo" || test === "gem_weighted";
+  const metabolomicsCount = selectedSignatures.filter((s) => s.assay_type === "metabolomics").length;
+  const gemAvailable = metabolomicsCount > 0;
+
   useEffect(() => {
-    if (!kstestAvailable && test === "kstest") setTest("hypergeometric");
-  }, [kstestAvailable, test]);
+    if (!kstestAvailable && (test === "kstest" || test === "gsea")) setTest("hypergeometric");
+    if (!gemAvailable && (test === "gem_hypergeo" || test === "gem_weighted")) setTest("hypergeometric");
+  }, [kstestAvailable, gemAvailable, test]);
 
   const [running, setRunning] = useState(false);
-  // Which gene set's enrichment curve is open. Only meaningful after a gsea
-  // run; cleared whenever new results replace the old ones.
-  const [openGeneset, setOpenGeneset] = useState<string | null>(null);
+  const [openSignatureLabel, setOpenSignatureLabel] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichmentRun | null>(null);
+
+  const [downloadingPlot, setDownloadingPlot] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   async function handleRun() {
     if (selectedHashkeys.size === 0 || !genesetStatus) return;
     setRunning(true);
     setRunError(null);
     try {
+      // GEM runs a single signature, so send the first metabolomics one
+      // rather than the whole basket -- the server would ignore the rest
+      // silently otherwise.
+      const hashkeys = isGem
+        ? [(selectedSignatures.find((s) => s.assay_type === "metabolomics") ?? selectedSignatures[0]).signature_hashkey]
+        : Array.from(selectedHashkeys);
       const run = await runAnnotation({
-        signatureHashkeys: Array.from(selectedHashkeys),
+        signatureHashkeys: hashkeys,
         test,
         species,
         collection,
         subcollection: subcollection || undefined,
         fdr,
+        gemDirectional,
       });
       setResult(run);
+      setOpenSignatureLabel(run.signatures[0]?.label ?? null);
       setStep(1);
     } catch (err) {
       setRunError(err instanceof Error ? err.message : "Enrichment failed.");
     } finally {
       setRunning(false);
+    }
+  }
+
+  // Re-runs the enrichment server-side to render the figure, so it can take
+  // a couple of seconds -- fetched via downloadDotplot (blob + synthetic
+  // click) rather than a plain <a href>, which would put the API credential
+  // in the DOM.
+  async function handleDownloadPlot() {
+    if (!result) return;
+    setDownloadingPlot(true);
+    setDownloadError(null);
+    try {
+      await downloadDotplot({
+        signatureHashkeys: result.signatures.map((s) => s.signature_hashkey),
+        test: result.test,
+        species,
+        collection: result.collection,
+        subcollection: result.subcollection,
+        fdr: result.fdr,
+      });
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Could not download plot.");
+    } finally {
+      setDownloadingPlot(false);
     }
   }
 
@@ -189,69 +239,11 @@ export default function AnnotatePage() {
     []
   );
 
-  // DataTable needs a stable per-row key; hypeR's output has none, so derive
-  // one. label alone is not unique when several signatures are run together.
-  const resultRows = useMemo(
-    () =>
-      (result?.results ?? []).map((r, i) => ({
-        ...r,
-        rowId: `${r.signature_label}::${r.label}::${i}`,
-      })),
-    [result]
-  );
-
-  const multiSignature = (result?.signatures.length ?? 0) > 1;
-
-  const resultColumns: Column<(typeof resultRows)[number]>[] = useMemo(() => {
-    const cols: Column<(typeof resultRows)[number]>[] = [
-      {
-        key: "label",
-        label: "Gene set",
-        render: (r) => <span className="cell-strong">{r.label}</span>,
-      },
-    ];
-    if (multiSignature) {
-      cols.push({ key: "signature_label", label: "Signature", filterable: true });
-    }
-    cols.push(
-      // FDR first among the numbers: it is what the cutoff is set on and what
-      // people actually rank by.
-      {
-        key: "fdr",
-        label: "FDR",
-        align: "right",
-        render: (r) => <span className="cell-mono enrich-num">{r.fdr < 0.0001 ? r.fdr.toExponential(1) : r.fdr.toFixed(4)}</span>,
-      },
-      {
-        key: "pval",
-        label: "P-value",
-        align: "right",
-        render: (r) => <span className="cell-mono enrich-num">{r.pval.toExponential(1)}</span>,
-      },
-      // overlap / geneset / signature / background were four separate columns
-      // of raw counts. The ratio is the thing being judged, so show that with
-      // the counts alongside rather than making the reader divide.
-      {
-        key: "overlap",
-        label: "Overlap",
-        align: "right",
-        render: (r) => (
-          <span className="enrich-overlap" title={`${r.overlap} of ${r.geneset} genes; query ${r.signature}, background ${r.background}`}>
-            <span className="cell-mono">{r.overlap}/{r.geneset}</span>
-            <span className="enrich-bar" aria-hidden="true">
-              <span className="enrich-bar-fill" style={{ width: `${Math.min(100, (r.overlap / Math.max(1, r.geneset)) * 100)}%` }} />
-            </span>
-          </span>
-        ),
-      },
-      {
-        key: "hits",
-        label: "Hits",
-        render: (r) => <span className="cell-sub enrich-hits" title={r.hits}>{r.hits}</span>,
-      }
-    );
-    return cols;
-  }, [multiSignature]);
+  const totalEnriched = (result?.signatures ?? []).reduce((n, s) => n + (s.n_enriched ?? 0), 0);
+  // Reflects the run that produced the table on screen, not the method
+  // currently chosen in the form -- those diverge as soon as the user changes
+  // the selector without re-running.
+  const isGemResult = result?.test === "gem_hypergeo" || result?.test === "gem_weighted";
 
   return (
     <div className="page">
@@ -316,13 +308,40 @@ export default function AnnotatePage() {
                       <option value="gsea" disabled={!kstestAvailable}>
                         GSEA — weighted, with leading edge {!kstestAvailable ? "— requires stored difexp" : ""}
                       </option>
+                      {/* hypeR-GEM. Labels match the legacy Shiny app's
+                          "GEM Hypergeometric" / "GEM Weighted". */}
+                      <option value="gem_hypergeo" disabled={!gemAvailable}>
+                        GEM Hypergeometric — via metabolic model {!gemAvailable ? "— requires a metabolomics signature" : ""}
+                      </option>
+                      <option value="gem_weighted" disabled={!gemAvailable}>
+                        GEM Weighted — via metabolic model {!gemAvailable ? "— requires a metabolomics signature" : ""}
+                      </option>
                     </select>
                   </label>
+                  {isGem && (
+                    <label className="field">
+                      <span className="field-label">Metabolic model</span>
+                      <select
+                        className="input"
+                        value={gemDirectional ? "directional" : "undirected"}
+                        onChange={(e) => setGemDirectional(e.target.value === "directional")}
+                      >
+                        <option value="directional">Directional — separate substrates from products</option>
+                        <option value="undirected">Undirected — any reaction the metabolite takes part in</option>
+                      </select>
+                    </label>
+                  )}
                   <label className="field field-slider">
                     <span className="field-label">FDR cutoff <span className="field-value">{fdr.toFixed(2)}</span></span>
                     <input type="range" min={0.01} max={0.1} step={0.01} value={fdr} onChange={(e) => setFdr(Number(e.target.value))} />
                   </label>
                 </div>
+                {isGem && metabolomicsCount > 1 && (
+                  <p className="cell-sub" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                    <AlertTriangle size={13} /> GEM runs one signature at a time; the first metabolomics signature in your
+                    selection will be used.
+                  </p>
+                )}
                 {test === "kstest" && selectedSignatures.length > 0 && kstestEligibleCount < selectedSignatures.length && (
                   <p className="cell-sub" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
                     <AlertTriangle size={13} /> Only {kstestEligibleCount} of {selectedSignatures.length} selected signatures have stored
@@ -395,7 +414,7 @@ export default function AnnotatePage() {
                 </>
               ) : (
                 <>
-                  <Play size={15} /> Run enrichment{selectedHashkeys.size > 1 ? ` (${selectedHashkeys.size} signatures)` : ""}
+                  <Play size={15} /> Run enrichment{!isGem && selectedHashkeys.size > 1 ? ` (${selectedHashkeys.size} signatures)` : ""}
                 </>
               )}
             </button>
@@ -407,7 +426,10 @@ export default function AnnotatePage() {
         <>
           <Card
             title="Enrichment results"
-            subtitle={`${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}`}
+            subtitle={
+              `${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"} · ${result.collection}${result.subcollection ? ":" + result.subcollection : ""} · ${result.test} · FDR ≤ ${result.fdr.toFixed(2)} · genesets: ${result.geneset_source}` +
+              (isGemResult ? ` · ${result.n_metabolites ?? 0} metabolites → ${result.n_genes ?? 0} genes via ${result.reference_key ?? "refmet_name"}` : "")
+            }
             actions={
               <button className="btn btn-ghost btn-sm" onClick={() => setStep(0)}>
                 <RotateCcw size={14} /> Edit
@@ -432,61 +454,37 @@ export default function AnnotatePage() {
             )}
           </Card>
 
-          <Card>
-            {result.results.length === 0 ? (
-              <p className="muted-note">No gene sets pass the current FDR cutoff.</p>
-            ) : result.dotplot_png ? (
-              <img src={result.dotplot_png} alt="hypeR enrichment dot plot" style={{ maxWidth: "100%", display: "block", margin: "0 auto" }} />
-            ) : (
-              <p className="muted-note">Dot plot could not be rendered for this run.</p>
-            )}
+          <Card
+            title="Enrichment"
+            subtitle={`${totalEnriched} gene set${totalEnriched === 1 ? "" : "s"} across ${result.signatures.length} signature${result.signatures.length === 1 ? "" : "s"}`}
+            actions={
+              !isGemResult && (
+                <button className="btn btn-secondary btn-sm" onClick={handleDownloadPlot} disabled={downloadingPlot}>
+                  <Download size={14} /> {downloadingPlot ? "Downloading…" : "Download plot"}
+                </button>
+              )
+            }
+          >
+            {downloadError && <p className="login-error">{downloadError}</p>}
+            {totalEnriched > 0 && <EnrichmentDotPlot signatures={result.signatures} />}
+            {totalEnriched === 0 && <p className="muted-note">No gene sets pass the current FDR cutoff.</p>}
           </Card>
 
-          <Card
-            title="Enriched gene sets"
-            subtitle={`${result.results.length} gene set${result.results.length === 1 ? "" : "s"} below the FDR cutoff. Sort by any column, or search by name.`}
-          >
-            {/* Was a hand-rolled 9-column table with no sort, search or paging,
-                and four raw hypeR counts spread across separate columns. Using
-                the shared DataTable gives the same affordances as every other
-                table in the app, and overlap reads as a proportion of the gene
-                set rather than four numbers to reconcile by eye. */}
-            <DataTable
-              columns={resultColumns}
-              rows={resultRows}
-              rowKey="rowId"
-              pageSize={25}
-              emptyLabel="No gene sets pass the current FDR cutoff."
-              selectedKey={openGeneset}
-              onSelectRow={result.test === "gsea" ? (r) => setOpenGeneset(openGeneset === r.rowId ? null : r.rowId) : undefined}
-            />
-
-            {/* The curve only exists for a ranked run -- there is no ranking to
-                walk after a hypergeometric one, so it is not offered there. */}
-            {result.test === "gsea" &&
-              (openGeneset ? (
-                <div className="le-wrap">
-                  <div className="le-head">
-                    <h4 className="detail-section-title" style={{ margin: 0 }}>
-                      {resultRows.find((r) => r.rowId === openGeneset)?.label}
-                    </h4>
-                    <button className="btn btn-ghost btn-sm" onClick={() => setOpenGeneset(null)}>
-                      Close
-                    </button>
-                  </div>
-                  <LeadingEdgePlot
-                    signatureHashkey={result.signatures[0]?.signature_hashkey ?? ""}
-                    genesetLabel={resultRows.find((r) => r.rowId === openGeneset)?.label ?? ""}
-                    species={species}
-                    collection={collection}
-                    subcollection={subcollection}
-                  />
-                </div>
-              ) : (
-                <p className="cell-sub le-hint">
-                  Select a gene set above to see its running enrichment curve and leading edge.
-                </p>
+          <Card title="Signatures" subtitle="Select a signature to see its enriched gene sets.">
+            <div>
+              {result.signatures.map((sig) => (
+                <SignatureResultRow
+                  key={sig.label}
+                  signature={sig}
+                  expanded={openSignatureLabel === sig.label}
+                  onToggle={() => setOpenSignatureLabel(openSignatureLabel === sig.label ? null : sig.label)}
+                  isGsea={result.test === "gsea"}
+                  species={species}
+                  collection={result.collection}
+                  subcollection={result.subcollection}
+                />
               ))}
+            </div>
             <div className="wizard-nav wizard-nav-padded">
               <button className="btn btn-ghost" onClick={() => { setStep(0); setResult(null); setGenesetStatus(null); }}>
                 <RotateCcw size={15} /> Start over

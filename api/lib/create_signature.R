@@ -85,6 +85,69 @@ normalize_upload <- function(uploaded) {
   )
 }
 
+# Which reference table an uploaded assay type resolves against.
+#
+# Deliberately not enrichment_reference_table(): that one answers a different
+# question -- which table annotate can map to GENE SYMBOLS -- and correctly
+# returns NULL for metabolomics and genetic_variants, because neither has a
+# gene_symbol column. Reusing it here silently narrowed upload to
+# transcriptomics and proteomics, so the repository could hold metabolomics
+# and genetic-variants signatures that nobody could upload.
+#
+# These are the same four assay types SigRepo::addSignature() dispatches on;
+# methylomics is unsupported there too (showAssayTypeErrorMessage()).
+upload_reference_table <- function(assay_type) {
+  base::switch(
+    base::as.character(assay_type),
+    transcriptomics = "transcriptomics_features",
+    proteomics = "proteomics_features",
+    genetic_variants = "genetic_variants_features",
+    metabolomics = "metabolite_reference",
+    NULL
+  )
+}
+
+# metabolite_reference names its primary key metabolite_id, not feature_id.
+upload_reference_id_column <- function(ref_table) {
+  if (base::identical(ref_table, "metabolite_reference")) "metabolite_id" else "feature_id"
+}
+
+# Metabolite identifiers are not global: the same metabolite is a RefMet name,
+# an HMDB id, a SMILES string or an InChIKey depending on the dictionary the
+# signature was deposited under, and each resolves through a different column.
+# Mirrors SigRepo:::metabolomics_feature_tables so both agree on where to look.
+METABOLOMICS_LOOKUPS <- base::list(
+  refmet      = base::list(table = "metabolite_reference", column = "refmet_name",  source_db = NULL),
+  refmet_id   = base::list(table = "metabolite_xref",      column = "source_value", source_db = "refmet_id"),
+  hmdb        = base::list(table = "metabolite_xref",      column = "source_value", source_db = "hmdb"),
+  smiles      = base::list(table = "metabolite_xref",      column = "source_value", source_db = "smiles"),
+  inchikey    = base::list(table = "metabolite_xref",      column = "source_value", source_db = "inchikey")
+)
+
+# Which metabolite dictionary this upload uses. An OmicSignature records it in
+# metadata$others$metabolomics_nomenclature (what SigRepo::addSignature() takes
+# as metabolomics_nomenclature=); /signatures/export records it per-feature as
+# nomenclature_type. Accept either, and default to refmet, which is what the
+# repository's own metabolomics signatures use.
+resolve_metabolomics_nomenclature <- function(metadata, feature_tbl) {
+  from_features <- if ("nomenclature_type" %in% base::colnames(feature_tbl)) {
+    base::trimws(base::tolower(base::as.character(feature_tbl$nomenclature_type[1])))
+  } else {
+    NULL
+  }
+  others <- metadata$others
+  from_meta <- if (base::is.list(others) && "metabolomics_nomenclature" %in% base::names(others)) {
+    base::trimws(base::tolower(base::as.character(others$metabolomics_nomenclature[1])))
+  } else {
+    NULL
+  }
+  value <- from_meta %||% from_features
+  if (base::is.null(value) || !base::nzchar(value) || base::is.na(value)) value <- "refmet"
+  # resolveMetabolomicsFeatureConfig() treats these as the same dictionary.
+  if (base::identical(value, "refmet_name")) value <- "refmet"
+  value
+}
+
 # Returns list(ok = FALSE, reason = "invalid_upload", message) or NULL (valid).
 validate_upload_shape <- function(norm) {
   metadata <- norm$metadata
@@ -148,13 +211,17 @@ sql_value <- function(conn, value) {
 # norm$feature_key. Returns list(ok = TRUE, feature_ids = <integer vector,
 # one per row of feature_tbl>) or list(ok = FALSE, reason =
 # "unknown_features", message).
-resolve_feature_ids <- function(conn, feature_tbl, ref_table, organism_id, feature_key) {
+resolve_feature_ids <- function(conn, feature_tbl, ref_table, organism_id, feature_key,
+                                metabolomics_nomenclature = "refmet") {
+  id_column <- upload_reference_id_column(ref_table)
+
   if (feature_key == "feature_id") {
     requested <- base::suppressWarnings(base::as.integer(feature_tbl$feature_id))
     unique_ids <- base::unique(requested[!base::is.na(requested)])
     known_ids <- if (base::length(unique_ids) > 0) {
       DBI::dbGetQuery(conn, base::sprintf(
-        "SELECT feature_id FROM %s WHERE feature_id IN (%s)", ref_table, base::paste(unique_ids, collapse = ",")
+        "SELECT %s AS feature_id FROM %s WHERE %s IN (%s)",
+        id_column, ref_table, id_column, base::paste(unique_ids, collapse = ",")
       ))$feature_id
     } else {
       base::integer(0)
@@ -172,9 +239,65 @@ resolve_feature_ids <- function(conn, feature_tbl, ref_table, organism_id, featu
     return(base::list(ok = TRUE, feature_ids = requested))
   }
 
+  # Metabolites have no feature_hashkey and no organism scoping. They resolve
+  # by identifier through whichever column the signature's dictionary uses,
+  # the same way SigRepo::addMetabolomicsSignatureSet() does.
+  if (base::identical(ref_table, "metabolite_reference")) {
+    spec <- METABOLOMICS_LOOKUPS[[metabolomics_nomenclature]]
+    if (base::is.null(spec)) {
+      return(base::list(
+        ok = FALSE, reason = "invalid_upload",
+        message = base::sprintf(
+          "Unknown metabolomics dictionary '%s'. Use one of: %s.",
+          metabolomics_nomenclature, base::paste(base::names(METABOLOMICS_LOOKUPS), collapse = ", ")
+        )
+      ))
+    }
+    names_in <- base::trimws(base::as.character(feature_tbl$feature_name))
+    unique_names <- base::unique(names_in[!base::is.na(names_in) & base::nzchar(names_in)])
+    if (base::length(unique_names) == 0) {
+      return(base::list(ok = FALSE, reason = "unknown_features",
+                        message = "No metabolite identifiers found in the uploaded signature."))
+    }
+    where_source <- if (base::is.null(spec$source_db)) "" else base::sprintf(
+      " AND source_db = %s", DBI::dbQuoteLiteral(conn, spec$source_db)
+    )
+    lookup <- DBI::dbGetQuery(conn, base::sprintf(
+      "SELECT %s AS lookup_value, metabolite_id FROM %s WHERE %s IN (%s)%s",
+      spec$column, spec$table, spec$column,
+      base::paste(DBI::dbQuoteLiteral(conn, unique_names), collapse = ","), where_source
+    ))
+    # A metabolite can carry several xref rows for one dictionary; take the
+    # first id per identifier so one uploaded row maps to one feature.
+    lookup <- lookup[!base::duplicated(lookup$lookup_value), , drop = FALSE]
+    # Keyed on tolower(): the query above ran case-insensitively (these
+    # columns collate utf8_unicode_ci), so a stored 'Glucose' matches an
+    # uploaded 'glucose' at the SQL layer -- but this subscript is an exact,
+    # case-sensitive R lookup. Left keyed on the stored casing, a
+    # differently-cased upload was found by SQL and then dropped right back
+    # out here, reported as "not in metabolite_reference" for a name that
+    # demonstrably is. RefMet names are mixed case (Cholic acid, Glucose), so
+    # this rejected real uploads.
+    id_by_name <- stats::setNames(lookup$metabolite_id, base::tolower(base::as.character(lookup$lookup_value)))
+    resolved <- base::unname(id_by_name[base::tolower(names_in)])
+    unknown <- base::unique(names_in[base::is.na(resolved)])
+    if (base::length(unknown) > 0) {
+      return(base::list(
+        ok = FALSE, reason = "unknown_features",
+        message = base::sprintf(
+          "%d uploaded metabolite(s) are not in %s under the '%s' dictionary and cannot be uploaded: %s.",
+          base::length(unknown), spec$table, metabolomics_nomenclature,
+          base::paste(utils::head(unknown, 20), collapse = ", ")
+        )
+      ))
+    }
+    return(base::list(ok = TRUE, feature_ids = base::as.integer(resolved)))
+  }
+
   # feature_key == "feature_name": resolve the same way
-  # SigRepo::addTranscriptomicsSignatureSet()/addProteomicsSignatureSet() do
-  # -- a feature_hashkey = md5(tolower(paste0(feature_name, organism_id)))
+  # SigRepo::addTranscriptomicsSignatureSet()/addProteomicsSignatureSet()/
+  # addGeneticVariantsSignatureSet() do -- a
+  # feature_hashkey = md5(tolower(paste0(feature_name, organism_id)))
   # bulk lookup against the reference table, per-organism.
   feature_names <- base::as.character(feature_tbl$feature_name)
   hashkeys <- base::vapply(feature_names, function(fn) collection_hash(fn, organism_id), base::character(1))
@@ -200,6 +323,40 @@ resolve_feature_ids <- function(conn, feature_tbl, ref_table, organism_id, featu
 
 # Returns list(ok = FALSE, reason, message) or
 # list(ok = TRUE, signature_hashkey, signature_name).
+# The `others` column, in the "key: value; key: value" form
+# SigRepo:::parseRetrievedOthers() reads back.
+#
+# A metabolomics signature must carry metabolomics_nomenclature there:
+# createOmicSignature() stops without it ("Metabolomics signatures require a
+# metabolite dictionary"), so a signature uploaded without it could be stored
+# but never loaded again -- no export, no comparison, no GEM enrichment. The
+# upload knows which dictionary resolved its features, so record it rather
+# than relying on the uploader having set it.
+upload_others_value <- function(metadata, metabolomics_nomenclature) {
+  existing <- metadata$others
+  existing <- if (base::is.null(existing) || base::length(existing) == 0) {
+    NULL
+  } else if (base::is.list(existing)) {
+    # An OmicSignature holds `others` as a list; flatten to the stored form.
+    parts <- base::vapply(base::names(existing), function(k) {
+      base::sprintf("%s: %s", k, base::paste(base::as.character(existing[[k]]), collapse = ","))
+    }, base::character(1))
+    base::paste(parts, collapse = "; ")
+  } else {
+    base::trimws(base::as.character(existing[1]))
+  }
+  if (!base::is.null(existing) && !base::nzchar(existing)) existing <- NULL
+
+  if (base::is.null(metabolomics_nomenclature)) {
+    return(existing)
+  }
+  if (!base::is.null(existing) && base::grepl("metabolomics_nomenclature", existing, fixed = TRUE)) {
+    return(existing)
+  }
+  entry <- base::sprintf("metabolomics_nomenclature: %s", metabolomics_nomenclature)
+  if (base::is.null(existing)) entry else base::paste(existing, entry, sep = "; ")
+}
+
 build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, difexp_dir) {
   if (!auth$user_role %in% c("editor", "admin")) {
     return(base::list(ok = FALSE, reason = "forbidden"))
@@ -219,12 +376,20 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
   difexp_tbl <- norm$difexp_tbl
 
   assay_type <- meta_str(metadata, "assay_type")
-  ref_table <- enrichment_reference_table(assay_type)
+  ref_table <- upload_reference_table(assay_type)
   if (base::is.null(ref_table)) {
     return(base::list(
       ok = FALSE, reason = "unsupported_assay_type",
-      message = base::sprintf("Signature upload supports assay_type in {transcriptomics, proteomics}; got '%s'.", assay_type)
+      message = base::sprintf(
+        "Signature upload supports assay_type in {transcriptomics, proteomics, metabolomics, genetic_variants}; got '%s'.",
+        assay_type
+      )
     ))
+  }
+  metabolomics_nomenclature <- if (base::identical(assay_type, "metabolomics")) {
+    resolve_metabolomics_nomenclature(metadata, feature_tbl)
+  } else {
+    NULL
   }
 
   signature_name <- meta_str(metadata, "signature_name")
@@ -262,7 +427,10 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
 
     # Every uploaded feature must already resolve in the target reference
     # table -- no auto-creating new features from an upload.
-    resolved <- resolve_feature_ids(conn, feature_tbl, ref_table, organism_id, norm$feature_key)
+    resolved <- resolve_feature_ids(
+      conn, feature_tbl, ref_table, organism_id, norm$feature_key,
+      metabolomics_nomenclature = metabolomics_nomenclature %||% "refmet"
+    )
     if (!resolved$ok) {
       return(resolved)
     }
@@ -297,7 +465,7 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
       sql_value(conn, metadata$keywords),
       sql_value(conn, metadata$PMID),
       sql_value(conn, metadata$year),
-      sql_value(conn, metadata$others),
+      sql_value(conn, upload_others_value(metadata, metabolomics_nomenclature)),
       base::as.character(base::as.integer(has_difexp)),
       base::as.character(if (has_difexp) base::nrow(difexp_tbl) else 0L),
       base::as.character(num_up),

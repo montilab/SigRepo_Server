@@ -268,12 +268,22 @@ test_that("run_enrichment computes real hypergeometric enrichment from the on-di
   expect_equal(result$resolved[[1]]$signature_name, "CI Test Signature")
   expect_equal(length(result$skipped), 0)
   expect_equal(result$geneset_source, "cache")
-  expect_true(is.data.frame(result$results))
-  expect_true(all(c("label", "pval", "fdr", "overlap", "hits", "signature_label") %in% colnames(result$results)))
-  expect_true(all(result$results$signature_label == "CI Test Signature"))
-  expect_true(nrow(result$results) > 0)
-  expect_true(is.character(result$dotplot_png))
-  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+  # Results come back per signature now, mirroring the multihyp shape hypeR
+  # itself uses, rather than one flat table keyed by signature_label.
+  expect_equal(length(result$signatures), 1)
+  one <- result$signatures[[1]]
+  expect_equal(one$signature_name, "CI Test Signature")
+  expect_equal(one$n_query, 2)
+  expect_true(one$n_enriched > 0)
+  expect_equal(length(one$results), one$n_enriched)
+  expect_true(all(c("label", "pval", "fdr", "overlap", "hits") %in% names(one$results[[1]])))
+  # hyp$info carried through verbatim -- hypeR's own reproducibility record.
+  expect_true(all(c("Signature Size", "Background", "Test") %in% names(one$info)))
+  expect_equal(one$info[["Signature Size"]], "2")
+  expect_equal(one$info[["Test"]], "hypergeometric")
+  # The dot plot PNG is no longer embedded here -- see
+  # "run_enrichment no longer embeds a dot plot PNG in every response" below.
+  expect_false("dotplot_png" %in% names(result))
 })
 
 test_that("run_enrichment runs multiple signatures at once and skips ones that can't resolve", {
@@ -334,9 +344,16 @@ test_that("run_enrichment runs multiple signatures at once and skips ones that c
   expect_equal(length(result$skipped), 1)
   expect_equal(result$skipped[[1]]$signature_hashkey, "does-not-exist-hashkey")
   expect_equal(result$skipped[[1]]$reason, "not_found")
-  expect_setequal(unique(result$results$signature_label), c("CI Test Signature", "CI Test Signature (2)"))
-  expect_true(is.character(result$dotplot_png))
-  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+  # Each signature keeps its own results entry rather than being interleaved.
+  expect_equal(length(result$signatures), 2)
+  expect_setequal(
+    vapply(result$signatures, function(x) x$label, character(1)),
+    c("CI Test Signature", "CI Test Signature (2)")
+  )
+  expect_true(all(vapply(result$signatures, function(x) length(x$results) == x$n_enriched, logical(1))))
+  # The dot plot PNG is no longer embedded here -- see
+  # "run_enrichment no longer embeds a dot plot PNG in every response" below.
+  expect_false("dotplot_png" %in% names(result))
 })
 
 test_that("run_enrichment fails only when every requested signature is unresolvable", {
@@ -393,5 +410,227 @@ test_that("run_enrichment falls back to a live MSigDB fetch when nothing is cach
 
   expect_true(result$ok)
   expect_equal(result$geneset_source, "live")
-  expect_true(nrow(result$results) > 0)
+  expect_equal(length(result$signatures), 1)
+  expect_true(result$signatures[[1]]$n_enriched > 0)
+})
+
+# --- render_hyp_dots_png across both hypeR object shapes ---------------------
+# hyp_dots() returns different things depending on what it is given, and the
+# renderer has to cope with all of them:
+#
+#   object              merge=TRUE            merge=FALSE
+#   hyp (single)        bare ggplot           bare ggplot   (merge ignored)
+#   multihyp (1 sig)    ERROR: rownames       list of 1
+#   multihyp (N sigs)   bare ggplot           list of N
+#
+# Two traps: indexing [[1]] into a bare ggplot raises "subscript out of bounds"
+# under ggplot2 4.x (a ggplot is an S7 object, so [[ dispatches to
+# S7::prop(x, "meta")), and merging a single-signature multihyp raises
+# "attempt to set 'rownames'". run_enrichment() only ever builds a multihyp, so
+# a single hyp reached the renderer untested.
+
+hyp_dots_test_genesets <- function() {
+  cache <- file.path(real_msigdb_cache_dir, "Homo_sapiens__H__all.rds")
+  if (!file.exists(cache)) return(NULL)
+  readRDS(cache)
+}
+
+test_that("render_hyp_dots_png renders a single hyp object, not just a multihyp", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  signature <- unique(c(utils::head(gs$HALLMARK_FATTY_ACID_METABOLISM, 40),
+                        utils::head(gs$HALLMARK_OXIDATIVE_PHOSPHORYLATION, 30)))
+
+  # A bare hyp -- what hypeR() returns for a plain character signature.
+  single <- hypeR::hypeR(signature = signature, genesets = gs, test = "hypergeometric",
+                         fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  expect_true(methods::is(single, "hyp"))
+  uri <- render_hyp_dots_png(single, fdr = 0.25)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+})
+
+test_that("render_hyp_dots_png renders a one-signature multihyp without merging it", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  signature <- unique(c(utils::head(gs$HALLMARK_FATTY_ACID_METABOLISM, 40),
+                        utils::head(gs$HALLMARK_OXIDATIVE_PHOSPHORYLATION, 30)))
+  one <- hypeR::hypeR(signature = list(A = signature), genesets = gs, test = "hypergeometric",
+                      fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  expect_true(methods::is(one, "multihyp"))
+  uri <- render_hyp_dots_png(one, fdr = 0.25)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+})
+
+test_that("render_hyp_dots_png renders a multi-signature multihyp", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  a <- unique(c(utils::head(gs$HALLMARK_FATTY_ACID_METABOLISM, 40),
+                utils::head(gs$HALLMARK_OXIDATIVE_PHOSPHORYLATION, 30)))
+  b <- unique(c(utils::head(gs$HALLMARK_ADIPOGENESIS, 35), utils::head(gs$HALLMARK_PEROXISOME, 25)))
+  many <- hypeR::hypeR(signature = list(A = a, B = b), genesets = gs, test = "hypergeometric",
+                       fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  uri <- render_hyp_dots_png(many, fdr = 0.25)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+})
+
+test_that("render_hyp_dots_png returns NULL when nothing passes the cutoff", {
+  testthat::skip_if_not_installed("hypeR")
+  gs <- hyp_dots_test_genesets()
+  testthat::skip_if(is.null(gs), "repo's Hallmark cache is not present in this checkout")
+
+  # Genes that belong to no Hallmark set: nothing to draw, and the caller
+  # relies on NULL rather than an error to omit the figure.
+  nothing <- hypeR::hypeR(signature = c("NOT_A_GENE_1", "NOT_A_GENE_2"), genesets = gs,
+                          test = "hypergeometric", fdr = 0.25, plotting = FALSE, quiet = TRUE)
+  expect_null(render_hyp_dots_png(nothing, fdr = 0.25))
+})
+
+test_that("run_enrichment no longer embeds a dot plot PNG in every response", {
+  skip_if_no_test_db()
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  result <- run_enrichment(
+    list(user_name = "ci_admin", user_role = "admin"),
+    "ci_test_signature_hashkey_0000", test = "hypergeometric",
+    species = "Homo sapiens", collection = "H", fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+
+  expect_true(result$ok)
+  # The figure is served from GET /annotate/dotplot now. Embedding it here cost
+  # a 176KB base64 blob on every run whether or not anyone looked at it.
+  expect_null(result$dotplot_png)
+  expect_false("dotplot_png" %in% names(result))
+  # The rest of the shape is untouched.
+  expect_equal(length(result$signatures), 1)
+  expect_true(result$signatures[[1]]$n_enriched > 0)
+})
+
+test_that("run_enrichment_hyp_object returns the hyp object the dot plot route draws", {
+  skip_if_no_test_db()
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+  built <- run_enrichment_hyp_object(
+    auth, "ci_test_signature_hashkey_0000", test = "hypergeometric",
+    species = "Homo sapiens", collection = "H", subcollection = NULL, fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+  expect_true(built$ok)
+  expect_true(methods::is(built$hyp, "multihyp"))
+  uri <- render_hyp_dots_png(built$hyp, fdr = 1)
+  expect_true(is.character(uri))
+  expect_true(startsWith(uri, "data:image/png;base64,"))
+
+  missing <- run_enrichment_hyp_object(
+    auth, "definitely-not-a-real-hashkey", test = "hypergeometric",
+    species = "Homo sapiens", collection = "H", subcollection = NULL, fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir
+  )
+  expect_false(missing$ok)
+})
+
+test_that("enrichment_error_response maps no_difexp/unsupported_difexp_shape to 422, not 404", {
+  # The behavior change this test guards: a signature with no difexp (or an
+  # unusable difexp shape) is not "missing" -- it exists and is perfectly
+  # valid, it just can't satisfy a rank-based test. That's 422, not 404.
+  expect_equal(enrichment_error_response("no_difexp")$status, 422L)
+  expect_equal(enrichment_error_response("unsupported_difexp_shape")$status, 422L)
+
+  # Same class of "well-formed request, semantically impossible pairing"
+  # also gets 422.
+  expect_equal(enrichment_error_response("no_gene_symbols")$status, 422L)
+  expect_equal(enrichment_error_response("unsupported_assay_type")$status, 422L)
+
+  # The thing genuinely not existing is still 404 -- unchanged by this task.
+  expect_equal(enrichment_error_response("not_found")$status, 404L)
+  expect_equal(enrichment_error_response("no_features")$status, 404L)
+  expect_equal(enrichment_error_response("not_cached")$status, 404L)
+
+  # A malformed request is still 400 -- unchanged.
+  expect_equal(enrichment_error_response("no_signatures")$status, 400L)
+  expect_equal(enrichment_error_response("invalid_geneset")$status, 400L)
+
+  # An upstream fetch failure is still 502 -- unchanged.
+  expect_equal(enrichment_error_response("fetch_failed")$status, 502L)
+
+  # Unknown/absent reason still falls back to the generic 500 default.
+  expect_equal(enrichment_error_response("something_ive_never_seen")$status, 500L)
+  expect_equal(enrichment_error_response(NULL)$status, 500L)
+})
+
+test_that("enrichment_error_response's no_difexp/unsupported_difexp_shape messages name the requested test", {
+  gsea_msg <- enrichment_error_response("no_difexp", test = "gsea")$message
+  expect_match(gsea_msg, "GSEA", fixed = TRUE)
+  expect_match(gsea_msg, "hypergeometric", fixed = TRUE)
+
+  ks_msg <- enrichment_error_response("no_difexp", test = "kstest")$message
+  expect_match(ks_msg, "the KS test", fixed = TRUE)
+  expect_match(ks_msg, "hypergeometric", fixed = TRUE)
+
+  shape_msg <- enrichment_error_response("unsupported_difexp_shape", test = "gsea")$message
+  expect_match(shape_msg, "GSEA", fixed = TRUE)
+  expect_match(shape_msg, "hypergeometric", fixed = TRUE)
+
+  # No test supplied (the default): existing test-agnostic wording is kept
+  # verbatim, so any call site that can't supply `test` still gets sensible
+  # text rather than an error or a blank spot.
+  no_test_msg <- enrichment_error_response("no_difexp")$message
+  expect_equal(
+    no_test_msg,
+    "The selected signature has no stored difexp, which rank-based enrichment (KS test and GSEA) requires."
+  )
+  expect_false(grepl("Try the hypergeometric test", no_test_msg, fixed = TRUE))
+
+  # Messages for reasons this task did not touch keep their exact existing
+  # wording, with or without a `test` supplied.
+  expect_equal(
+    enrichment_error_response("not_found", test = "gsea")$message,
+    "No signature found for the selected signature(s)."
+  )
+  expect_equal(
+    enrichment_error_response("no_gene_symbols")$message,
+    "None of the selected signature's features could be mapped to a gene symbol."
+  )
+
+  # An explicit message always wins over the fallback, test-aware or not.
+  explicit <- enrichment_error_response("no_difexp", message = "custom upstream message", test = "gsea")
+  expect_equal(explicit$message, "custom upstream message")
 })
