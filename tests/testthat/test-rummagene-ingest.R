@@ -321,3 +321,42 @@ test_that("rummagene_signature_name is deterministic", {
   long <- base::paste0("PMC1-", base::paste(base::rep("y", 400), collapse = ""))
   expect_equal(rummagene_signature_name(long), rummagene_signature_name(long))
 })
+
+test_that("rummagene_parse_article_xml returns MeSH and citation metadata together", {
+  # One efetch response carries both. Parsing it once avoids a second round trip
+  # per paper across ~188k papers.
+  xml <- '<PubmedArticleSet>
+    <PubmedArticle><MedlineCitation><PMID>32341563</PMID>
+      <Article>
+        <Journal><JournalIssue><PubDate><Year>2020</Year></PubDate></JournalIssue></Journal>
+        <ArticleTitle>A liver paper</ArticleTitle>
+        <ELocationID EIdType="doi">10.1/abc</ELocationID>
+      </Article>
+      <MeshHeadingList>
+        <MeshHeading><DescriptorName>Humans</DescriptorName></MeshHeading>
+        <MeshHeading><DescriptorName>Transcriptome</DescriptorName></MeshHeading>
+      </MeshHeadingList>
+    </MedlineCitation></PubmedArticle>
+  </PubmedArticleSet>'
+  out <- rummagene_parse_article_xml(xml)
+
+  expect_equal(out[["32341563"]]$mesh, c("Humans", "Transcriptome"))
+  expect_equal(out[["32341563"]]$title, "A liver paper")
+  expect_equal(out[["32341563"]]$year, 2020L)
+  expect_equal(out[["32341563"]]$doi, "10.1/abc")
+})
+
+test_that("rummagene_parse_article_xml tolerates an article missing every optional field", {
+  # Unindexed articles, and articles with no DOI or no structured year, are
+  # common. They must come back with empty fields rather than erroring, so the
+  # build treats them as no_mesh instead of dying mid-pass.
+  xml <- '<PubmedArticleSet>
+    <PubmedArticle><MedlineCitation><PMID>37223537</PMID></MedlineCitation></PubmedArticle>
+  </PubmedArticleSet>'
+  out <- rummagene_parse_article_xml(xml)
+
+  expect_equal(out[["37223537"]]$mesh, character(0))
+  expect_true(base::is.na(out[["37223537"]]$title))
+  expect_true(base::is.na(out[["37223537"]]$year))
+  expect_true(base::is.na(out[["37223537"]]$doi))
+})

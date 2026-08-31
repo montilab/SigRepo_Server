@@ -483,3 +483,86 @@ rummagene_signature_name <- function(term) {
     suffix
   )
 }
+
+# PubMed efetch XML -> PMID -> list(mesh, title, year, doi).
+#
+# A superset of rummagene_parse_mesh_xml(), which stays as-is because
+# /rummagene/enrich only needs the descriptors. The catalog build needs the
+# citation fields too, and one efetch response already carries both -- reading
+# them together avoids a second pass over ~188k papers.
+rummagene_parse_article_xml <- function(xml_text) {
+  doc <- xml2::read_xml(xml_text)
+  out <- base::list()
+  for (art in xml2::xml_find_all(doc, ".//PubmedArticle")) {
+    pmid <- xml2::xml_text(xml2::xml_find_first(art, ".//MedlineCitation/PMID"))
+    if (base::is.na(pmid) || !base::nzchar(pmid)) {
+      next
+    }
+    year_txt <- xml2::xml_text(xml2::xml_find_first(art, ".//Article//PubDate/Year"))
+    out[[pmid]] <- base::list(
+      mesh = base::as.character(xml2::xml_text(
+        xml2::xml_find_all(art, ".//MeshHeadingList/MeshHeading/DescriptorName")
+      )),
+      title = xml2::xml_text(xml2::xml_find_first(art, ".//Article/ArticleTitle")),
+      year = if (base::is.na(year_txt)) NA_integer_ else base::suppressWarnings(base::as.integer(year_txt)),
+      doi = xml2::xml_text(xml2::xml_find_first(art, ".//Article/ELocationID[@EIdType='doi']"))
+    )
+  }
+  out
+}
+
+# pmcid -> list(mesh, title, year, doi). Same batching and rate-limit handling
+# as rummagene_fetch_mesh_by_pmcid(), which this parallels.
+rummagene_fetch_articles_by_pmcid <- function(pmcids, batch_size = 100, timeout = 90,
+                                              pause = 0.4) {
+  pmcids <- base::unique(base::as.character(pmcids))
+  pmcids <- pmcids[!base::is.na(pmcids) & base::nzchar(pmcids)]
+  if (base::length(pmcids) == 0) {
+    return(base::list())
+  }
+
+  pmid_of <- base::character(0)
+  for (i in base::seq(1, base::length(pmcids), by = batch_size)) {
+    chunk <- pmcids[i:base::min(i + batch_size - 1, base::length(pmcids))]
+    res <- httr::GET(NCBI_IDCONV_URL,
+      query = base::list(format = "json", ids = base::paste(chunk, collapse = ",")),
+      httr::timeout(timeout))
+    if (httr::status_code(res) == 200) {
+      pmid_of <- c(pmid_of, base::tryCatch(
+        rummagene_parse_idconv(httr::content(res, as = "text", encoding = "UTF-8")),
+        error = function(e) base::character(0)))
+    }
+    base::Sys.sleep(pause)
+  }
+  if (base::length(pmid_of) == 0) {
+    return(base::list())
+  }
+
+  by_pmid <- base::list()
+  pmids <- base::unname(pmid_of)
+  for (i in base::seq(1, base::length(pmids), by = batch_size)) {
+    chunk <- pmids[i:base::min(i + batch_size - 1, base::length(pmids))]
+    res <- httr::GET(NCBI_EFETCH_URL,
+      query = base::list(db = "pubmed", retmode = "xml", id = base::paste(chunk, collapse = ",")),
+      httr::timeout(timeout))
+    if (httr::status_code(res) == 200) {
+      by_pmid <- c(by_pmid, base::tryCatch(
+        rummagene_parse_article_xml(httr::content(res, as = "text", encoding = "UTF-8")),
+        error = function(e) base::list()))
+    }
+    base::Sys.sleep(pause)
+  }
+
+  out <- base::list()
+  for (pmcid in base::names(pmid_of)) {
+    rec <- by_pmid[[pmid_of[[pmcid]]]]
+    out[[pmcid]] <- base::list(
+      pmid  = pmid_of[[pmcid]],
+      mesh  = (rec$mesh %||% base::character(0)),
+      title = (rec$title %||% NA_character_),
+      year  = (rec$year %||% NA_integer_),
+      doi   = (rec$doi %||% NA_character_)
+    )
+  }
+  out
+}
