@@ -79,3 +79,51 @@ test_that("build_rummagene_catalog does not read the whole GMT into memory", {
   expect_match(src, "n = chunk_size", fixed = TRUE)
   expect_false(base::grepl("readLines(gmt_path)", src, fixed = TRUE))
 })
+
+test_that(".rummagene_article_lookup finds a key in either an environment or a plain list, and returns NULL -- not an error -- for a missing one", {
+  # Production hands this an environment (rummagene_fetch_articles_by_pmcid(),
+  # for O(1) lookup at ~188k papers); tests and any hand-built/cached fixture
+  # hand it a plain named list. Both shapes must behave identically here.
+  rec <- base::list(pmid = "1", mesh = c("Humans"), title = "t", year = 2020L, doi = "d")
+
+  env_fixture <- base::new.env(parent = base::emptyenv())
+  base::assign("PMC1", rec, envir = env_fixture)
+  expect_equal(.rummagene_article_lookup(env_fixture, "PMC1"), rec)
+  expect_null(.rummagene_article_lookup(env_fixture, "PMC404"))
+
+  list_fixture <- base::list(PMC1 = rec)
+  expect_equal(.rummagene_article_lookup(list_fixture, "PMC1"), rec)
+  expect_null(.rummagene_article_lookup(list_fixture, "PMC404"))
+})
+
+test_that("build_rummagene_catalog counts lines it could not parse at all, rather than dropping them uncounted", {
+  # A blank line, a term with no PMC id, and a line with too few fields never
+  # become a candidate -- rummagene_parse_gmt_line() returns NULL for each.
+  # They must land in `unparsed`, not vanish between `examined` and every
+  # `rejected` bucket, or a truncated download would under-report silently.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-unparsed'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  gmt <- base::tempfile(fileext = ".gmt")
+  base::writeLines(c(
+    "",                                    # blank
+    "no-pmc-id-here\tdesc\tTP53\tMYC",     # no PMC id in the term
+    "PMC1-t.xlsx-x\tdesc"                  # fewer than 3 fields (no genes)
+  ), gmt)
+  on.exit(base::unlink(gmt), add = TRUE)
+
+  out <- NULL
+  # Nothing qualifies under 'test-unparsed', so rummagene_catalog_prune()'s
+  # own failed-build guard (Task 5) fires as designed -- expected here, not a
+  # bug, since this fixture is deliberately all-unparseable.
+  expect_warning(
+    out <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = "test-unparsed",
+                                   articles_by_pmcid = base::list(), progress = FALSE),
+    "refusing to delete"
+  )
+
+  expect_equal(out$unparsed, 3)
+  expect_equal(out$examined, 0)
+  expect_equal(out$qualified, 0)
+})

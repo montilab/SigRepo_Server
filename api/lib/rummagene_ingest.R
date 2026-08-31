@@ -511,14 +511,33 @@ rummagene_parse_article_xml <- function(xml_text) {
   out
 }
 
-# pmcid -> list(mesh, title, year, doi). Same batching and rate-limit handling
-# as rummagene_fetch_mesh_by_pmcid(), which this parallels.
+# pmcid -> environment keyed by pmcid, each value list(mesh, title, year, doi).
+# Same batching and rate-limit handling as rummagene_fetch_mesh_by_pmcid(),
+# which this parallels.
+#
+# Returns an ENVIRONMENT, not a list -- deliberately. R's named-list `[[<-`
+# linear-scans existing names on every insert (and every by-name lookup), so
+# building this join with plain list assignment is O(n^2) in the number of
+# distinct papers. Benchmarked at production scale (~188,249 papers): 157
+# seconds and ~359MB just for that list, with the intermediate `by_pmid`
+# structure alive at the same time (peak plausibly 600-700MB) -- against a
+# ~1GB budget with no swap. An environment's assign()/get() are hashed:
+# O(1) each. Same pattern rummagene_gmt_pmcids() already uses two functions
+# away in rummagene_catalog_build.R.
+#
+# A missing key on the returned environment (`out[["no-such-pmcid"]]`) is
+# NULL, not an error -- verified R behavior for environments, unlike get().
+# build_rummagene_catalog() relies on that via .rummagene_article_lookup()
+# in rummagene_catalog_build.R, which also accepts a plain list (what tests
+# inject directly, bypassing the network) so this return-shape change does
+# not force every caller to hand-build an environment.
 rummagene_fetch_articles_by_pmcid <- function(pmcids, batch_size = 100, timeout = 90,
                                               pause = 0.4) {
   pmcids <- base::unique(base::as.character(pmcids))
   pmcids <- pmcids[!base::is.na(pmcids) & base::nzchar(pmcids)]
+  out <- base::new.env(parent = base::emptyenv())
   if (base::length(pmcids) == 0) {
-    return(base::list())
+    return(out)
   }
 
   pmid_of <- base::character(0)
@@ -535,10 +554,12 @@ rummagene_fetch_articles_by_pmcid <- function(pmcids, batch_size = 100, timeout 
     base::Sys.sleep(pause)
   }
   if (base::length(pmid_of) == 0) {
-    return(base::list())
+    return(out)
   }
 
-  by_pmid <- base::list()
+  # Hashed, same reasoning as `out` below: this is looked up once per pmcid
+  # in the join loop, and a plain list would make THAT an O(n^2) join too.
+  by_pmid <- base::new.env(parent = base::emptyenv())
   pmids <- base::unname(pmid_of)
   for (i in base::seq(1, base::length(pmids), by = batch_size)) {
     chunk <- pmids[i:base::min(i + batch_size - 1, base::length(pmids))]
@@ -546,23 +567,42 @@ rummagene_fetch_articles_by_pmcid <- function(pmcids, batch_size = 100, timeout 
       query = base::list(db = "pubmed", retmode = "xml", id = base::paste(chunk, collapse = ",")),
       httr::timeout(timeout))
     if (httr::status_code(res) == 200) {
-      by_pmid <- c(by_pmid, base::tryCatch(
+      parsed <- base::tryCatch(
         rummagene_parse_article_xml(httr::content(res, as = "text", encoding = "UTF-8")),
-        error = function(e) base::list()))
+        error = function(e) base::list())
+      if (base::length(parsed) > 0) {
+        base::list2env(parsed, envir = by_pmid)
+      }
     }
     base::Sys.sleep(pause)
   }
 
-  out <- base::list()
-  for (pmcid in base::names(pmid_of)) {
-    rec <- by_pmid[[pmid_of[[pmcid]]]]
-    out[[pmcid]] <- base::list(
-      pmid  = pmid_of[[pmcid]],
+  # Positional indexing (not by-name `[[`) into pmid_of/pmcids_out on purpose:
+  # `pmid_of[[pmcid]]` would itself be an O(n) named-vector scan repeated n
+  # times, quietly reintroducing an O(n^2) cost even with `out` and `by_pmid`
+  # both hashed. seq_along() + parallel index vectors keeps every step of
+  # this loop O(1), so the whole join is O(n).
+  pmcids_out <- base::names(pmid_of)
+  pmids_out <- base::unname(pmid_of)
+  for (i in base::seq_along(pmid_of)) {
+    pmcid <- pmcids_out[i]
+    pmid <- pmids_out[i]
+    rec <- base::mget(pmid, envir = by_pmid, ifnotfound = base::list(NULL))[[1]]
+    base::assign(pmcid, base::list(
+      pmid  = pmid,
       mesh  = (rec$mesh %||% base::character(0)),
       title = (rec$title %||% NA_character_),
       year  = (rec$year %||% NA_integer_),
       doi   = (rec$doi %||% NA_character_)
-    )
+    ), envir = out)
   }
+
+  # by_pmid is no longer needed once the join above is done. Drop it before
+  # returning so the two structures are not both resident at peak -- the
+  # whole reason this job streams the GMT at all is a ~1GB budget with no
+  # swap on the droplet.
+  base::rm(by_pmid)
+  base::gc()
+
   out
 }

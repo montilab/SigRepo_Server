@@ -360,3 +360,29 @@ test_that("rummagene_parse_article_xml tolerates an article missing every option
   expect_true(base::is.na(out[["37223537"]]$year))
   expect_true(base::is.na(out[["37223537"]]$doi))
 })
+
+# ---------------------------------------------------- O(1) article lookup ---
+
+test_that("rummagene_fetch_articles_by_pmcid returns a hashed environment, not a named list", {
+  # ~188,249 distinct papers in production. A plain named list's `[[<-`
+  # linear-scans existing names on every insert AND every by-name lookup --
+  # benchmarked at that scale: 157s and ~359MB to assemble the join alone,
+  # with the intermediate `by_pmid` structure resident at the same time
+  # (peak plausibly 600-700MB) against a ~1GB budget with no swap. An
+  # environment is hashed: O(1) each. This exercises only the zero-network
+  # short-circuit (no pmcids survive filtering), since the full fetch needs
+  # NCBI -- out of scope for this file by its own header convention.
+  out <- rummagene_fetch_articles_by_pmcid(character(0))
+  expect_true(base::is.environment(out))
+
+  out2 <- rummagene_fetch_articles_by_pmcid(c(NA, ""))
+  expect_true(base::is.environment(out2))
+})
+
+test_that("a pmcid absent from the returned environment yields NULL, not an error", {
+  # Environments are the one R container where `[[` on a missing name
+  # returns NULL rather than raising -- unlike get(). The build job depends
+  # on that (see .rummagene_article_lookup() in rummagene_catalog_build.R).
+  out <- rummagene_fetch_articles_by_pmcid(character(0))
+  expect_null(out[["PMC0000000"]])
+})

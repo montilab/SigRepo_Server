@@ -43,6 +43,20 @@ rummagene_gmt_pmcids <- function(gmt_path, chunk_size = 5000) {
   base::ls(seen)
 }
 
+# `articles_by_pmcid[[pmcid]]`, tolerating either shape callers may supply:
+# the hashed environment rummagene_fetch_articles_by_pmcid() returns in
+# production (O(1) lookup -- required at ~188k papers, see that function's
+# header), or a plain named list, which is what a small hand-built test
+# fixture or a cached/serialized pass naturally is. Both return NULL (never
+# an error) for a pmcid absent from either shape.
+.rummagene_article_lookup <- function(articles_by_pmcid, pmcid) {
+  if (base::is.environment(articles_by_pmcid)) {
+    base::mget(pmcid, envir = articles_by_pmcid, ifnotfound = base::list(NULL))[[1]]
+  } else {
+    articles_by_pmcid[[pmcid]]
+  }
+}
+
 # The build. `articles_by_pmcid` may be supplied (tests, or a cached pass); when
 # NULL it is fetched from PubMed. Each record is
 # list(pmid, mesh, title, year, doi).
@@ -64,8 +78,19 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
     )
   }
 
+  # Invariant: qualified + sum(unlist(rejected)) == examined. `examined`
+  # counts lines that rummagene_parse_gmt_line() turned into a candidate --
+  # it does NOT count a line that could not even become one (blank, fewer
+  # than 3 fields, no PMC id in the term, or zero genes after cleanup).
+  # Those are tallied separately as `unparsed`, because they never reached
+  # any gate and so cannot be attributed to a specific rejection reason the
+  # way a real candidate's rejection can. Counting them at all (rather than
+  # letting them vanish between `examined` and every `rejected` bucket)
+  # matters because a truncated download or a malformed future release would
+  # otherwise under-report with no signal.
   reasons <- c("no_mesh", "organism", "assay_type", "unmapped_symbol", "feature_absent")
   rejected <- stats::setNames(base::as.list(base::rep(0L, base::length(reasons))), reasons)
+  unparsed <- 0L
   examined <- 0L
   qualified <- 0L
   batch <- base::list()
@@ -86,10 +111,10 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
 
     for (ln in lines) {
       parsed <- rummagene_parse_gmt_line(ln)
-      if (base::is.null(parsed)) next
+      if (base::is.null(parsed)) { unparsed <- unparsed + 1L; next }
       examined <- examined + 1L
 
-      article <- articles_by_pmcid[[parsed$pmcid]] %||% base::list()
+      article <- .rummagene_article_lookup(articles_by_pmcid, parsed$pmcid) %||% base::list()
       mesh <- article$mesh %||% base::character(0)
       if (base::length(mesh) == 0) { rejected$no_mesh <- rejected$no_mesh + 1L; next }
 
@@ -102,6 +127,14 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
         rejected$assay_type <- rejected$assay_type + 1L; next
       }
 
+      # KNOWN COST, PARKED (Task 7 review, Finding 4): rummagene_gate() calls
+      # AnnotationDbi::mapIds() and does a transcriptomics_features round
+      # trip via rummagene_resolve_features(), UNBATCHED, once per gene set
+      # that reaches this point -- roughly 155,000 times against the real
+      # GMT. Left as is: this is a weekly offline job, batching would mean
+      # restructuring the gate's all-or-nothing contract, and that work
+      # should be driven by real timing from a production run rather than
+      # done speculatively.
       gated <- rummagene_gate(conn, parsed, organism = organism, organism_id = organism_id)
       if (!base::isTRUE(gated$ok)) {
         rejected[[gated$reason]] <- rejected[[gated$reason]] + 1L; next
@@ -128,5 +161,5 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
   flush_batch()
 
   rummagene_catalog_prune(conn, gmt_version = gmt_version)
-  base::list(examined = examined, qualified = qualified, rejected = rejected)
+  base::list(examined = examined, qualified = qualified, rejected = rejected, unparsed = unparsed)
 }
