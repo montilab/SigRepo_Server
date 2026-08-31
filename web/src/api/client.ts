@@ -964,3 +964,89 @@ export async function uploadSignature(
     body,
   });
 }
+
+export interface RummageneCatalogRow {
+  rummagene_catalog_id: number;
+  term: string;
+  pmcid: string;
+  pmid: string | null;
+  title: string | null;
+  year: number | null;
+  doi: string | null;
+  description: string | null;
+  organism: string;
+  assay_type: string;
+  mesh_evidence: string;
+  n_genes: number;
+}
+
+export type RummageneCatalogSortKey =
+  | "term" | "title" | "year" | "n_genes" | "organism" | "assay_type";
+
+export interface RummageneCatalogParams {
+  q?: string;
+  organism?: string;
+  assay_type?: string;
+  year_min?: number;
+  year_max?: number;
+  n_genes_min?: number;
+  n_genes_max?: number;
+  limit?: number;
+  offset?: number;
+  sortBy?: RummageneCatalogSortKey;
+  sortDir?: "asc" | "desc";
+}
+
+export interface RummageneCatalogPage {
+  rows: RummageneCatalogRow[];
+  total: number;
+}
+
+// Server-side paged, exactly like searchSignaturesPage: the client holds one
+// page, so sorting and filtering must happen server-side or they would only
+// reorder the visible page and look like they had sorted the whole catalog.
+export async function searchRummageneCatalog(
+  params: RummageneCatalogParams = {}
+): Promise<RummageneCatalogPage> {
+  const query = new URLSearchParams({ api_key: requireApiKey() });
+  if (params.q) query.set("q", params.q);
+  if (params.organism) query.set("organism", params.organism);
+  if (params.assay_type) query.set("assay_type", params.assay_type);
+  if (params.year_min != null) query.set("year_min", String(params.year_min));
+  if (params.year_max != null) query.set("year_max", String(params.year_max));
+  if (params.n_genes_min != null) query.set("n_genes_min", String(params.n_genes_min));
+  if (params.n_genes_max != null) query.set("n_genes_max", String(params.n_genes_max));
+  if (params.limit != null) query.set("limit", String(params.limit));
+  if (params.offset != null) query.set("offset", String(params.offset));
+  if (params.sortBy) query.set("sort_by", params.sortBy);
+  if (params.sortDir) query.set("sort_dir", params.sortDir);
+
+  const raw = await apiFetch<{ count: number; rows: RummageneCatalogRow[] }>(
+    `/rummagene/catalog?${query.toString()}`
+  );
+  return { rows: raw.rows ?? [], total: Number(raw.count) || 0 };
+}
+
+export interface RummageneCatalogEntry extends RummageneCatalogRow {
+  gene_symbols: string[];
+  feature_names: string[];
+}
+
+// Fetched only when a row is expanded. The list endpoint omits the gene columns
+// on purpose: at ~135k rows they would dominate every page response.
+export async function getRummageneCatalogEntry(term: string): Promise<RummageneCatalogEntry> {
+  const query = new URLSearchParams({ api_key: requireApiKey(), term });
+  return apiFetch<RummageneCatalogEntry>(`/rummagene/catalog/entry?${query.toString()}`);
+}
+
+// The server returns signature_name alongside the hashkey so a caller (e.g. a
+// confirmation toast) doesn't have to look it up separately.
+export async function pullRummageneSignature(
+  term: string
+): Promise<{ signature_hashkey: string; signature_name: string }> {
+  return apiFetch<{ signature_hashkey: string; signature_name: string }>("/rummagene/pull", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ api_key: requireApiKey(), term }),
+  });
+}
