@@ -11,6 +11,7 @@ import CollectionsPage from "./pages/CollectionsPage";
 import AnnotatePage from "./pages/AnnotatePage";
 import ComparePage from "./pages/ComparePage";
 import BrowsePage from "./pages/BrowsePage";
+import RummagenePage from "./pages/RummagenePage";
 import FeedbackPage from "./pages/FeedbackPage";
 
 // Wraps everything except standalone pages (e.g. the signature detail page,
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/annotate" element={<AnnotatePage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/browse" element={<BrowsePage />} />
+          <Route path="/rummagene" element={<RummagenePage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>

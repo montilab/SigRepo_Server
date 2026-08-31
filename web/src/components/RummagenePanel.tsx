@@ -3,19 +3,13 @@ import { BookOpen, ExternalLink, Search } from "lucide-react";
 import Card from "./Card";
 import { SkeletonRows } from "./Skeleton";
 import { rummageneEnrich, ApiError, type RummageneResult } from "../api/client";
+import { tidyTerm } from "../lib/rummagene";
 
 // Format a p-value compactly (e.g. 4.0e-24, 0.013).
 function fmtP(p: number | null): string {
   if (p == null || Number.isNaN(p)) return "—";
   if (p === 0) return "0";
   return p < 1e-3 ? p.toExponential(1) : p.toFixed(3);
-}
-
-// Rummagene terms look like "PMC6819084-elife-47013-supp2.xlsx-IPA_mono_upstream-...".
-// Trim the PMCid + file prefix into something readable when there's no title.
-function tidyTerm(term: string): string {
-  const parts = term.split("-");
-  return parts.length > 2 ? parts.slice(2).join(" ").replace(/_/g, " ") : term.replace(/_/g, " ");
 }
 
 export default function RummagenePanel({ signatureHashkey }: { signatureHashkey: string }) {

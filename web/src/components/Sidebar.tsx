@@ -6,6 +6,7 @@ import {
   FlaskConical,
   GitCompare,
   Database,
+  Library,
   MessageSquare,
   LogOut,
   PanelLeftClose,
@@ -20,6 +21,7 @@ const NAV = [
   { to: "/annotate", label: "Annotate", icon: FlaskConical },
   { to: "/compare", label: "Compare", icon: GitCompare },
   { to: "/browse", label: "Browsing", icon: Database },
+  { to: "/rummagene", label: "Rummagene", icon: Library },
   { to: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 

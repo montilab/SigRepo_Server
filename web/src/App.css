@@ -2726,3 +2726,52 @@ a.rmg-item-title:hover {
   /* Same endpoints as the dots: hypeR's #E53935 -> #114357. */
   background: linear-gradient(to right, #E53935, #114357);
 }
+
+/* ---------- Rummagene catalog browse page ---------- */
+/* The standing "what MeSH does and doesn't tell us" note -- required
+   reading, not fine print, so it gets a callout rather than a muted
+   .cell-sub line (that class clips to one line at 420px, which would
+   truncate this). */
+.rmg-caveat {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.rmg-caveat svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.rmg-caveat p {
+  margin: 0;
+}
+
+/* Groups the two numeric filters together so the toolbar's space-between
+   puts search on one side and both of them on the other, instead of
+   spreading all three apart evenly. */
+.rmg-numeric-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Gene list in the row-detail drawer. */
+.rmg-genes {
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: normal;
+  word-break: break-word;
+}
