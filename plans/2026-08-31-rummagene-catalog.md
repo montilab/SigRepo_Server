@@ -122,7 +122,7 @@ rummagene_signature_name <- function(term) {
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-ingest.R")'
 ```
 
-Expected: PASS, 62 total.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 5: Commit**
 
@@ -274,7 +274,7 @@ if (!base::exists("%||%")) {
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 2 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 7: Verify the table actually creates**
 
@@ -407,7 +407,7 @@ Note this reuses `rummagene_pmcid_from_term()`, already defined in `api/lib/rumm
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 8 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 5: Commit**
 
@@ -631,7 +631,7 @@ rummagene_gate <- function(conn, parsed, organism, organism_id) {
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 14 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 5: Commit**
 
@@ -811,7 +811,7 @@ rummagene_catalog_prune <- function(conn, gmt_version) {
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 18 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 5: Commit**
 
@@ -1026,7 +1026,7 @@ get_rummagene_catalog_entry <- function(conn, term) {
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 24 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 5: Commit**
 
@@ -1199,7 +1199,7 @@ rummagene_fetch_articles_by_pmcid <- function(pmcids, batch_size = 100, timeout 
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-ingest.R")'
 ```
 
-Expected: PASS, 64 total.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 1: Write the failing test for the build itself**
 
@@ -1436,7 +1436,7 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog-build.R")'
 ```
 
-Expected: PASS, 2 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 5: Add the runner script**
 
@@ -1618,7 +1618,7 @@ rummagene_catalog_entry_route <- function(res, api_key = "", term = ""){
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 26 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 6: Verify the API still boots and both routes answer**
 
@@ -1825,7 +1825,7 @@ rename it; call it exactly as written above.
 docker exec -i sigrepo-local-api Rscript -e 'setwd("/SigRepo_Server"); library(testthat); testthat::set_max_fails(Inf); testthat::test_file("tests/testthat/test-rummagene-catalog.R")'
 ```
 
-Expected: PASS, 29 tests.
+Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exact PASS count as the target — testthat counts individual expectations, not `test_that` blocks, so the number is always higher than the block count.
 
 - [ ] **Step 6: End-to-end check against the live local stack**
 
