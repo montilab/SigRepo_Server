@@ -97,6 +97,7 @@ generate_db_schema <- function(sigrepo_server_path = base::Sys.getenv("SIGREPO_S
   run_schema_file("mysql/schema/metabolite_xref.sql", "metabolite_xref")
   run_schema_file("mysql/schema/signature_feature_set_ambiguity.sql", "signature_feature_set_ambiguity")
   run_schema_file("mysql/schema/genetic_variants_features.sql", "genetic_variants_features")
+  run_schema_file("mysql/schema/rummagene_catalog.sql", "rummagene_catalog")
 
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))
