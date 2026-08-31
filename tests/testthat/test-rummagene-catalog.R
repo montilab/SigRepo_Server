@@ -515,13 +515,28 @@ test_that("search_rummagene_catalog treats a negative offset as zero instead of 
 })
 
 test_that("search_rummagene_catalog caps the limit instead of returning the whole table", {
-  # The pagination this task exists to provide is defeated if a caller can
-  # request all ~135,000 rows in one response.
+  # 3 seeded rows (seed_catalog()'s usual fixture) can never exercise a cap
+  # of 100 -- nrow(out$rows) <= 100 would be trivially true whether the cap
+  # is 100, 5, or removed entirely. Seed comfortably past the cap, under
+  # this test's own gmt_version, so the assertions below actually exercise
+  # the code path they name.
   conn <- test_conn()
-  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-cap'")
             DBI::dbDisconnect(conn) }, add = TRUE)
-  seed_catalog(conn)
 
-  out <- search_rummagene_catalog(conn, limit = 100000)
-  expect_lte(base::nrow(out$rows), 100)
+  n_seed <- 105L
+  rows <- base::lapply(base::seq_len(n_seed), function(i) {
+    catalog_row_fixture(term = base::sprintf("PMC-cap-%03d", i))
+  })
+  rummagene_catalog_upsert(conn, rows, gmt_version = "test-cap")
+
+  out <- search_rummagene_catalog(conn, limit = 500)
+  # Exact, not an upper bound -- the whole point is that 500 does not win.
+  expect_equal(base::nrow(out$rows), 100)
+  # The cap must trim the PAGE, not the reported total: a caller needs to
+  # know there are more rows than it received, or the pager breaks. This is
+  # >= n_seed (105), strictly more than the 100-row page, which is what
+  # actually distinguishes "count reports the true total" from a bug that
+  # caps count down to the page size too.
+  expect_gte(out$count, n_seed)
 })
