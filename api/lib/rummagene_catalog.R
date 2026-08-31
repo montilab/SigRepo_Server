@@ -126,3 +126,58 @@ rummagene_gate <- function(conn, parsed, organism, organism_id) {
   # first-occurrence order.
   base::list(ok = TRUE, feature_names = base::unique(base::unname(mapped)))
 }
+
+# Gene lists are stored as comma-delimited text. Gene symbols and Ensembl ids
+# never contain a comma, so this needs no escaping, and it keeps the column
+# greppable from SQL for debugging.
+.rummagene_join_genes <- function(x) base::paste(base::as.character(x), collapse = ",")
+
+# Write catalog rows. Keyed on term_hashkey = md5(tolower(term)) -- the same
+# formula collection_hash() uses everywhere else in this codebase -- so a
+# re-run over an unchanged GMT updates in place rather than duplicating.
+rummagene_catalog_upsert <- function(conn, rows, gmt_version) {
+  written <- 0L
+  for (r in rows %||% base::list()) {
+    hk <- collection_hash(r$term, "")
+    DBI::dbExecute(conn, base::sprintf(
+      "INSERT INTO rummagene_catalog
+         (term, pmcid, pmid, title, year, doi, description, organism, assay_type,
+          mesh_evidence, n_genes, gene_symbols, feature_names, gmt_version, term_hashkey)
+       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %s)
+       ON DUPLICATE KEY UPDATE
+         pmcid = VALUES(pmcid), pmid = VALUES(pmid), title = VALUES(title),
+         year = VALUES(year), doi = VALUES(doi), description = VALUES(description),
+         organism = VALUES(organism), assay_type = VALUES(assay_type),
+         mesh_evidence = VALUES(mesh_evidence), n_genes = VALUES(n_genes),
+         gene_symbols = VALUES(gene_symbols), feature_names = VALUES(feature_names),
+         gmt_version = VALUES(gmt_version), built_at = CURRENT_TIMESTAMP",
+      DBI::dbQuoteLiteral(conn, r$term),
+      DBI::dbQuoteLiteral(conn, r$pmcid),
+      sql_value(conn, r$pmid),
+      sql_value(conn, r$title),
+      sql_value(conn, r$year),
+      sql_value(conn, r$doi),
+      sql_value(conn, r$description),
+      DBI::dbQuoteLiteral(conn, r$organism),
+      DBI::dbQuoteLiteral(conn, r$assay_type),
+      DBI::dbQuoteLiteral(conn, r$mesh_evidence),
+      base::length(r$gene_symbols),
+      DBI::dbQuoteLiteral(conn, .rummagene_join_genes(r$gene_symbols)),
+      DBI::dbQuoteLiteral(conn, .rummagene_join_genes(r$feature_names)),
+      DBI::dbQuoteLiteral(conn, gmt_version),
+      DBI::dbQuoteLiteral(conn, hk)
+    ))
+    written <- written + 1L
+  }
+  written
+}
+
+# Drop rows the current build did not touch -- i.e. sets Rummagene has withdrawn
+# or that no longer pass the gate. A signature someone already pulled is
+# unaffected: it lives in `signatures` and there is no FK back to here.
+rummagene_catalog_prune <- function(conn, gmt_version) {
+  DBI::dbExecute(conn, base::sprintf(
+    "DELETE FROM rummagene_catalog WHERE gmt_version <> %s",
+    DBI::dbQuoteLiteral(conn, gmt_version)
+  ))
+}

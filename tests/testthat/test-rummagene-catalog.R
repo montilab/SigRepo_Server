@@ -4,6 +4,7 @@ source(testthat::test_path("../../api/lib/rummagene.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/rummagene_ingest.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/rummagene_catalog.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/collection.R"), local = FALSE)
+source(testthat::test_path("../../api/lib/create_signature.R"), local = FALSE)
 
 test_that("the rummagene_catalog schema file declares every column the build job writes", {
   # Guards against the schema drifting from the writer, which is exactly how
@@ -180,4 +181,79 @@ test_that("rummagene_gate deduplicates two symbols that map to the same Ensembl 
 
   expect_true(out$ok)
   expect_equal(out$feature_names, "ensg00000111850")
+})
+
+catalog_row_fixture <- function(term = "PMC1-t.xlsx-x", genes = c("TP53", "MYC")) {
+  base::list(
+    term = term, pmcid = "PMC1", pmid = "111", title = "A paper", year = 2020L,
+    doi = "10.1/x", description = "d", organism = "Homo sapiens",
+    assay_type = "transcriptomics", mesh_evidence = "Humans, Transcriptome",
+    gene_symbols = genes, feature_names = c("ensg00000141510", "ensg00000136997")
+  )
+}
+
+test_that("rummagene_catalog_upsert writes a row that reads back intact", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-v1'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  n <- rummagene_catalog_upsert(conn, base::list(catalog_row_fixture()), gmt_version = "test-v1")
+  expect_equal(n, 1)
+
+  got <- DBI::dbGetQuery(conn, "SELECT * FROM rummagene_catalog WHERE gmt_version = 'test-v1'")
+  expect_equal(base::nrow(got), 1)
+  expect_equal(got$term[1], "PMC1-t.xlsx-x")
+  expect_equal(got$n_genes[1], 2)
+  expect_equal(got$organism[1], "Homo sapiens")
+  # Genes round-trip as a delimited list in both namespaces.
+  expect_equal(base::strsplit(got$gene_symbols[1], ",", fixed = TRUE)[[1]], c("TP53", "MYC"))
+  expect_equal(base::strsplit(got$feature_names[1], ",", fixed = TRUE)[[1]],
+               c("ensg00000141510", "ensg00000136997"))
+})
+
+test_that("rummagene_catalog_upsert is idempotent", {
+  # A second build over an unchanged GMT must be a no-op, not a duplicate-key
+  # error and not a second row.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-v1'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture()), gmt_version = "test-v1")
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture()), gmt_version = "test-v1")
+
+  got <- DBI::dbGetQuery(conn, "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version = 'test-v1'")
+  expect_equal(got$n[1], 1)
+})
+
+test_that("rummagene_catalog_upsert refreshes a term whose genes changed", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version IN ('test-v1','test-v2')")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture()), gmt_version = "test-v1")
+  changed <- catalog_row_fixture(genes = c("TP53", "MYC", "EGFR"))
+  rummagene_catalog_upsert(conn, base::list(changed), gmt_version = "test-v2")
+
+  got <- DBI::dbGetQuery(conn, "SELECT n_genes, gmt_version FROM rummagene_catalog WHERE pmcid = 'PMC1'")
+  expect_equal(base::nrow(got), 1)
+  expect_equal(got$n_genes[1], 3)
+  expect_equal(got$gmt_version[1], "test-v2")
+})
+
+test_that("rummagene_catalog_prune deletes rows from earlier builds only", {
+  # A set withdrawn from Rummagene stops being offered. Any signature already
+  # pulled from it is untouched -- it lives in `signatures` with its provenance,
+  # and there is deliberately no FK between the two tables.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version IN ('test-v1','test-v2')")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture(term = "PMC1-old")), gmt_version = "test-v1")
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture(term = "PMC1-new")), gmt_version = "test-v2")
+
+  deleted <- rummagene_catalog_prune(conn, gmt_version = "test-v2")
+  expect_gte(deleted, 1)
+
+  remaining <- DBI::dbGetQuery(conn, "SELECT term FROM rummagene_catalog WHERE gmt_version = 'test-v2'")
+  expect_equal(remaining$term, "PMC1-new")
 })
