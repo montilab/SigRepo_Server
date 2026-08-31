@@ -14,7 +14,10 @@ test_that("the rummagene_catalog schema file declares every column the build job
                 "organism", "assay_type", "mesh_evidence", "n_genes",
                 "gene_symbols", "feature_names", "gmt_version", "built_at",
                 "term_hashkey")) {
-    expect_match(sql, base::sprintf("`%s`", col), fixed = TRUE,
+    # Match backtick-quoted column name followed by whitespace and a type keyword.
+    # This prevents false positives from comments that mention the column name.
+    pattern <- base::sprintf("`%s`\\s+[A-Z]", col)
+    expect_match(sql, pattern,
                  info = base::sprintf("column %s missing from schema", col))
   }
   # term must outgrow signature_name's 255, and uniqueness must be on the
