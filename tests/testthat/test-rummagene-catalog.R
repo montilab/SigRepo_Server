@@ -3,6 +3,7 @@
 source(testthat::test_path("../../api/lib/rummagene.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/rummagene_ingest.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/rummagene_catalog.R"), local = FALSE)
+source(testthat::test_path("../../api/lib/collection.R"), local = FALSE)
 
 test_that("the rummagene_catalog schema file declares every column the build job writes", {
   # Guards against the schema drifting from the writer, which is exactly how
@@ -70,4 +71,87 @@ test_that("rummagene_parse_gmt_line returns NULL when the term carries no PMC id
 test_that("rummagene_parse_gmt_line returns NULL for a blank line", {
   expect_null(rummagene_parse_gmt_line(""))
   expect_null(rummagene_parse_gmt_line("   "))
+})
+
+test_that("rummagene_map_symbols returns lowercased Ensembl ids for human symbols", {
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
+  out <- rummagene_map_symbols(c("TP53", "MYC"), "Homo sapiens")
+  # feature_name in transcriptomics_features is stored lowercased
+  # (updateTranscriptomicsFeatureSet does trimws(tolower(ensembl_gene_id))),
+  # so the mapping must match that form or nothing will ever resolve.
+  expect_equal(out[["TP53"]], "ensg00000141510")
+  expect_equal(out[["MYC"]], "ensg00000136997")
+})
+
+test_that("rummagene_map_symbols returns NA for a symbol with no Ensembl id", {
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
+  # A retired alias. Measured 2026-08-31: LGTN, TRA, SOGA1 and CCDC153 are the
+  # symbols that fail across the sampled corpus.
+  out <- rummagene_map_symbols(c("TP53", "LGTN"), "Homo sapiens")
+  expect_false(base::is.na(out[["TP53"]]))
+  expect_true(base::is.na(out[["LGTN"]]))
+})
+
+test_that("rummagene_map_symbols refuses an organism outside scope", {
+  expect_error(rummagene_map_symbols("TP53", "Mus musculus"), "only Homo sapiens")
+})
+
+test_that("rummagene_gate accepts a set whose every symbol resolves", {
+  conn <- test_conn()
+  new_hashkeys <- base::character(0)
+  on.exit({
+    unseed_features(conn, new_hashkeys)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510", "ensg00000136997"))
+
+  parsed <- base::list(term = "PMC1-t.xlsx-x", description = "d",
+                       genes = c("TP53", "MYC"), pmcid = "PMC1")
+  out <- rummagene_gate(conn, parsed, organism = "Homo sapiens", organism_id = 2L)
+
+  expect_true(out$ok)
+  expect_setequal(out$feature_names, c("ensg00000141510", "ensg00000136997"))
+})
+
+test_that("rummagene_gate rejects a set with one unmappable symbol", {
+  # The whole point of the 100%-mappable rule: a single dead alias disqualifies
+  # the set rather than being silently dropped, so a stored signature always
+  # matches the published gene list exactly.
+  conn <- test_conn()
+  new_hashkeys <- base::character(0)
+  on.exit({
+    unseed_features(conn, new_hashkeys)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510"))
+
+  parsed <- base::list(term = "PMC1-t.xlsx-x", description = "d",
+                       genes = c("TP53", "LGTN"), pmcid = "PMC1")
+  out <- rummagene_gate(conn, parsed, organism = "Homo sapiens", organism_id = 2L)
+
+  expect_false(out$ok)
+  expect_equal(out$reason, "unmapped_symbol")
+})
+
+test_that("rummagene_gate rejects a set whose Ensembl id is absent from the reference table", {
+  # Distinct from unmapped: the symbol maps fine, but that Ensembl id is not in
+  # THIS database. Checking the live table rather than org.Hs.eg.db is what
+  # makes Ensembl version drift move a set out of the catalog instead of
+  # producing a row that fails on pull.
+  conn <- test_conn()
+  new_hashkeys <- base::character(0)
+  on.exit({
+    unseed_features(conn, new_hashkeys)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510"))
+
+  parsed <- base::list(term = "PMC1-t.xlsx-x", description = "d",
+                       genes = c("TP53", "MYC"), pmcid = "PMC1")
+  out <- rummagene_gate(conn, parsed, organism = "Homo sapiens", organism_id = 2L)
+
+  expect_false(out$ok)
+  expect_equal(out$reason, "feature_absent")
 })

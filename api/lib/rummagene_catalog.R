@@ -47,3 +47,72 @@ rummagene_parse_gmt_line <- function(line) {
     pmcid = pmcid
   )
 }
+
+# Scope is human transcriptomics (see the spec). Mouse needs org.Mm.eg.db, and
+# separately needs updateTranscriptomicsFeatureSet()'s hgnc_symbol -> mgi_symbol
+# bug fixed, so it is refused here rather than half-supported.
+RUMMAGENE_CATALOG_ORGANISM <- "Homo sapiens"
+
+# symbol -> lowercased Ensembl gene id, NA where the symbol has none.
+#
+# Lowercased because updateTranscriptomicsFeatureSet() stores
+# feature_name = trimws(tolower(ensembl_gene_id)); matching any other case
+# would resolve nothing.
+rummagene_map_symbols <- function(symbols, organism) {
+  if (!base::identical(base::as.character(organism)[1], RUMMAGENE_CATALOG_ORGANISM)) {
+    base::stop(
+      "The Rummagene catalog covers only Homo sapiens (asked for '",
+      base::as.character(organism)[1], "')."
+    )
+  }
+  symbols <- base::unique(base::as.character(symbols))
+
+  mapped <- base::suppressMessages(AnnotationDbi::mapIds(
+    org.Hs.eg.db::org.Hs.eg.db,
+    keys = symbols, keytype = "SYMBOL", column = "ENSEMBL", multiVals = "first"
+  ))
+  out <- base::tolower(base::as.character(mapped))
+  out[base::is.na(mapped)] <- NA_character_
+  stats::setNames(out, symbols)
+}
+
+# Which of `feature_names` actually exist in transcriptomics_features for this
+# organism. Resolved by feature_hashkey, the same way
+# create_signature.R's resolve_feature_ids() does, so the gate and the eventual
+# insert agree by construction.
+rummagene_resolve_features <- function(conn, feature_names, organism_id) {
+  feature_names <- base::unique(base::as.character(feature_names))
+  if (base::length(feature_names) == 0) {
+    return(base::character(0))
+  }
+  hashkeys <- base::vapply(
+    feature_names, function(fn) collection_hash(fn, organism_id), base::character(1)
+  )
+  found <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT feature_hashkey FROM transcriptomics_features WHERE feature_hashkey IN (%s)",
+    base::paste(DBI::dbQuoteLiteral(conn, base::unname(hashkeys)), collapse = ",")
+  ))
+  base::unname(feature_names[hashkeys %in% found$feature_hashkey])
+}
+
+# The all-or-nothing gate. Returns list(ok = TRUE, feature_names) only when
+# EVERY symbol maps to an Ensembl id AND every one of those ids is present in
+# this database's reference table.
+#
+# Two distinct rejections, kept distinct because they mean different things: a
+# dead alias is a property of the source set, while a missing feature is a
+# property of THIS database and may change when the reference table is next
+# rebuilt from biomaRt.
+rummagene_gate <- function(conn, parsed, organism, organism_id) {
+  mapped <- rummagene_map_symbols(parsed$genes, organism)
+  if (base::any(base::is.na(mapped))) {
+    return(base::list(ok = FALSE, reason = "unmapped_symbol"))
+  }
+
+  present <- rummagene_resolve_features(conn, base::unname(mapped), organism_id)
+  if (base::length(present) != base::length(base::unique(base::unname(mapped)))) {
+    return(base::list(ok = FALSE, reason = "feature_absent"))
+  }
+
+  base::list(ok = TRUE, feature_names = base::unname(mapped))
+}
