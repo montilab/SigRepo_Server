@@ -540,3 +540,18 @@ test_that("search_rummagene_catalog caps the limit instead of returning the whol
   # caps count down to the page size too.
   expect_gte(out$count, n_seed)
 })
+
+test_that("api.R declares the rummagene catalog route with every documented parameter", {
+  api <- base::paste(base::readLines(testthat::test_path("../../api/api.R")), collapse = "\n")
+  expect_match(api, "@get /rummagene/catalog", fixed = TRUE)
+  for (p in c("api_key", "q", "organism", "assay_type", "year_min", "year_max",
+              "n_genes_min", "n_genes_max", "limit", "offset", "sort_by", "sort_dir")) {
+    expect_match(api, base::sprintf("#* @param %s", p), fixed = TRUE,
+                 info = base::sprintf("route parameter %s not documented", p))
+  }
+})
+
+test_that("api.R declares a catalog entry route that can serve one entry's genes", {
+  api <- base::paste(base::readLines(testthat::test_path("../../api/api.R")), collapse = "\n")
+  expect_match(api, "@get /rummagene/catalog/entry", fixed = TRUE)
+})

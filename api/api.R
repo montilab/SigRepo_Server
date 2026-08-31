@@ -1902,3 +1902,89 @@ signature_upload_route <- function(res, api_key = "", visibility = "false", sign
     json_error(res, 500, base::sprintf("Signature upload failed: %s", err$message))
   })
 }
+
+#* Browse the Rummagene catalog: literature-mined gene sets whose organism and
+#* assay type are attested by PubMed MeSH, and whose every gene resolves in this
+#* repository's transcriptomics reference table. Server-side paged and sorted.
+#* Gene lists are omitted here and fetched per row on demand.
+#* @param api_key
+#* @param q Free text matched against term, title and description
+#* @param organism
+#* @param assay_type
+#* @param year_min
+#* @param year_max
+#* @param n_genes_min
+#* @param n_genes_max
+#* @param limit
+#* @param offset
+#* @param sort_by One of term, title, year, n_genes, organism, assay_type
+#* @param sort_dir asc (default) or desc
+#' @get /rummagene/catalog
+rummagene_catalog_route <- function(res, api_key = "", q = "", organism = "", assay_type = "",
+                                    year_min = "", year_max = "", n_genes_min = "", n_genes_max = "",
+                                    limit = 25, offset = 0, sort_by = "", sort_dir = "asc"){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  conn <- db_connect_local()
+  base::on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  result <- base::tryCatch(
+    search_rummagene_catalog(
+      conn,
+      q = json_scalar(q), organism = json_scalar(organism), assay_type = json_scalar(assay_type),
+      year_min = json_scalar(year_min), year_max = json_scalar(year_max),
+      n_genes_min = json_scalar(n_genes_min), n_genes_max = json_scalar(n_genes_max),
+      limit = base::as.integer(json_scalar(limit, "25")),
+      offset = base::as.integer(json_scalar(offset, "0")),
+      sort_by = json_scalar(sort_by), sort_dir = json_scalar(sort_dir, "asc")
+    ),
+    error = function(e) e
+  )
+  if (base::inherits(result, "error")) {
+    # search_rummagene_catalog() throws a plain stop("...must be a number...")
+    # for a supplied-but-unparseable year_min/year_max/n_genes_min/n_genes_max
+    # -- a caller mistake, not a server fault, so it must come back as 400
+    # with the message rather than a generic 500. "nothing is invented": we
+    # must not swallow that distinction and flatten every failure to 500.
+    # Matched on the message text because the function raises a plain
+    # condition rather than a classed one; anything that doesn't match this
+    # specific, known wording still falls through to 500.
+    message <- base::conditionMessage(result)
+    status <- if (base::grepl("must be a number", message, fixed = TRUE)) 400 else 500
+    return(json_error(res, status, base::sprintf("Catalog search failed: %s", message)))
+  }
+
+  json_response(res, 200, payload = base::list(count = result$count, rows = result$rows))
+}
+
+#* One Rummagene catalog entry, including its gene list. Separate from
+#* /rummagene/catalog because the gene columns are large and only a detail view
+#* needs them -- shipping them with every page of a 135k-row catalog would
+#* dominate the response.
+#* @param api_key
+#* @param term The exact Rummagene term
+#' @get /rummagene/catalog/entry
+rummagene_catalog_entry_route <- function(res, api_key = "", term = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  term_value <- json_scalar(term)
+  if (!base::nzchar(term_value)) {
+    return(json_error(res, 400, "Provide the `term` of the catalog entry."))
+  }
+
+  conn <- db_connect_local()
+  base::on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  entry <- get_rummagene_catalog_entry(conn, term_value)
+  if (base::is.null(entry)) {
+    return(json_error(res, 404, "No Rummagene catalog entry with that term."))
+  }
+
+  json_response(res, 200, payload = entry)
+}
