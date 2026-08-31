@@ -465,7 +465,18 @@ rummagene_signature_name <- function(term) {
   if (base::nchar(term) <= RUMMAGENE_SIGNATURE_NAME_MAX) {
     return(term)
   }
-  digest <- base::substr(digest::digest(term, algo = "md5"), 1, 8)
+  # serialize = FALSE, not the digest::digest() default: this hash is
+  # persisted in signatures.signature_name, so it must depend only on the
+  # string's own bytes. The default (serialize = TRUE) hashes R's internal
+  # serialize() byte stream instead, which is free to change across R
+  # versions -- if it ever did, re-pulling the same term after an R upgrade
+  # would produce a different signature_name, UNIQUE(signature_name,
+  # user_name) would never catch the repeat, and the signature would be
+  # silently duplicated.
+  digest <- base::substr(
+    digest::digest(term, algo = "md5", serialize = FALSE),
+    1, 8
+  )
   suffix <- base::paste0("~", digest)
   base::paste0(
     base::substr(term, 1, RUMMAGENE_SIGNATURE_NAME_MAX - base::nchar(suffix)),

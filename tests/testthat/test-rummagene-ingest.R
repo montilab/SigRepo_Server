@@ -298,6 +298,12 @@ test_that("rummagene_signature_name caps a long term at 255 characters", {
   long <- base::paste0("PMC7202592-", base::paste(base::rep("x", 400), collapse = ""))
   out <- rummagene_signature_name(long)
   expect_lte(base::nchar(out), 255)
+  # The length check alone would also let a broken truncation through -- e.g.
+  # one that discarded the term and returned only a short hash suffix.
+  # Confirm the term's own leading characters actually survive into the
+  # output, checked well short of where truncation happens so this does not
+  # hardcode the exact cutoff arithmetic.
+  expect_equal(base::substr(out, 1, 20), base::substr(long, 1, 20))
 })
 
 test_that("rummagene_signature_name keeps two long terms sharing a prefix distinct", {
