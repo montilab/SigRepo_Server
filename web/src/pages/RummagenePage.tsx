@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, Download, Eye, ExternalLink, Search } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
@@ -75,32 +75,43 @@ export default function RummagenePage() {
   // pulling a catalog entry takes exactly that upload path.
   const canPull = canUploadSignature();
 
-  const load = useCallback(async () => {
+  // Same cancellation guard as the entry-fetch effect below (and
+  // SignaturesPage's own fetch effect): without it, a fast filter/page
+  // change can let an earlier, slower request resolve AFTER a later one and
+  // silently overwrite rows/total with stale data while the page number and
+  // filter inputs already show the newer query's state.
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    try {
-      const result = await searchRummageneCatalog({
-        q: query || undefined,
-        year_min: yearMin ? Number(yearMin) : undefined,
-        n_genes_min: genesMin ? Number(genesMin) : undefined,
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
-        sortBy,
-        sortDir,
+    searchRummageneCatalog({
+      q: query || undefined,
+      year_min: yearMin ? Number(yearMin) : undefined,
+      n_genes_min: genesMin ? Number(genesMin) : undefined,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+      sortBy,
+      sortDir,
+    })
+      .then((result) => {
+        if (!cancelled) {
+          setRows(result.rows);
+          setTotal(result.total);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setRows([]);
+          setLoadError(err instanceof ApiError ? err.message : "Could not load the catalog.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      setRows(result.rows);
-      setTotal(result.total);
-    } catch (err) {
-      setRows([]);
-      setLoadError(err instanceof ApiError ? err.message : "Could not load the catalog.");
-    } finally {
-      setLoading(false);
-    }
+    return () => {
+      cancelled = true;
+    };
   }, [query, yearMin, genesMin, page, sortBy, sortDir]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   // The list endpoint omits gene_symbols/feature_names on purpose -- at
   // ~135k rows they would dominate every page response -- so opening a row
