@@ -336,3 +336,36 @@ get_rummagene_catalog_entry <- function(conn, term) {
     feature_names = base::strsplit(row$feature_names[1], ",", fixed = TRUE)[[1]]
   )
 }
+
+# A catalog entry -> an OmicSignature ready for upload_signature().
+#
+# feature_name carries the ENSEMBL IDS, not the symbols: create_signature.R's
+# resolve_feature_ids() hashes feature_name and looks it up in
+# transcriptomics_features, whose feature_name column is lowercased Ensembl ids.
+# Handing it symbols resolves nothing -- measured at 0% -- which is the whole
+# reason the catalog stores both namespaces.
+rummagene_catalog_omic_signature <- function(entry) {
+  provenance <- base::sprintf(
+    base::paste0("source=rummagene; term=%s; pmcid=%s; organism and assay_type from ",
+           "PubMed MeSH (%s); phenotype not stated by source"),
+    entry$term, entry$pmcid, entry$mesh_evidence
+  )
+
+  metadata <- base::list(
+    signature_name = rummagene_signature_name(entry$term),
+    phenotype      = "unknown",
+    organism       = entry$organism,
+    direction_type = "uni-directional",
+    assay_type     = entry$assay_type,
+    description    = entry$description,
+    year           = entry$year,
+    others         = provenance
+  )
+
+  signature <- base::data.frame(
+    feature_name = base::as.character(entry$feature_names),
+    stringsAsFactors = FALSE
+  )
+
+  OmicSignature::OmicSignature$new(metadata = metadata, signature = signature)
+}

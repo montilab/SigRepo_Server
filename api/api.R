@@ -1988,3 +1988,61 @@ rummagene_catalog_entry_route <- function(res, api_key = "", term = ""){
 
   json_response(res, 200, payload = entry)
 }
+
+#* Pull one Rummagene catalog entry into this repository as a signature owned by
+#* the caller. The signature is private by default and records its Rummagene and
+#* MeSH provenance in `others`.
+#* @parser json
+#* @param api_key
+#* @param term The exact Rummagene term, as returned by /rummagene/catalog
+#' @post /rummagene/pull
+rummagene_pull_route <- function(req, res, api_key = "", term = ""){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  term_value <- json_scalar(term)
+  if (!base::nzchar(term_value)) {
+    return(json_error(res, 400, "Provide the `term` of the catalog entry to pull."))
+  }
+
+  conn <- db_connect_local()
+  base::on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  entry <- get_rummagene_catalog_entry(conn, term_value)
+  if (base::is.null(entry)) {
+    return(json_error(res, 404, "No Rummagene catalog entry with that term. The catalog may have been rebuilt since you loaded the page."))
+  }
+
+  omic_signature <- base::tryCatch(
+    base::suppressWarnings(rummagene_catalog_omic_signature(entry)),
+    error = function(e) e
+  )
+  if (base::inherits(omic_signature, "error")) {
+    return(json_error(res, 500, base::sprintf("Could not build a signature from that entry: %s", base::conditionMessage(omic_signature))))
+  }
+
+  # Deliberately the SAME upload path every other signature takes -- same
+  # feature resolution, same rollback, same access grant. Its visibility = FALSE
+  # default is what makes a pulled signature private to the puller.
+  result <- build_signature_from_upload(
+    auth = auth, uploaded = omic_signature, visibility = FALSE, difexp_dir = difexp_dir
+  )
+  if (!base::isTRUE(result$ok)) {
+    status <- base::switch(
+      result$reason %||% "",
+      duplicate = 409, forbidden = 403,
+      invalid_upload = 422, unknown_features = 422,
+      500
+    )
+    # `forbidden` is returned with no message at create_signature.R:362, so a
+    # fallback is required or the body would be NULL.
+    return(json_error(res, status, result$message %||% "This signature could not be created."))
+  }
+
+  json_response(res, 200, payload = base::list(
+    signature_hashkey = result$signature_hashkey,
+    signature_name = result$signature_name
+  ))
+}

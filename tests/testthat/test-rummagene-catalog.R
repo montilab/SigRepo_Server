@@ -564,3 +564,48 @@ test_that("api.R declares a catalog entry route that can serve one entry's genes
   api <- base::paste(base::readLines(testthat::test_path("../../api/api.R")), collapse = "\n")
   expect_match(api, "@get /rummagene/catalog/entry", fixed = TRUE)
 })
+
+test_that("rummagene_catalog_omic_signature builds a signature keyed by Ensembl id", {
+  # feature_name must be the Ensembl ids, because that is what
+  # create_signature.R's resolve_feature_ids() hashes and looks up. Handing it
+  # symbols is exactly the failure that makes 0% of Rummagene sets uploadable.
+  testthat::skip_if_not(requireNamespace("OmicSignature", quietly = TRUE), "OmicSignature not installed")
+
+  entry <- base::list(
+    term = "PMC1-t.xlsx-x", pmcid = "PMC1", title = "A paper", year = 2020L,
+    description = "d", organism = "Homo sapiens", assay_type = "transcriptomics",
+    mesh_evidence = "Humans, Transcriptome",
+    gene_symbols  = c("TP53", "MYC"),
+    feature_names = c("ensg00000141510", "ensg00000136997")
+  )
+  os <- base::suppressWarnings(rummagene_catalog_omic_signature(entry))
+
+  expect_s3_class(os, "OmicSignature")
+  expect_setequal(os$signature$feature_name, c("ensg00000141510", "ensg00000136997"))
+  expect_equal(os$metadata$phenotype, "unknown")
+  expect_equal(os$metadata$direction_type, "uni-directional")
+  expect_equal(os$metadata$organism, "Homo sapiens")
+  expect_false("group_label" %in% base::colnames(os$signature))
+})
+
+test_that("rummagene_catalog_omic_signature records provenance including the untruncated term", {
+  testthat::skip_if_not(requireNamespace("OmicSignature", quietly = TRUE), "OmicSignature not installed")
+
+  long_term <- base::paste0("PMC1-", base::paste(base::rep("x", 400), collapse = ""))
+  entry <- base::list(
+    term = long_term, pmcid = "PMC1", title = "t", year = 2020L, description = "d",
+    organism = "Homo sapiens", assay_type = "transcriptomics",
+    mesh_evidence = "Humans, Transcriptome",
+    gene_symbols = c("TP53", "MYC"), feature_names = c("ensg00000141510", "ensg00000136997")
+  )
+  os <- base::suppressWarnings(rummagene_catalog_omic_signature(entry))
+
+  expect_lte(base::nchar(os$metadata$signature_name), 255)
+  expect_match(os$metadata$others, long_term, fixed = TRUE)
+  expect_match(os$metadata$others, "MeSH", fixed = TRUE)
+})
+
+test_that("api.R declares the rummagene pull route", {
+  api <- base::paste(base::readLines(testthat::test_path("../../api/api.R")), collapse = "\n")
+  expect_match(api, "@post /rummagene/pull", fixed = TRUE)
+})
