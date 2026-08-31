@@ -506,9 +506,13 @@ test_that("rummagene_gate rejects a set whose Ensembl id is absent from the refe
 })
 ```
 
-Add these helpers at the top of `tests/testthat/test-rummagene-catalog.R`, below the `source()` calls:
+Put these helpers in a **new file** `tests/testthat/helper-rummagene.R` — *not* inside `test-rummagene-catalog.R`.
+
+**Why (ruling R2):** testthat gives every test file its own environment and does not share definitions between them. Task 7 adds a separate `test-rummagene-catalog-build.R` that calls both helpers, so defining them inside Task 4's test file would break Task 7 the moment it is run with `test_file()`. `helper-*.R` files are sourced before every test file, which is exactly what is needed here. The repo already uses this convention — see `tests/testthat/helper-db.R`.
 
 ```r
+# Shared by test-rummagene-catalog.R and test-rummagene-catalog-build.R.
+#
 # A connection to the local dev database, and a way to put known rows into
 # transcriptomics_features without disturbing what is already there. Every
 # seeded row is removed again by the caller's on.exit, so these tests do not
@@ -632,7 +636,8 @@ Expected: PASS, 14 tests.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add api/lib/rummagene_catalog.R tests/testthat/test-rummagene-catalog.R
+git add api/lib/rummagene_catalog.R tests/testthat/test-rummagene-catalog.R \
+        tests/testthat/helper-rummagene.R
 git commit -m "feat: symbol to feature resolution and the 100%-mappable gate"
 ```
 
@@ -1205,6 +1210,9 @@ Create `tests/testthat/test-rummagene-catalog-build.R`:
 # injected rather than fetched -- so this test touches no network and is
 # deterministic. The network path itself is covered by the parser tests in
 # test-rummagene-ingest.R, following the same convention as test-rummagene.R.
+#
+# test_conn() and seed_features() come from tests/testthat/helper-rummagene.R,
+# which testthat sources before every test file -- do NOT redefine them here.
 source(testthat::test_path("../../api/lib/collection.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/create_signature.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/rummagene.R"), local = FALSE)
@@ -1780,18 +1788,36 @@ rummagene_pull_route <- function(req, res, api_key = "", term = ""){
   }
 
   # Deliberately the SAME upload path every other signature takes -- same
-  # feature resolution, same rollback, same access grant.
-  result <- upload_signature(uploaded = omic_signature, auth = auth, difexp_dir = difexp_dir)
+  # feature resolution, same rollback, same access grant. Its visibility = FALSE
+  # default is what makes a pulled signature private to the puller.
+  result <- build_signature_from_upload(
+    auth = auth, uploaded = omic_signature, visibility = FALSE, difexp_dir = difexp_dir
+  )
   if (!base::isTRUE(result$ok)) {
-    status <- base::switch(result$reason %||% "", duplicate = 409, invalid_upload = 422, unknown_features = 422, 500)
-    return(json_error(res, status, result$message))
+    status <- base::switch(
+      result$reason %||% "",
+      duplicate = 409, forbidden = 403,
+      invalid_upload = 422, unknown_features = 422,
+      500
+    )
+    # `forbidden` is returned with no message at create_signature.R:362, so a
+    # fallback is required or the body would be NULL.
+    return(json_error(res, status, result$message %||% "This signature could not be created."))
   }
 
-  json_response(res, 200, payload = base::list(signature_hashkey = result$signature_hashkey))
+  json_response(res, 200, payload = base::list(
+    signature_hashkey = result$signature_hashkey,
+    signature_name = result$signature_name
+  ))
 }
 ```
 
-Before writing this, read `upload_signature()`'s actual return shape in `api/lib/create_signature.R` and match the field names exactly — this plan assumes `list(ok, reason, message, signature_hashkey)`.
+**Verified 2026-08-31 (ruling R1):** the entry point is
+`build_signature_from_upload(auth, uploaded, visibility = FALSE, difexp_dir)` at
+[api/lib/create_signature.R:360](../api/lib/create_signature.R), returning
+`list(ok = TRUE, signature_hashkey, signature_name)` or
+`list(ok = FALSE, reason, message)`. There is no `upload_signature()`. Do not
+rename it; call it exactly as written above.
 
 - [ ] **Step 5: Run the tests and verify they pass**
 
