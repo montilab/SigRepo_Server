@@ -1952,9 +1952,9 @@ rummagene_catalog_route <- function(res, api_key = "", q = "", organism = "", as
     # Matched on the message text because the function raises a plain
     # condition rather than a classed one; anything that doesn't match this
     # specific, known wording still falls through to 500.
-    message <- base::conditionMessage(result)
-    status <- if (base::grepl("must be a number", message, fixed = TRUE)) 400 else 500
-    return(json_error(res, status, base::sprintf("Catalog search failed: %s", message)))
+    error_message <- base::conditionMessage(result)
+    status <- if (base::grepl("must be a number", error_message, fixed = TRUE)) 400 else 500
+    return(json_error(res, status, base::sprintf("Catalog search failed: %s", error_message)))
   }
 
   json_response(res, 200, payload = base::list(count = result$count, rows = result$rows))

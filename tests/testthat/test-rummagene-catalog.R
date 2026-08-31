@@ -486,8 +486,13 @@ test_that("search_rummagene_catalog errors on an unparseable numeric bound inste
   # dropping it would be indistinguishable, from the caller's side, from
   # "filtered correctly and nothing matched" -- the same failure shape the
   # governing "nothing is invented" rule exists to prevent.
-  expect_error(search_rummagene_catalog(conn, year_min = "abc", limit = 50))
-  expect_error(search_rummagene_catalog(conn, n_genes_max = "many", limit = 50))
+  # Pinned to the literal wording the route layer's 400-vs-500 branch keys
+  # off of (rummagene_catalog_route in api.R matches "must be a number" via
+  # grepl(..., fixed = TRUE)) -- an unpinned expect_error() would keep passing
+  # even if this message were reworded, silently breaking that branch without
+  # any test noticing.
+  expect_error(search_rummagene_catalog(conn, year_min = "abc", limit = 50), "year_min must be a number")
+  expect_error(search_rummagene_catalog(conn, n_genes_max = "many", limit = 50), "n_genes_max must be a number")
 })
 
 test_that("search_rummagene_catalog falls back to the default limit instead of crashing on a non-numeric one", {
@@ -543,7 +548,11 @@ test_that("search_rummagene_catalog caps the limit instead of returning the whol
 
 test_that("api.R declares the rummagene catalog route with every documented parameter", {
   api <- base::paste(base::readLines(testthat::test_path("../../api/api.R")), collapse = "\n")
-  expect_match(api, "@get /rummagene/catalog", fixed = TRUE)
+  # Trailing "\n" matters: without it this substring is also a prefix of
+  # "@get /rummagene/catalog/entry", so the assertion would keep passing
+  # even if this route's own annotation line were deleted, as long as the
+  # entry route still existed. See the entry-route test below for the same.
+  expect_match(api, "@get /rummagene/catalog\n", fixed = TRUE)
   for (p in c("api_key", "q", "organism", "assay_type", "year_min", "year_max",
               "n_genes_min", "n_genes_max", "limit", "offset", "sort_by", "sort_dir")) {
     expect_match(api, base::sprintf("#* @param %s", p), fixed = TRUE,
