@@ -302,4 +302,22 @@ test_that("rummagene_catalog_upsert stores NA metadata as SQL NULL, not the stri
   expect_false(base::identical(got$pmid[1], "NA"))
   expect_false(base::identical(got$title[1], "NA"))
   expect_false(base::identical(got$doi[1], "NA"))
+
+  # The R-level checks above are necessary but NOT sufficient: this suite
+  # connects via RMySQL::MySQL(), the old deprecated driver, which is known
+  # to run fetched text through type.convert-style coercion -- a genuinely
+  # broken write that stored the literal string "NA" would come back from
+  # dbGetQuery() already folded into R's NA, making is.na() report TRUE and
+  # identical(x, "NA") report FALSE for that bug too. Ask MySQL itself,
+  # where the driver's fetch-side coercion cannot interfere: a stored "NA"
+  # string is NOT SQL NULL, so IS NULL still correctly reports false for it
+  # regardless of what the driver does to the value on the way out.
+  null_check <- DBI::dbGetQuery(conn,
+    "SELECT pmid IS NULL AS pmid_null, title IS NULL AS title_null,
+            year IS NULL AS year_null, doi IS NULL AS doi_null
+     FROM rummagene_catalog WHERE gmt_version = 'test-na'")
+  expect_true(base::as.logical(null_check$pmid_null[1]))
+  expect_true(base::as.logical(null_check$title_null[1]))
+  expect_true(base::as.logical(null_check$year_null[1]))
+  expect_true(base::as.logical(null_check$doi_null[1]))
 })
