@@ -155,3 +155,29 @@ test_that("rummagene_gate rejects a set whose Ensembl id is absent from the refe
   expect_false(out$ok)
   expect_equal(out$reason, "feature_absent")
 })
+
+test_that("rummagene_gate deduplicates two symbols that map to the same Ensembl id", {
+  # multiVals = "first" in rummagene_map_symbols() means two DIFFERENT
+  # symbols can legitimately land on the SAME Ensembl id. Verified directly
+  # against org.Hs.eg.db (2026-08-31): SMIM8 and LINC01590 both map to
+  # ENSG00000111850. feature_names must report that id once, not twice --
+  # the verbatim published symbols are preserved elsewhere as gene_symbols,
+  # so nothing here drops a gene; it only collapses a mapping artifact in
+  # the DERIVED Ensembl list.
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
+  conn <- test_conn()
+  new_hashkeys <- base::character(0)
+  on.exit({
+    unseed_features(conn, new_hashkeys)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000111850"))
+
+  parsed <- base::list(term = "PMC1-t.xlsx-x", description = "d",
+                       genes = c("SMIM8", "LINC01590"), pmcid = "PMC1")
+  out <- rummagene_gate(conn, parsed, organism = "Homo sapiens", organism_id = 2L)
+
+  expect_true(out$ok)
+  expect_equal(out$feature_names, "ensg00000111850")
+})

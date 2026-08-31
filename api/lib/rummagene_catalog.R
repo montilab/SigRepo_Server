@@ -114,5 +114,15 @@ rummagene_gate <- function(conn, parsed, organism, organism_id) {
     return(base::list(ok = FALSE, reason = "feature_absent"))
   }
 
-  base::list(ok = TRUE, feature_names = base::unname(mapped))
+  # unique(): multiVals = "first" above means two DIFFERENT symbols can
+  # legitimately land on the SAME Ensembl id, so the raw mapped vector can
+  # carry a duplicate. Collapsing it here is not a violation of "nothing is
+  # invented": the verbatim published symbol list is preserved separately as
+  # gene_symbols, exact and untouched -- this dedup only ever applies to the
+  # DERIVED Ensembl list. Two symbols collapsing onto one gene is a fact
+  # about the mapping, not a gene being dropped, so it is expected (not a
+  # bug to "fix" later) for length(feature_names) to come out less than
+  # length(gene_symbols) when that happens. base::unique() preserves
+  # first-occurrence order.
+  base::list(ok = TRUE, feature_names = base::unique(base::unname(mapped)))
 }
