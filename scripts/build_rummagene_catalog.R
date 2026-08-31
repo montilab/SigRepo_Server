@@ -27,9 +27,15 @@ on.exit(DBI::dbDisconnect(conn), add = TRUE)
 
 result <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = version)
 
-base::cat("\nexamined :", result$examined, "\n")
-base::cat("unparsed :", result$unparsed, "\n")
-base::cat("qualified:", result$qualified, "\n")
+base::cat("\nexamined  :", result$examined, "\n")
+base::cat("unparsed  :", result$unparsed, "\n")
+base::cat("qualified :", result$qualified, "\n")
+# A subset of `qualified`, not additional to it -- see build_rummagene_catalog()'s
+# invariant comment. It is the count of qualified sets that could NOT actually
+# be written (over-length term, or a character this table's charset cannot
+# encode), so the true number of rows landing in the table is
+# `qualified - unstorable`, not `qualified` itself.
+base::cat("unstorable:", result$unstorable, "\n")
 for (r in base::names(result$rejected)) {
   base::cat(base::sprintf("  rejected %-16s %d\n", r, result$rejected[[r]]))
 }

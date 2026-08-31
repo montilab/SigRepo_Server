@@ -95,6 +95,38 @@ test_that("rummagene_map_symbols returns NA for a symbol with no Ensembl id", {
   expect_true(base::is.na(out[["LGTN"]]))
 })
 
+test_that("rummagene_map_symbols returns all NA, not an error, when every symbol is invalid", {
+  # AnnotationDbi::mapIds() does not degrade to all-NA on its own here: it
+  # routes through .testForValidKeys(), which THROWS ("None of the keys
+  # entered are valid keys for 'SYMBOL'. ...") whenever NOT ONE key is valid
+  # -- verified directly against org.Hs.eg.db 2026-08-31. That is distinct
+  # from the partial-invalid case in the test above, where mapIds returns NA
+  # only for the bad key and never throws. Every fixture elsewhere in this
+  # file mixes in at least one valid symbol, which is exactly why nothing
+  # caught this: this is the one whose genes are ALL invalid.
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
+  out <- NULL
+  expect_no_error(out <- rummagene_map_symbols(c("NOTAREALSYMBOL123", "ALSONOTREAL456"), "Homo sapiens"))
+  expect_true(base::is.na(out[["NOTAREALSYMBOL123"]]))
+  expect_true(base::is.na(out[["ALSONOTREAL456"]]))
+})
+
+test_that("rummagene_map_symbols re-throws an unrelated mapIds error instead of treating it as all-unmapped", {
+  # Proves the tryCatch inside rummagene_map_symbols() is scoped to the exact
+  # "None of the keys entered are valid keys" message and does not become a
+  # blanket swallow of every mapIds() failure -- a genuinely broken
+  # org.Hs.eg.db install, a corrupt database, or a coding mistake upstream
+  # must still surface rather than being silently reported as "unmapped".
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
+  testthat::local_mocked_bindings(
+    mapIds = function(...) base::stop("simulated corrupt annotation database"),
+    .package = "AnnotationDbi"
+  )
+  expect_error(rummagene_map_symbols("TP53", "Homo sapiens"), "simulated corrupt annotation database")
+})
+
 test_that("rummagene_map_symbols refuses an organism outside scope", {
   expect_error(rummagene_map_symbols("TP53", "Mus musculus"), "only Homo sapiens")
 })
@@ -132,6 +164,27 @@ test_that("rummagene_gate rejects a set with one unmappable symbol", {
                        genes = c("TP53", "LGTN"), pmcid = "PMC1")
   out <- rummagene_gate(conn, parsed, organism = "Homo sapiens", organism_id = 2L)
 
+  expect_false(out$ok)
+  expect_equal(out$reason, "unmapped_symbol")
+})
+
+test_that("rummagene_gate rejects a set whose every symbol is invalid, rather than erroring", {
+  # C1: AnnotationDbi::mapIds() THROWS instead of returning NAs when NOT ONE
+  # symbol in the set is a valid SYMBOL key (see rummagene_map_symbols()'s own
+  # comment) -- which made the "unmapped_symbol" branch below UNREACHABLE in
+  # exactly the case it exists for. Every other gate fixture in this file
+  # mixes in at least one valid symbol, which is why nothing else here would
+  # have caught this. Real Rummagene sets scraped from a miRNA or probe-id
+  # column can be entirely unmappable, at real volume, so this must be a
+  # normal rejection -- not an uncaught error that aborts the whole build.
+  conn <- test_conn()
+  on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  parsed <- base::list(term = "PMC1-t.xlsx-x", description = "d",
+                       genes = c("NOTAREALSYMBOL123", "ALSONOTREAL456"), pmcid = "PMC1")
+
+  out <- NULL
+  expect_no_error(out <- rummagene_gate(conn, parsed, organism = "Homo sapiens", organism_id = 2L))
   expect_false(out$ok)
   expect_equal(out$reason, "unmapped_symbol")
 })
@@ -320,6 +373,111 @@ test_that("rummagene_catalog_upsert stores NA metadata as SQL NULL, not the stri
   expect_true(base::as.logical(null_check$title_null[1]))
   expect_true(base::as.logical(null_check$year_null[1]))
   expect_true(base::as.logical(null_check$doi_null[1]))
+})
+
+test_that("rummagene_catalog_upsert skips a term over the column's 512-character limit instead of erroring", {
+  # I1(a): checked in R rather than left to MySQL, because under a
+  # non-strict sql_mode MySQL would not error at all -- it would silently
+  # TRUNCATE `term` while term_hashkey (hashed from the FULL term) keeps
+  # hashing the untruncated text, so get_rummagene_catalog_entry() could
+  # never find the row again by that hash. This dev database runs
+  # STRICT_TRANS_TABLES (verified 2026-08-31), so an unguarded INSERT here
+  # would throw "Data too long for column 'term'" and, pre-fix, would have
+  # aborted the whole build; this asserts the R-side guard catches it first,
+  # for either sql_mode.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-unstorable-len'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  long_term <- base::paste(base::rep("x", 600), collapse = "")
+  row <- catalog_row_fixture(term = long_term)
+
+  report_count <- 0L
+  report_message <- NULL
+  n <- NULL
+  expect_no_error(n <- rummagene_catalog_upsert(
+    conn, base::list(row), gmt_version = "test-unstorable-len",
+    on_unstorable = function(row, message) {
+      report_count <<- report_count + 1L
+      report_message <<- message
+    }
+  ))
+
+  expect_equal(n, 0)
+  expect_equal(report_count, 1L)
+  expect_match(report_message, "512", fixed = TRUE)
+
+  got <- DBI::dbGetQuery(conn, "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version = 'test-unstorable-len'")
+  expect_equal(got$n[1], 0)
+})
+
+test_that("rummagene_catalog_upsert skips a term with a character its utf8 (utf8mb3) column cannot encode, instead of aborting", {
+  # I1(b): the table is CHARSET=utf8, which MySQL treats as utf8mb3 -- 3
+  # bytes per character, so it cannot store a 4-byte character. Unlike the
+  # length check above, there is no cheap R-side precheck for this one, so
+  # the guard has to be the tryCatch around the write itself. U+1F600 is a
+  # 4-byte character in UTF-8, the kind a scraped Excel sheet name can carry.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-unstorable-charset'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  emoji_term <- base::paste0("PMC1-t.xlsx-", base::intToUtf8(0x1F600))
+  row <- catalog_row_fixture(term = emoji_term)
+
+  report_count <- 0L
+  report_message <- NULL
+  n <- NULL
+  expect_no_error(n <- rummagene_catalog_upsert(
+    conn, base::list(row), gmt_version = "test-unstorable-charset",
+    on_unstorable = function(row, message) {
+      report_count <<- report_count + 1L
+      report_message <<- message
+    }
+  ))
+
+  expect_equal(n, 0)
+  expect_equal(report_count, 1L)
+  expect_match(report_message, "Incorrect string value", fixed = TRUE)
+
+  got <- DBI::dbGetQuery(conn, "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version = 'test-unstorable-charset'")
+  expect_equal(got$n[1], 0)
+})
+
+test_that("rummagene_catalog_upsert warns instead of silently dropping an unstorable row when no on_unstorable callback is given", {
+  # A caller that does not wire the callback must not be able to mistake a
+  # lower `written` count for every row having succeeded.
+  conn <- test_conn()
+  on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  long_term <- base::paste(base::rep("x", 600), collapse = "")
+  row <- catalog_row_fixture(term = long_term)
+
+  n <- NULL
+  expect_warning(
+    n <- rummagene_catalog_upsert(conn, base::list(row), gmt_version = "test-unstorable-warn-only"),
+    "unstorable"
+  )
+  expect_equal(n, 0)
+})
+
+test_that("rummagene_catalog_upsert re-throws a storage error that is not a known unstorable-row shape", {
+  # Proves the tryCatch inside rummagene_catalog_upsert() is scoped to the two
+  # known "this row's data does not fit the column" shapes and does not
+  # become a blanket swallow of every INSERT failure -- a real bug or a real
+  # outage must still abort loudly. NA organism reaches MySQL as a genuine
+  # SQL NULL (DBI::dbQuoteLiteral() renders NA_character_ as the literal
+  # NULL, verified 2026-08-31), which violates `organism`'s NOT NULL
+  # constraint with a message this function's pattern does not match.
+  conn <- test_conn()
+  on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  row <- catalog_row_fixture(term = "PMC1-null-organism-should-not-be-stored")
+  row$organism <- NA_character_
+
+  expect_error(
+    rummagene_catalog_upsert(conn, base::list(row), gmt_version = "test-should-not-exist"),
+    "cannot be null"
+  )
 })
 
 seed_catalog <- function(conn) {

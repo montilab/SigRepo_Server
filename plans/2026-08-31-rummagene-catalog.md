@@ -1048,7 +1048,7 @@ git commit -m "feat: server-side paged, sorted, filtered catalog search"
 - Consumes: `rummagene_parse_gmt_line()`, `rummagene_gate()`, `rummagene_catalog_upsert()`, `rummagene_catalog_prune()`, and `rummagene_mesh_organism()` / `rummagene_mesh_assay_type()` from `rummagene_ingest.R`
 - Produces:
   - `rummagene_parse_article_xml(xml_text)` → named list, PMID → `list(mesh, title, year, doi)`
-  - `rummagene_fetch_articles_by_pmcid(pmcids)` → named list, PMC id → `list(mesh, title, year, doi)`
+  - `rummagene_fetch_articles_by_pmcid(pmcids)` → an ENVIRONMENT keyed by PMC id (not a named list -- see that function's header: O(1) assign()/get() at ~188k papers, where a named list's `[[<-` would be O(n^2)) → `list(mesh, title, year, doi)`
   - `build_rummagene_catalog(conn, gmt_path, gmt_version, articles_by_pmcid = NULL, chunk_size = 5000, progress = TRUE)` → `list(examined, qualified, rejected)`
 
 - [ ] **Step 0a: Write the failing test for article metadata**
@@ -1624,8 +1624,8 @@ Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exa
 
 ```bash
 docker restart sigrepo-local-api
-curl -s "http://localhost:8000/rummagene/catalog?api_key=$LOCAL_API_KEY&limit=2" | head -c 400
-curl -s "http://localhost:8000/rummagene/catalog/entry?api_key=$LOCAL_API_KEY&term=PMC1-t.xlsx-keep" | head -c 400
+curl -s "http://localhost:8020/rummagene/catalog?api_key=$LOCAL_API_KEY&limit=2" | head -c 400
+curl -s "http://localhost:8020/rummagene/catalog/entry?api_key=$LOCAL_API_KEY&term=PMC1-t.xlsx-keep" | head -c 400
 ```
 
 Expected: the first returns JSON with `count` and `rows` and **no** gene columns; the second returns one entry **with** `gene_symbols` and `feature_names`. Neither is a 404 or a startup error.
@@ -1832,7 +1832,7 @@ Expected: `FAIL 0`, with the new tests among those that ran. Do not treat an exa
 ```bash
 docker restart sigrepo-local-api
 # seed one catalog row, then:
-curl -s -X POST "http://localhost:8000/rummagene/pull" \
+curl -s -X POST "http://localhost:8020/rummagene/pull" \
   -H 'Content-Type: application/json' \
   -d "{\"api_key\":\"$LOCAL_API_KEY\",\"term\":\"PMC1-t.xlsx-keep\"}"
 ```
@@ -2365,9 +2365,21 @@ Append to `web/src/App.css`. Every token used here is one this stylesheet actual
 
 - [ ] **Step 4: Verify in the browser**
 
-```bash
-docker restart sigrepo-local-web
-```
+`docker restart sigrepo-local-web` does **not** pick up source changes -- that
+image (`montilab/sigrepo-web:latest`, built from `./web` per
+`docker-compose-local.yml`) bakes the built bundle in at image-build time with
+no bind mount, so a restart just relaunches the same old bundle. Use one of:
+
+- **Durable rebuild** (rebuilds the image, what a real deploy does):
+  ```bash
+  docker compose -f docker-compose-local.yml -p sigrepo_local build sigrepo-web
+  docker compose -f docker-compose-local.yml -p sigrepo_local up -d sigrepo-web
+  ```
+- **Fast throwaway check** (skips the image build entirely):
+  ```bash
+  npm run build   # from web/ -- emits web/dist/
+  docker cp web/dist/. sigrepo-local-web:/usr/share/nginx/html/
+  ```
 
 Then open the preview, sign in, and confirm: the nav entry appears; the page loads a page of rows; sorting a column re-queries rather than reordering the page; each filter narrows the result; Pull creates a signature and links to it; pulling the same row twice shows the duplicate message.
 

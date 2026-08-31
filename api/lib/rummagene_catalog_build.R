@@ -88,16 +88,30 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
   # letting them vanish between `examined` and every `rejected` bucket)
   # matters because a truncated download or a malformed future release would
   # otherwise under-report with no signal.
-  reasons <- c("no_mesh", "organism", "assay_type", "unmapped_symbol", "feature_absent")
+  #
+  # `unstorable` sits outside this invariant too, the same way `unparsed`
+  # does, but at the OTHER end of the pipeline: it is NOT added to `examined`,
+  # `qualified`, or any `rejected` bucket. It counts sets that passed every
+  # gate below -- a real, mappable, in-scope gene set -- but that
+  # rummagene_catalog_upsert() could not actually persist (an over-length
+  # term, or a character this table's charset cannot encode; see that
+  # function's header). So `qualified` still means exactly "passed the
+  # gate", and it does NOT mean "landed in the table" -- the true row count
+  # written is `qualified - unstorable`, not `qualified` itself.
+  reasons <- c("no_mesh", "organism", "assay_type", "too_few_genes", "unmapped_symbol", "feature_absent")
   rejected <- stats::setNames(base::as.list(base::rep(0L, base::length(reasons))), reasons)
   unparsed <- 0L
+  unstorable <- 0L
   examined <- 0L
   qualified <- 0L
   batch <- base::list()
 
   flush_batch <- function() {
     if (base::length(batch) > 0) {
-      rummagene_catalog_upsert(conn, batch, gmt_version = gmt_version)
+      rummagene_catalog_upsert(conn, batch, gmt_version = gmt_version,
+                               on_unstorable = function(row, message) {
+                                 unstorable <<- unstorable + 1L
+                               })
       batch <<- base::list()
     }
   }
@@ -125,6 +139,21 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
       assay_type <- rummagene_mesh_assay_type(mesh)
       if (base::is.null(assay_type) || !base::identical(assay_type, "transcriptomics")) {
         rejected$assay_type <- rejected$assay_type + 1L; next
+      }
+
+      # The spec's floor (Architecture step 5): a set qualifies on
+      # "unambiguous organism, unambiguous assay type, >= 2 genes".
+      # rummagene_parse_gmt_line() only ever drops a ZERO-gene set (there is
+      # no set at all to speak of below that) -- it does not, and cannot,
+      # enforce this >= 2 floor itself, since it runs before organism/
+      # assay_type are known and has no way to tell a genuinely single-gene
+      # published set apart from one this pipeline just hasn't rejected yet.
+      # Without this check a one-gene set whose lone symbol happens to map
+      # and resolve would reach the catalog. Checked here, cheaply, before
+      # the mapIds()/DB round trip in rummagene_gate() below runs on a set
+      # that can never qualify regardless of what it finds.
+      if (base::length(parsed$genes) < 2L) {
+        rejected$too_few_genes <- rejected$too_few_genes + 1L; next
       }
 
       # KNOWN COST, PARKED (Task 7 review, Finding 4): rummagene_gate() calls
@@ -161,5 +190,6 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
   flush_batch()
 
   rummagene_catalog_prune(conn, gmt_version = gmt_version)
-  base::list(examined = examined, qualified = qualified, rejected = rejected, unparsed = unparsed)
+  base::list(examined = examined, qualified = qualified, rejected = rejected,
+            unparsed = unparsed, unstorable = unstorable)
 }

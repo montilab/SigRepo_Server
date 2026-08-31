@@ -67,6 +67,90 @@ test_that("build_rummagene_catalog keeps only the sets that pass every gate", {
   expect_equal(got$pmid[1], "1")
 })
 
+test_that("build_rummagene_catalog rejects a one-gene set under its own reason instead of cataloguing it", {
+  # M1: the spec's floor (Architecture step 5) is "unambiguous organism,
+  # unambiguous assay type, >= 2 genes". rummagene_parse_gmt_line() only ever
+  # drops a ZERO-gene line -- it does not enforce this floor -- so before this
+  # fix a one-gene set whose lone symbol happened to map and resolve would
+  # reach the catalog. This fixture's lone gene, TP53, is deliberately seeded
+  # so it WOULD otherwise pass the gate, isolating the floor as the thing
+  # under test.
+  conn <- test_conn()
+  new_hashkeys <- base::character(0)
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-too-few'")
+            unseed_features(conn, new_hashkeys)
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510"))
+
+  gmt <- base::tempfile(fileext = ".gmt")
+  base::writeLines("PMC1-t.xlsx-onegene\tDEGs\tTP53", gmt)
+  on.exit(base::unlink(gmt), add = TRUE)
+
+  articles <- base::list(
+    PMC1 = base::list(pmid = "1", mesh = c("Humans", "Transcriptome"),
+                      title = "One gene", year = 2020L, doi = "10.1/a")
+  )
+
+  out <- NULL
+  # Nothing qualifies under 'test-too-few', so the prune guard's own
+  # "refusing to delete" warning fires as designed -- expected here, not a
+  # bug, since this fixture's one set is deliberately the only line.
+  expect_warning(
+    out <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = "test-too-few",
+                                   articles_by_pmcid = articles, progress = FALSE),
+    "refusing to delete"
+  )
+
+  expect_equal(out$examined, 1)
+  expect_equal(out$qualified, 0)
+  expect_equal(out$rejected$too_few_genes, 1)
+
+  got <- DBI::dbGetQuery(conn, "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version = 'test-too-few'")
+  expect_equal(got$n[1], 0)
+})
+
+test_that("build_rummagene_catalog counts an unstorable row separately and keeps writing the rest of the batch", {
+  # I1's core regression: an over-length term must not abort the pass, and
+  # must not silently take its batch-mates down with it. Both rows below pass
+  # every content gate (organism, assay_type, mapping, feature presence) --
+  # only the storage step, at the very end, tells them apart -- so this also
+  # proves `qualified` (a claim about content) and `unstorable` (a claim
+  # about storage) are counted independently, per build_rummagene_catalog()'s
+  # own invariant comment.
+  conn <- test_conn()
+  new_hashkeys <- base::character(0)
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-unstorable-build'")
+            unseed_features(conn, new_hashkeys)
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510", "ensg00000136997"))
+
+  long_term <- base::paste0("PMC2-t.xlsx-", base::paste(base::rep("x", 600), collapse = ""))
+  gmt <- base::tempfile(fileext = ".gmt")
+  base::writeLines(c(
+    "PMC1-t.xlsx-keep\tDEGs\tTP53\tMYC",
+    base::paste0(long_term, "\tDEGs\tTP53\tMYC")
+  ), gmt)
+  on.exit(base::unlink(gmt), add = TRUE)
+
+  articles <- base::list(
+    PMC1 = base::list(pmid = "1", mesh = c("Humans", "Transcriptome"), title = "Keeper", year = 2020L, doi = "10.1/a"),
+    PMC2 = base::list(pmid = "2", mesh = c("Humans", "Transcriptome"), title = "Too long", year = 2021L, doi = "10.1/b")
+  )
+
+  out <- NULL
+  expect_no_error(
+    out <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = "test-unstorable-build",
+                                   articles_by_pmcid = articles, progress = FALSE)
+  )
+
+  expect_equal(out$examined, 2)
+  expect_equal(out$qualified, 2)
+  expect_equal(out$unstorable, 1)
+
+  got <- DBI::dbGetQuery(conn, "SELECT term FROM rummagene_catalog WHERE gmt_version = 'test-unstorable-build'")
+  expect_equal(got$term, "PMC1-t.xlsx-keep")
+})
+
 test_that("build_rummagene_catalog does not read the whole GMT into memory", {
   # The droplet has ~1GB free and latest.gmt is ~700MB. The job must stream.
   # readLines() with no `n` would materialize the file, so assert the source

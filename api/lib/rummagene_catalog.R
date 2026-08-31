@@ -67,10 +67,44 @@ rummagene_map_symbols <- function(symbols, organism) {
   }
   symbols <- base::unique(base::as.character(symbols))
 
-  mapped <- base::suppressMessages(AnnotationDbi::mapIds(
-    org.Hs.eg.db::org.Hs.eg.db,
-    keys = symbols, keytype = "SYMBOL", column = "ENSEMBL", multiVals = "first"
-  ))
+  # AnnotationDbi::mapIds() does NOT report "nothing here maps" the way its
+  # signature implies. It routes through .testForValidKeys(), which does
+  # `if (!any(ktKeys %in% keys)) stop("None of the keys entered are valid
+  # keys for '", keytype, "'. ...")` -- so when NOT ONE symbol in `symbols`
+  # is a current SYMBOL key, mapIds THROWS instead of returning a vector of
+  # NAs. A mix of valid and invalid symbols is fine and yields NA only for
+  # the invalid ones (verified directly against org.Hs.eg.db 2026-08-31); it
+  # is only the all-invalid case that throws. Rummagene scrapes miRNA and
+  # probe-id columns routinely, so an all-invalid-symbols set is a routine
+  # occurrence at ~155,000 calls per build, not a rare edge case.
+  #
+  # Caught HERE, in the shared helper, rather than in rummagene_gate(), so
+  # BOTH of this function's callers get an honest "everything is NA" instead
+  # of an uncaught error -- rummagene_gate()'s own `any(is.na(mapped))` check
+  # already treats that as "unmapped_symbol", which is exactly the rejection
+  # this case is supposed to produce. Do NOT remove this as defensive noise:
+  # without it, one all-invalid gene set aborts the entire multi-hour build,
+  # leaving the catalog mixed-version with no prune having run.
+  #
+  # Scoped to that ONE message, matched by substring since the keytype is
+  # interpolated into it, so a genuinely broken org.Hs.eg.db install, a
+  # corrupt database, or an unrelated coding mistake (e.g. a bad `column` or
+  # `keytype`) still throws instead of being silently folded into "nothing
+  # mapped".
+  mapped <- base::tryCatch(
+    base::suppressMessages(AnnotationDbi::mapIds(
+      org.Hs.eg.db::org.Hs.eg.db,
+      keys = symbols, keytype = "SYMBOL", column = "ENSEMBL", multiVals = "first"
+    )),
+    error = function(e) {
+      if (base::grepl("None of the keys entered are valid keys for",
+                       base::conditionMessage(e), fixed = TRUE)) {
+        stats::setNames(base::rep(NA_character_, base::length(symbols)), symbols)
+      } else {
+        base::stop(e)
+      }
+    }
+  )
   out <- base::tolower(base::as.character(mapped))
   out[base::is.na(mapped)] <- NA_character_
   stats::setNames(out, symbols)
@@ -132,42 +166,121 @@ rummagene_gate <- function(conn, parsed, organism, organism_id) {
 # greppable from SQL for debugging.
 .rummagene_join_genes <- function(x) base::paste(base::as.character(x), collapse = ",")
 
+# term's column width -- mysql/schema/rummagene_catalog.sql's `term` is
+# VARCHAR(512). Checked here in R, not left to MySQL, because under a
+# non-strict sql_mode MySQL would not error at all: it would silently
+# TRUNCATE `term` on INSERT while term_hashkey (computed below from the FULL,
+# untruncated term) keeps hashing the text the row was supposed to have. That
+# mismatch would make get_rummagene_catalog_entry()'s term_hashkey lookup
+# unable to ever find the row it just wrote -- a stored catalog entry that
+# can never be pulled, which contradicts this table's whole guarantee that
+# every row pulls cleanly.
+RUMMAGENE_CATALOG_TERM_MAX <- 512L
+
+# The two, and only two, known MySQL failure shapes for a row this table
+# genuinely cannot store, matched by the substring MySQL/RMySQL always uses
+# for them:
+#   "Data too long for column" -- a value wider than its column under strict
+#                                  sql_mode. Backstop only here: the length
+#                                  check above already keeps an over-long
+#                                  `term` out of this path; kept in case a
+#                                  future column (doi, pmcid, ...) grows past
+#                                  its own width and reaches strict mode
+#                                  before it reaches an R-side check.
+#   "Incorrect string value"   -- a character this column's charset cannot
+#                                  encode, e.g. a 4-byte character (an emoji
+#                                  in a scraped Excel sheet name) into this
+#                                  table's utf8 (utf8mb3) charset. There is
+#                                  no cheap R-side precheck for this one --
+#                                  it can only be discovered by attempting
+#                                  the write.
+# Anything else -- a dropped connection, a syntax error, a schema mismatch --
+# is a real bug or a real outage and must still abort the build loudly, so
+# it is deliberately NOT matched here. (Both fixed substrings verified
+# 2026-08-31 against this table's actual schema and this driver: RMySQL
+# prefixes the underlying MySQL error with "could not run statement: ".)
+.RUMMAGENE_UNSTORABLE_ROW_PATTERN <- "Data too long for column|Incorrect string value"
+
+# Reports one row rummagene_catalog_upsert() could not store: to `on_unstorable`
+# if the caller supplied one, otherwise as a base::warning() so the skip is
+# never silent even for a caller that did not wire the callback.
+.rummagene_report_unstorable <- function(row, message, on_unstorable) {
+  if (base::is.null(on_unstorable)) {
+    base::warning("rummagene_catalog_upsert: skipping unstorable row (term='",
+                  row$term, "') -- ", message, call. = FALSE)
+  } else {
+    on_unstorable(row, message)
+  }
+}
+
 # Write catalog rows. Keyed on term_hashkey = md5(tolower(term)) -- the same
 # formula collection_hash() uses everywhere else in this codebase -- so a
 # re-run over an unchanged GMT updates in place rather than duplicating.
-rummagene_catalog_upsert <- function(conn, rows, gmt_version) {
+#
+# A row this table cannot store is skipped and reported (see
+# .rummagene_report_unstorable() and RUMMAGENE_CATALOG_TERM_MAX /
+# .RUMMAGENE_UNSTORABLE_ROW_PATTERN above) rather than being allowed to abort
+# the whole pass -- one bad row, at ~155,000 attempts per build, must not take
+# down the other ~154,999. `on_unstorable(row, message)`, if supplied, is
+# called once per skipped row so a caller can count it; governing rule
+# "nothing is invented" applies here as everywhere else in this pipeline: a
+# row that cannot be stored is refused and counted, never silently altered
+# (e.g. truncated) to fit.
+rummagene_catalog_upsert <- function(conn, rows, gmt_version, on_unstorable = NULL) {
   written <- 0L
   for (r in rows %||% base::list()) {
+    term_len <- base::nchar(base::as.character(r$term))
+    if (term_len > RUMMAGENE_CATALOG_TERM_MAX) {
+      .rummagene_report_unstorable(r, base::sprintf(
+        "term is %d characters, over the %d-character column limit",
+        term_len, RUMMAGENE_CATALOG_TERM_MAX
+      ), on_unstorable)
+      next
+    }
+
     hk <- collection_hash(r$term, "")
-    DBI::dbExecute(conn, base::sprintf(
-      "INSERT INTO rummagene_catalog
-         (term, pmcid, pmid, title, year, doi, description, organism, assay_type,
-          mesh_evidence, n_genes, gene_symbols, feature_names, gmt_version, term_hashkey)
-       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %s)
-       ON DUPLICATE KEY UPDATE
-         term = VALUES(term), pmcid = VALUES(pmcid), pmid = VALUES(pmid), title = VALUES(title),
-         year = VALUES(year), doi = VALUES(doi), description = VALUES(description),
-         organism = VALUES(organism), assay_type = VALUES(assay_type),
-         mesh_evidence = VALUES(mesh_evidence), n_genes = VALUES(n_genes),
-         gene_symbols = VALUES(gene_symbols), feature_names = VALUES(feature_names),
-         gmt_version = VALUES(gmt_version), built_at = CURRENT_TIMESTAMP",
-      DBI::dbQuoteLiteral(conn, r$term),
-      DBI::dbQuoteLiteral(conn, r$pmcid),
-      sql_value(conn, r$pmid),
-      sql_value(conn, r$title),
-      sql_value(conn, r$year),
-      sql_value(conn, r$doi),
-      sql_value(conn, r$description),
-      DBI::dbQuoteLiteral(conn, r$organism),
-      DBI::dbQuoteLiteral(conn, r$assay_type),
-      DBI::dbQuoteLiteral(conn, r$mesh_evidence),
-      base::length(r$gene_symbols),
-      DBI::dbQuoteLiteral(conn, .rummagene_join_genes(r$gene_symbols)),
-      DBI::dbQuoteLiteral(conn, .rummagene_join_genes(r$feature_names)),
-      DBI::dbQuoteLiteral(conn, gmt_version),
-      DBI::dbQuoteLiteral(conn, hk)
-    ))
-    written <- written + 1L
+    ok <- base::tryCatch({
+      DBI::dbExecute(conn, base::sprintf(
+        "INSERT INTO rummagene_catalog
+           (term, pmcid, pmid, title, year, doi, description, organism, assay_type,
+            mesh_evidence, n_genes, gene_symbols, feature_names, gmt_version, term_hashkey)
+         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %s)
+         ON DUPLICATE KEY UPDATE
+           term = VALUES(term), pmcid = VALUES(pmcid), pmid = VALUES(pmid), title = VALUES(title),
+           year = VALUES(year), doi = VALUES(doi), description = VALUES(description),
+           organism = VALUES(organism), assay_type = VALUES(assay_type),
+           mesh_evidence = VALUES(mesh_evidence), n_genes = VALUES(n_genes),
+           gene_symbols = VALUES(gene_symbols), feature_names = VALUES(feature_names),
+           gmt_version = VALUES(gmt_version), built_at = CURRENT_TIMESTAMP",
+        DBI::dbQuoteLiteral(conn, r$term),
+        DBI::dbQuoteLiteral(conn, r$pmcid),
+        sql_value(conn, r$pmid),
+        sql_value(conn, r$title),
+        sql_value(conn, r$year),
+        sql_value(conn, r$doi),
+        sql_value(conn, r$description),
+        DBI::dbQuoteLiteral(conn, r$organism),
+        DBI::dbQuoteLiteral(conn, r$assay_type),
+        DBI::dbQuoteLiteral(conn, r$mesh_evidence),
+        base::length(r$gene_symbols),
+        DBI::dbQuoteLiteral(conn, .rummagene_join_genes(r$gene_symbols)),
+        DBI::dbQuoteLiteral(conn, .rummagene_join_genes(r$feature_names)),
+        DBI::dbQuoteLiteral(conn, gmt_version),
+        DBI::dbQuoteLiteral(conn, hk)
+      ))
+      TRUE
+    }, error = function(e) {
+      msg <- base::conditionMessage(e)
+      if (base::grepl(.RUMMAGENE_UNSTORABLE_ROW_PATTERN, msg)) {
+        .rummagene_report_unstorable(r, msg, on_unstorable)
+        FALSE
+      } else {
+        base::stop(e)
+      }
+    })
+    if (base::isTRUE(ok)) {
+      written <- written + 1L
+    }
   }
   written
 }
