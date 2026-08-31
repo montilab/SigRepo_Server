@@ -377,12 +377,28 @@ test_that("search_rummagene_catalog sorts server-side on a whitelisted column", 
 test_that("search_rummagene_catalog ignores an unknown sort column instead of interpolating it", {
   # sort_by lands in ORDER BY, where quoting cannot protect it -- the same
   # reasoning as .signature_sort_columns in api/lib/signature.R.
+  #
+  # This payload is deliberately a SINGLE SQL statement (a trailing comment,
+  # not a stacked query): neither the test connection nor the production pool
+  # sets CLIENT_MULTI_STATEMENTS, so a ";"-based payload would be rejected by
+  # MySQL itself regardless of whether the whitelist below exists, and the
+  # test would pass for the wrong reason. "year DESC -- " is, on its own,
+  # valid SQL wherever the ORDER BY expression lands -- if the whitelist were
+  # ever bypassed and sort_by interpolated raw, the trailing comment would
+  # swallow the "ASC" this call explicitly requests, and the rows would come
+  # back sorted DESCENDING instead. Asserting ascending order below is what
+  # actually proves the whitelist -- not MySQL's inability to run a second
+  # statement -- is what makes this safe.
   conn <- test_conn()
   on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
             DBI::dbDisconnect(conn) }, add = TRUE)
   seed_catalog(conn)
 
-  expect_no_error(search_rummagene_catalog(conn, sort_by = "year; DROP TABLE rummagene_catalog--", limit = 5))
+  out <- NULL
+  expect_no_error(
+    out <- search_rummagene_catalog(conn, sort_by = "year DESC -- ", sort_dir = "asc", limit = 50)
+  )
+  expect_equal(out$rows$year, base::sort(out$rows$year, decreasing = FALSE))
   expect_equal(base::nrow(DBI::dbGetQuery(conn, "SELECT 1 FROM rummagene_catalog LIMIT 1")), 1)
 })
 
@@ -397,4 +413,115 @@ test_that("search_rummagene_catalog omits the large gene columns", {
   out <- search_rummagene_catalog(conn, limit = 5)
   expect_false("gene_symbols" %in% base::colnames(out$rows))
   expect_false("feature_names" %in% base::colnames(out$rows))
+})
+
+test_that("get_rummagene_catalog_entry round-trips gene_symbols and feature_names as vectors", {
+  # Task 8's detail route and Task 9's pull path both build on this return
+  # value -- Task 9 in particular turns feature_names into a REAL, persisted
+  # signatures row, so the round trip must land on character vectors, not
+  # the comma-joined storage string.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-entry'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  row <- catalog_row_fixture(term = "PMC1-entry-check", genes = c("TP53", "MYC"))
+  rummagene_catalog_upsert(conn, base::list(row), gmt_version = "test-entry")
+
+  out <- get_rummagene_catalog_entry(conn, "PMC1-entry-check")
+
+  expect_equal(out$term, "PMC1-entry-check")
+  expect_type(out$gene_symbols, "character")
+  expect_equal(out$gene_symbols, c("TP53", "MYC"))
+  expect_type(out$feature_names, "character")
+  expect_equal(out$feature_names, c("ensg00000141510", "ensg00000136997"))
+})
+
+test_that("get_rummagene_catalog_entry returns NULL for a term not in the catalog", {
+  conn <- test_conn()
+  on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  expect_null(get_rummagene_catalog_entry(conn, "no-such-term-at-all"))
+})
+
+test_that("get_rummagene_catalog_entry degrades to an empty vector when the gene lists are empty", {
+  # strsplit("", ",", fixed = TRUE)[[1]] yields character(0), not a length-1
+  # vector holding "" -- this is the regression test that holds the reader
+  # to that.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-entry-empty'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  row <- catalog_row_fixture(term = "PMC1-entry-empty")
+  row$gene_symbols <- base::character(0)
+  row$feature_names <- base::character(0)
+  rummagene_catalog_upsert(conn, base::list(row), gmt_version = "test-entry-empty")
+
+  out <- get_rummagene_catalog_entry(conn, "PMC1-entry-empty")
+  expect_equal(out$gene_symbols, base::character(0))
+  expect_equal(out$feature_names, base::character(0))
+})
+
+test_that("search_rummagene_catalog treats a missing numeric bound (NULL, NA, or empty string) as not supplied", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  # The route layer's json_scalar() yields "" for a parameter the caller
+  # never supplied -- that, an explicit NA, and the default NULL must all
+  # stay silently absent rather than becoming a filter that matches nothing.
+  out <- search_rummagene_catalog(
+    conn, year_min = "", year_max = NA, n_genes_min = NA_character_, limit = 50
+  )
+  expect_gte(base::nrow(out$rows), 3)
+})
+
+test_that("search_rummagene_catalog errors on an unparseable numeric bound instead of silently dropping it", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  # A genuinely supplied but garbage bound must fail loudly. Silently
+  # dropping it would be indistinguishable, from the caller's side, from
+  # "filtered correctly and nothing matched" -- the same failure shape the
+  # governing "nothing is invented" rule exists to prevent.
+  expect_error(search_rummagene_catalog(conn, year_min = "abc", limit = 50))
+  expect_error(search_rummagene_catalog(conn, n_genes_max = "many", limit = 50))
+})
+
+test_that("search_rummagene_catalog falls back to the default limit instead of crashing on a non-numeric one", {
+  # as.integer("abc") is NA; unguarded, sprintf's %d would render the literal
+  # text "LIMIT NA" and MySQL would reject the whole query.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- NULL
+  expect_no_error(out <- search_rummagene_catalog(conn, limit = "abc"))
+  expect_gte(base::nrow(out$rows), 3)
+})
+
+test_that("search_rummagene_catalog treats a negative offset as zero instead of erroring", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- NULL
+  expect_no_error(out <- search_rummagene_catalog(conn, offset = -5, limit = 50))
+  expect_gte(base::nrow(out$rows), 3)
+})
+
+test_that("search_rummagene_catalog caps the limit instead of returning the whole table", {
+  # The pagination this task exists to provide is defeated if a caller can
+  # request all ~135,000 rows in one response.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- search_rummagene_catalog(conn, limit = 100000)
+  expect_lte(base::nrow(out$rows), 100)
 })

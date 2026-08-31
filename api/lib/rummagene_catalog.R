@@ -230,6 +230,23 @@ search_rummagene_catalog <- function(conn, q = NULL, organism = NULL, assay_type
                                      n_genes_min = NULL, n_genes_max = NULL,
                                      limit = 25, offset = 0,
                                      sort_by = NULL, sort_dir = "asc") {
+  # As in search_signatures() (api/lib/signature.R:41-49): a non-numeric
+  # limit/offset must degrade to a default instead of crashing sprintf's %d
+  # into the literal text "LIMIT NA", and the upper cap keeps a caller from
+  # requesting the whole ~135k-row table in one response and defeating the
+  # pagination this function exists to provide. Reusing that function's cap
+  # of 100 rather than inventing a different one for the same shape of limit.
+  limit <- base::suppressWarnings(base::as.integer(limit[1]))
+  if (base::is.na(limit) || limit < 1) {
+    limit <- 25
+  }
+  limit <- base::min(limit, 100)
+
+  offset <- base::suppressWarnings(base::as.integer(offset[1]))
+  if (base::is.na(offset) || offset < 0) {
+    offset <- 0
+  }
+
   where <- base::character(0)
   add <- function(clause) where <<- c(where, clause)
 
@@ -244,16 +261,34 @@ search_rummagene_catalog <- function(conn, q = NULL, organism = NULL, assay_type
   if (base::length(assay_type) == 1 && base::nzchar(base::as.character(assay_type))) {
     add(base::sprintf("assay_type = %s", DBI::dbQuoteLiteral(conn, assay_type)))
   }
+  # NULL, a single NA (any type), or "" all mean "not supplied" -- the route
+  # layer's json_scalar() yields "" for a parameter the caller never passed --
+  # and must stay silently absent. Anything else that fails to parse as a
+  # number is a caller error and must fail loudly: silently dropping it would
+  # be indistinguishable, from the caller's side, from "filtered correctly
+  # and nothing matched", which is exactly the failure shape the "nothing is
+  # invented" rule exists to prevent.
   for (bound in base::list(
-    base::list(v = year_min,    col = "year",    op = ">="),
-    base::list(v = year_max,    col = "year",    op = "<="),
-    base::list(v = n_genes_min, col = "n_genes", op = ">="),
-    base::list(v = n_genes_max, col = "n_genes", op = "<=")
+    base::list(v = year_min,    name = "year_min",    col = "year",    op = ">="),
+    base::list(v = year_max,    name = "year_max",    col = "year",    op = "<="),
+    base::list(v = n_genes_min, name = "n_genes_min", col = "n_genes", op = ">="),
+    base::list(v = n_genes_max, name = "n_genes_max", col = "n_genes", op = "<=")
   )) {
-    n <- base::suppressWarnings(base::as.integer(bound$v %||% NA))
-    if (!base::is.na(n)) {
-      add(base::sprintf("%s %s %d", bound$col, bound$op, n))
+    v <- bound$v
+    not_supplied <- base::is.null(v) ||
+      (base::length(v) == 1 && base::is.na(v)) ||
+      (base::length(v) == 1 && base::is.character(v) && !base::nzchar(base::trimws(v)))
+    if (not_supplied) {
+      next
     }
+    n <- base::suppressWarnings(base::as.integer(v))
+    if (base::is.na(n)) {
+      base::stop(base::sprintf(
+        "search_rummagene_catalog: %s must be a number, got %s",
+        bound$name, base::deparse(v)
+      ))
+    }
+    add(base::sprintf("%s %s %d", bound$col, bound$op, n))
   }
 
   where_sql <- if (base::length(where) == 0) "" else base::paste("WHERE", base::paste(where, collapse = " AND "))
@@ -276,7 +311,7 @@ search_rummagene_catalog <- function(conn, q = NULL, organism = NULL, assay_type
      ORDER BY %s %s, term ASC
      LIMIT %d OFFSET %d",
     where_sql, sort_expr, sort_dir_sql,
-    base::max(1L, base::as.integer(limit)), base::max(0L, base::as.integer(offset))
+    limit, offset
   ))
 
   base::list(count = base::as.integer(count), rows = rows)
