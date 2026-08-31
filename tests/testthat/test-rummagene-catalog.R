@@ -609,3 +609,228 @@ test_that("api.R declares the rummagene pull route", {
   api <- base::paste(base::readLines(testthat::test_path("../../api/api.R")), collapse = "\n")
   expect_match(api, "@post /rummagene/pull", fixed = TRUE)
 })
+
+# ---------------------------------------------------------------------------
+# POST /rummagene/pull -- exercising the route itself, not just the library
+# functions it wraps.
+#
+# rummagene_pull_route lives in api.R, which Plumber parses directly for its
+# `#*` annotations (see the comment above api.R's own lib-loading loop) --
+# nothing else in this suite sources api.R or calls a route function; routes
+# are otherwise verified only by matching their annotation text, as the
+# "declares the rummagene pull route" test above does. But the branches this
+# route exists for -- the empty-term 400, the unknown-term 404, the
+# reason -> status switch, and the message-less forbidden fallback -- live
+# INSIDE the route itself: text-matching cannot exercise them, and the
+# underlying library functions don't reproduce them either (e.g.
+# build_signature_from_upload() has no concept of an HTTP status code at
+# all). Sourcing api.R into its OWN, throwaway environment (never globalenv)
+# gets a callable reference to the real route without redefining any of
+# api.R's ~100 other routes anywhere another test file could see them --
+# api.R only DEFINES functions at its top level (actually running the server
+# is the separate run_sigrepo_api.R) -- and the result is cached so it only
+# happens once for this whole file's run.
+.rummagene_pull_route_cache <- base::new.env()
+
+rummagene_pull_route_for_test <- function() {
+  if (base::is.null(.rummagene_pull_route_cache$route)) {
+    server_dir <- base::Sys.getenv("SIGREPO_SERVER_DIR")
+    testthat::skip_if_not(base::nzchar(server_dir), "SIGREPO_SERVER_DIR not set")
+    env <- base::new.env(parent = base::globalenv())
+    base::sys.source(base::file.path(server_dir, "api", "api.R"), envir = env)
+    .rummagene_pull_route_cache$route <- env$rummagene_pull_route
+  }
+  .rummagene_pull_route_cache$route
+}
+
+# json_response()/json_error() only ever do res$serializer <- ...; res$status
+# <- ... -- a plain environment (mutated in place, unlike a list) is enough
+# to read the status back after the call, without needing a real
+# PlumberResponse object.
+mock_plumber_res <- function() base::new.env()
+
+# A throwaway users() row with a self-fabricated, never-looked-up api_key --
+# never a real user's credential. signatures.user_name carries an actual
+# FOREIGN KEY to users(user_name) (mysql/schema/signatures.sql), so a
+# successful (or forbidden) pull cannot be exercised without a real row
+# there. The ci_admin/ci_viewer fixture users test-create-signature.R and
+# test-collection.R rely on only exist in CI's seeded database
+# (tests/testthat/fixtures/seed.sql) -- confirmed absent from this local
+# stack -- so a throwaway insert, deleted by name both before and after, is
+# the only credential-free way to get one here. Mirrors test-collection.R's
+# own throwaway-user pattern.
+seed_pull_test_user <- function(conn, user_name, user_role) {
+  DBI::dbExecute(conn, base::sprintf("DELETE FROM users WHERE user_name = %s", DBI::dbQuoteLiteral(conn, user_name)))
+  DBI::dbExecute(conn, base::sprintf(
+    "INSERT INTO users (user_name, user_password_hashkey, user_email, user_role, api_key, user_hashkey, active)
+     VALUES (%s, 'x', %s, %s, %s, %s, 1)",
+    DBI::dbQuoteLiteral(conn, user_name),
+    DBI::dbQuoteLiteral(conn, base::paste0(user_name, "@example.com")),
+    DBI::dbQuoteLiteral(conn, user_role),
+    DBI::dbQuoteLiteral(conn, base::paste0(user_name, "_key")),
+    DBI::dbQuoteLiteral(conn, base::paste0(user_name, "_hk"))
+  ))
+}
+
+unseed_pull_test_user <- function(conn, user_name) {
+  DBI::dbExecute(conn, base::sprintf("DELETE FROM users WHERE user_name = %s", DBI::dbQuoteLiteral(conn, user_name)))
+}
+
+# Deletes exactly the rows a successful pull wrote, in the same order
+# create_signature.R's own rollback() uses on its failure path -- never a
+# bare DELETE.
+delete_pull_test_signature <- function(conn, signature_hashkey) {
+  row <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT signature_id FROM signatures WHERE signature_hashkey = %s", DBI::dbQuoteLiteral(conn, signature_hashkey)
+  ))
+  if (base::nrow(row) == 0) {
+    return(base::invisible(NULL))
+  }
+  sid <- row$signature_id[1]
+  DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_feature_set WHERE signature_id = %d", sid))
+  DBI::dbExecute(conn, base::sprintf("DELETE FROM signature_access WHERE signature_id = %d", sid))
+  DBI::dbExecute(conn, base::sprintf("DELETE FROM signatures WHERE signature_id = %d", sid))
+}
+
+test_that("POST /rummagene/pull falls back to the JSON body when plumber's own arg-binding leaves api_key/term empty", {
+  # Regression test for the reliability gap: with only `@parser json`,
+  # plumber populates req$body (and from it, matched-name args) only when
+  # Content-Type resolves -- after parser_picker() strips any
+  # ";charset=..." suffix -- to exactly application/json or text/json;
+  # anything else (a client defaulting to
+  # application/x-www-form-urlencoded or text/plain) falls through to the
+  # (here, NULL) form alias, req$body stays empty, and api_key/term would
+  # silently stay at their "" defaults without the request_json_body(req)
+  # fallback every other @parser json @post route in api.R already has.
+  # Simulated by calling the route with api_key/term already at their
+  # un-populated "" defaults (as plumber would leave them in that scenario)
+  # and a `req` carrying only the raw, unparsed postBody -- exactly what a
+  # non-JSON Content-Type would leave behind.
+  conn <- test_conn()
+  user_name <- "rg_pull_test_body"
+  seed_pull_test_user(conn, user_name, "editor")
+  on.exit({
+    unseed_pull_test_user(conn, user_name)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+
+  route <- rummagene_pull_route_for_test()
+  res <- mock_plumber_res()
+  req <- base::list(postBody = base::as.character(jsonlite::toJSON(
+    base::list(api_key = base::paste0(user_name, "_key"), term = "term-supplied-only-in-the-body"),
+    auto_unbox = TRUE
+  )))
+  out <- route(req = req, res = res, api_key = "", term = "")
+
+  # Getting the 404 "no such catalog entry" (rather than a 400 "provide a
+  # term", which is what an unread, still-empty term would produce, or an
+  # auth failure, which is what an unread, still-empty api_key would
+  # produce) is what proves BOTH fields were actually read out of the body.
+  expect_equal(res$status, 404)
+  expect_match(out$MESSAGES, "No Rummagene catalog entry", fixed = TRUE)
+})
+
+test_that("POST /rummagene/pull returns 400 for an empty term", {
+  conn <- test_conn()
+  user_name <- "rg_pull_test_editor"
+  seed_pull_test_user(conn, user_name, "editor")
+  on.exit({
+    unseed_pull_test_user(conn, user_name)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+
+  route <- rummagene_pull_route_for_test()
+  res <- mock_plumber_res()
+  out <- route(req = NULL, res = res, api_key = base::paste0(user_name, "_key"), term = "")
+
+  expect_equal(res$status, 400)
+  expect_match(out$MESSAGES, "Provide the", fixed = TRUE)
+})
+
+test_that("POST /rummagene/pull returns 404 for a term not in the catalog", {
+  conn <- test_conn()
+  user_name <- "rg_pull_test_editor"
+  seed_pull_test_user(conn, user_name, "editor")
+  on.exit({
+    unseed_pull_test_user(conn, user_name)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+
+  route <- rummagene_pull_route_for_test()
+  res <- mock_plumber_res()
+  out <- route(req = NULL, res = res, api_key = base::paste0(user_name, "_key"), term = "no-such-term-anywhere-in-the-catalog")
+
+  expect_equal(res$status, 404)
+  expect_match(out$MESSAGES, "No Rummagene catalog entry", fixed = TRUE)
+})
+
+test_that("POST /rummagene/pull returns 403 with the no-message fallback for a non-editor caller", {
+  # build_signature_from_upload() returns list(ok = FALSE, reason =
+  # "forbidden") with NO message field (create_signature.R:362) -- this is
+  # exactly the case the route's `result$message %||% "..."` fallback exists
+  # for. Getting the fallback text (rather than an error, or a literal "NULL")
+  # is what proves that line is doing its job.
+  conn <- test_conn()
+  user_name <- "rg_pull_test_viewer"
+  seed_pull_test_user(conn, user_name, "viewer")
+
+  new_hashkeys <- base::character(0)
+  on.exit({
+    unseed_pull_test_user(conn, user_name)
+    DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-pull-forbidden'")
+    unseed_features(conn, new_hashkeys)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510", "ensg00000136997"))
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture(term = "PMC1-pull-forbidden")), gmt_version = "test-pull-forbidden")
+
+  route <- rummagene_pull_route_for_test()
+  res <- mock_plumber_res()
+  out <- route(req = NULL, res = res, api_key = base::paste0(user_name, "_key"), term = "PMC1-pull-forbidden")
+
+  expect_equal(res$status, 403)
+  expect_equal(out$MESSAGES, "This signature could not be created.")
+})
+
+test_that("POST /rummagene/pull creates a signature whose feature set matches the catalog entry's feature_names exactly", {
+  conn <- test_conn()
+  user_name <- "rg_pull_test_editor2"
+  seed_pull_test_user(conn, user_name, "editor")
+
+  new_hashkeys <- base::character(0)
+  signature_hashkey <- NULL
+  on.exit({
+    if (!base::is.null(signature_hashkey)) {
+      delete_pull_test_signature(conn, signature_hashkey)
+    }
+    unseed_pull_test_user(conn, user_name)
+    DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-pull-success'")
+    unseed_features(conn, new_hashkeys)
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510", "ensg00000136997"))
+  term <- "PMC1-pull-success"
+  rummagene_catalog_upsert(conn, base::list(catalog_row_fixture(term = term)), gmt_version = "test-pull-success")
+  entry <- get_rummagene_catalog_entry(conn, term)
+
+  route <- rummagene_pull_route_for_test()
+  res <- mock_plumber_res()
+  out <- route(req = NULL, res = res, api_key = base::paste0(user_name, "_key"), term = term)
+
+  expect_equal(res$status, 200)
+  expect_true(base::is.character(out$signature_hashkey) && base::nzchar(out$signature_hashkey))
+  signature_hashkey <- out$signature_hashkey
+
+  written <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT tf.feature_name FROM signature_feature_set sfs
+       JOIN signatures s ON s.signature_id = sfs.signature_id
+       JOIN transcriptomics_features tf ON tf.feature_id = sfs.feature_id
+     WHERE s.signature_hashkey = %s",
+    DBI::dbQuoteLiteral(conn, signature_hashkey)
+  ))$feature_name
+
+  expect_equal(base::length(written), base::length(entry$feature_names))
+  expect_setequal(written, entry$feature_names)
+})

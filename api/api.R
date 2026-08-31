@@ -1997,6 +1997,20 @@ rummagene_catalog_entry_route <- function(res, api_key = "", term = ""){
 #* @param term The exact Rummagene term, as returned by /rummagene/catalog
 #' @post /rummagene/pull
 rummagene_pull_route <- function(req, res, api_key = "", term = ""){
+  # With only `@parser json`, plumber populates req$body (and from it,
+  # matched-name args) only when Content-Type resolves -- after
+  # parser_picker() strips any ";charset=..." suffix -- to exactly
+  # application/json or text/json; anything else (e.g. a client defaulting to
+  # application/x-www-form-urlencoded or text/plain) falls through to the
+  # (here, NULL) form alias, req$body stays empty, and api_key/term would
+  # silently stay at their "" defaults. Every other @parser json @post route
+  # in this file (e.g. /whoami, /rummagene/enrich) already guards against
+  # this by re-parsing req$postBody directly, which does not depend on
+  # Content-Type at all.
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  term <- if (identical(json_scalar(term), "")) json_scalar(body$term) else json_scalar(term)
+
   auth <- validate_api_key(res, api_key)
   if (is_json_error(auth)) {
     return(auth)

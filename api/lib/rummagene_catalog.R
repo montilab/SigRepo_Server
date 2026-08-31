@@ -337,7 +337,7 @@ get_rummagene_catalog_entry <- function(conn, term) {
   )
 }
 
-# A catalog entry -> an OmicSignature ready for upload_signature().
+# A catalog entry -> an OmicSignature ready for build_signature_from_upload().
 #
 # feature_name carries the ENSEMBL IDS, not the symbols: create_signature.R's
 # resolve_feature_ids() hashes feature_name and looks it up in
