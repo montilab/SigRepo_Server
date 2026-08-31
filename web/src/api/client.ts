@@ -1027,16 +1027,38 @@ export async function searchRummageneCatalog(
   return { rows: raw.rows ?? [], total: Number(raw.count) || 0 };
 }
 
-export interface RummageneCatalogEntry extends RummageneCatalogRow {
+// The detail route returns a curated subset of fields, not the row plus
+// genes: get_rummagene_catalog_entry() (api/lib/rummagene_catalog.R)
+// hand-builds a list of exactly these twelve fields. rummagene_catalog_id and
+// n_genes are absent -- not null -- so this deliberately does not extend
+// RummageneCatalogRow.
+export interface RummageneCatalogEntry {
+  term: string;
+  pmcid: string;
+  pmid: string | null;
+  title: string | null;
+  year: number | null;
+  doi: string | null;
+  description: string | null;
+  organism: string;
+  assay_type: string;
+  mesh_evidence: string;
   gene_symbols: string[];
   feature_names: string[];
 }
 
 // Fetched only when a row is expanded. The list endpoint omits the gene columns
 // on purpose: at ~135k rows they would dominate every page response.
+//
+// gene_symbols/feature_names go through toArray(): the API serializes with
+// auto_unbox = TRUE (api/api.R) and the server builds both fields with plain
+// strsplit(...)[[1]], so a one-gene entry comes back as a bare JSON string
+// ("TP53") rather than a one-element array -- the same unboxing toArray()
+// already normalizes for getVocabulary() above.
 export async function getRummageneCatalogEntry(term: string): Promise<RummageneCatalogEntry> {
   const query = new URLSearchParams({ api_key: requireApiKey(), term });
-  return apiFetch<RummageneCatalogEntry>(`/rummagene/catalog/entry?${query.toString()}`);
+  const raw = await apiFetch<RummageneCatalogEntry>(`/rummagene/catalog/entry?${query.toString()}`);
+  return { ...raw, gene_symbols: toArray(raw.gene_symbols), feature_names: toArray(raw.feature_names) };
 }
 
 // The server returns signature_name alongside the hashkey so a caller (e.g. a
