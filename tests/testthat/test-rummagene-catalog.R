@@ -248,6 +248,20 @@ test_that("rummagene_catalog_prune deletes rows from earlier builds only", {
   on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version IN ('test-v1','test-v2')")
             DBI::dbDisconnect(conn) }, add = TRUE)
 
+  # rummagene_catalog_prune() deletes every row that does NOT carry the target
+  # gmt_version -- by design, so a real build's withdrawals take effect (see
+  # the guard inside rummagene_catalog_prune() itself for the failed-build
+  # case). test_conn() is the real local dev database, per helper-rummagene.R,
+  # which tests must not leave a mark on. If the build job has ever populated
+  # this table for real, running this unconditionally would delete every one
+  # of those rows. Skip loudly instead of risking a developer's actual catalog.
+  foreign <- DBI::dbGetQuery(conn,
+    "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version NOT IN ('test-v1', 'test-v2')")$n[1]
+  testthat::skip_if(
+    base::as.numeric(foreign) > 0,
+    "rummagene_catalog holds non-test rows; skipping to avoid pruning a real catalog"
+  )
+
   rummagene_catalog_upsert(conn, base::list(catalog_row_fixture(term = "PMC1-old")), gmt_version = "test-v1")
   rummagene_catalog_upsert(conn, base::list(catalog_row_fixture(term = "PMC1-new")), gmt_version = "test-v2")
 
@@ -256,4 +270,36 @@ test_that("rummagene_catalog_prune deletes rows from earlier builds only", {
 
   remaining <- DBI::dbGetQuery(conn, "SELECT term FROM rummagene_catalog WHERE gmt_version = 'test-v2'")
   expect_equal(remaining$term, "PMC1-new")
+})
+
+test_that("rummagene_catalog_upsert stores NA metadata as SQL NULL, not the string \"NA\"", {
+  # Governing rule for this whole plan: nothing is invented. A row that
+  # arrives without a pmid/title/year/doi must be stored as true SQL NULL --
+  # never a fabricated value, and never R's NA stringified into the literal
+  # two-character text "NA". sql_value() is what's supposed to guarantee
+  # this; this is the regression test that holds it to that.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-na'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+
+  row <- catalog_row_fixture(term = "PMC1-na-check")
+  row$pmid <- NA_character_
+  row$title <- NA_character_
+  row$year <- NA_integer_
+  row$doi <- NA_character_
+
+  rummagene_catalog_upsert(conn, base::list(row), gmt_version = "test-na")
+
+  got <- DBI::dbGetQuery(conn,
+    "SELECT pmid, title, year, doi FROM rummagene_catalog WHERE gmt_version = 'test-na'")
+  expect_equal(base::nrow(got), 1)
+  expect_true(base::is.na(got$pmid[1]))
+  expect_true(base::is.na(got$title[1]))
+  expect_true(base::is.na(got$year[1]))
+  expect_true(base::is.na(got$doi[1]))
+  # The specific regression this guards against: NA stringifying into the
+  # two-character text "NA" instead of becoming SQL NULL.
+  expect_false(base::identical(got$pmid[1], "NA"))
+  expect_false(base::identical(got$title[1], "NA"))
+  expect_false(base::identical(got$doi[1], "NA"))
 })

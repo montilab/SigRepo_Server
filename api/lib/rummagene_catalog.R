@@ -145,7 +145,7 @@ rummagene_catalog_upsert <- function(conn, rows, gmt_version) {
           mesh_evidence, n_genes, gene_symbols, feature_names, gmt_version, term_hashkey)
        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s, %s)
        ON DUPLICATE KEY UPDATE
-         pmcid = VALUES(pmcid), pmid = VALUES(pmid), title = VALUES(title),
+         term = VALUES(term), pmcid = VALUES(pmcid), pmid = VALUES(pmid), title = VALUES(title),
          year = VALUES(year), doi = VALUES(doi), description = VALUES(description),
          organism = VALUES(organism), assay_type = VALUES(assay_type),
          mesh_evidence = VALUES(mesh_evidence), n_genes = VALUES(n_genes),
@@ -175,7 +175,34 @@ rummagene_catalog_upsert <- function(conn, rows, gmt_version) {
 # Drop rows the current build did not touch -- i.e. sets Rummagene has withdrawn
 # or that no longer pass the gate. A signature someone already pulled is
 # unaffected: it lives in `signatures` and there is no FK back to here.
+#
+# Guarded against the build's own failure modes, not just a hypothetical: a
+# truncated GMT download, or an NCBI outage that makes every set fail the
+# MeSH check, produces a build that qualifies NOTHING under the new
+# gmt_version. `WHERE gmt_version <> gmt_version` is subtractive -- if no row
+# anywhere carries the new version yet, EVERY existing row matches, and an
+# unconditional prune would read that as "Rummagene withdrew its entire
+# catalog" and empty the table. A build that qualified zero rows is a failed
+# build, not evidence of mass withdrawal, so: if the count of rows already
+# carrying `gmt_version` is zero, refuse to delete, warn, and return 0. Call
+# this only AFTER rummagene_catalog_upsert() has written the new build's rows
+# under `gmt_version` -- in that order the count is non-zero and this
+# proceeds normally.
 rummagene_catalog_prune <- function(conn, gmt_version) {
+  present <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version = %s",
+    DBI::dbQuoteLiteral(conn, gmt_version)
+  ))$n[1]
+  if (base::as.numeric(present) == 0) {
+    base::warning(
+      "rummagene_catalog_prune: refusing to delete -- no rows carry gmt_version '",
+      gmt_version, "'. This looks like a failed build (nothing qualified under ",
+      "the new version), not a genuine withdrawal of the whole catalog. Upsert ",
+      "the new build's rows before pruning.",
+      call. = FALSE
+    )
+    return(0L)
+  }
   DBI::dbExecute(conn, base::sprintf(
     "DELETE FROM rummagene_catalog WHERE gmt_version <> %s",
     DBI::dbQuoteLiteral(conn, gmt_version)
