@@ -321,3 +321,80 @@ test_that("rummagene_catalog_upsert stores NA metadata as SQL NULL, not the stri
   expect_true(base::as.logical(null_check$year_null[1]))
   expect_true(base::as.logical(null_check$doi_null[1]))
 })
+
+seed_catalog <- function(conn) {
+  rows <- base::list(
+    utils::modifyList(catalog_row_fixture(term = "PMC1-liver-up"),  base::list(title = "Liver study", year = 2019L)),
+    utils::modifyList(catalog_row_fixture(term = "PMC2-tumor-down"), base::list(title = "Tumor study", year = 2023L, pmcid = "PMC2")),
+    utils::modifyList(catalog_row_fixture(term = "PMC3-liver-down"), base::list(title = "Another liver", year = 2021L, pmcid = "PMC3"))
+  )
+  rummagene_catalog_upsert(conn, rows, gmt_version = "test-search")
+}
+
+test_that("search_rummagene_catalog returns a page plus the total matching count", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- search_rummagene_catalog(conn, limit = 2, offset = 0)
+  expect_equal(base::nrow(out$rows), 2)
+  expect_gte(out$count, 3)
+})
+
+test_that("search_rummagene_catalog matches free text against term and title", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- search_rummagene_catalog(conn, q = "liver", limit = 50)
+  expect_true(base::all(base::grepl("liver", base::tolower(
+    base::paste(out$rows$term, out$rows$title)))))
+  expect_gte(base::nrow(out$rows), 2)
+})
+
+test_that("search_rummagene_catalog filters by year range", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- search_rummagene_catalog(conn, year_min = 2021, limit = 50)
+  expect_true(base::all(out$rows$year >= 2021))
+})
+
+test_that("search_rummagene_catalog sorts server-side on a whitelisted column", {
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- search_rummagene_catalog(conn, sort_by = "year", sort_dir = "desc", limit = 50)
+  expect_equal(out$rows$year, base::sort(out$rows$year, decreasing = TRUE))
+})
+
+test_that("search_rummagene_catalog ignores an unknown sort column instead of interpolating it", {
+  # sort_by lands in ORDER BY, where quoting cannot protect it -- the same
+  # reasoning as .signature_sort_columns in api/lib/signature.R.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  expect_no_error(search_rummagene_catalog(conn, sort_by = "year; DROP TABLE rummagene_catalog--", limit = 5))
+  expect_equal(base::nrow(DBI::dbGetQuery(conn, "SELECT 1 FROM rummagene_catalog LIMIT 1")), 1)
+})
+
+test_that("search_rummagene_catalog omits the large gene columns", {
+  # The list endpoint must never ship gene_symbols/feature_names -- 135k rows of
+  # 40 genes each is why they are fetched only on a detail view.
+  conn <- test_conn()
+  on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-search'")
+            DBI::dbDisconnect(conn) }, add = TRUE)
+  seed_catalog(conn)
+
+  out <- search_rummagene_catalog(conn, limit = 5)
+  expect_false("gene_symbols" %in% base::colnames(out$rows))
+  expect_false("feature_names" %in% base::colnames(out$rows))
+})

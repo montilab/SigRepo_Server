@@ -208,3 +208,96 @@ rummagene_catalog_prune <- function(conn, gmt_version) {
     DBI::dbQuoteLiteral(conn, gmt_version)
   ))
 }
+
+# sort_by is interpolated into ORDER BY, where dbQuoteLiteral cannot protect it.
+# Whitelist, exactly as .signature_sort_columns does in api/lib/signature.R.
+.rummagene_catalog_sort_columns <- base::list(
+  term       = "term",
+  title      = "title",
+  year       = "year",
+  n_genes    = "n_genes",
+  organism   = "organism",
+  assay_type = "assay_type"
+)
+
+# One page of the catalog plus the TOTAL count of matching rows, so the client
+# can render pager controls while holding only one page.
+#
+# gene_symbols and feature_names are deliberately NOT selected: at ~135k rows of
+# ~40 genes each they dwarf everything else, and only a detail view needs them.
+search_rummagene_catalog <- function(conn, q = NULL, organism = NULL, assay_type = NULL,
+                                     year_min = NULL, year_max = NULL,
+                                     n_genes_min = NULL, n_genes_max = NULL,
+                                     limit = 25, offset = 0,
+                                     sort_by = NULL, sort_dir = "asc") {
+  where <- base::character(0)
+  add <- function(clause) where <<- c(where, clause)
+
+  q <- base::trimws(base::as.character(q %||% ""))
+  if (base::nzchar(q)) {
+    like <- DBI::dbQuoteLiteral(conn, base::paste0("%", q, "%"))
+    add(base::sprintf("(term LIKE %s OR title LIKE %s OR description LIKE %s)", like, like, like))
+  }
+  if (base::length(organism) == 1 && base::nzchar(base::as.character(organism))) {
+    add(base::sprintf("organism = %s", DBI::dbQuoteLiteral(conn, organism)))
+  }
+  if (base::length(assay_type) == 1 && base::nzchar(base::as.character(assay_type))) {
+    add(base::sprintf("assay_type = %s", DBI::dbQuoteLiteral(conn, assay_type)))
+  }
+  for (bound in base::list(
+    base::list(v = year_min,    col = "year",    op = ">="),
+    base::list(v = year_max,    col = "year",    op = "<="),
+    base::list(v = n_genes_min, col = "n_genes", op = ">="),
+    base::list(v = n_genes_max, col = "n_genes", op = "<=")
+  )) {
+    n <- base::suppressWarnings(base::as.integer(bound$v %||% NA))
+    if (!base::is.na(n)) {
+      add(base::sprintf("%s %s %d", bound$col, bound$op, n))
+    }
+  }
+
+  where_sql <- if (base::length(where) == 0) "" else base::paste("WHERE", base::paste(where, collapse = " AND "))
+
+  count <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT COUNT(*) AS n FROM rummagene_catalog %s", where_sql
+  ))$n[1]
+
+  sort_key <- base::trimws(base::as.character(sort_by %||% ""))
+  sort_expr <- if (base::nzchar(sort_key)) .rummagene_catalog_sort_columns[[sort_key]] else NULL
+  if (base::is.null(sort_expr)) {
+    sort_expr <- "year"
+  }
+  sort_dir_sql <- if (base::identical(base::tolower(base::trimws(base::as.character(sort_dir %||% "asc"))), "desc")) "DESC" else "ASC"
+
+  rows <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT rummagene_catalog_id, term, pmcid, pmid, title, year, doi, description,
+            organism, assay_type, mesh_evidence, n_genes, gmt_version, built_at, term_hashkey
+     FROM rummagene_catalog %s
+     ORDER BY %s %s, term ASC
+     LIMIT %d OFFSET %d",
+    where_sql, sort_expr, sort_dir_sql,
+    base::max(1L, base::as.integer(limit)), base::max(0L, base::as.integer(offset))
+  ))
+
+  base::list(count = base::as.integer(count), rows = rows)
+}
+
+# One catalog row WITH its genes, for a detail view or a pull.
+get_rummagene_catalog_entry <- function(conn, term) {
+  hk <- collection_hash(term, "")
+  row <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT * FROM rummagene_catalog WHERE term_hashkey = %s LIMIT 1",
+    DBI::dbQuoteLiteral(conn, hk)
+  ))
+  if (base::nrow(row) == 0) {
+    return(NULL)
+  }
+  base::list(
+    term = row$term[1], pmcid = row$pmcid[1], pmid = row$pmid[1],
+    title = row$title[1], year = row$year[1], doi = row$doi[1],
+    description = row$description[1], organism = row$organism[1],
+    assay_type = row$assay_type[1], mesh_evidence = row$mesh_evidence[1],
+    gene_symbols  = base::strsplit(row$gene_symbols[1],  ",", fixed = TRUE)[[1]],
+    feature_names = base::strsplit(row$feature_names[1], ",", fixed = TRUE)[[1]]
+  )
+}
