@@ -449,3 +449,26 @@ rummagene_candidates <- function(terms, limit = 25, max_genes = 2000, min_genes 
   mesh_by_pmcid <- rummagene_fetch_mesh_by_pmcid(pmcids[!base::is.na(pmcids)])
   rummagene_qualify_all(gene_sets, mesh_by_pmcid, min_genes = min_genes)
 }
+
+# signatures.signature_name is VARCHAR(255) and Rummagene terms routinely run
+# longer. Truncating alone is not safe: UNIQUE(signature_name, user_name) means
+# two sibling tables from one paper -- identical for their first 300 characters
+# and differing only in a trailing "-cluster_1" / "-cluster_2" -- would collide
+# and the second pull would be rejected as a duplicate. So a term that needs
+# truncating carries a short digest of its FULL text, which restores
+# uniqueness. The untruncated term is always preserved in
+# rummagene_catalog.term and in the signature's `others` provenance string.
+RUMMAGENE_SIGNATURE_NAME_MAX <- 255L
+
+rummagene_signature_name <- function(term) {
+  term <- base::as.character(term)[1]
+  if (base::nchar(term) <= RUMMAGENE_SIGNATURE_NAME_MAX) {
+    return(term)
+  }
+  digest <- base::substr(digest::digest(term, algo = "md5"), 1, 8)
+  suffix <- base::paste0("~", digest)
+  base::paste0(
+    base::substr(term, 1, RUMMAGENE_SIGNATURE_NAME_MAX - base::nchar(suffix)),
+    suffix
+  )
+}

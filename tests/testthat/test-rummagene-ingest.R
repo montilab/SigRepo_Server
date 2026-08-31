@@ -287,3 +287,31 @@ test_that("rummagene_qualify_all treats a paper absent from the MeSH lookup as u
   expect_equal(base::length(out$qualified), 0)
   expect_equal(out$rejected[["no_mesh"]], 1)
 })
+
+# -------------------------------------------------------------- signature name ---
+
+test_that("rummagene_signature_name leaves a short term untouched", {
+  expect_equal(rummagene_signature_name("PMC123-t1.xlsx-up"), "PMC123-t1.xlsx-up")
+})
+
+test_that("rummagene_signature_name caps a long term at 255 characters", {
+  long <- base::paste0("PMC7202592-", base::paste(base::rep("x", 400), collapse = ""))
+  out <- rummagene_signature_name(long)
+  expect_lte(base::nchar(out), 255)
+})
+
+test_that("rummagene_signature_name keeps two long terms sharing a prefix distinct", {
+  # The collision that UNIQUE(signature_name, user_name) would otherwise reject:
+  # sibling tables from one paper differ only in a suffix past character 255.
+  prefix <- base::paste0("PMC7202592-", base::paste(base::rep("x", 300), collapse = ""))
+  a <- rummagene_signature_name(base::paste0(prefix, "-cluster_1"))
+  b <- rummagene_signature_name(base::paste0(prefix, "-cluster_2"))
+  expect_false(base::identical(a, b))
+  expect_lte(base::nchar(a), 255)
+  expect_lte(base::nchar(b), 255)
+})
+
+test_that("rummagene_signature_name is deterministic", {
+  long <- base::paste0("PMC1-", base::paste(base::rep("y", 400), collapse = ""))
+  expect_equal(rummagene_signature_name(long), rummagene_signature_name(long))
+})
