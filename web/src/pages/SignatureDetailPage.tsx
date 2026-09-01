@@ -225,7 +225,21 @@ export default function SignatureDetailPage() {
   const featureRows = useMemo(
     () =>
       (context?.features ?? []).map((f, i) => {
-        const score = typeof f.score === "number" ? f.score : Number(f.score);
+        // A signature can legitimately have no per-feature score: an unordered
+        // gene list (a Rummagene pull, any uni-directional signature) carries
+        // members without statistics, and the API sends those as JSON null.
+        // Guard null BEFORE coercing -- Number(null) is 0, not NaN, so a bare
+        // Number(f.score) turns "no score" into a real score of 0.00 and, via
+        // the sign test below, asserts a direction of "Up" for every feature.
+        // Number(undefined) does give NaN, which is why this only ever showed
+        // up once signatures with null scores existed.
+        const rawScore = f.score;
+        const score =
+          rawScore == null
+            ? NaN
+            : typeof rawScore === "number"
+              ? rawScore
+              : Number(rawScore);
         return {
           rowId: `${f.probe_id ?? f.feature_id ?? i}::${i}`,
           feature: f.probe_id ?? String(f.feature_id ?? i),
