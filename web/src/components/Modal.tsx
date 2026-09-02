@@ -33,10 +33,21 @@ export default function Modal({
   size?: "default" | "wide";
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   // Whatever had focus when the modal opened, so it can be handed back on
   // close -- otherwise focus falls to the top of the document and a keyboard
   // user loses their place in the table they opened this from.
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  // onClose is almost always defined in the caller's component body, so it is
+  // a NEW function reference on every render. Keeping it in a ref means the
+  // effect below can call the latest one without listing it as a dependency.
+  //
+  // It was listed. Every keystroke re-rendered the caller, produced a new
+  // onClose, and tore the effect down and back up -- which re-ran the
+  // focus-the-first-field step and yanked the caret out of the input after a
+  // single character.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +56,7 @@ export default function Modal({
 
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // Keep Tab inside the dialog. Without this the next Tab moves into the
@@ -68,9 +79,11 @@ export default function Modal({
     }
 
     document.addEventListener("keydown", onKey);
-    // Move focus in, so Escape and Tab reach the handler above without the
-    // user first clicking inside.
-    const firstField = panelRef.current?.querySelector<HTMLElement>(
+
+    // Focus the first control in the BODY, not the panel. querySelector returns
+    // the first match in DOM order, and the close button lives in the header --
+    // so searching the whole panel focused the X instead of the first input.
+    const firstField = bodyRef.current?.querySelector<HTMLElement>(
       'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
     );
     firstField?.focus();
@@ -85,7 +98,9 @@ export default function Modal({
       document.body.style.overflow = priorOverflow;
       returnFocusRef.current?.focus?.();
     };
-  }, [open, onClose]);
+    // `open` only: see onCloseRef above. Adding onClose here re-runs the whole
+    // effect on every render of the caller.
+  }, [open]);
 
   // Unmounted rather than hidden when closed: an inert form left in the tree
   // keeps its inputs in the tab order and its state alive between openings.
@@ -110,7 +125,7 @@ export default function Modal({
             <X size={18} />
           </button>
         </header>
-        <div className="modal-body">{children}</div>
+        <div className="modal-body" ref={bodyRef}>{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
       </div>
     </div>
