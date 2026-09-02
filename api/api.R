@@ -2060,3 +2060,74 @@ rummagene_pull_route <- function(req, res, api_key = "", term = ""){
     signature_name = result$signature_name
   ))
 }
+
+#* Edit a signature's metadata in place. Owner, an owner/editor grant holder,
+#* or an admin only. This is a PATCH: a field you omit is left unchanged, and
+#* the feature set and difexp are never touched. To change what a signature
+#* CONTAINS, re-upload it.
+#* @parser json
+#* @param api_key
+#* @param signature_hashkey
+#* @param description
+#* @param keywords
+#* @param covariates
+#* @param PMID
+#* @param year
+#* @param phenotype
+#* @param visibility true to make the signature public, false to make it private
+#' @put /signatures/update
+update_signature_route <- function(req, res, api_key = "", signature_hashkey = "",
+                                   description = NULL, keywords = NULL, covariates = NULL,
+                                   PMID = NULL, year = NULL, phenotype = NULL,
+                                   visibility = NULL){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  # Same fallback every other @parser json route uses: plumber only merges the
+  # body into named arguments when Content-Type is application/json or absent,
+  # so a client sending anything else would arrive with everything empty.
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+  hashkey <- if (identical(json_scalar(signature_hashkey), "")) {
+    json_scalar(body$signature_hashkey)
+  } else {
+    json_scalar(signature_hashkey)
+  }
+  if (!base::nzchar(hashkey)) {
+    return(json_error(res, 400, "Provide the `signature_hashkey` of the signature to update."))
+  }
+
+  # Only names the caller actually sent become part of the patch. An absent
+  # field must stay absent rather than arriving as NULL and blanking a column.
+  supplied <- base::list()
+  for (name in c("description", "keywords", "covariates", "PMID", "year", "phenotype", "visibility")) {
+    direct <- base::get(name)
+    value <- if (!base::is.null(direct)) direct else body[[name]]
+    if (!base::is.null(value)) {
+      supplied[[name]] <- value
+    }
+  }
+
+  conn <- db_connect_local()
+  base::on.exit(DBI::dbDisconnect(conn), add = TRUE)
+
+  result <- base::tryCatch(
+    update_signature_metadata(conn, auth = auth, signature_hashkey = hashkey, fields = supplied),
+    error = function(e) e
+  )
+  if (base::inherits(result, "error")) {
+    return(json_error(res, 500, base::sprintf("Update failed: %s", base::conditionMessage(result))))
+  }
+  if (!base::isTRUE(result$ok)) {
+    status <- base::switch(result$reason %||% "",
+      not_found = 404, forbidden = 403, no_fields = 400, 500)
+    return(json_error(res, status, result$message %||% "This signature could not be updated."))
+  }
+
+  json_response(res, 200, payload = base::list(
+    signature_hashkey = hashkey,
+    updated = result$updated
+  ))
+}

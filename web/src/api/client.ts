@@ -1078,3 +1078,32 @@ export async function pullRummageneSignature(
     body: JSON.stringify({ api_key: requireApiKey(), term }),
   });
 }
+
+export interface UpdateSignatureFields {
+  description?: string;
+  keywords?: string;
+  covariates?: string;
+  PMID?: string;
+  year?: number;
+  phenotype?: string;
+  visibility?: boolean;
+}
+
+// A PATCH: only the fields present here are sent, and the server leaves every
+// other column alone. Deliberately cannot change signature_name, user_name,
+// organism, assay_type or direction_type -- renaming moves the hashkey, and the
+// rest would invalidate the stored feature set.
+export async function updateSignature(
+  signatureHashkey: string,
+  fields: UpdateSignatureFields
+): Promise<{ signature_hashkey: string; updated: string[] }> {
+  return apiFetch<{ signature_hashkey: string; updated: string[] }>("/signatures/update", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      signature_hashkey: signatureHashkey,
+      ...fields,
+    }),
+  });
+}

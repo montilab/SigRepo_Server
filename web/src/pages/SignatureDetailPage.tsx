@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { X, Download, Trash2, ShoppingBasket, Copy } from "lucide-react";
+import { X, Download, Trash2, ShoppingBasket, Copy, Pencil } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
+import Modal from "../components/Modal";
 import Badge from "../components/Badge";
 import DataTable, { type Column } from "../components/DataTable";
 import {
@@ -10,6 +11,7 @@ import {
   deleteSignature,
   getDifexp,
   downloadSignatureExport,
+  updateSignature,
   type SignatureContext,
   type SignatureSummary,
   type DifexpResult,
@@ -18,7 +20,7 @@ import Skeleton from "../components/Skeleton";
 import RummagenePanel from "../components/RummagenePanel";
 import RelatedSignaturesPanel from "../components/RelatedSignaturesPanel";
 import { addToBasket, isInBasket } from "../basket";
-import { canDeleteSignature } from "../permissions";
+import { canDeleteSignature, canEditSignature } from "../permissions";
 
 function formatLabel(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -194,6 +196,79 @@ export default function SignatureDetailPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  // ---------- Edit metadata (owner or admin) ----------
+  // A PATCH: only fields the form actually changed are sent, so a column the
+  // user did not touch is never rewritten. The server enforces the same
+  // whitelist -- this form is convenience, not the authority.
+  const [showEdit, setShowEdit] = useState(false);
+  const [editDescription, setEditDescription] = useState("");
+  const [editKeywords, setEditKeywords] = useState("");
+  const [editPhenotype, setEditPhenotype] = useState("");
+  const [editYear, setEditYear] = useState("");
+  const [editPublic, setEditPublic] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function openEdit() {
+    const sig = context?.signature ?? {};
+    setEditDescription(typeof sig.description === "string" ? sig.description : "");
+    setEditKeywords(typeof sig.keywords === "string" ? sig.keywords : "");
+    // "unknown" is a placeholder the repository stores when a source states no
+    // phenotype; show it as empty so the field reads as unset rather than as a
+    // value the user has to delete before typing a real one.
+    setEditPhenotype(
+      typeof sig.phenotype === "string" && !isUnknown(sig.phenotype) ? sig.phenotype : ""
+    );
+    setEditYear(sig.year == null ? "" : String(sig.year));
+    setEditPublic(Number(sig.visibility) === 1);
+    setEditError(null);
+    setShowEdit(true);
+  }
+
+  function closeEdit() {
+    setShowEdit(false);
+    setEditError(null);
+  }
+
+  async function handleSaveEdit() {
+    if (!hashkey) return;
+    setSaving(true);
+    setEditError(null);
+    try {
+      const sig = context?.signature ?? {};
+      const fields: Record<string, unknown> = {};
+      // Send only what changed. Sending everything would rewrite columns the
+      // user never looked at, and would blank a field the form renders as ""
+      // but the database holds as NULL.
+      if (editDescription !== (sig.description ?? "")) fields.description = editDescription;
+      if (editKeywords !== (sig.keywords ?? "")) fields.keywords = editKeywords;
+      const priorPhenotype =
+        typeof sig.phenotype === "string" && !isUnknown(sig.phenotype) ? sig.phenotype : "";
+      if (editPhenotype !== priorPhenotype && editPhenotype.trim() !== "") {
+        fields.phenotype = editPhenotype.trim();
+      }
+      const priorYear = sig.year == null ? "" : String(sig.year);
+      if (editYear !== priorYear && editYear.trim() !== "") fields.year = Number(editYear);
+      if (editPublic !== (Number(sig.visibility) === 1)) fields.visibility = editPublic;
+
+      if (Object.keys(fields).length === 0) {
+        setShowEdit(false);
+        return;
+      }
+      await updateSignature(hashkey, fields);
+      setShowEdit(false);
+      // Re-read rather than patching local state, so what is displayed is what
+      // the database actually stored -- phenotype in particular round-trips
+      // through a vocabulary table and may come back normalised.
+      const refreshed = await getSignatureContext(hashkey);
+      setContext(refreshed);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Could not save changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!hashkey) return;
@@ -392,6 +467,11 @@ export default function SignatureDetailPage() {
             <button className="btn btn-secondary" onClick={() => window.close()} title="Close this tab">
               <X size={15} /> Close
             </button>
+            {context && canEditSignature(ownerUserName) && (
+              <button className="btn btn-secondary" onClick={openEdit}>
+                <Pencil size={15} /> Edit
+              </button>
+            )}
             {context && canDeleteSignature(ownerUserName) && (
               <button className="btn btn-secondary" onClick={handleDelete} disabled={deleting}>
                 <Trash2 size={15} /> {deleting ? "Deleting…" : "Delete"}
@@ -458,6 +538,56 @@ export default function SignatureDetailPage() {
               Difexp
             </button>
           </div>
+
+      <Modal
+        open={showEdit}
+        onClose={closeEdit}
+        title="Edit signature"
+        subtitle="Metadata only — the feature set and difexp are not changed."
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={closeEdit}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleSaveEdit} disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </>
+        }
+      >
+        <div className="field">
+          <span className="field-label">Description</span>
+          <input className="input" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+        </div>
+        <div className="field">
+          <span className="field-label">Phenotype</span>
+          <input
+            className="input"
+            value={editPhenotype}
+            onChange={(e) => setEditPhenotype(e.target.value)}
+            placeholder="e.g. arecoline vs. PBS"
+          />
+        </div>
+        <div className="field">
+          <span className="field-label">Keywords</span>
+          <input
+            className="input"
+            value={editKeywords}
+            onChange={(e) => setEditKeywords(e.target.value)}
+            placeholder="comma separated"
+          />
+        </div>
+        <div className="field">
+          <span className="field-label">Year</span>
+          <input className="input" value={editYear} onChange={(e) => setEditYear(e.target.value)} inputMode="numeric" />
+        </div>
+        <label className="dt-filter-option" style={{ padding: 0 }}>
+          <input type="checkbox" checked={editPublic} onChange={(e) => setEditPublic(e.target.checked)} />
+          <span>Public — visible to everyone with an account</span>
+        </label>
+        {editError && <p className="login-error">{editError}</p>}
+      </Modal>
+
 
           {tab === "signature" && (
             <>

@@ -18,3 +18,16 @@ export function canUploadSignature(): boolean {
   const auth = getAuth();
   return auth?.user_role === "editor" || auth?.user_role === "admin";
 }
+
+// Mirrors update_signature_metadata()'s rule, which resolves through
+// user_has_owner_or_editor_access(): admin, or the signature's uploader.
+// Same limitation as canDeleteSignature -- it cannot see per-signature
+// signature_access grants, so it hides the action in a few cases the API
+// would in fact allow. Hiding a permitted action is the safe direction;
+// showing a forbidden one produces a 403 the user cannot act on.
+export function canEditSignature(ownerUserName: string): boolean {
+  const auth = getAuth();
+  if (!auth) return false;
+  if (auth.user_role === "admin") return true;
+  return auth.user_name === ownerUserName;
+}
