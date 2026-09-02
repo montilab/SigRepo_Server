@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Upload, Search, Download, Trash2, ShoppingBasket, Eye, X } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
+import Modal from "../components/Modal";
 import Badge from "../components/Badge";
 import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
@@ -131,6 +132,15 @@ export default function SignaturesPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  // Every dismissal route -- Cancel, Escape, the scrim, the X -- goes through
+  // here, so none of them can leave a stale file or error behind for the next
+  // opening.
+  function closeUpload() {
+    setShowUpload(false);
+    setUploadFile(null);
+    setUploadError(null);
+  }
+
   async function handleUpload() {
     if (!uploadFile) return;
     setUploading(true);
@@ -196,42 +206,37 @@ export default function SignaturesPage() {
         }
       />
 
-      {showUpload && (
-        <Card title="Upload signature">
-          <p className="cell-sub" style={{ marginBottom: 12 }}>
-            Upload an .rds file produced by a signature's "Export" download to re-add it under your account.
-          </p>
-          <div className="field">
-            <span className="field-label">Signature file (.rds)</span>
-            <input
-              className="input"
-              type="file"
-              accept=".rds"
-              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          <label className="dt-filter-option" style={{ marginTop: 12, padding: 0 }}>
-            <input type="checkbox" checked={uploadVisible} onChange={(e) => setUploadVisible(e.target.checked)} />
-            <span>Public</span>
-          </label>
-          {uploadError && <p className="login-error">{uploadError}</p>}
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+      <Modal
+        open={showUpload}
+        onClose={closeUpload}
+        title="Upload signature"
+        subtitle={'An .rds file produced by a signature\'s "Export" download, re-added under your account.'}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={closeUpload}>
+              Cancel
+            </button>
             <button className="btn btn-primary" disabled={!uploadFile || uploading} onClick={handleUpload}>
               {uploading ? "Uploading…" : "Upload"}
             </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => {
-                setShowUpload(false);
-                setUploadFile(null);
-                setUploadError(null);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </Card>
-      )}
+          </>
+        }
+      >
+        <div className="field">
+          <span className="field-label">Signature file (.rds)</span>
+          <input
+            className="input"
+            type="file"
+            accept=".rds"
+            onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+        <label className="dt-filter-option" style={{ padding: 0 }}>
+          <input type="checkbox" checked={uploadVisible} onChange={(e) => setUploadVisible(e.target.checked)} />
+          <span>Public</span>
+        </label>
+        {uploadError && <p className="login-error">{uploadError}</p>}
+      </Modal>
 
       <Card padded={false}>
         <div className="toolbar">

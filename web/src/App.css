@@ -2805,3 +2805,82 @@ a.rmg-item-title:hover {
   /* Terms and MeSH lists are long and have no spaces to break on. */
   overflow-wrap: anywhere;
 }
+
+/* ---- Modal ---------------------------------------------------------------
+   Centred dialog for short focused tasks (upload, create, edit), as opposed
+   to Drawer, which slides from the edge for inspecting something alongside
+   the page. Mirrors the drawer's scrim colour and sits one layer above it so
+   a modal opened from inside a drawer is not painted underneath. */
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.32);
+}
+
+.modal-panel {
+  position: relative;
+  width: 480px;
+  max-width: 100%;
+  /* Never taller than the viewport: the body scrolls instead, so the footer
+     with the submit button stays reachable on a short screen -- the failure
+     the inline panel had. */
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 40px rgba(16, 24, 40, 0.18);
+}
+
+.modal-panel-wide {
+  width: 720px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.modal-body {
+  padding: 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}

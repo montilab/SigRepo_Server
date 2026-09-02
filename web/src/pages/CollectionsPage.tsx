@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FolderPlus, Trash2, X, Plus } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
+import Modal from "../components/Modal";
 import Badge from "../components/Badge";
 import Drawer from "../components/Drawer";
 import DataTable, { type Column } from "../components/DataTable";
@@ -82,6 +83,17 @@ export default function CollectionsPage() {
   const [newVisible, setNewVisible] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Single dismissal path, so Cancel, Escape, the scrim and the X all clear
+  // the form identically. The old Cancel button only flipped showCreate, so a
+  // half-typed name and any error survived into the next opening.
+  function closeCreate() {
+    setShowCreate(false);
+    setNewName("");
+    setNewDescription("");
+    setNewVisible(false);
+    setCreateError(null);
+  }
 
   async function handleCreate() {
     setCreating(true);
@@ -203,31 +215,35 @@ export default function CollectionsPage() {
         }
       />
 
-      {showCreate && (
-        <Card title="New collection">
-          <div className="field">
-            <span className="field-label">Name</span>
-            <input className="input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Collection name" />
-          </div>
-          <div className="field" style={{ marginTop: 12 }}>
-            <span className="field-label">Description</span>
-            <input className="input" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Optional description" />
-          </div>
-          <label className="dt-filter-option" style={{ marginTop: 12, padding: 0 }}>
-            <input type="checkbox" checked={newVisible} onChange={(e) => setNewVisible(e.target.checked)} />
-            <span>Public</span>
-          </label>
-          {createError && <p className="login-error">{createError}</p>}
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+      <Modal
+        open={showCreate}
+        onClose={closeCreate}
+        title="New collection"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={closeCreate}>
+              Cancel
+            </button>
             <button className="btn btn-primary" disabled={!newName.trim() || creating} onClick={handleCreate}>
               {creating ? "Creating…" : "Create"}
             </button>
-            <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>
-              Cancel
-            </button>
-          </div>
-        </Card>
-      )}
+          </>
+        }
+      >
+        <div className="field">
+          <span className="field-label">Name</span>
+          <input className="input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Collection name" />
+        </div>
+        <div className="field">
+          <span className="field-label">Description</span>
+          <input className="input" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Optional description" />
+        </div>
+        <label className="dt-filter-option" style={{ padding: 0 }}>
+          <input type="checkbox" checked={newVisible} onChange={(e) => setNewVisible(e.target.checked)} />
+          <span>Public</span>
+        </label>
+        {createError && <p className="login-error">{createError}</p>}
+      </Modal>
 
       {loadError && <p className="login-error">{loadError}</p>}
 
