@@ -62,7 +62,7 @@ rummagene_gmt_pmcids <- function(gmt_path, chunk_size = 5000) {
 # list(pmid, mesh, title, year, doi).
 build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
                                     articles_by_pmcid = NULL, chunk_size = 5000,
-                                    progress = TRUE) {
+                                    progress = TRUE, prune = TRUE) {
   if (base::is.null(articles_by_pmcid)) {
     if (progress) base::message("Collecting PMC ids from the GMT...")
     pmcids <- rummagene_gmt_pmcids(gmt_path, chunk_size = chunk_size)
@@ -189,7 +189,19 @@ build_rummagene_catalog <- function(conn, gmt_path, gmt_version,
   }
   flush_batch()
 
-  rummagene_catalog_prune(conn, gmt_version = gmt_version)
+  # Pruning is a WHOLE-CORPUS operation: it deletes every row whose
+  # gmt_version differs, on the premise that this build saw the entire GMT and
+  # anything it did not write has been withdrawn. That premise is false for a
+  # PARTIAL build -- a term-scoped run, or a test with a four-line fixture --
+  # where the rows it did not write are simply rows it never looked at.
+  #
+  # It defaulted to always-on, so running the build test against a populated
+  # database silently deleted the real catalog: the test upserts one row under
+  # its own gmt_version, which satisfies prune's zero-match guard, and then
+  # prune removes everything else. That happened -- 23 rows lost.
+  if (prune) {
+    rummagene_catalog_prune(conn, gmt_version = gmt_version)
+  }
   base::list(examined = examined, qualified = qualified, rejected = rejected,
             unparsed = unparsed, unstorable = unstorable)
 }

@@ -61,7 +61,7 @@ test_that("build_rummagene_catalog keeps only the sets that pass every gate", {
   on.exit(restore_egfr(), add = TRUE, after = FALSE)
 
   out <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = "test-build",
-                                 articles_by_pmcid = articles, progress = FALSE)
+                                 articles_by_pmcid = articles, progress = FALSE, prune = FALSE)
 
   expect_equal(out$examined, 4)
   expect_equal(out$qualified, 1)
@@ -152,7 +152,7 @@ test_that("build_rummagene_catalog counts an unstorable row separately and keeps
   out <- NULL
   expect_no_error(
     out <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = "test-unstorable-build",
-                                   articles_by_pmcid = articles, progress = FALSE)
+                                   articles_by_pmcid = articles, progress = FALSE, prune = FALSE)
   )
 
   expect_equal(out$examined, 2)
@@ -222,4 +222,50 @@ test_that("build_rummagene_catalog counts lines it could not parse at all, rathe
   expect_equal(out$unparsed, 3)
   expect_equal(out$examined, 0)
   expect_equal(out$qualified, 0)
+})
+
+test_that("a partial build does not delete catalog rows it never looked at", {
+  # THE REGRESSION THIS GUARDS. build_rummagene_catalog() used to prune
+  # unconditionally. Pruning is a whole-corpus operation -- it deletes every row
+  # whose gmt_version differs, on the premise that this build saw the entire GMT
+  # so anything it did not write has been withdrawn. For a partial build that
+  # premise is false, and the rows it "withdraws" are simply ones it never read.
+  #
+  # Running this file against a populated database therefore wiped the real
+  # catalog: the fixture upserts one row under its own gmt_version, which
+  # satisfies prune's zero-match guard, and prune then removed everything else.
+  # 23 real rows were lost that way.
+  conn <- test_conn()
+  on.exit({
+    DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version IN ('bystander','test-partial')")
+    DBI::dbDisconnect(conn)
+  }, add = TRUE)
+
+  new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510"))
+  on.exit(unseed_features(conn, new_hashkeys), add = TRUE, after = FALSE)
+
+  # A row from some earlier, unrelated build.
+  rummagene_catalog_upsert(conn, base::list(base::list(
+    term = "BYSTANDER-must-survive", pmcid = "PMC999", pmid = NA_character_,
+    title = NA_character_, year = NA_integer_, doi = NA_character_,
+    description = NA_character_, organism = "Homo sapiens",
+    assay_type = "transcriptomics", mesh_evidence = "Humans, Transcriptome",
+    gene_symbols = c("TP53"), feature_names = c("ensg00000141510")
+  )), gmt_version = "bystander")
+
+  gmt <- base::tempfile(fileext = ".gmt")
+  base::writeLines("PMC1-t.xlsx-keep\tDEGs\tTP53", gmt)
+  on.exit(base::unlink(gmt), add = TRUE)
+
+  build_rummagene_catalog(
+    conn, gmt_path = gmt, gmt_version = "test-partial",
+    articles_by_pmcid = base::list(
+      PMC1 = base::list(pmid = "1", mesh = c("Humans", "Transcriptome"),
+                        title = "t", year = 2020L, doi = "d")),
+    progress = FALSE, prune = FALSE
+  )
+
+  survived <- DBI::dbGetQuery(conn,
+    "SELECT COUNT(*) n FROM rummagene_catalog WHERE gmt_version = 'bystander'")$n
+  expect_equal(survived, 1)
 })
