@@ -48,6 +48,18 @@ test_that("build_rummagene_catalog keeps only the sets that pass every gate", {
                       title = "Gene absent here", year = 2019L, doi = "10.1/d")
   )
 
+  # PMC4's set is TP53 + EGFR. EGFR maps to ensg00000146648, which a populated
+  # reference table holds -- so the "gene absent here" fixture only behaves as
+  # named if this test removes it first. build_rummagene_catalog() looks the
+  # organism id up itself (Homo sapiens), so absence cannot be arranged by
+  # passing a throwaway organism_id the way the gate tests can.
+  restore_egfr <- suppress_feature(conn, "ensg00000146648", 2L)
+  # after = FALSE PREPENDS. on.exit(add = TRUE) appends, which would put this
+  # restore AFTER the handler that disconnects `conn` -- it would then run
+  # against a dead connection and INSERT IGNORE would swallow the failure,
+  # silently leaving the reference table one gene short. That happened.
+  on.exit(restore_egfr(), add = TRUE, after = FALSE)
+
   out <- build_rummagene_catalog(conn, gmt_path = gmt, gmt_version = "test-build",
                                  articles_by_pmcid = articles, progress = FALSE)
 

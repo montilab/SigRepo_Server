@@ -214,3 +214,90 @@ test_that("search_signatures sorts server-side, on an allowlist, with a stable t
   expect_equal(page1$rows$signature_name[1], tail(asc$rows$signature_name, 1))
   expect_equal(page1$total, asc$total)
 })
+
+# ------------------------------------------------- feature labels for display ---
+#
+# signature_feature_set stores probe_id and feature_id but no human-readable
+# name, so the detail page was rendering "feature_1", "feature_10" -- the
+# positional probe ids OmicSignature auto-generates for a signature that
+# arrives without its own. attach_feature_labels() joins the reference table
+# for the signature's assay type so a reader sees the gene.
+source(testthat::test_path("../../api/lib/create_signature.R"), local = FALSE)
+
+test_that("attach_feature_labels adds gene_symbol and feature_name for transcriptomics", {
+  # Read-only: needs credentials, not a disposable database, so this uses
+  # db_test_available() rather than skip_if_no_test_db()'s stricter gate.
+  testthat::skip_if_not(db_test_available(), "no database configured")
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  known <- DBI::dbGetQuery(conn, "
+    SELECT feature_id, feature_name, gene_symbol
+    FROM transcriptomics_features
+    WHERE gene_symbol IS NOT NULL AND gene_symbol <> '' LIMIT 2")
+  testthat::skip_if(base::nrow(known) < 2, "no symbol-bearing transcriptomics features seeded")
+
+  out <- attach_feature_labels(
+    conn,
+    base::data.frame(feature_id = known$feature_id, probe_id = c("feature_1", "feature_2"),
+                     stringsAsFactors = FALSE),
+    assay_type = "transcriptomics"
+  )
+
+  expect_true(base::all(c("feature_name", "gene_symbol") %in% base::colnames(out)))
+  expect_equal(out$gene_symbol, known$gene_symbol)
+  expect_equal(out$feature_name, known$feature_name)
+  # The original columns must survive -- annotate.R and rummagene.R read
+  # probe_id off these rows by name.
+  expect_equal(out$probe_id, c("feature_1", "feature_2"))
+})
+
+test_that("attach_feature_labels keeps the row when the reference lookup finds nothing", {
+  # A feature_id with no reference row must not drop the feature from the
+  # signature -- losing a member silently would misreport its size.
+  # Read-only: needs credentials, not a disposable database, so this uses
+  # db_test_available() rather than skip_if_no_test_db()'s stricter gate.
+  testthat::skip_if_not(db_test_available(), "no database configured")
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  out <- attach_feature_labels(
+    conn,
+    base::data.frame(feature_id = 999999999L, probe_id = "orphan", stringsAsFactors = FALSE),
+    assay_type = "transcriptomics"
+  )
+
+  expect_equal(base::nrow(out), 1)
+  expect_equal(out$probe_id, "orphan")
+  expect_true(base::is.na(out$gene_symbol))
+})
+
+test_that("attach_feature_labels returns the table unchanged in shape for an unmapped assay type", {
+  # Shape stability matters: the frontend reads gene_symbol off every row, so
+  # the columns must exist even when nothing can populate them.
+  # Read-only: needs credentials, not a disposable database, so this uses
+  # db_test_available() rather than skip_if_no_test_db()'s stricter gate.
+  testthat::skip_if_not(db_test_available(), "no database configured")
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  out <- attach_feature_labels(
+    conn,
+    base::data.frame(feature_id = 1L, probe_id = "p", stringsAsFactors = FALSE),
+    assay_type = "methylomics"   # no reference table exists for this
+  )
+
+  expect_true(base::all(c("feature_name", "gene_symbol") %in% base::colnames(out)))
+  expect_equal(base::nrow(out), 1)
+})
+
+test_that("attach_feature_labels tolerates an empty feature table", {
+  # Read-only: needs credentials, not a disposable database, so this uses
+  # db_test_available() rather than skip_if_no_test_db()'s stricter gate.
+  testthat::skip_if_not(db_test_available(), "no database configured")
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  out <- attach_feature_labels(conn, base::data.frame(), assay_type = "transcriptomics")
+  expect_equal(base::nrow(out), 0)
+})

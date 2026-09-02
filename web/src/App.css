@@ -2775,3 +2775,33 @@ a.rmg-item-title:hover {
   white-space: normal;
   word-break: break-word;
 }
+
+/* `others` rendered as the key/value pairs it is stored as, rather than one
+   wrapped blob. Tokens here are all defined in index.css. */
+.sig-others {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.sig-others-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 30%) 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.sig-others-row dt {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.sig-others-row dd {
+  margin: 0;
+  color: var(--text);
+  /* Terms and MeSH lists are long and have no spaces to break on. */
+  overflow-wrap: anywhere;
+}

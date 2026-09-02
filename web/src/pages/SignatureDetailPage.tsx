@@ -33,6 +33,46 @@ function hasValue(value: unknown): boolean {
   return value !== null && value !== undefined && value !== "";
 }
 
+// `others` is stored as "key: value; key: value" -- the form
+// SigRepo:::parseRetrievedOthers() reads back. Rendered as one string it is a
+// wall of wrapped text in a narrow column, and the provenance of a pulled
+// signature (which paper, which MeSH descriptors attested it) is exactly the
+// part a reader most wants and can least easily pick out. Split it back into
+// the pairs it already is. A segment with no ":" is kept whole rather than
+// dropped, so a value written in some older format still shows up.
+function othersRows(value: unknown) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return <span className="cell-sub">—</span>;
+
+  const rows = raw.split(";").map((seg) => {
+    const s = seg.trim();
+    const at = s.indexOf(":");
+    return at === -1
+      ? { key: null as string | null, value: s }
+      : { key: s.slice(0, at).trim(), value: s.slice(at + 1).trim() };
+  }).filter((r) => r.value || r.key);
+
+  return (
+    <dl className="sig-others">
+      {rows.map((r, i) => (
+        <div className="sig-others-row" key={`${r.key ?? "note"}-${i}`}>
+          {r.key && <dt>{r.key.replace(/_/g, " ")}</dt>}
+          <dd>{r.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// A signature can carry placeholder vocabulary rather than a real value:
+// phenotype "unknown" and sample/platform "Unknown" are what a source that
+// states neither resolves to. Showing them as chips fills the summary band
+// with noise that reads like information. Omitting them says the same thing
+// more honestly -- the field simply is not there.
+function isUnknown(value: unknown): boolean {
+  return typeof value === "string" && value.trim().toLowerCase() === "unknown";
+}
+
 // Up/down regulated proportion bar (green up, red down) with counts.
 function SplitBar({ up, down }: { up: number | null; down: number | null }) {
   const u = up ?? 0;
@@ -120,7 +160,7 @@ const METADATA_SECTIONS: { title: string; fields: MetadataField[] }[] = [
       { key: "covariates", label: "Covariates", render: pills },
       { key: "keywords", label: "Keywords", render: pills },
       { key: "PMID", label: "PMID" },
-      { key: "others", label: "Others" },
+      { key: "others", label: "Others", render: othersRows },
     ],
   },
   {
@@ -242,7 +282,17 @@ export default function SignatureDetailPage() {
               : Number(rawScore);
         return {
           rowId: `${f.probe_id ?? f.feature_id ?? i}::${i}`,
-          feature: f.probe_id ?? String(f.feature_id ?? i),
+          // Prefer the gene symbol, then the stored identifier, and only fall
+          // back to probe_id last. A signature that arrived without its own
+          // probe ids carries OmicSignature's positional filler ("feature_1",
+          // "feature_10"), which tells a reader nothing -- every Rummagene
+          // pull looks like that. The API joins the assay's reference table to
+          // supply gene_symbol/feature_name (attach_feature_labels).
+          feature:
+            (typeof f.gene_symbol === "string" && f.gene_symbol) ||
+            (typeof f.feature_name === "string" && f.feature_name) ||
+            f.probe_id ||
+            String(f.feature_id ?? i),
           // Keep the numeric score on the row so sorting is numeric rather
           // than lexicographic on a formatted string.
           score: Number.isFinite(score) ? score : null,
@@ -321,7 +371,7 @@ export default function SignatureDetailPage() {
         { label: "Platform", value: sig.platform_name },
         { label: "Direction", value: sig.direction_type },
         { label: "Year", value: sig.year },
-      ].filter((c) => hasValue(c.value))
+      ].filter((c) => hasValue(c.value) && !isUnknown(c.value))
     : [];
 
   async function copyHashkey() {
@@ -432,7 +482,20 @@ export default function SignatureDetailPage() {
                       <span className="sig-stat-value">{featureCount ?? "—"}</span>
                       <span className="sig-stat-label">Features</span>
                     </div>
-                    <SplitBar up={upCount} down={downCount} />
+                    {/* The split bar reports how the features divide into up-
+                        and down-regulated. A signature with no per-feature
+                        scores has no such division -- an unordered gene list,
+                        which is what every Rummagene pull is -- so it rendered
+                        as "0 up / 0 down" and an empty bar, implying a
+                        measurement that was never made. Show it only when
+                        there is a split to show. */}
+                    {(upCount ?? 0) + (downCount ?? 0) > 0 ? (
+                      <SplitBar up={upCount} down={downCount} />
+                    ) : (
+                      <span className="cell-sub">
+                        Unordered gene list — no per-feature scores, so no up/down split.
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

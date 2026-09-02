@@ -214,6 +214,15 @@ fetch_signature_context <- function(signature_hashkey, include_features = TRUE, 
         feature_tbl <- feature_tbl |>
           dplyr::arrange(dplyr::desc(base::abs(.data$score)))
       }
+
+      # Add feature_name / gene_symbol so a reader sees the gene rather than
+      # the positional probe id. Purely additive: annotate.R and rummagene.R
+      # read probe_id and feature_id off these rows by name, and export.R
+      # bind_rows()es them, so extra columns are safe for every consumer.
+      feature_tbl <- attach_feature_labels(
+        conn, feature_tbl,
+        assay_type = base::as.character(signature_tbl$assay_type[1])
+      )
     }
 
     base::list(
@@ -511,4 +520,83 @@ search_signatures_by_genes <- function(conn, genes, limit = 20, min_overlap = 1,
   hits$jaccard <- base::ifelse(union_size > 0, base::round(hits$n_overlap / union_size, 5), 0)
 
   hits
+}
+
+# Add human-readable labels to a signature_feature_set table.
+#
+# signature_feature_set stores probe_id and feature_id but no name, so a
+# signature that arrived without its own probe ids renders as "feature_1",
+# "feature_10", ... -- OmicSignature's positional filler, useless to a reader.
+# This joins the reference table for the signature's assay type to add
+# `feature_name` (the stored identifier) and `gene_symbol` (the readable one).
+#
+# Always returns BOTH columns, even when nothing can populate them: the client
+# reads gene_symbol off every row, so the shape has to be stable. Rows are
+# never dropped -- a feature whose reference row is missing keeps its place
+# with NA labels, because losing a member would misreport the signature's size.
+#
+# Reuses upload_reference_table() / upload_reference_id_column() from
+# api/lib/create_signature.R rather than adding a parallel mapping; those
+# already cover all four assay types and know that metabolite_reference keys on
+# metabolite_id rather than feature_id.
+attach_feature_labels <- function(conn, feature_tbl, assay_type) {
+  # Assigning a scalar into a zero-row data frame is an error, so the empty
+  # case is handled before anything else -- it still has to come back carrying
+  # both columns.
+  if (base::nrow(feature_tbl) == 0) {
+    feature_tbl$feature_name <- base::character(0)
+    feature_tbl$gene_symbol <- base::character(0)
+    return(feature_tbl)
+  }
+
+  feature_tbl$feature_name <- NA_character_
+  feature_tbl$gene_symbol <- NA_character_
+  if (!"feature_id" %in% base::colnames(feature_tbl)) {
+    return(feature_tbl)
+  }
+
+  ref_table <- upload_reference_table(assay_type)
+  if (base::is.null(ref_table)) {
+    return(feature_tbl)
+  }
+  id_col <- upload_reference_id_column(ref_table)
+
+  # Which columns this particular reference table actually carries. Only
+  # transcriptomics and proteomics have gene_symbol; genetic variants have a
+  # feature_name but no symbol; metabolites have neither and are labelled by
+  # their RefMet name instead.
+  available <- base::tryCatch(
+    DBI::dbListFields(conn, ref_table), error = function(e) base::character(0)
+  )
+  label_col <- base::intersect(c("feature_name", "refmet_name"), available)[1]
+  symbol_col <- base::intersect("gene_symbol", available)[1]
+  if (base::is.na(label_col) && base::is.na(symbol_col)) {
+    return(feature_tbl)
+  }
+
+  ids <- base::unique(base::as.integer(feature_tbl$feature_id))
+  ids <- ids[!base::is.na(ids)]
+  if (base::length(ids) == 0) {
+    return(feature_tbl)
+  }
+
+  wanted <- c(id_col, label_col, symbol_col)
+  wanted <- wanted[!base::is.na(wanted)]
+  ref <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT %s FROM %s WHERE %s IN (%s)",
+    base::paste(wanted, collapse = ", "), ref_table, id_col,
+    base::paste(ids, collapse = ",")
+  ))
+  if (base::nrow(ref) == 0) {
+    return(feature_tbl)
+  }
+
+  pos <- base::match(base::as.integer(feature_tbl$feature_id), ref[[id_col]])
+  if (!base::is.na(label_col)) {
+    feature_tbl$feature_name <- ref[[label_col]][pos]
+  }
+  if (!base::is.na(symbol_col)) {
+    feature_tbl$gene_symbol <- ref[[symbol_col]][pos]
+  }
+  feature_tbl
 }

@@ -61,3 +61,49 @@ unseed_features <- function(conn, hashkeys) {
     base::paste(DBI::dbQuoteLiteral(conn, hashkeys), collapse = ",")
   ))
 }
+
+# Temporarily remove one reference feature so a test can exercise the
+# "feature_absent" branch, restoring it afterwards.
+#
+# WHY THIS IS NEEDED: feature_absent is a property of how COMPLETE this
+# database's reference table is, not of the gene set. These tests originally
+# relied on the local transcriptomics_features being nearly empty, so naming
+# any real gene made it "absent". Once the table was populated with a real
+# Ensembl build (86,411 human rows on 2026-09-01, matching what production
+# holds), every mappable symbol resolved and the branch became unreachable --
+# the tests broke without any code changing. Absence has to be constructed by
+# the test rather than inherited from an incomplete fixture.
+#
+# Returns a zero-argument restore function; call it in on.exit. Restores the
+# exact row, so a test cannot leave the reference table short a gene.
+suppress_feature <- function(conn, feature_name, organism_id) {
+  hk <- collection_hash(feature_name, organism_id)
+  row <- DBI::dbGetQuery(conn, base::sprintf(
+    "SELECT feature_name, organism_id, gene_symbol, is_current, version, feature_hashkey
+     FROM transcriptomics_features WHERE feature_hashkey = %s",
+    DBI::dbQuoteLiteral(conn, hk)
+  ))
+  if (base::nrow(row) == 0) {
+    return(function() invisible(NULL))   # already absent; nothing to restore
+  }
+
+  DBI::dbExecute(conn, base::sprintf(
+    "DELETE FROM transcriptomics_features WHERE feature_hashkey = %s",
+    DBI::dbQuoteLiteral(conn, hk)
+  ))
+
+  function() {
+    DBI::dbExecute(conn, base::sprintf(
+      "INSERT IGNORE INTO transcriptomics_features
+         (feature_name, organism_id, gene_symbol, is_current, version, feature_hashkey)
+       VALUES (%s, %d, %s, %s, %s, %s)",
+      DBI::dbQuoteLiteral(conn, row$feature_name[1]),
+      base::as.integer(row$organism_id[1]),
+      if (base::is.na(row$gene_symbol[1])) "NULL" else DBI::dbQuoteLiteral(conn, row$gene_symbol[1]),
+      base::as.integer(row$is_current[1]),
+      DBI::dbQuoteLiteral(conn, base::as.character(row$version[1])),
+      DBI::dbQuoteLiteral(conn, row$feature_hashkey[1])
+    ))
+    invisible(NULL)
+  }
+}

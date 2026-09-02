@@ -506,6 +506,12 @@ export interface SignatureFeature {
   feature_id?: number;
   score?: number;
   group_label?: string;
+  // Joined in by the API from the assay's reference table
+  // (attach_feature_labels), so a reader sees the gene rather than
+  // OmicSignature's positional "feature_1" filler. gene_symbol is absent for
+  // assay types whose reference table has no symbol column.
+  feature_name?: string | null;
+  gene_symbol?: string | null;
   [key: string]: unknown;
 }
 

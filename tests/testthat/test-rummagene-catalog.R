@@ -201,6 +201,15 @@ test_that("rummagene_gate rejects a set whose Ensembl id is absent from the refe
     DBI::dbDisconnect(conn)
   }, add = TRUE)
   new_hashkeys <- seed_features(conn, organism_id = 2L, feature_names = c("ensg00000141510"))
+  # MYC maps to ensg00000136997, which a populated reference table DOES hold.
+  # Remove it for the duration so "absent" is a fact this test establishes
+  # rather than an accident of an empty fixture -- see suppress_feature().
+  restore_myc <- suppress_feature(conn, "ensg00000136997", 2L)
+  # after = FALSE PREPENDS. on.exit(add = TRUE) appends, which would put this
+  # restore AFTER the handler that disconnects `conn` -- it would then run
+  # against a dead connection and INSERT IGNORE would swallow the failure,
+  # silently leaving the reference table one gene short. That happened.
+  on.exit(restore_myc(), add = TRUE, after = FALSE)
 
   parsed <- base::list(term = "PMC1-t.xlsx-x", description = "d",
                        genes = c("TP53", "MYC"), pmcid = "PMC1")
@@ -760,7 +769,15 @@ test_that("rummagene_catalog_omic_signature records provenance including the unt
 
   expect_lte(base::nchar(os$metadata$signature_name), 255)
   expect_match(os$metadata$others, long_term, fixed = TRUE)
-  expect_match(os$metadata$others, "MeSH", fixed = TRUE)
+  # "key: value; key: value" -- the form SigRepo:::parseRetrievedOthers()
+  # reads back. Assert the pairs, not a bare substring.
+  expect_match(os$metadata$others, "source: rummagene", fixed = TRUE)
+  expect_match(os$metadata$others, "mesh_evidence: ", fixed = TRUE)
+  # direction_type is INFERRED, not attested -- Rummagene has no direction
+  # field and the column is NOT NULL with no "unknown" member. The
+  # provenance has to say so or a reader cannot tell it apart from
+  # organism/assay_type, which MeSH genuinely attests.
+  expect_match(os$metadata$others, "direction_type: not stated by source", fixed = TRUE)
 })
 
 test_that("api.R declares the rummagene pull route", {

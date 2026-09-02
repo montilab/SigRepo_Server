@@ -458,10 +458,32 @@ get_rummagene_catalog_entry <- function(conn, term) {
 # Handing it symbols resolves nothing -- measured at 0% -- which is the whole
 # reason the catalog stores both namespaces.
 rummagene_catalog_omic_signature <- function(entry) {
-  provenance <- base::sprintf(
-    base::paste0("source=rummagene; term=%s; pmcid=%s; organism and assay_type from ",
-           "PubMed MeSH (%s); phenotype not stated by source"),
-    entry$term, entry$pmcid, entry$mesh_evidence
+  # "key: value; key: value" -- the form SigRepo:::parseRetrievedOthers() reads
+  # back, and the same shape every other upload writes. An earlier version used
+  # key=value, which stored fine but could not be parsed by SigRepo's own
+  # reader, so the provenance was a text blob rather than structured data.
+  # Values must not contain "; " or they will split into bogus pairs.
+  #
+  # direction_type is recorded here deliberately. organism and assay_type are
+  # ATTESTED -- a MeSH descriptor assigned by an NLM curator. direction_type is
+  # not: Rummagene's schema has no direction field at all, and SigRepo's column
+  # is NOT NULL with no "unknown" member, so uni-directional is the only value
+  # an unordered gene list can take. That is an inference forced by the schema,
+  # not something the source states, and a reader deserves to know which is
+  # which.
+  provenance <- base::paste(
+    c(
+      "source: rummagene",
+      base::sprintf("rummagene_term: %s", entry$term),
+      base::sprintf("pmcid: %s", entry$pmcid),
+      base::sprintf("mesh_evidence: %s", entry$mesh_evidence),
+      "phenotype: not stated by source",
+      base::paste0(
+        "direction_type: not stated by source, uni-directional records an ",
+        "unordered gene list rather than a measured direction"
+      )
+    ),
+    collapse = "; "
   )
 
   metadata <- base::list(
