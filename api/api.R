@@ -1085,7 +1085,8 @@ search_by_genes_route <- function(req, res, api_key = "", genes = NULL, signatur
       min_overlap = base::as.integer(json_scalar(min_overlap, "1")),
       # A signature is never a hit for its own genes.
       exclude_hashkey = if (identical(hk, "")) NULL else hk,
-      is_admin = identical(auth$user_role, "admin")
+      is_admin = identical(auth$user_role, "admin"),
+      auth = auth
     ),
     error = function(e) e
   )
@@ -1222,7 +1223,10 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
       keyword = json_scalar(keyword),
       limit = limit,
       offset = offset,
-      is_admin = identical(auth$user_role, "admin")
+      is_admin = identical(auth$user_role, "admin"),
+      # Needed for the owner/grant clause -- is_admin alone cannot express
+      # "mine" or "shared with me".
+      auth = auth
     )
     base::suppressWarnings(DBI::dbDisconnect(conn))
     # `count` is the TOTAL number of matching rows (for pagination), not the

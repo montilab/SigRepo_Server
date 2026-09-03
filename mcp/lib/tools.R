@@ -28,7 +28,8 @@ mcp_search_signatures <- function(api_key, organism = NULL, phenotype = NULL,
     assay_type = assay_type,
     keyword = keyword,
     limit = limit,
-    is_admin = identical(auth$user_role, "admin")
+    is_admin = identical(auth$user_role, "admin"),
+    auth = auth
   ))
 }
 
