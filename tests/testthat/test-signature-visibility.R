@@ -51,14 +51,29 @@ vis_seed_signature <- function(conn, owner, name, visibility) {
   vis_seed_user(conn, owner)
   hk <- collection_hash(name, owner)
   vis_remove_signature(conn, hk)
-  organism_id <- lookup_id(conn, "organisms", "organism_id", "organism", "Homo sapiens")
-  phenotype_id <- lookup_id(conn, "phenotypes", "phenotype_id", "phenotype", "unknown")
-  if (base::is.null(phenotype_id)) {
-    DBI::dbExecute(conn, "INSERT INTO phenotypes (phenotype) VALUES ('unknown')")
-    phenotype_id <- lookup_id(conn, "phenotypes", "phenotype_id", "phenotype", "unknown")
+  # Whatever vocabulary this database happens to hold, creating a row only if a
+  # table is empty. These tests are about VISIBILITY and do not care which
+  # organism or platform a signature carries.
+  #
+  # They previously asked for "Homo sapiens" and "unknown" by name. That passes
+  # against a development database and fails in CI, whose seed fixture uses
+  # "CI Test Organism" -- lookup_id() returned NULL, sprintf("%d", NULL) produced
+  # no output, and the resulting malformed SQL surfaced as the opaque
+  # "CHAR() can only be applied to a 'CHARSXP', not a 'NULL'".
+  vocab_id <- function(table, id_col, name_col, fallback) {
+    row <- DBI::dbGetQuery(conn, base::sprintf("SELECT %s FROM %s LIMIT 1", id_col, table))
+    if (base::nrow(row) > 0) {
+      return(base::as.integer(row[[id_col]][1]))
+    }
+    DBI::dbExecute(conn, base::sprintf("INSERT INTO %s (%s) VALUES (%s)",
+                                       table, name_col, DBI::dbQuoteLiteral(conn, fallback)))
+    base::as.integer(DBI::dbGetQuery(conn, base::sprintf(
+      "SELECT %s FROM %s ORDER BY %s DESC LIMIT 1", id_col, table, id_col))[[id_col]][1])
   }
-  sample_type_id <- lookup_id(conn, "sample_types", "sample_type_id", "sample_type", "unknown")
-  platform_id <- DBI::dbGetQuery(conn, "SELECT platform_id FROM platforms LIMIT 1")$platform_id[1]
+  organism_id <- vocab_id("organisms", "organism_id", "organism", "vis test organism")
+  phenotype_id <- vocab_id("phenotypes", "phenotype_id", "phenotype", "unknown")
+  sample_type_id <- vocab_id("sample_types", "sample_type_id", "sample_type", "unknown")
+  platform_id <- vocab_id("platforms", "platform_id", "platform_name", "vis test platform")
 
   DBI::dbExecute(conn, base::sprintf(
     "INSERT INTO signatures
