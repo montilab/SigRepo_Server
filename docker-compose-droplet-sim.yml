@@ -1,0 +1,65 @@
+# Droplet simulation: run the local stack under the production droplet's
+# resource ceiling.
+#
+#   docker compose -f docker-compose-local.yml -f docker-compose-droplet-sim.yml up -d
+#
+# WHY THIS EXISTS AND NOT A DIFFERENT BASE IMAGE: the containers already run
+# Ubuntu 24.04 x86_64 (Docker Desktop runs a Linux VM, and platform:
+# linux/amd64 makes the images amd64 even on an arm64 Mac), so the OS and the
+# architecture already match production. What does NOT match is capacity --
+# a laptop offers 12 CPUs and 7.6 GB with no limits, and the droplet has ~3 GB
+# and no swap. Memory is the constraint that decides whether an enrichment
+# survives, so memory is what this file simulates.
+#
+# WHAT THIS STILL DOES NOT SIMULATE, and where it will mislead you:
+#   * amd64 runs EMULATED on Apple Silicon, so CPU-bound work here is slower
+#     than the same work on a real amd64 droplet. Treat timings as pessimistic,
+#     and do not use this file to conclude something is "fast enough".
+#   * Disk is your SSD, not the droplet's volume.
+#   * Network latency to rummagene.com / NCBI is from your location, not from
+#     the DO datacentre.
+#   * The host OS overhead outside the containers is not modelled; the budget
+#     below simply leaves room for it.
+#
+# TUNING: every value is an env var, so a resize does not mean editing this
+# file. The defaults describe a 3 GB / 1 vCPU droplet. Confirm the real numbers
+# with `free -m` and `nproc` on the droplet and override:
+#
+#   SIM_API_MEM=1600m docker compose -f docker-compose-local.yml \
+#       -f docker-compose-droplet-sim.yml up -d
+#
+# BUDGET (3 GB droplet, leaving ~400 MB for the host OS and page cache):
+#   mysql 800m + api 1200m + mcp 500m + web 64m + proxy 32m = 2596m
+#
+# memswap_limit is set EQUAL to mem_limit on every service. That is what
+# disables swap for the container -- the droplet has none, and without this the
+# container would silently borrow swap from Docker Desktop's VM and survive an
+# allocation that would have been killed in production. Getting this wrong is
+# the single easiest way to make this simulation lie to you.
+
+services:
+  sigrepo-mysql:
+    mem_limit: ${SIM_MYSQL_MEM:-800m}
+    memswap_limit: ${SIM_MYSQL_MEM:-800m}
+    cpus: ${SIM_MYSQL_CPUS:-1.0}
+
+  sigrepo-api:
+    mem_limit: ${SIM_API_MEM:-1200m}
+    memswap_limit: ${SIM_API_MEM:-1200m}
+    # The API is the one that matters: it is single-process and single-threaded,
+    # so it can only ever use one core anyway. Pinning it to 1.0 makes local
+    # timings comparable to a 1 vCPU droplet instead of to a 12-core laptop.
+    cpus: ${SIM_API_CPUS:-1.0}
+
+  sigrepo-mcp:
+    mem_limit: ${SIM_MCP_MEM:-500m}
+    memswap_limit: ${SIM_MCP_MEM:-500m}
+    cpus: ${SIM_MCP_CPUS:-1.0}
+
+  sigrepo-web:
+    mem_limit: ${SIM_WEB_MEM:-64m}
+    memswap_limit: ${SIM_WEB_MEM:-64m}
+
+  sigrepo-mcp-proxy:
+    mem_limit: ${SIM_PROXY_MEM:-32m}
+    memswap_limit: ${SIM_PROXY_MEM:-32m}
