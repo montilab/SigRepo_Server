@@ -46,7 +46,7 @@ list_vocabulary <- function(conn) {
 # get_signature_context if they already know its hashkey; it just won't
 # surface via search. Under-returning is the safe default here.
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
-                               keyword = NULL, limit = 20, is_admin = FALSE) {
+                               keyword = NULL, limit = 20, is_admin = FALSE, auth = NULL) {
   limit <- base::suppressWarnings(base::as.integer(limit[1]))
   if (base::is.na(limit) || limit < 1) {
     limit <- 20
@@ -63,8 +63,18 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
     WHERE 1=1
   "
 
+  # Same three-part rule as api/lib/signature.R. Without it an agent could not
+  # find the caller's own private signatures either.
   if (!is_admin) {
-    query <- base::paste(query, "AND s.visibility = 1")
+    user_name <- auth$user_name
+    if (base::is.null(user_name) || !base::nzchar(base::trimws(base::as.character(user_name)[1]))) {
+      query <- base::paste(query, "AND s.visibility = 1")
+    } else {
+      user_literal <- DBI::dbQuoteLiteral(conn, base::trimws(base::as.character(user_name)[1]))
+      query <- base::paste(query, base::sprintf(
+        "AND (s.visibility = 1 OR s.user_name = %s OR s.signature_id IN (SELECT signature_id FROM signature_access WHERE user_name = %s))",
+        user_literal, user_literal))
+    }
   }
   if (!is.null(organism) && base::nzchar(base::trimws(organism[1]))) {
     query <- base::paste(query, "AND o.organism =", DBI::dbQuoteLiteral(conn, base::trimws(organism[1])))

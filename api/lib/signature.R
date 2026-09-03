@@ -13,8 +13,42 @@
 # pagination on the Signatures page (DT-style server = TRUE): the client asks
 # for one `limit`-sized page at `offset` and renders pager controls from
 # `total`, instead of pulling every row up front.
+# Which signatures a caller may see, as a SQL fragment.
+#
+# Three grounds, not one: the signature is public, it is THEIRS, or someone
+# granted them access to it. search_collections() in api/lib/collection.R has
+# always applied exactly this rule to collections; the signature queries only
+# checked the first, so a person could not find their own private signatures.
+# That surfaced as "I added signatures to a collection and they don't appear on
+# the Signatures tab" -- the collection view was correct all along.
+#
+# It also made selective sharing pointless: a signature shared with someone was
+# unfindable by them.
+#
+# Defined once and used by every signature query, because drifting apart across
+# call sites is how this survived. `alias` is the signatures table's alias in
+# the calling query.
+#
+# A caller that does not identify itself gets public rows only -- never
+# everything. NULL$x is NULL in R, so a missing auth is safe here.
+signature_visibility_clause <- function(conn, auth, is_admin, alias = "s") {
+  if (base::isTRUE(is_admin)) {
+    return("")
+  }
+  user_name <- auth$user_name
+  if (base::is.null(user_name) || !base::nzchar(base::trimws(base::as.character(user_name)[1]))) {
+    return(base::sprintf(" AND %s.visibility = 1", alias))
+  }
+  user_literal <- DBI::dbQuoteLiteral(conn, base::trimws(base::as.character(user_name)[1]))
+  base::sprintf(
+    " AND (%s.visibility = 1 OR %s.user_name = %s OR %s.signature_id IN (SELECT signature_id FROM signature_access WHERE user_name = %s))",
+    alias, alias, user_literal, alias, user_literal
+  )
+}
+
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
-                               keyword = NULL, limit = 20, offset = 0, is_admin = FALSE) {
+                               keyword = NULL, limit = 20, offset = 0, is_admin = FALSE,
+                               auth = NULL) {
   limit <- base::suppressWarnings(base::as.integer(limit[1]))
   if (base::is.na(limit) || limit < 1) {
     limit <- 20
@@ -37,9 +71,7 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
     WHERE 1=1
   "
 
-  if (!is_admin) {
-    from_where <- base::paste(from_where, "AND s.visibility = 1")
-  }
+  from_where <- base::paste0(from_where, signature_visibility_clause(conn, auth, is_admin))
   if (!is.null(organism) && base::nzchar(base::trimws(organism[1]))) {
     from_where <- base::paste(from_where, "AND o.organism =", DBI::dbQuoteLiteral(conn, base::trimws(organism[1])))
   }
@@ -375,7 +407,8 @@ delete_signature <- function(auth, signature_hashkey) {
 # organism, phenotype, assay_type, n_overlap, n_signature_genes, jaccard,
 # and matched_genes (comma-separated, capped).
 search_signatures_by_genes <- function(conn, genes, limit = 20, min_overlap = 1,
-                                       exclude_hashkey = NULL, is_admin = FALSE) {
+                                       exclude_hashkey = NULL, is_admin = FALSE,
+                                       auth = NULL) {
   genes <- base::unique(base::toupper(base::trimws(base::as.character(genes))))
   genes <- genes[!base::is.na(genes) & base::nzchar(genes)]
   if (base::length(genes) == 0) {
@@ -406,7 +439,7 @@ search_signatures_by_genes <- function(conn, genes, limit = 20, min_overlap = 1,
   )
   matched_features <- base::paste(branches, collapse = " UNION ALL ")
 
-  where_visibility <- if (is_admin) "" else " AND s.visibility = 1"
+  where_visibility <- signature_visibility_clause(conn, auth, is_admin)
   where_exclude <- if (!base::is.null(exclude_hashkey) && base::nzchar(exclude_hashkey)) {
     base::paste(" AND s.signature_hashkey <>", DBI::dbQuoteLiteral(conn, exclude_hashkey))
   } else {
