@@ -11,7 +11,6 @@ import CollectionsPage from "./pages/CollectionsPage";
 import AnnotatePage from "./pages/AnnotatePage";
 import ComparePage from "./pages/ComparePage";
 import BrowsePage from "./pages/BrowsePage";
-import FeedbackPage from "./pages/FeedbackPage";
 
 // Wraps everything except standalone pages (e.g. the signature detail page,
 // meant to be opened in its own tab with no app chrome) in the navbar shell.
@@ -49,7 +48,6 @@ export default function App() {
           <Route path="/annotate" element={<AnnotatePage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/browse" element={<BrowsePage />} />
-          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

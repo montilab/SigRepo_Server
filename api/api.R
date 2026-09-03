@@ -1151,6 +1151,52 @@ insights_route <- function(res, api_key = "", recent_limit = 5){
   })
 }
 
+#* Search the reference feature catalog.
+#*
+#* Backs the Browse page. Returns the columns the chosen assay type ACTUALLY
+#* has -- transcriptomics and proteomics carry a gene_symbol, genetic variants
+#* carry chromosome/position/annotation -- rather than a fixed shape that would
+#* be empty or invented for some assays.
+#* @param api_key
+#* @param assay_type One of transcriptomics, proteomics, snps.
+#* @param q Free text, matched as a substring against the assay's text columns.
+#* @param organism Exact organism name.
+#* @param limit
+#* @param offset
+#' @get /features/search
+features_search_route <- function(res, api_key = "", assay_type = "transcriptomics",
+                                  q = "", organism = "", limit = 25, offset = 0){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  conn <- NULL
+  base::tryCatch({
+    conn <- db_connect_local()
+    result <- search_features(
+      conn = conn,
+      assay_type = json_scalar(assay_type, "transcriptomics"),
+      q = json_scalar(q),
+      organism = json_scalar(organism),
+      limit = limit, offset = offset
+    )
+    json_response(res, 200, payload = base::list(
+      count = result$total,
+      columns = result$columns,
+      features = compact_table(result$rows)
+    ))
+  }, error = function(err) {
+    # An unsupported assay_type is the caller's mistake, not a server fault.
+    if (base::grepl("Unsupported assay_type", base::conditionMessage(err), fixed = TRUE)) {
+      json_error(res, 400, base::conditionMessage(err))
+    } else {
+      json_error(res, 500, base::sprintf("Feature search failed: %s", err$message))
+    }
+  }, finally = {
+    if (!base::is.null(conn)) base::suppressWarnings(DBI::dbDisconnect(conn))
+  })
+}
+
 #* Search signatures by organism/phenotype/assay_type/keyword
 #* @param api_key
 #* @param organism

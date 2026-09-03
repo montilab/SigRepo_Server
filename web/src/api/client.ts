@@ -186,6 +186,57 @@ export interface Vocabulary {
   assay_type: string[];
 }
 
+// ---------- Reference feature catalog (Browse) ----------
+//
+// Column sets differ by assay type and the server says which it returned, so
+// the table renders what the data actually has. The page this replaced showed a
+// fixed shape including a "chromosome" column that transcriptomics features do
+// not have.
+export interface FeatureRow {
+  feature_name: string;
+  gene_symbol?: string | null;
+  chromosome?: string | null;
+  position?: number | null;
+  annotation?: string | null;
+  organism: string | null;
+  version: string | null;
+}
+
+export interface FeaturePage {
+  rows: FeatureRow[];
+  total: number;
+  // The columns the server actually returned, in order.
+  columns: string[];
+}
+
+export async function searchFeatures(params: {
+  assayType: string;
+  q?: string;
+  organism?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<FeaturePage> {
+  const query = new URLSearchParams({
+    api_key: requireApiKey(),
+    assay_type: params.assayType,
+  });
+  if (params.q) query.set("q", params.q);
+  if (params.organism) query.set("organism", params.organism);
+  query.set("limit", String(params.limit ?? 25));
+  query.set("offset", String(params.offset ?? 0));
+
+  const raw = await apiFetch<{ count: number; columns: string[] | string; features: FeatureRow[] }>(
+    `/features/search?${query.toString()}`
+  );
+  return {
+    rows: raw.features ?? [],
+    total: Number(raw.count ?? 0),
+    // plumber's auto_unbox turns a length-1 vector into a bare string, so a
+    // single-column result would arrive unwrapped.
+    columns: Array.isArray(raw.columns) ? raw.columns : raw.columns ? [raw.columns] : [],
+  };
+}
+
 export async function getVocabulary(): Promise<Vocabulary> {
   const raw = await apiFetch<Record<string, unknown>>(
     `/vocabulary?api_key=${encodeURIComponent(requireApiKey())}`
