@@ -132,6 +132,14 @@ test_that("rummagene_map_symbols refuses an organism outside scope", {
 })
 
 test_that("rummagene_gate accepts a set whose every symbol resolves", {
+  # org.Hs.eg.db is a Bioconductor ANNOTATION package. It is in neither the
+  # published image nor CI (both install only testthat/pkgload on top of the
+  # image), so anything reaching rummagene_map_symbols() has to skip without
+  # it. These tests passed for weeks only because the package happened to be
+  # installed by hand into a long-lived container; recreating that container
+  # turned them into errors, which is how the missing guard surfaced.
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
   conn <- test_conn()
   new_hashkeys <- base::character(0)
   on.exit({
@@ -149,6 +157,8 @@ test_that("rummagene_gate accepts a set whose every symbol resolves", {
 })
 
 test_that("rummagene_gate rejects a set with one unmappable symbol", {
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
   # The whole point of the 100%-mappable rule: a single dead alias disqualifies
   # the set rather than being silently dropped, so a stored signature always
   # matches the published gene list exactly.
@@ -169,6 +179,8 @@ test_that("rummagene_gate rejects a set with one unmappable symbol", {
 })
 
 test_that("rummagene_gate rejects a set whose every symbol is invalid, rather than erroring", {
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
   # C1: AnnotationDbi::mapIds() THROWS instead of returning NAs when NOT ONE
   # symbol in the set is a valid SYMBOL key (see rummagene_map_symbols()'s own
   # comment) -- which made the "unmapped_symbol" branch below UNREACHABLE in
@@ -190,6 +202,8 @@ test_that("rummagene_gate rejects a set whose every symbol is invalid, rather th
 })
 
 test_that("rummagene_gate rejects a set whose Ensembl id is absent from the reference table", {
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
   # Distinct from unmapped: the symbol maps fine, but that Ensembl id is not in
   # THIS database. Checking the live table rather than org.Hs.eg.db is what
   # makes Ensembl version drift move a set out of the catalog instead of

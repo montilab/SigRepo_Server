@@ -13,6 +13,14 @@ source(testthat::test_path("../../api/lib/rummagene_catalog.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/rummagene_catalog_build.R"), local = FALSE)
 
 test_that("build_rummagene_catalog keeps only the sets that pass every gate", {
+  # org.Hs.eg.db is a Bioconductor ANNOTATION package. It is in neither the
+  # published image nor CI (both install only testthat/pkgload on top of the
+  # image), so anything reaching rummagene_map_symbols() has to skip without
+  # it. These tests passed for weeks only because the package happened to be
+  # installed by hand into a long-lived container; recreating that container
+  # turned them into errors, which is how the missing guard surfaced.
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
   conn <- test_conn()
   new_hashkeys <- base::character(0)
   on.exit({ DBI::dbExecute(conn, "DELETE FROM rummagene_catalog WHERE gmt_version = 'test-build'")
@@ -122,6 +130,8 @@ test_that("build_rummagene_catalog rejects a one-gene set under its own reason i
 })
 
 test_that("build_rummagene_catalog counts an unstorable row separately and keeps writing the rest of the batch", {
+  testthat::skip_if_not(requireNamespace("org.Hs.eg.db", quietly = TRUE), "org.Hs.eg.db not installed")
+
   # I1's core regression: an over-length term must not abort the pass, and
   # must not silently take its batch-mates down with it. Both rows below pass
   # every content gate (organism, assay_type, mapping, feature presence) --
