@@ -357,7 +357,17 @@ upload_others_value <- function(metadata, metabolomics_nomenclature) {
   if (base::is.null(existing)) entry else base::paste(existing, entry, sep = "; ")
 }
 
-build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, difexp_dir) {
+# `signature_source` records WHERE a signature came from: "curated" for one a
+# person deposited into SigRepo directly, or the name of the external resource
+# an integration pulled it from ("rummagene", and whatever follows).
+#
+# It is a parameter of this function rather than a field read out of `uploaded`
+# on purpose. The value is a claim about provenance, so it has to be set by the
+# code path that KNOWS the provenance -- the pull route -- and must not be
+# settable by whoever composed the payload. An uploader could otherwise label
+# their own submission "rummagene" and have the UI vouch for it.
+build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, difexp_dir,
+                                        signature_source = "curated") {
   if (!auth$user_role %in% c("editor", "admin")) {
     return(base::list(ok = FALSE, reason = "forbidden"))
   }
@@ -445,7 +455,7 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
       "signature_name", "organism_id", "direction_type", "assay_type", "phenotype_id", "platform_id", "sample_type_id",
       "covariates", "description", "score_cutoff", "logfc_cutoff", "p_value_cutoff", "adj_p_cutoff", "cutoff_description",
       "keywords", "PMID", "year", "others", "has_difexp", "num_of_difexp", "num_up_regulated", "num_down_regulated",
-      "user_name", "visibility", "signature_hashkey"
+      "user_name", "visibility", "signature_hashkey", "signature_source"
     )
     insert_vals <- c(
       sql_value(conn, signature_name),
@@ -472,7 +482,8 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
       base::as.character(num_down),
       sql_value(conn, auth$user_name),
       base::as.character(if (base::isTRUE(visibility)) 1L else 0L),
-      sql_value(conn, hashkey)
+      sql_value(conn, hashkey),
+      sql_value(conn, signature_source)
     )
     DBI::dbExecute(conn, base::sprintf(
       "INSERT INTO signatures (%s) VALUES (%s)",

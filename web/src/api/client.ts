@@ -33,13 +33,100 @@ function extractMessage(data: unknown): string | null {
   return null;
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, init);
-  const data = await res.json().catch(() => null);
-  if (!res.ok) {
-    throw new ApiError(extractMessage(data) ?? `Request failed (${res.status})`, res.status);
+// A request that never comes back.
+//
+// Distinguished from ApiError so the UI can say something true: the server did
+// not answer, which is not the same as the server saying no. `status` is 408
+// only so code that formats a number has one; nothing was actually received.
+export class ApiTimeoutError extends ApiError {
+  constructor(message: string) {
+    super(message, 408);
+    this.name = "ApiTimeoutError";
   }
-  return data as T;
+}
+
+// The API is a single R process and serialises every request, so one slow call
+// holds up everyone behind it. Without a client-side limit a blocked request
+// just spins until nginx gives up at proxy_read_timeout 300s and returns an
+// opaque gateway error -- at which point people click again, adding another
+// request to the queue they are already stuck in.
+//
+// So the client gives up FIRST, well inside nginx's window, and says why.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+// Endpoints that are legitimately slow, and roughly why:
+//   /annotate/run, /annotate/dotplot, /annotate/leading_edge
+//   /signatures/compare/leading_edge  -- hypeR enrichment; ~2.3s for Hallmark
+//                                        and substantially longer for the big
+//                                        MSigDB collections
+//   /rummagene/enrich, /rummagene/pull -- call out to rummagene.com
+//   /signatures/upload                 -- resolves every feature in the file
+//   /signatures/export-batch           -- builds an archive of many signatures
+//
+// Listed explicitly rather than matched by prefix: /annotate/msigdb-collections
+// and /annotate/msigdb-species are plain vocabulary lookups and should fail
+// fast like anything else.
+//
+// 180s sits under nginx's 300s on purpose. If nginx times out first the user
+// gets a gateway error page with no explanation; this way they get a sentence.
+const SLOW_PATHS = [
+  "/annotate/run",
+  "/annotate/dotplot",
+  "/annotate/leading_edge",
+  "/signatures/compare/leading_edge",
+  "/rummagene/enrich",
+  "/rummagene/pull",
+  "/signatures/upload",
+  "/signatures/export-batch",
+];
+const SLOW_TIMEOUT_MS = 180_000;
+
+function timeoutFor(path: string): number {
+  // Compared against the path only -- `path` may carry a query string.
+  const bare = path.split("?")[0];
+  return SLOW_PATHS.includes(bare) ? SLOW_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
+}
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const limit = timeoutFor(path);
+
+  // Tracked separately from the signal: an abort can also come from a caller,
+  // and only a timeout should be reported as one.
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, limit);
+
+  // Honour a caller's own signal as well as the timeout. No caller passes one
+  // today, but silently dropping it would be a trap for whoever adds the first
+  // cancellable request.
+  const callerSignal = init?.signal;
+  const onCallerAbort = () => controller.abort();
+  callerSignal?.addEventListener("abort", onCallerAbort);
+
+  try {
+    const res = await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new ApiError(extractMessage(data) ?? `Request failed (${res.status})`, res.status);
+    }
+    return data as T;
+  } catch (err) {
+    if (timedOut) {
+      throw new ApiTimeoutError(
+        `The server did not respond within ${Math.round(limit / 1000)} seconds. ` +
+          `It may be busy with another analysis — please try again in a moment.`
+      );
+    }
+    throw err;
+  } finally {
+    // Both matter. A live timer keeps a handle alive for its full duration,
+    // and in a long-lived SPA the listeners accumulate on every request.
+    clearTimeout(timer);
+    callerSignal?.removeEventListener("abort", onCallerAbort);
+  }
 }
 
 function toArray(x: unknown): string[] {
@@ -277,11 +364,18 @@ export interface SignatureSummary {
   date_created: string;
   visibility: 0 | 1;
   feature_count: number;
+  // Where this signature came from: "curated" for one deposited into SigRepo
+  // directly, or the external resource it was pulled from ("rummagene").
+  // Deliberately `string` and not a union of the values known today -- the set
+  // grows as integrations are added, and a union would make the API's honest
+  // answer a type error in the browser until someone remembered to widen it.
+  signature_source: string;
 }
 
 export type SignatureSortKey =
   | "signature_name" | "organism" | "assay_type" | "direction_type" | "phenotype"
-  | "sample_type" | "platform_name" | "year" | "user_name" | "visibility";
+  | "sample_type" | "platform_name" | "year" | "user_name" | "visibility"
+  | "signature_source";
 
 export interface SearchSignaturesParams {
   organism?: string;

@@ -94,6 +94,103 @@ function(req){
   plumber::forward()
 }
 
+# How long a request has to take before its completion line is tagged SLOW,
+# so `docker logs sigrepo-api | grep SLOW` is a useful first question. Tuned
+# by env var because the right threshold differs between a laptop and the
+# droplet, and nobody should have to rebuild an image to change it.
+.slow_request_ms <- function() {
+  configured <- base::suppressWarnings(base::as.numeric(
+    base::Sys.getenv("SIGREPO_SLOW_REQUEST_MS", unset = "1000")))
+  if (base::is.na(configured) || configured <= 0) 1000 else configured
+}
+
+# Formats one completion line. Separated from the hook so it can be tested
+# without standing up a server: the hook is then only plumbing (read the clock,
+# call this, print it), and the part with rules in it -- the SLOW threshold,
+# the missing-start-time case -- is an ordinary function.
+#
+# Takes `path` rather than `req` deliberately. A function handed the whole
+# request could reach QUERY_STRING and write plaintext api_keys into the logs;
+# one handed a path cannot. The narrower signature is the safeguard.
+request_log_line <- function(method, path, status, elapsed_ms,
+                             now = base::Sys.time(), threshold_ms = .slow_request_ms()) {
+  duration <- if (base::length(elapsed_ms) != 1 || base::is.na(elapsed_ms)) {
+    "NA"
+  } else {
+    base::sprintf("%.1f", elapsed_ms)
+  }
+  # A request with no recorded start is never SLOW: an unknown duration is not
+  # evidence of a fast request, but tagging it would put noise in exactly the
+  # grep someone runs when hunting a real problem.
+  slow <- base::length(elapsed_ms) == 1 && !base::is.na(elapsed_ms) && elapsed_ms >= threshold_ms
+
+  base::sprintf(
+    "%s done %s %s status=%s dur_ms=%s%s\n",
+    base::format(now, "%Y-%m-%d %H:%M:%OS3"),
+    if (base::is.null(method)) "?" else base::as.character(method)[1],
+    if (base::is.null(path)) "?" else base::as.character(path)[1],
+    if (base::is.null(status)) "200" else base::as.character(status)[1],
+    duration,
+    if (slow) " SLOW" else ""
+  )
+}
+
+#* Record how long each request took.
+#*
+#* WHY THIS IS A HOOK AND NOT PART OF THE logger FILTER ABOVE: a filter runs
+#* BEFORE the route, and plumber::forward() does not return -- so a filter
+#* cannot observe how long the work it forwarded to took. Timing needs a pair
+#* of hooks either side of the route, sharing the per-request `data`
+#* environment plumber hands to any hook that asks for it.
+#*
+#* WHY BOTH A START LINE AND A COMPLETION LINE: they answer different
+#* questions. The filter's line proves a request ARRIVED; this one proves it
+#* FINISHED and says how long it took. A request that hangs until nginx gives
+#* up at 300s never reaches this hook, so a start line with no matching
+#* completion line is the only evidence that it happened at all -- which is
+#* exactly the failure this logging exists to find. The extra line costs a
+#* few hundred KB a day at the traffic this API sees.
+#*
+#* WHY postserialize AND NOT postroute: the status can still change during
+#* serialization, and a duration that stops before the response is encoded
+#* understates what the caller actually waited for.
+#*
+#* WHAT IS DELIBERATELY NOT LOGGED: the query string. 31 endpoints take
+#* api_key as a query parameter, so logging QUERY_STRING would write plaintext
+#* API keys into the container logs -- where they would then be shipped
+#* wherever logs get shipped. PATH_INFO excludes it, and that is the whole
+#* reason this logs PATH_INFO rather than the full URL.
+#* @plumber
+function(pr) {
+  pr <- plumber::pr_hook(pr, "preroute", function(data, req) {
+    data$sigrepo_start <- base::Sys.time()
+    base::invisible(NULL)
+  })
+
+  plumber::pr_hook(pr, "postserialize", function(data, req, res, value) {
+    # Never let logging break a response. If anything in here throws, the
+    # caller should still get their result -- a missing log line is an
+    # annoyance, a 500 caused by the logger is an outage.
+    base::tryCatch({
+      started <- data$sigrepo_start
+      elapsed_ms <- if (base::is.null(started)) {
+        NA_real_
+      } else {
+        base::as.numeric(base::difftime(base::Sys.time(), started, units = "secs")) * 1000
+      }
+      base::cat(request_log_line(
+        method = req$REQUEST_METHOD,
+        path = req$PATH_INFO,
+        status = res$status,
+        elapsed_ms = elapsed_ms
+      ))
+    }, error = function(e) base::invisible(NULL))
+
+    # postserialize hooks must hand the value back, or the response is lost.
+    value
+  })
+}
+
 # Create a list of serializers to return the object ####
 serializers <- base::list(
   "html" = plumber::serializer_html(),
@@ -1243,12 +1340,15 @@ insights_route <- function(res, api_key = "", recent_limit = 5){
 #* @param keyword
 #* @param limit
 #* @param offset
+#* @param signature_source Where the signature came from: "curated" for one
+#*   deposited into SigRepo directly, or the external resource it was pulled
+#*   from ("rummagene"). Omit for all sources.
 #* @param sort_by One of signature_name, organism, assay_type, direction_type,
-#*   phenotype, sample_type, platform_name, year, user_name, visibility.
-#*   Anything else falls back to signature_name.
+#*   phenotype, sample_type, platform_name, year, user_name, visibility,
+#*   signature_source. Anything else falls back to signature_name.
 #* @param sort_dir asc (default) or desc
 #' @get /signatures/search
-search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0, sort_by = "", sort_dir = "asc"){
+search_signatures_route <- function(res, api_key = "", organism = "", phenotype = "", assay_type = "", keyword = "", limit = 20, offset = 0, sort_by = "", sort_dir = "asc", signature_source = ""){
   auth <- validate_api_key(res, api_key)
   if (is_json_error(auth)) {
     return(auth)
@@ -1266,6 +1366,7 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
       offset = offset,
       sort_by = json_scalar(sort_by),
       sort_dir = json_scalar(sort_dir, "asc"),
+      signature_source = json_scalar(signature_source),
       is_admin = identical(auth$user_role, "admin")
     )
     base::suppressWarnings(DBI::dbDisconnect(conn))
@@ -2041,7 +2142,10 @@ rummagene_pull_route <- function(req, res, api_key = "", term = ""){
   # feature resolution, same rollback, same access grant. Its visibility = FALSE
   # default is what makes a pulled signature private to the puller.
   result <- build_signature_from_upload(
-    auth = auth, uploaded = omic_signature, visibility = FALSE, difexp_dir = difexp_dir
+    auth = auth, uploaded = omic_signature, visibility = FALSE, difexp_dir = difexp_dir,
+    # Set here, by the route that knows the provenance -- never taken from the
+    # payload. See the header of build_signature_from_upload().
+    signature_source = "rummagene"
   )
   if (!base::isTRUE(result$ok)) {
     status <- base::switch(

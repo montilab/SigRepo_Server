@@ -32,12 +32,13 @@
   platform_name  = "pl.platform_name",
   year           = "s.year",
   user_name      = "s.user_name",
-  visibility     = "s.visibility"
+  visibility     = "s.visibility",
+  signature_source = "s.signature_source"
 )
 
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
                                keyword = NULL, limit = 20, offset = 0, is_admin = FALSE,
-                               sort_by = NULL, sort_dir = "asc") {
+                               sort_by = NULL, sort_dir = "asc", signature_source = NULL) {
   limit <- base::suppressWarnings(base::as.integer(limit[1]))
   if (base::is.na(limit) || limit < 1) {
     limit <- 20
@@ -71,6 +72,13 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
   }
   if (!is.null(assay_type) && base::nzchar(base::trimws(assay_type[1]))) {
     from_where <- base::paste(from_where, "AND s.assay_type =", DBI::dbQuoteLiteral(conn, base::trimws(assay_type[1])))
+  }
+  # Exact match, not LIKE: the values are a controlled set written by the code
+  # that creates each signature, so a caller asking for "rummagene" wants
+  # exactly that and not some future "rummagene-preprints".
+  if (!is.null(signature_source) && base::nzchar(base::trimws(signature_source[1]))) {
+    from_where <- base::paste(from_where, "AND s.signature_source =",
+                              DBI::dbQuoteLiteral(conn, base::trimws(signature_source[1])))
   }
   if (!is.null(keyword) && base::nzchar(base::trimws(keyword[1]))) {
     like <- DBI::dbQuoteLiteral(conn, base::sprintf("%%%s%%", base::trimws(keyword[1])))

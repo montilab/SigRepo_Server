@@ -38,6 +38,12 @@ list_vocabulary <- function(conn) {
   )
 }
 
+# NOTE: unlike the API's search_signatures (api/lib/signature.R), this query
+# names its columns explicitly rather than selecting s.*, because an MCP result
+# goes into a model's context and every extra column costs tokens. The tradeoff
+# is that a new column does NOT appear here on its own -- signature_source had
+# to be added by hand, and the next one will too.
+#
 # is_admin controls whether hidden (visibility = 0) signatures are included.
 # Search deliberately does NOT consult the per-signature signature_access ACL
 # the way fetch_signature_context() does for a single record -- that's an
@@ -46,7 +52,8 @@ list_vocabulary <- function(conn) {
 # get_signature_context if they already know its hashkey; it just won't
 # surface via search. Under-returning is the safe default here.
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
-                               keyword = NULL, limit = 20, is_admin = FALSE) {
+                               keyword = NULL, limit = 20, is_admin = FALSE,
+                               signature_source = NULL) {
   limit <- base::suppressWarnings(base::as.integer(limit[1]))
   if (base::is.na(limit) || limit < 1) {
     limit <- 20
@@ -55,7 +62,7 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
 
   query <- "
     SELECT s.signature_hashkey, s.signature_name, o.organism, p.phenotype,
-           s.assay_type, s.description,
+           s.assay_type, s.description, s.signature_source,
            (SELECT COUNT(*) FROM signature_feature_set sfs WHERE sfs.signature_id = s.signature_id) AS feature_count
     FROM signatures s
     LEFT JOIN organisms o ON s.organism_id = o.organism_id
@@ -74,6 +81,10 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
   }
   if (!is.null(assay_type) && base::nzchar(base::trimws(assay_type[1]))) {
     query <- base::paste(query, "AND s.assay_type =", DBI::dbQuoteLiteral(conn, base::trimws(assay_type[1])))
+  }
+  if (!is.null(signature_source) && base::nzchar(base::trimws(signature_source[1]))) {
+    query <- base::paste(query, "AND s.signature_source =",
+                         DBI::dbQuoteLiteral(conn, base::trimws(signature_source[1])))
   }
   if (!is.null(keyword) && base::nzchar(base::trimws(keyword[1]))) {
     like <- DBI::dbQuoteLiteral(conn, base::sprintf("%%%s%%", base::trimws(keyword[1])))

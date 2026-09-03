@@ -34,6 +34,19 @@ CREATE TABLE `signatures` (
   `num_up_regulated` INT DEFAULT NULL,
   `num_down_regulated` INT DEFAULT NULL,
   `user_name` VARCHAR(255) NOT NULL,
+  -- Where this signature came from: 'curated' for one deposited into SigRepo
+  -- directly, or the name of the external resource it was pulled from
+  -- ('rummagene', and whatever integrations follow).
+  --
+  -- VARCHAR rather than ENUM/SET on purpose. assay_type is a SET, and that is
+  -- exactly what made a database built from this file reject the value
+  -- production actually stored -- adding a member meant a schema change that
+  -- nothing applied. Adding a source here is a write, not a migration.
+  --
+  -- NOT NULL DEFAULT 'curated' so every existing row and every future upload
+  -- is correct without a caller having to remember to set it; only an
+  -- integration that pulls from elsewhere has to say so.
+  `signature_source` VARCHAR(64) NOT NULL DEFAULT 'curated',
   `date_created` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   `visibility` BOOL DEFAULT 0,  
   `signature_hashkey` VARCHAR(32) NOT NULL,

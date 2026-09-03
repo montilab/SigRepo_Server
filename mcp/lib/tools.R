@@ -17,7 +17,8 @@ mcp_list_vocabulary <- function(api_key) {
 }
 
 mcp_search_signatures <- function(api_key, organism = NULL, phenotype = NULL,
-                                   assay_type = NULL, keyword = NULL, limit = 20) {
+                                   assay_type = NULL, keyword = NULL, limit = 20,
+                                   signature_source = NULL) {
   auth <- require_api_key(api_key)
   conn <- db_connect_local()
   on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
@@ -28,6 +29,7 @@ mcp_search_signatures <- function(api_key, organism = NULL, phenotype = NULL,
     assay_type = assay_type,
     keyword = keyword,
     limit = limit,
+    signature_source = signature_source,
     is_admin = identical(auth$user_role, "admin")
   ))
 }
@@ -173,7 +175,7 @@ build_mcp_tools <- function() {
     ),
     ellmer::tool(
       mcp_search_signatures,
-      "Search SigRepo signatures by organism, phenotype, assay type, and/or a free-text keyword (matched against name, description, and keywords). Returns a compact list of candidate matches -- use get_signature_context on a specific signature_hashkey for full detail.",
+      "Search SigRepo signatures by organism, phenotype, assay type, source, and/or a free-text keyword (matched against name, description, and keywords). Returns a compact list of candidate matches -- use get_signature_context on a specific signature_hashkey for full detail. Every result carries signature_source: 'curated' means the signature was deposited into SigRepo directly, anything else names the external resource it was pulled from. Weigh that when interpreting a result -- a 'rummagene' signature is a gene list extracted from a paper's supplementary table, with organism and assay type inferred from the paper's MeSH terms, and no measured direction or per-gene statistics.",
       arguments = list(
         api_key = ellmer::type_string("SigRepo API key"),
         organism = ellmer::type_string("Exact organism name, e.g. 'Homo sapiens'", required = FALSE),
@@ -184,6 +186,10 @@ build_mcp_tools <- function() {
           required = FALSE
         ),
         keyword = ellmer::type_string("Free-text match against signature name, description, and keywords", required = FALSE),
+        # type_string, not type_enum: the set of sources grows as integrations
+        # are added, and an enum would have to be edited in lockstep or start
+        # rejecting values the database legitimately holds.
+        signature_source = ellmer::type_string("Restrict to one source, e.g. 'curated' or 'rummagene'. Omit for all sources.", required = FALSE),
         limit = ellmer::type_integer("Maximum number of results (default 20, max 100)", required = FALSE)
       ),
       name = "search_signatures"

@@ -26,6 +26,19 @@ function formatValue(value: unknown): string {
   return String(value);
 }
 
+// Turn a stored signature_source into a label.
+//
+// Title-cased from the raw value rather than looked up in a map of the sources
+// that exist today, because the set is expected to grow: adding an integration
+// should not require also remembering to add its label here, and a source with
+// no map entry would otherwise render blank -- which reads as missing data
+// rather than as a source nobody has styled yet.
+function formatSource(source: string): string {
+  const value = (source ?? "").trim();
+  if (!value) return "\u2014";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 export default function SignaturesPage() {
   const [rows, setRows] = useState<SignatureSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -173,6 +186,16 @@ export default function SignaturesPage() {
       { key: "platform_name", label: "Platform", filterable: true, render: (r) => r.platform_name ?? "—" },
       { key: "year", label: "Year", render: (r) => formatValue(r.year) },
       { key: "user_name", label: "Owner" },
+      {
+        key: "signature_source",
+        label: "Source",
+        filterable: true,
+        render: (r) => (
+          <Badge tone={r.signature_source === "curated" ? "accent" : "neutral"}>
+            {formatSource(r.signature_source)}
+          </Badge>
+        ),
+      },
       {
         key: "visibility",
         label: "Visibility",

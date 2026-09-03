@@ -1,3 +1,20 @@
+# Bound every container's log file.
+#
+# Docker's default json-file driver has NO size limit: logs grow until they
+# fill the disk, and on this droplet that takes the database down with them.
+# That was already true, but the API now writes a completion line as well as a
+# start line for every request (api/api.R, the @plumber timing hook), so the
+# volume doubled and leaving it unbounded became this change's problem to fix.
+#
+# 10 MB x 5 files = 50 MB per service. At this API's traffic that is months of
+# history, and `docker logs` still reads across the rotated files.
+x-logging:
+  &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 # Local development stack, shaped to match the production VM.
 #
 # The point of this file is fidelity: it mirrors docker-compose-vm.yml, which is
@@ -51,6 +68,7 @@ x-sigrepo-server-volume: &sigrepo-server-volume
 services:
   sigrepo-mysql:
     container_name: sigrepo-local-mysql
+    logging: *default-logging
     platform: linux/amd64
     image: montilab/sigrepo-mysql:latest
     env_file:
@@ -66,6 +84,7 @@ services:
 
   sigrepo-api:
     container_name: sigrepo-local-api
+    logging: *default-logging
     platform: linux/amd64
     image: montilab/sigrepo:latest
     depends_on:
@@ -84,6 +103,7 @@ services:
 
   sigrepo-web:
     container_name: sigrepo-local-web
+    logging: *default-logging
     platform: linux/amd64
     # image + build: pull the published one to match production exactly, or
     # `docker compose -f docker-compose-local.yml build sigrepo-web` to test an
@@ -101,6 +121,7 @@ services:
 
   sigrepo-mcp:
     container_name: sigrepo-local-mcp
+    logging: *default-logging
     platform: linux/amd64
     image: montilab/sigrepo:latest
     depends_on:
@@ -117,6 +138,7 @@ services:
 
   sigrepo-mcp-proxy:
     container_name: sigrepo-local-mcp-proxy
+    logging: *default-logging
     image: nginx:alpine
     depends_on:
       - sigrepo-mcp
