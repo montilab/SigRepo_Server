@@ -307,28 +307,20 @@ render_hyp_dots_png <- function(hyp, fdr, width = 900, height = 520, res = 130) 
 # results = <data.frame, one row per (signature, geneset) hit, with a
 # signature_label column identifying which input signature it came from>,
 # dotplot_png = <data URI or NULL>, geneset_source = "cache" | "live").
-run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest"),
-                            species = "Homo sapiens", collection = "H", subcollection = NULL,
-                            fdr = 0.05, difexp_dir, msigdb_cache_dir) {
-  test <- base::match.arg(test)
-  signature_hashkeys <- base::unique(signature_hashkeys[base::nzchar(signature_hashkeys)])
-  if (base::length(signature_hashkeys) == 0) {
-    return(base::list(ok = FALSE, reason = "no_signatures", message = "Select at least one signature."))
-  }
-
-  resolved <- resolve_enrichment_queries(auth, signature_hashkeys, test, difexp_dir)
-  if (base::length(resolved$queries) == 0) {
-    first <- resolved$skipped[[1]]
-    return(base::list(ok = FALSE, reason = first$reason %||% "enrichment_failed", message = first$message, skipped = resolved$skipped))
-  }
-
-  geneset_result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection %||% "")
-  if (!geneset_result$ok) {
-    return(base::list(ok = FALSE, reason = geneset_result$reason, message = geneset_result$message))
-  }
-
+# The multi-second part of an enrichment, factored out so the same code can
+# run either inline (MCP, tests, any synchronous caller) or in a worker (the
+# API route). It takes ONLY plain data -- gene vectors, a named list of gene
+# sets, scalars -- and never a connection or an auth object: under a forked
+# plan the child must not inherit a MySQL socket, and checkPermissions()
+# identifies callers by the connection's own login, so a handle crossing into
+# a worker would break authorisation as well.
+#
+# `prep` is what prepare_enrichment() builds; the result is the list
+# run_enrichment() documents.
+enrich_prepared <- function(prep) {
   hyp <- base::tryCatch(
-    hypeR::hypeR(signature = resolved$queries, genesets = geneset_result$genesets, test = test, fdr = fdr, plotting = FALSE, quiet = TRUE),
+    hypeR::hypeR(signature = prep$queries, genesets = prep$genesets, test = prep$test, fdr = prep$fdr,
+                 plotting = FALSE, quiet = TRUE),
     error = function(err) {
       structure(base::list(message = err$message), class = "enrichment_run_error")
     }
@@ -353,10 +345,83 @@ run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", 
 
   base::list(
     ok = TRUE,
+    resolved = prep$resolved,
+    skipped = prep$skipped,
+    results = results_tbl,
+    dotplot_png = render_hyp_dots_png(hyp, prep$fdr),
+    geneset_source = prep$geneset_source
+  )
+}
+
+# Everything that touches the database or the caller's identity, done in the
+# calling process. Returns list(ok = FALSE, ...) on any failure to resolve, or
+# list(ok = TRUE, queries, genesets, test, fdr, resolved, skipped,
+# geneset_source): plain data, ready for enrich_prepared().
+prepare_enrichment <- function(auth, signature_hashkeys, test, species, collection, subcollection,
+                               fdr, difexp_dir, msigdb_cache_dir) {
+  resolved <- resolve_enrichment_queries(auth, signature_hashkeys, test, difexp_dir)
+  if (base::length(resolved$queries) == 0) {
+    first <- resolved$skipped[[1]]
+    return(base::list(ok = FALSE, reason = first$reason %||% "enrichment_failed", message = first$message, skipped = resolved$skipped))
+  }
+
+  geneset_result <- resolve_msigdb_genesets(msigdb_cache_dir, species, collection, subcollection %||% "")
+  if (!geneset_result$ok) {
+    return(base::list(ok = FALSE, reason = geneset_result$reason, message = geneset_result$message))
+  }
+
+  base::list(
+    ok = TRUE,
+    queries = resolved$queries,
+    genesets = geneset_result$genesets,
+    test = test,
+    fdr = fdr,
     resolved = resolved$resolved,
     skipped = resolved$skipped,
-    results = results_tbl,
-    dotplot_png = render_hyp_dots_png(hyp, fdr),
     geneset_source = geneset_result$source
   )
+}
+
+# Runs hypeR::hypeR() across one or more signatures at once (hypeR's own
+# multi-signature support -- a named list in, a `multihyp` out) and shapes
+# the combined result table + native dotplot for the API response.
+# Signatures that fail to resolve for the requested test are skipped (see
+# resolve_enrichment_queries()) rather than failing the whole request,
+# unless *none* resolve.
+#
+# Returns list(ok = FALSE, reason, message, skipped?) or
+# list(ok = TRUE, resolved = <list of {signature_hashkey, signature_name,
+# label, n_query}>, skipped = <list, same shape as above>,
+# results = <data.frame, one row per (signature, geneset) hit, with a
+# signature_label column identifying which input signature it came from>,
+# dotplot_png = <data URI or NULL>, geneset_source = "cache" | "live").
+#
+# async = TRUE returns a promise of that list instead, with the hypeR work
+# dispatched to a future worker so the calling process is free to serve other
+# requests meanwhile; the API route uses this. The database work still happens
+# here, synchronously, before anything is dispatched. The default stays FALSE
+# so every existing synchronous caller is unaffected.
+run_enrichment <- function(auth, signature_hashkeys, test = c("hypergeometric", "kstest"),
+                            species = "Homo sapiens", collection = "H", subcollection = NULL,
+                            fdr = 0.05, difexp_dir, msigdb_cache_dir, async = FALSE) {
+  test <- base::match.arg(test)
+  deliver <- function(x) if (base::isTRUE(async)) promises::promise_resolve(x) else x
+
+  signature_hashkeys <- base::unique(signature_hashkeys[base::nzchar(signature_hashkeys)])
+  if (base::length(signature_hashkeys) == 0) {
+    return(deliver(base::list(ok = FALSE, reason = "no_signatures", message = "Select at least one signature.")))
+  }
+
+  prep <- prepare_enrichment(auth, signature_hashkeys, test, species, collection, subcollection,
+                             fdr, difexp_dir, msigdb_cache_dir)
+  if (!base::isTRUE(prep$ok)) {
+    return(deliver(prep))
+  }
+
+  if (!base::isTRUE(async)) {
+    return(enrich_prepared(prep))
+  }
+  # seed = TRUE: hypeR's tests are deterministic, but the worker's RNG state is
+  # otherwise unset, and future warns loudly when a future uses one unseeded.
+  promises::future_promise(enrich_prepared(prep), seed = TRUE)
 }

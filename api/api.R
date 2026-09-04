@@ -1585,8 +1585,12 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
     fdr <- 0.05
   }
 
-  base::tryCatch({
-    result <- run_enrichment(
+  # run_enrichment() hands the multi-second hypeR work to a worker and returns
+  # a promise, so this handler returns immediately and the R process stays free
+  # to serve other requests while the enrichment runs. Plumber resolves a
+  # promise-returning route on its own.
+  promises::then(
+    run_enrichment(
       auth = auth,
       signature_hashkeys = signature_hashkeys,
       test = test,
@@ -1595,9 +1599,10 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
       subcollection = if (identical(subcollection, "")) NULL else subcollection,
       fdr = fdr,
       difexp_dir = difexp_dir,
-      msigdb_cache_dir = msigdb_cache_dir
-    )
-
+      msigdb_cache_dir = msigdb_cache_dir,
+      async = TRUE
+    ),
+    onFulfilled = function(result) {
     if (!result$ok) {
       status <- switch(result$reason,
         "no_signatures" = 400,
@@ -1637,9 +1642,11 @@ annotate_run_route <- function(req, res, api_key = "", signature_hashkeys = "", 
       skipped = result$skipped,
       results = compact_table(result$results, max_rows = 500)
     ))
-  }, error = function(err) {
-    json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))
-  })
+    },
+    onRejected = function(err) {
+      json_error(res, 500, base::sprintf("Enrichment failed: %s", err$message))
+    }
+  )
 }
 
 #* Download a single signature as an RDS file (metadata + features + difexp)
