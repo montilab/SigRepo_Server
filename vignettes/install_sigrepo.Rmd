@@ -143,9 +143,7 @@ The SigRepo web interface is currently deployed at localhost:8050
 
 **Note:** Try to login with default **username = "montilab"** and **password = "sigrepo"**
 
-<!-- TODO: replace with a screenshot of the web interface sign-in screen,
-     saved as images/sigrepo-web-localhost.png. The retired Shiny screenshot
-     was removed because it no longer matches what the installer starts. -->
+![](images/sigrepo-react-localhost.png)
 
 <br>
 

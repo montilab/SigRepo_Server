@@ -178,6 +178,8 @@ address.
 **Note:** Try to login with default **username = “montilab”** and
 **password = “sigrepo”**
 
+![](images/sigrepo-react-localhost.png)
+
   
 
 Any questions or issues? Please report them on our [github
