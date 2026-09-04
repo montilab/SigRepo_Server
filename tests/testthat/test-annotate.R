@@ -395,3 +395,77 @@ test_that("run_enrichment falls back to a live MSigDB fetch when nothing is cach
   expect_equal(result$geneset_source, "live")
   expect_true(nrow(result$results) > 0)
 })
+
+# Drives the event loop until a promise settles. Tests have no server loop
+# running for them, so without this a promise's callbacks never fire.
+await_promise <- function(p, timeout = 120) {
+  value <- NULL; failure <- NULL; settled <- FALSE
+  promises::then(p, function(v) { value <<- v; settled <<- TRUE },
+                    function(e) { failure <<- e; settled <<- TRUE })
+  deadline <- Sys.time() + timeout
+  while (!settled && Sys.time() < deadline) later::run_now(0.05)
+  if (!settled) stop("promise did not settle within ", timeout, "s")
+  if (!is.null(failure)) stop(conditionMessage(failure))
+  value
+}
+
+test_that("run_enrichment(async = TRUE) dispatches to a worker and resolves to the same result", {
+  skip_if_no_test_db()
+  testthat::skip_if_not(dir.exists(real_msigdb_cache_dir), "repo's msigdb cache is not present in this checkout")
+
+  exec_sql <- function(stmt) {
+    conn <- db_connect_local()
+    on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+    suppressWarnings(DBI::dbExecute(conn, stmt))
+  }
+  exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)")
+  on.exit(exec_sql("DELETE FROM transcriptomics_features WHERE feature_id IN (1, 2)"), add = TRUE)
+  exec_sql("
+    INSERT INTO transcriptomics_features (feature_id, feature_name, organism_id, gene_symbol, version, feature_hashkey)
+    SELECT 1, 'ENSG_TEST_1', organism_id, 'TP53', 1, 'annotate_test_feature_hashkey_01' FROM organisms WHERE organism = 'CI Test Organism'
+    UNION ALL
+    SELECT 2, 'ENSG_TEST_2', organism_id, 'BRCA1', 1, 'annotate_test_feature_hashkey_02' FROM organisms WHERE organism = 'CI Test Organism'
+  ")
+
+  # A real worker, with I(): a plain workers = 1 makes future run everything
+  # inline, which would pass this test without exercising the dispatch at all.
+  old_plan <- future::plan()
+  on.exit(future::plan(old_plan), add = TRUE)
+  # plan() substitutes its first argument, so hand it a value, not an expression.
+  strategy <- if (future::supportsMulticore()) "multicore" else "multisession"
+  future::plan(strategy, workers = I(1L))
+  expect_false(identical(future::value(future::future(Sys.getpid())), Sys.getpid()))
+
+  auth <- list(user_name = "ci_admin", user_role = "admin")
+  p <- run_enrichment(
+    auth, "ci_test_signature_hashkey_0000", test = "hypergeometric",
+    species = "Homo sapiens", collection = "H", fdr = 1,
+    difexp_dir = tempdir(), msigdb_cache_dir = real_msigdb_cache_dir, async = TRUE
+  )
+  expect_true(promises::is.promise(p))
+  result <- await_promise(p)
+
+  # Same assertions as the synchronous test above: the worker must produce
+  # exactly what running inline produces.
+  expect_true(result$ok)
+  expect_equal(length(result$resolved), 1)
+  expect_equal(result$resolved[[1]]$n_query, 2)
+  expect_equal(result$resolved[[1]]$signature_name, "CI Test Signature")
+  expect_equal(result$geneset_source, "cache")
+  expect_true(all(c("label", "pval", "fdr", "overlap", "hits", "signature_label") %in% colnames(result$results)))
+  expect_true(nrow(result$results) > 0)
+  expect_true(startsWith(result$dotplot_png, "data:image/png;base64,"))
+})
+
+test_that("run_enrichment's failure paths honour async, and the default stays synchronous", {
+  # Empty input short-circuits before any database work, so no fixture needed.
+  p <- run_enrichment(list(), character(0), difexp_dir = tempdir(), msigdb_cache_dir = tempdir(), async = TRUE)
+  expect_true(promises::is.promise(p))
+  result <- await_promise(p, timeout = 5)
+  expect_false(result$ok)
+  expect_equal(result$reason, "no_signatures")
+
+  s <- run_enrichment(list(), character(0), difexp_dir = tempdir(), msigdb_cache_dir = tempdir())
+  expect_false(promises::is.promise(s))
+  expect_equal(s$reason, "no_signatures")
+})
