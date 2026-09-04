@@ -35,7 +35,7 @@ docker compose ps
 
 
 CONTAINER ID   IMAGE                           COMMAND                  CREATED          STATUS          PORTS                               NAMES
-9210e8d30506   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 minutes ago    Up 2 minutes    0.0.0.0:8050->3838/tcp              sigrepo-shiny
+9210e8d30506   montilab/sigrepo-web:latest     "/docker-entrypoint.…"   2 minutes ago    Up 2 minutes    0.0.0.0:8050->80/tcp                sigrepo-web
 57076db95606   montilab/sigrepo:latest         "/bin/bash -c /SigRe…"   2 minutes ago    Up 2 minutes    0.0.0.0:8020->3838/tcp              sigrepo-api
 77ca9528cb3b   montilab/sigrepo-mysql:latest   "docker-entrypoint.s…"   26 minutes ago   Up 14 minutes   0.0.0.0:3306->3306/tcp, 33060/tcp   sigrepo-mysql
 ```

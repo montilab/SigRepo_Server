@@ -838,6 +838,60 @@ login <- function(req, res, user_name = "", password = ""){
   ))
 }
 
+#* Self-service registration, matching the Shiny portal's form. Creates the
+#* account inactive and emails the administrator to approve it; the account
+#* cannot log in until /activate_user runs. No api_key: the caller by
+#* definition does not have one yet.
+#* @parser json
+#* @param user_name
+#* @param password
+#* @param user_email
+#* @param user_first
+#* @param user_last
+#* @param user_affiliation
+#' @post /register
+register_route <- function(req, res, user_name = "", password = "", user_email = "",
+                           user_first = "", user_last = "", user_affiliation = ""){
+  body <- request_json_body(req)
+  pick <- function(param, key) {
+    if (identical(json_scalar(param), "")) json_scalar(body[[key]]) else json_scalar(param)
+  }
+
+  result <- register_new_user(
+    user_name = pick(user_name, "user_name"),
+    password = if (identical(json_scalar(password), "")) json_scalar(body$password) else json_scalar(password),
+    user_email = pick(user_email, "user_email"),
+    user_first = pick(user_first, "user_first"),
+    user_last = pick(user_last, "user_last"),
+    user_affiliation = pick(user_affiliation, "user_affiliation")
+  )
+
+  if (!base::isTRUE(result$ok)) {
+    return(json_error(res, 400, result$reason))
+  }
+
+  json_response(res, 200, base::data.frame(MESSAGES = result$reason, stringsAsFactors = FALSE))
+}
+
+#* Request a temporary password. Takes either a username or the email on the
+#* account. Always answers the same way whether or not the account exists, so
+#* this cannot be used to find out who has one.
+#* @parser json
+#* @param identifier
+#' @post /forgot_password
+forgot_password_route <- function(req, res, identifier = ""){
+  body <- request_json_body(req)
+  identifier <- if (identical(json_scalar(identifier), "")) json_scalar(body$identifier) else json_scalar(identifier)
+
+  result <- request_password_reset(identifier)
+
+  if (!base::isTRUE(result$ok)) {
+    return(json_error(res, 400, result$reason))
+  }
+
+  json_response(res, 200, base::data.frame(MESSAGES = result$reason, stringsAsFactors = FALSE))
+}
+
 #* Resolve the account name + role for an api_key. Used by the agent
 #* skill-runner (agent/runner.py) to admin-gate the website assistant --
 #* it never trusts the browser's own role claim, it re-checks here.
@@ -949,6 +1003,104 @@ rummagene_enrich_route <- function(req, res, api_key = "", genes = NULL, signatu
   json_response(res, 200, payload = result)
 }
 
+
+#* Find signatures by the genes they contain -- the reverse of
+#* /rummagene/enrich. Give it gene symbols directly, or a signature_hashkey to
+#* use that signature's own genes (which is how the "related signatures" panel
+#* works, with the source signature excluded from its own results).
+#* @parser json
+#* @param api_key
+#* @param genes
+#* @param signature_hashkey
+#* @param limit
+#* @param min_overlap
+#' @post /signatures/search_by_genes
+search_by_genes_route <- function(req, res, api_key = "", genes = NULL, signature_hashkey = "",
+                                  limit = 20, min_overlap = 1){
+  body <- request_json_body(req)
+  api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
+
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+
+  genes_vec <- if (!base::is.null(body$genes)) {
+    json_vector(body$genes)
+  } else if (!base::is.null(genes)) {
+    json_vector(genes)
+  } else {
+    base::character()
+  }
+
+  hk <- if (identical(json_scalar(signature_hashkey), "")) {
+    json_scalar(body$signature_hashkey)
+  } else {
+    json_scalar(signature_hashkey)
+  }
+
+  # Given a signature and no genes, resolve its symbols the same way the
+  # Rummagene route does -- reference tables first, then the difexp fallback for
+  # signatures stored as Ensembl/other IDs. Sharing the resolution keeps the two
+  # gene-based features from disagreeing about what a signature's genes are.
+  source_name <- NULL
+  if (base::length(genes_vec) == 0 && !identical(hk, "")) {
+    resolved <- base::tryCatch(
+      resolve_single_enrichment_query(auth, hk, "hypergeometric", difexp_dir),
+      error = function(e) base::list(ok = FALSE, reason = "error")
+    )
+    if (base::isTRUE(resolved$ok)) {
+      genes_vec <- resolved$query
+      source_name <- resolved$signature_name
+    } else {
+      difexp_syms <- base::tryCatch(
+        rummagene_signature_symbols_from_difexp(auth, hk, difexp_dir),
+        error = function(e) NULL
+      )
+      if (!base::is.null(difexp_syms) && base::length(difexp_syms) > 0) {
+        genes_vec <- difexp_syms
+        source_name <- resolved$signature_name
+      } else {
+        return(json_error(res, 422, base::paste0(
+          "Could not resolve gene symbols for this signature. Its features are stored as ",
+          "Ensembl/other IDs with no gene-symbol mapping in SigRepo's reference tables, and ",
+          "its difexp table did not provide symbols either."
+        )))
+      }
+    }
+  }
+
+  if (base::length(genes_vec) == 0) {
+    return(json_error(res, 400, "Provide gene symbols, or a signature_hashkey whose genes can be resolved."))
+  }
+
+  conn <- db_connect_local()
+  on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  hits <- base::tryCatch(
+    search_signatures_by_genes(
+      conn = conn,
+      genes = genes_vec,
+      limit = base::as.integer(json_scalar(limit, "20")),
+      min_overlap = base::as.integer(json_scalar(min_overlap, "1")),
+      # A signature is never a hit for its own genes.
+      exclude_hashkey = if (identical(hk, "")) NULL else hk,
+      is_admin = identical(auth$user_role, "admin"),
+      auth = auth
+    ),
+    error = function(e) e
+  )
+  if (base::inherits(hits, "error")) {
+    return(json_error(res, 500, base::sprintf("Gene search failed: %s", base::conditionMessage(hits))))
+  }
+
+  json_response(res, 200, payload = base::list(
+    query_size = base::length(genes_vec),
+    source_signature = source_name,
+    total = base::nrow(hits),
+    hits = compact_table(hits, max_rows = 100)
+  ))
+}
 #* Distinct organism/phenotype/sample_type/platform/assay_type values currently in use
 #* @param api_key
 #' @get /vocabulary
@@ -1000,6 +1152,52 @@ insights_route <- function(res, api_key = "", recent_limit = 5){
   })
 }
 
+#* Search the reference feature catalog.
+#*
+#* Backs the Browse page. Returns the columns the chosen assay type ACTUALLY
+#* has -- transcriptomics and proteomics carry a gene_symbol, genetic variants
+#* carry chromosome/position/annotation -- rather than a fixed shape that would
+#* be empty or invented for some assays.
+#* @param api_key
+#* @param assay_type One of transcriptomics, proteomics, snps.
+#* @param q Free text, matched as a substring against the assay's text columns.
+#* @param organism Exact organism name.
+#* @param limit
+#* @param offset
+#' @get /features/search
+features_search_route <- function(res, api_key = "", assay_type = "transcriptomics",
+                                  q = "", organism = "", limit = 25, offset = 0){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  conn <- NULL
+  base::tryCatch({
+    conn <- db_connect_local()
+    result <- search_features(
+      conn = conn,
+      assay_type = json_scalar(assay_type, "transcriptomics"),
+      q = json_scalar(q),
+      organism = json_scalar(organism),
+      limit = limit, offset = offset
+    )
+    json_response(res, 200, payload = base::list(
+      count = result$total,
+      columns = result$columns,
+      features = compact_table(result$rows)
+    ))
+  }, error = function(err) {
+    # An unsupported assay_type is the caller's mistake, not a server fault.
+    if (base::grepl("Unsupported assay_type", base::conditionMessage(err), fixed = TRUE)) {
+      json_error(res, 400, base::conditionMessage(err))
+    } else {
+      json_error(res, 500, base::sprintf("Feature search failed: %s", err$message))
+    }
+  }, finally = {
+    if (!base::is.null(conn)) base::suppressWarnings(DBI::dbDisconnect(conn))
+  })
+}
+
 #* Search signatures by organism/phenotype/assay_type/keyword
 #* @param api_key
 #* @param organism
@@ -1025,7 +1223,10 @@ search_signatures_route <- function(res, api_key = "", organism = "", phenotype 
       keyword = json_scalar(keyword),
       limit = limit,
       offset = offset,
-      is_admin = identical(auth$user_role, "admin")
+      is_admin = identical(auth$user_role, "admin"),
+      # Needed for the owner/grant clause -- is_admin alone cannot express
+      # "mine" or "shared with me".
+      auth = auth
     )
     base::suppressWarnings(DBI::dbDisconnect(conn))
     # `count` is the TOTAL number of matching rows (for pagination), not the

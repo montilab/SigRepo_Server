@@ -69,7 +69,7 @@
       <h1>Install SigRepo</h1>
             
       
-      <small class="dont-index">Source: <a href="https://github.com/montilab/SigRepo_Server/blob/fix/pkgdown-unstyled-docs/vignettes/install_sigrepo.Rmd" class="external-link"><code>vignettes/install_sigrepo.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/montilab/SigRepo_Server/blob/master/vignettes/install_sigrepo.Rmd" class="external-link"><code>vignettes/install_sigrepo.Rmd</code></a></small>
       <div class="d-none name"><code>install_sigrepo.Rmd</code></div>
     </div>
 
@@ -137,7 +137,7 @@ database on your local machine.</li>
 <pre><code>cd SigRepo_Server</code></pre>
 <ol start="5" style="list-style-type: decimal">
 <li>Run <code>install_sigrepo.sh</code> to initialize the MySQL database
-instance, configure the API endpoints, and launch the Shiny Dashboard
+instance, configure the API endpoints, and launch the web interface
 simultaneously.</li>
 </ol>
 <div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">bash</span> install_sigrepo.sh</span></code></pre></div>
@@ -181,12 +181,12 @@ issues, you should see an output similar to the following.</li>
 <pre><code>[+] Running 3/3
  ✔ Container sigrepo-mysql  Running                                                                                                                                                                                                                                       0.0s 
  ✔ Container sigrepo-api    Running                                                                                                                                                                                                                                       0.0s 
- ✔ Container sigrepo-shiny  Started                                                                                                                                                                                                                                       0.0s 
+ ✔ Container sigrepo-web    Started                                                                                                                                                                                                                                       0.0s 
 
 SigRepo setup is complete!
 SigRepo MySQL database is currently deployed at port 3306
 SigRepo API is currently deployed at localhost:8020/__docs__/
-SigRepo Shiny is currently deployed at localhost:8050</code></pre>
+The SigRepo web interface is currently deployed at localhost:8050</code></pre>
 <ol start="6" style="list-style-type: decimal">
 <li>Based on the output from the previous step (5), open your web
 browser of choice and navigate to
@@ -199,15 +199,15 @@ browser of choice and navigate to
 <li><p>Based on the results from step (5), the <strong>MySQL
 database</strong> is deployed on <strong>port 3306</strong>, the
 <strong>API</strong> runs on <strong>port 8020</strong>, and the
-<strong>Shiny Dashboard</strong> is launched on <strong>port
+<strong>web interface</strong> is launched on <strong>port
 8050</strong>.</p></li>
 <li><p>It’s important to note that although the database is created
 during the initial setup, it starts out empty — there are no schema or
 data tables created at this stage. Therefore, running the API is the
 next important step as it builds the database structure and fills it
 with the required tables. Without this step, users will not be able to
-access or interact with the database, and the SigRepo Shiny Dashboard
-will fail to run properly.</p></li>
+access or interact with the database, and the SigRepo web interface will
+fail to run properly.</p></li>
 <li><p>Among the list of API endpoints available at
 <code>localhost:8020/__docs__/</code>, the
 <strong><code>init_db</code></strong> endpoint is specifically used to
@@ -227,11 +227,14 @@ machine.</p></li>
 <ol start="7" style="list-style-type: decimal">
 <li>After completing the database setup in step (6), open your preferred
 web browser and go to <code>http://localhost:8050</code> to confirm that
-the <code>SigRepo</code> Shiny dashboard is running as expected.</li>
+the <code>SigRepo</code> web interface is running as expected. A fresh
+instance opens on the sign-in screen.</li>
 </ol>
 <p><strong>Note:</strong> Try to login with default <strong>username =
 “montilab”</strong> and <strong>password = “sigrepo”</strong></p>
-<p><img src="images/sigrepo-shiny-localhost.png"></p>
+<!-- TODO: replace with a screenshot of the web interface sign-in screen,
+     saved as images/sigrepo-web-localhost.png. The retired Shiny screenshot
+     was removed because it no longer matches what the installer starts. -->
 <p><br></p>
 <p>Any questions or issues? Please report them on our <a href="https://github.com/montilab/SigRepo/issues" class="external-link">github issues</a>.</p>
 </div>

@@ -6,7 +6,6 @@ import {
   FlaskConical,
   GitCompare,
   Database,
-  MessageSquare,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,7 +19,6 @@ const NAV = [
   { to: "/annotate", label: "Annotate", icon: FlaskConical },
   { to: "/compare", label: "Compare", icon: GitCompare },
   { to: "/browse", label: "Browsing", icon: Database },
-  { to: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 export default function Sidebar({

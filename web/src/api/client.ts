@@ -97,6 +97,86 @@ export function logout() {
   setAuth(null);
 }
 
+export interface RegistrationInput {
+  userName: string;
+  password: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  affiliation?: string;
+}
+
+// Both of these return the server's own message rather than a fixed string:
+// registration reports whether the admin notification also went out, and the
+// reset reply is deliberately identical whether or not the account exists, so
+// neither can be summarised safely on the client.
+export async function register(input: RegistrationInput): Promise<string> {
+  const data = await apiFetch<{ MESSAGES?: string | string[] }>("/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_name: input.userName,
+      password: input.password,
+      user_email: input.email,
+      user_first: input.firstName ?? "",
+      user_last: input.lastName ?? "",
+      user_affiliation: input.affiliation ?? "",
+    }),
+  });
+  return extractMessage(data) ?? "Registration submitted.";
+}
+
+export async function requestPasswordReset(identifier: string): Promise<string> {
+  const data = await apiFetch<{ MESSAGES?: string | string[] }>("/forgot_password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier }),
+  });
+  return extractMessage(data) ?? "If that account exists, a temporary password has been sent.";
+}
+
+export interface GeneSearchHit {
+  signature_hashkey: string;
+  signature_name: string;
+  assay_type: string | null;
+  organism: string | null;
+  phenotype: string | null;
+  n_overlap: number;
+  n_signature_genes: number;
+  n_query_genes: number;
+  jaccard: number;
+  matched_genes: string | null;
+}
+
+export interface GeneSearchResult {
+  query_size: number;
+  source_signature: string | null;
+  total: number;
+  hits: GeneSearchHit[];
+}
+
+// Find signatures by the genes they contain. Pass `genes` to search a list, or
+// `signatureHashkey` to use that signature's own genes -- the server resolves
+// them and excludes the source signature from its own results.
+export async function searchSignaturesByGenes(input: {
+  genes?: string[];
+  signatureHashkey?: string;
+  limit?: number;
+  minOverlap?: number;
+}): Promise<GeneSearchResult> {
+  return apiFetch<GeneSearchResult>("/signatures/search_by_genes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: requireApiKey(),
+      genes: input.genes ?? [],
+      signature_hashkey: input.signatureHashkey ?? "",
+      limit: input.limit ?? 20,
+      min_overlap: input.minOverlap ?? 1,
+    }),
+  });
+}
+
 
 export interface Vocabulary {
   organism: string[];
@@ -104,6 +184,57 @@ export interface Vocabulary {
   sample_type: string[];
   platform: string[];
   assay_type: string[];
+}
+
+// ---------- Reference feature catalog (Browse) ----------
+//
+// Column sets differ by assay type and the server says which it returned, so
+// the table renders what the data actually has. The page this replaced showed a
+// fixed shape including a "chromosome" column that transcriptomics features do
+// not have.
+export interface FeatureRow {
+  feature_name: string;
+  gene_symbol?: string | null;
+  chromosome?: string | null;
+  position?: number | null;
+  annotation?: string | null;
+  organism: string | null;
+  version: string | null;
+}
+
+export interface FeaturePage {
+  rows: FeatureRow[];
+  total: number;
+  // The columns the server actually returned, in order.
+  columns: string[];
+}
+
+export async function searchFeatures(params: {
+  assayType: string;
+  q?: string;
+  organism?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<FeaturePage> {
+  const query = new URLSearchParams({
+    api_key: requireApiKey(),
+    assay_type: params.assayType,
+  });
+  if (params.q) query.set("q", params.q);
+  if (params.organism) query.set("organism", params.organism);
+  query.set("limit", String(params.limit ?? 25));
+  query.set("offset", String(params.offset ?? 0));
+
+  const raw = await apiFetch<{ count: number; columns: string[] | string; features: FeatureRow[] }>(
+    `/features/search?${query.toString()}`
+  );
+  return {
+    rows: raw.features ?? [],
+    total: Number(raw.count ?? 0),
+    // plumber's auto_unbox turns a length-1 vector into a bare string, so a
+    // single-column result would arrive unwrapped.
+    columns: Array.isArray(raw.columns) ? raw.columns : raw.columns ? [raw.columns] : [],
+  };
 }
 
 export async function getVocabulary(): Promise<Vocabulary> {

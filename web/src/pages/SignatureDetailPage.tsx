@@ -15,6 +15,7 @@ import {
 } from "../api/client";
 import Skeleton from "../components/Skeleton";
 import RummagenePanel from "../components/RummagenePanel";
+import RelatedSignaturesPanel from "../components/RelatedSignaturesPanel";
 import { addToBasket, isInBasket } from "../basket";
 import { canDeleteSignature } from "../permissions";
 
@@ -412,6 +413,7 @@ export default function SignatureDetailPage() {
               </div>
               </div>
 
+              {hashkey && <RelatedSignaturesPanel signatureHashkey={hashkey} />}
               {hashkey && <RummagenePanel signatureHashkey={hashkey} />}
             </>
           )}

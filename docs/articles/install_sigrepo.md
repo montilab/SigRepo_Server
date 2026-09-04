@@ -72,7 +72,7 @@ docker compose version
     cd SigRepo_Server
 
 5.  Run `install_sigrepo.sh` to initialize the MySQL database instance,
-    configure the API endpoints, and launch the Shiny Dashboard
+    configure the API endpoints, and launch the web interface
     simultaneously.
 
 ``` bash
@@ -125,12 +125,12 @@ address.
     [+] Running 3/3
      ✔ Container sigrepo-mysql  Running                                                                                                                                                                                                                                       0.0s 
      ✔ Container sigrepo-api    Running                                                                                                                                                                                                                                       0.0s 
-     ✔ Container sigrepo-shiny  Started                                                                                                                                                                                                                                       0.0s 
+     ✔ Container sigrepo-web    Started                                                                                                                                                                                                                                       0.0s 
 
     SigRepo setup is complete!
     SigRepo MySQL database is currently deployed at port 3306
     SigRepo API is currently deployed at localhost:8020/__docs__/
-    SigRepo Shiny is currently deployed at localhost:8050
+    The SigRepo web interface is currently deployed at localhost:8050
 
 6.  Based on the output from the previous step (5), open your web
     browser of choice and navigate to `http://localhost:8020 /__docs__/`
@@ -141,15 +141,15 @@ address.
 **Important Notes:**
 
 - Based on the results from step (5), the **MySQL database** is deployed
-  on **port 3306**, the **API** runs on **port 8020**, and the **Shiny
-  Dashboard** is launched on **port 8050**.
+  on **port 3306**, the **API** runs on **port 8020**, and the **web
+  interface** is launched on **port 8050**.
 
 - It’s important to note that although the database is created during
   the initial setup, it starts out empty — there are no schema or data
   tables created at this stage. Therefore, running the API is the next
   important step as it builds the database structure and fills it with
   the required tables. Without this step, users will not be able to
-  access or interact with the database, and the SigRepo Shiny Dashboard
+  access or interact with the database, and the SigRepo web interface
   will fail to run properly.
 
 - Among the list of API endpoints available at
@@ -172,12 +172,11 @@ address.
 
 7.  After completing the database setup in step (6), open your preferred
     web browser and go to `http://localhost:8050` to confirm that the
-    `SigRepo` Shiny dashboard is running as expected.
+    `SigRepo` web interface is running as expected. A fresh instance
+    opens on the sign-in screen.
 
 **Note:** Try to login with default **username = “montilab”** and
 **password = “sigrepo”**
-
-![](images/sigrepo-shiny-localhost.png)
 
   
 

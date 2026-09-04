@@ -111,11 +111,13 @@ EOF
 
 # Stop previously containers
 echo "Shut down existing containers. Enter the admin password if prompted for permission...."
+# sigrepo-shiny is retired, but is still named here so an upgrade from an
+# older install stops the leftover container instead of leaving it running.
 sudo docker stop sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null || echo ""
 
 # Removing previously images
 echo "Remove existing images. Enter the admin password if prompted for permission..."
-sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest &>/dev/null || echo ""
+sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest montilab/sigrepo-web:latest &>/dev/null || echo ""
 
 echo "Clean out the stopped containers and cached images. Enter 'y' to procced..."
 sudo docker system prune -a || echo ""
@@ -136,8 +138,8 @@ find_available_port () {
   echo ${port}
 }
 
-# Check if default ports are available for database, api, and shiny
-echo "Locate open ports to host MySQL database, API, and Shiny..."
+# Check if default ports are available for database, api, and the web interface
+echo "Locate open ports to host MySQL database, API, and the web interface..."
 DB_PORT=$( find_available_port 3306 )
 API_PORT=$( find_available_port 8020 )
 WEB_PORT=$( find_available_port 8050 )
@@ -195,8 +197,7 @@ services:
   sigrepo-web:
     container_name: sigrepo-web
     platform: linux/amd64
-    build:
-      context: ./web
+    image: montilab/sigrepo-web:latest
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
@@ -223,7 +224,7 @@ sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-mysql
 DB_LOCAL_HOST=$( sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' sigrepo-mysql )
 
 # Create .Renviron file for R, and populate with user prompts ####
-echo "Set up .Renviron to initialize SigRepo API and Shiny"
+echo "Set up .Renviron to initialize the SigRepo API and web interface"
 cat > "${MYSQL_DIR}/.Renviron" <<EOF
 DB_NAME = 'sigrepo'
 DB_LOCAL_HOST = '${DB_LOCAL_HOST}'

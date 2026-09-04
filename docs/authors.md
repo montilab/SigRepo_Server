@@ -15,7 +15,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/montilab/SigRepo_Server/blob/fix/pkgdown-unstyled-docs/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/montilab/SigRepo_Server/blob/master/DESCRIPTION)
 
 Chau R, Vicnaire C, Li M, Monti S (2026). *SigRepo.Server: Server
 Architecture of SigRepo Database*. R package version 1.0.0,
