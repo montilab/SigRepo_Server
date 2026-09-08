@@ -46,7 +46,11 @@ jobs:
           
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::pkgdown, local::.
+          # hypeR.GEM reaches DESCRIPTION only through Remotes (montilab/hypeR-GEM),
+          # and pak cannot map that repository name to the package name on its own --
+          # it fails with "Can't find package called hypeR.GEM". Naming the GitHub
+          # source here is what montilab/SigRepo's pkgdown workflow already does.
+          extra-packages: any::pkgdown, local::., github::montilab/hypeR-GEM
           needs: website
           
       # Switches the repository's Pages source to "GitHub Actions" so the

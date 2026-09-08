@@ -36,7 +36,9 @@ jobs:
       
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: any::rmarkdown, local::.
+          # See the note in pkgdown.yaml: pak cannot resolve hypeR.GEM from the
+          # montilab/hypeR-GEM remote unless the GitHub source is named here.
+          extra-packages: any::rmarkdown, local::., github::montilab/hypeR-GEM
           needs: render
           
       - name: Render README
