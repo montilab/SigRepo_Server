@@ -141,9 +141,9 @@ SELECT
   (SELECT organism_id FROM organisms WHERE organism = 'CI Test Organism'), 1, 1, 'ci_feat_hashkey_snp_01';
 
 INSERT INTO `metabolite_reference`
-  (`chemical_name`, `refmet_name`, `inchikey`, `smiles`, `is_current`, `version`, `metabolite_hashkey`)
+  (`refmet_id`, `refmet_name`, `hmdb_id`, `inchikey`, `smiles`, `is_current`, `version`, `metabolite_hashkey`)
 VALUES
-  ('CI Test Metabolite', 'CI Test Metabolite', 'CITESTINCHIKEY0000000000', 'CCITESTSMILES',
+  ('RM_CI_0001', 'CI Test Metabolite', 'HMDB9999999', 'CITESTINCHIKEY0000000000', 'CCITESTSMILES',
    1, 1, 'ci_metabolite_hashkey_01');
 
 INSERT INTO `metabolite_xref`

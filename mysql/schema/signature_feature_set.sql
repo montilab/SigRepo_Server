@@ -7,7 +7,7 @@ CREATE TABLE `signature_feature_set` (
   `probe_id` VARCHAR(255) NOT NULL,
   `score` NUMERIC(12, 8) DEFAULT NULL,
   `group_label` VARCHAR(255) NOT NULL DEFAULT 'All Features',
-  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "snps") NOT NULL,
+  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variants") NOT NULL,
   `sig_feature_hashkey` VARCHAR(32) NOT NULL,
   PRIMARY KEY (`signature_id`, `group_label`, `probe_id`),
   UNIQUE (`signature_id`, `feature_id`, `assay_type`, `group_label`, `probe_id`),

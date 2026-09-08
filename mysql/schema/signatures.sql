@@ -6,7 +6,15 @@ CREATE TABLE `signatures` (
   `signature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
   `direction_type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
-  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "snps") NOT NULL,
+  `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variants") NOT NULL,
+  -- The last member is 'genetic_variants', matching the deployed repository
+  -- (SHOW CREATE TABLE on production, 2026-08-26) and the
+  -- genetic_variants_features table this repo already ships. It read 'snps'
+  -- here, so a database built from this file rejected the value production
+  -- actually stores -- "Data truncated for column 'assay_type'" -- and could
+  -- not hold a genetic-variants signature at all. The MCP layer's "snps"
+  -- is a separate, deliberate API-facing alias (mcp/lib/queries.R) and is
+  -- unaffected.
   `phenotype_id` INT UNSIGNED NOT NULL,
   `platform_id` INT UNSIGNED NOT NULL,
   `sample_type_id` INT UNSIGNED NOT NULL,

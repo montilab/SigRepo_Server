@@ -115,7 +115,7 @@ jobs:
             cat("installed:", if (length(c(bioc, cran))) paste(c(bioc, cran), collapse = ", ") else "nothing needed", "\n")
           '
 
-      - name: Install hypeR and OmicSignature
+      - name: Install hypeR, OmicSignature and hypeR.GEM
         run: |
           Rscript -e '
             # install_github() can fail to fetch the tarball, print the error,
@@ -126,7 +126,14 @@ jobs:
             # exit status, so a genuine failure stops here where the cause is
             # readable. This only ever bites on a cache miss; the R library
             # cache normally carries both packages over from a prior run.
-            repos <- c(OmicSignature = "montilab/OmicSignature", hypeR = "montilab/hypeR")
+            # hypeR.GEM backs the GEM annotate methods. It is optional at
+            # runtime (the route answers 503 without it), but installed here so
+            # CI exercises that path rather than skipping it silently.
+            repos <- c(
+              OmicSignature = "montilab/OmicSignature",
+              hypeR = "montilab/hypeR",
+              hypeR.GEM = "montilab/hypeR-GEM"
+            )
             for (pkg in names(repos)) {
               for (attempt in 1:3) {
                 try(remotes::install_github(
