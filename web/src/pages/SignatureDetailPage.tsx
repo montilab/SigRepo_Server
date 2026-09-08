@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { X, Download, Trash2, ShoppingBasket, Copy } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import Card from "../components/Card";
 import Badge from "../components/Badge";
+import DataTable, { type Column } from "../components/DataTable";
 import {
   getSignatureContext,
   deleteSignature,
@@ -217,6 +218,72 @@ export default function SignatureDetailPage() {
 
   const difexpColumns = difexp && difexp.rows.length > 0 ? Object.keys(difexp.rows[0]) : [];
 
+  // Both tables on this page were plain <table> markup, which meant no column
+  // sorting -- the one thing you want on a feature list you are scanning for
+  // the strongest scores. DataTable brings sorting, search and paging; the
+  // rows just need a stable key, which neither dataset carries.
+  const featureRows = useMemo(
+    () =>
+      (context?.features ?? []).map((f, i) => {
+        const score = typeof f.score === "number" ? f.score : Number(f.score);
+        return {
+          rowId: `${f.probe_id ?? f.feature_id ?? i}::${i}`,
+          feature: f.probe_id ?? String(f.feature_id ?? i),
+          // Keep the numeric score on the row so sorting is numeric rather
+          // than lexicographic on a formatted string.
+          score: Number.isFinite(score) ? score : null,
+          // Its own field rather than a second column keyed on `score`:
+          // DataTable keys both its sort state and its React list on col.key,
+          // so two columns sharing one key collide. Direction is sign(score),
+          // not group_label -- group_label holds the contrast name
+          // ("Higher in exceptional longevity").
+          direction: !Number.isFinite(score) ? "—" : score >= 0 ? "Up" : "Down",
+        };
+      }),
+    [context]
+  );
+
+  const featureColumns: Column<(typeof featureRows)[number]>[] = useMemo(
+    () => [
+      { key: "feature", label: "Feature", render: (r) => <span className="cell-strong">{r.feature}</span> },
+      {
+        key: "score",
+        label: "Score",
+        align: "right",
+        render: (r) => <span className="cell-mono">{r.score == null ? "—" : r.score.toFixed(2)}</span>,
+      },
+      {
+        key: "direction",
+        label: "Direction",
+        align: "right",
+        filterable: true,
+        render: (r) =>
+          r.direction === "—" ? "—" : <Badge tone={r.direction === "Up" ? "success" : "danger"}>{r.direction}</Badge>,
+      },
+    ],
+    []
+  );
+
+  // difexp columns are whatever the stored table happens to have, so the row
+  // type is open. Column<T> keys on `keyof T`, which an index signature
+  // satisfies; the explicit type keeps rowId available for rowKey.
+  type DifexpRow = Record<string, unknown> & { rowId: string };
+
+  const difexpRows: DifexpRow[] = useMemo(
+    () => (difexp?.rows ?? []).map((row, i) => ({ ...row, rowId: `difexp-${i}` })),
+    [difexp]
+  );
+
+  const difexpTableColumns: Column<DifexpRow>[] = useMemo(
+    () =>
+      difexpColumns.map((col) => ({
+        key: col,
+        label: formatLabel(col),
+        render: (r: DifexpRow) => <span className="cell-mono">{formatValue(r[col])}</span>,
+      })),
+    [difexp]
+  );
+
   const signatureName = context ? String(context.signature.signature_name ?? hashkey) : hashkey ?? "";
   const organism = context ? (context.signature.organism as string | null) : null;
   const assayType = context ? String(context.signature.assay_type ?? "") : "";
@@ -380,32 +447,15 @@ export default function SignatureDetailPage() {
               <div className="detail-section">
                 <h4 className="detail-section-title">Top features</h4>
                 {context.features.length > 0 && (
-                  <div className="dt-scroll dt-scroll-bounded" style={{ maxHeight: 560 }}>
-                    <table className="dt-table dt-table-flush dt-table-compact">
-                      <thead>
-                        <tr>
-                          <th>Feature</th>
-                          <th className="dt-right">Score</th>
-                          <th className="dt-right">Direction</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {context.features.map((f, i) => {
-                          const score = typeof f.score === "number" ? f.score : Number(f.score);
-                          const label = f.probe_id ?? String(f.feature_id ?? i);
-                          return (
-                            <tr key={label}>
-                              <td className="cell-strong">{label}</td>
-                              <td className="dt-right cell-mono">{Number.isFinite(score) ? score.toFixed(2) : "—"}</td>
-                              <td className="dt-right">
-                                <Badge tone={score >= 0 ? "success" : "danger"}>{score >= 0 ? "Up" : "Down"}</Badge>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DataTable
+                    columns={featureColumns}
+                    rows={featureRows}
+                    rowKey="rowId"
+                    pageSize={25}
+                    searchable
+                    scrollable
+                    maxHeight={560}
+                  />
                 )}
                 {context.features.length === 0 && (
                   <p className="cell-sub" style={{ padding: "10px 14px" }}>No features recorded for this signature.</p>
@@ -429,28 +479,15 @@ export default function SignatureDetailPage() {
               {difexp && difexp.message && <p className="cell-sub">{difexp.message}</p>}
               {difexp && difexp.rows.length > 0 && (
                 <div className="detail-section" style={{ marginTop: 12 }}>
-                  <div className="dt-scroll dt-scroll-bounded" style={{ maxHeight: 560 }}>
-                    <table className="dt-table dt-table-flush dt-table-compact">
-                      <thead>
-                        <tr>
-                          {difexpColumns.map((col) => (
-                            <th key={col}>{formatLabel(col)}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {difexp.rows.map((row, i) => (
-                          <tr key={i}>
-                            {difexpColumns.map((col) => (
-                              <td key={col} className="cell-mono">
-                                {formatValue(row[col])}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <DataTable
+                    columns={difexpTableColumns}
+                    rows={difexpRows}
+                    rowKey="rowId"
+                    pageSize={25}
+                    searchable
+                    scrollable
+                    maxHeight={560}
+                  />
                 </div>
               )}
             </Card>

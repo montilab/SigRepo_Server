@@ -8,6 +8,7 @@ import DataTable, { type Column } from "../components/DataTable";
 import { SkeletonRows } from "../components/Skeleton";
 import {
   searchSignaturesPage,
+  type SignatureSortKey,
   deleteSignature,
   downloadSignatureExport,
   downloadSignatureBasket,
@@ -32,6 +33,10 @@ export default function SignaturesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
+  // Sort lives here, not in the table: it is part of the query the server
+  // answers, so it has to survive alongside keyword and page.
+  const [sortBy, setSortBy] = useState<SignatureSortKey>("signature_name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Server-side pagination (DT `server = TRUE`): fetch only the current page
   // from the API instead of pulling every signature up front. `query` and
@@ -39,7 +44,7 @@ export default function SignaturesPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    searchSignaturesPage({ keyword: query || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE })
+    searchSignaturesPage({ keyword: query || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE, sortBy, sortDir })
       .then(({ rows: results, total: totalCount }) => {
         if (!cancelled) {
           setRows(results);
@@ -57,7 +62,7 @@ export default function SignaturesPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, page, refreshTick]);
+  }, [query, page, refreshTick, sortBy, sortDir]);
 
   // Mirrors the Shiny app's pattern: clicking a row just selects it and
   // reveals an action bar (View/Export/Add to Basket/Delete) above the
@@ -298,6 +303,17 @@ export default function SignaturesPage() {
             maxHeight={560}
             searchable={false}
             serverPagination={{ page, pageSize: PAGE_SIZE, total, onPageChange: setPage }}
+            serverSort={{
+              sortBy,
+              sortDir,
+              onSortChange: (key, dir) => {
+                setSortBy(key as SignatureSortKey);
+                setSortDir(dir);
+                // Re-sorting reorders the whole result set, so the old page
+                // number no longer points at anything meaningful.
+                setPage(0);
+              },
+            }}
           />
         )}
       </Card>

@@ -38,14 +38,11 @@ compare_build_signature <- function(auth, signature_hashkey, difexp_dir) {
     difexp <- load_difexp_rds(difexp_dir, signature_hashkey)
   }
 
-  # createOmicSignature() is internal (not exported), so it must be reached
-  # with ::: rather than ::.
-  SigRepo:::createOmicSignature(
-    conn_handler = conn_handler,
-    db_signature_tbl = db_row,
-    difexp = difexp,
-    fetch_difexp = FALSE
-  )
+  # build_omic_signature() (api/lib/omic_signature.R) adapts to whichever
+  # createOmicSignature() signature the installed client actually has -- the
+  # released one does not accept difexp/fetch_difexp, and passing them anyway
+  # is what has been failing every comparison here.
+  build_omic_signature(db_row = db_row, difexp = difexp)
 }
 
 # One labeled similarity matrix -> a JSON-friendly {rows, cols, values} object.
@@ -175,11 +172,21 @@ compare_build_list <- function(auth, hashkeys, difexp_dir, used_names = base::ch
   sig_list <- base::list()
   sig_meta <- base::list()
   skipped <- base::character()
+  # Why each one was skipped. Without this the caller only ever saw "check
+  # visibility and that they exist", which sent every failure -- including a
+  # client-version mismatch that made *every* comparison fail -- to the wrong
+  # explanation.
+  skip_reasons <- base::character()
 
   for (hk in hashkeys) {
     os <- base::tryCatch(compare_build_signature(auth, hk, difexp_dir), error = function(e) e)
     if (base::inherits(os, "error") || base::is.null(os)) {
       skipped <- c(skipped, hk)
+      skip_reasons <- c(skip_reasons, if (base::inherits(os, "error")) {
+        base::conditionMessage(os)
+      } else {
+        "not found, or not visible to this api_key"
+      })
       next
     }
 
@@ -205,7 +212,15 @@ compare_build_list <- function(auth, hashkeys, difexp_dir, used_names = base::ch
     )
   }
 
-  base::list(sig_list = sig_list, sig_meta = sig_meta, skipped = skipped, used_names = used_names)
+  base::list(sig_list = sig_list, sig_meta = sig_meta, skipped = skipped,
+             skip_reasons = skip_reasons, used_names = used_names)
+}
+
+# The distinct reasons behind a set of skips, joined for a one-line message.
+compare_skip_summary <- function(skip_reasons) {
+  reasons <- base::unique(skip_reasons[base::nzchar(skip_reasons)])
+  if (base::length(reasons) == 0) return("")
+  base::paste0(" Reason: ", base::paste(reasons, collapse = "; "))
 }
 
 # label_pairing arrives from the web UI keyed by hashkey (stable) or by name.
@@ -271,6 +286,7 @@ compare_signatures_result <- function(auth, signature_hashkeys, method, difexp_d
   sig_list <- built1$sig_list
   sig_meta <- built1$sig_meta
   skipped <- built1$skipped
+  skip_reasons <- built1$skip_reasons
 
   sig_list2 <- NULL
   sig_meta2 <- NULL
@@ -279,17 +295,18 @@ compare_signatures_result <- function(auth, signature_hashkeys, method, difexp_d
     sig_list2 <- built2$sig_list
     sig_meta2 <- built2$sig_meta
     skipped <- c(skipped, built2$skipped)
+    skip_reasons <- c(skip_reasons, built2$skip_reasons)
     if (base::length(sig_list2) < 1) {
-      base::stop("None of the reference signatures could be loaded (check visibility and that they exist).")
+      base::stop("None of the reference signatures could be loaded.", compare_skip_summary(built2$skip_reasons))
     }
   }
 
   min_needed <- if (two_list) 1L else 2L
   if (base::length(sig_list) < min_needed) {
     base::stop(if (two_list) {
-      "None of the query signatures could be loaded (check visibility and that they exist)."
+      base::paste0("None of the query signatures could be loaded.", compare_skip_summary(skip_reasons))
     } else {
-      "Fewer than two of the selected signatures could be loaded (check visibility and that they exist)."
+      base::paste0("Fewer than two of the selected signatures could be loaded.", compare_skip_summary(skip_reasons))
     })
   }
 

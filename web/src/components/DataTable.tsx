@@ -31,6 +31,7 @@ export default function DataTable<T extends object>({
   onToggleAll,
   searchable = true,
   serverPagination,
+  serverSort,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -66,6 +67,14 @@ export default function DataTable<T extends object>({
     pageSize: number;
     total: number;
     onPageChange: (page: number) => void;
+  };
+  // Supply alongside serverPagination to restore sortable headers. Without it,
+  // headers stay inert under server pagination -- sorting one loaded page would
+  // look like sorting the whole result set, which is worse than not offering it.
+  serverSort?: {
+    sortBy: string | null;
+    sortDir: "asc" | "desc";
+    onSortChange: (key: string, dir: "asc" | "desc") => void;
   };
 }) {
   const [sortKey, setSortKey] = useState<keyof T | null>(null);
@@ -248,10 +257,29 @@ export default function DataTable<T extends object>({
                 const key = String(col.key);
                 const activeCount = filters[key]?.size ?? 0;
                 return (
-                  <th key={key} className={(col.align === "right" ? "dt-right" : "") + (server ? " dt-th-nosort" : "")}>
+                  <th key={key} className={(col.align === "right" ? "dt-right" : "") + (server && !serverSort ? " dt-th-nosort" : "")}>
                     <span className="dt-th">
-                      {server ? (
+                      {server && !serverSort ? (
                         <span className="dt-th-static">{col.label}</span>
+                      ) : server && serverSort ? (
+                        // Sorting delegated to the server, which is what makes it
+                        // meaningful across every page rather than within one.
+                        <span
+                          className="dt-th-sort"
+                          onClick={() =>
+                            serverSort.onSortChange(
+                              String(col.key),
+                              serverSort.sortBy === String(col.key) && serverSort.sortDir === "asc" ? "desc" : "asc"
+                            )
+                          }
+                        >
+                          {col.label}
+                          {serverSort.sortBy === String(col.key) ? (
+                            serverSort.sortDir === "asc" ? <ChevronUp size={13} /> : <ChevronDown size={13} />
+                          ) : (
+                            <ChevronsUpDown size={13} className="dt-sort-idle" />
+                          )}
+                        </span>
                       ) : (
                         <span className="dt-th-sort" onClick={() => toggleSort(col.key)}>
                           {col.label}
@@ -330,11 +358,24 @@ export default function DataTable<T extends object>({
                       <input type="checkbox" checked={checked} onChange={() => onToggleRow?.(row)} aria-label={`Select row ${key}`} />
                     </td>
                   )}
-                  {columns.map((col) => (
-                    <td key={String(col.key)} className={col.align === "right" ? "dt-right" : ""}>
-                      {col.render ? col.render(row) : String(row[col.key] ?? "")}
-                    </td>
-                  ))}
+                  {columns.map((col) => {
+                    // Cells are clipped to one line so rows stay a uniform
+                    // height, so anything too long to fit needs to remain
+                    // readable on hover. Taken from the raw value rather than
+                    // the rendered node, which may be a badge or an element.
+                    const raw = row[col.key];
+                    const title =
+                      raw == null || typeof raw === "object" ? undefined : String(raw);
+                    return (
+                      <td
+                        key={String(col.key)}
+                        className={col.align === "right" ? "dt-right" : ""}
+                        title={title}
+                      >
+                        {col.render ? col.render(row) : String(raw ?? "")}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}

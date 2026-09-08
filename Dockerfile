@@ -109,6 +109,14 @@ RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); remotes::install_github(
 # Install hypeR 
 RUN R -e "remotes::install_github(repo = 'montilab/hypeR', dependencies = c('Depends','Imports','LinkingTo'))"
 
+# Install hypeR.GEM -- backs the "GEM Hypergeometric" / "GEM Weighted" methods
+# on the Annotate page, which map metabolites onto enzyme-coding genes through
+# a genome-scale metabolic model. The models ship as package data, so this adds
+# roughly 32 MB. The API degrades to a clear 503 without it rather than
+# failing obscurely, so this is deliberately the last install: it is the one
+# that can be dropped from a build that never serves metabolomics signatures.
+RUN R -e "remotes::install_github(repo = 'montilab/hypeR-GEM', dependencies = c('Depends','Imports','LinkingTo'))"
+
 # Expose app at port 3838
 EXPOSE 3838
 

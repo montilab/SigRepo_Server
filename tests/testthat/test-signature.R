@@ -171,3 +171,46 @@ test_that("delete_signature enforces caller role/ownership and removes child row
   admin_auth <- list(user_name = "ci_admin", user_role = "admin")
   expect_true(delete_signature(admin_auth, hashkey_2)$ok)
 })
+
+test_that("search_signatures sorts server-side, on an allowlist, with a stable tiebreak", {
+  skip_if_no_test_db()
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  asc <- search_signatures(conn, is_admin = TRUE, sort_by = "signature_name", sort_dir = "asc")
+  desc <- search_signatures(conn, is_admin = TRUE, sort_by = "signature_name", sort_dir = "desc")
+  skip_if(nrow(asc$rows) < 2, "need at least two signatures to observe an order")
+
+  expect_equal(asc$rows$signature_name, sort(asc$rows$signature_name))
+  expect_equal(desc$rows$signature_name, rev(asc$rows$signature_name))
+
+  # sort_by reaches ORDER BY, where dbQuoteLiteral cannot protect it the way it
+  # protects a WHERE value -- so anything off the allowlist must fall back
+  # rather than be interpolated.
+  for (bogus in c("not_a_column", "s.signature_name; DROP TABLE signatures--", "", NA_character_)) {
+    fallback <- search_signatures(conn, is_admin = TRUE, sort_by = bogus)
+    expect_equal(fallback$rows$signature_name, asc$rows$signature_name,
+                 info = sprintf("sort_by = %s should fall back to signature_name", bogus))
+  }
+
+  # The table is still intact after the injection-shaped input above.
+  expect_true(nrow(search_signatures(conn, is_admin = TRUE)$rows) >= 1)
+
+  # An unrecognised direction is treated as ascending rather than erroring.
+  expect_equal(
+    search_signatures(conn, is_admin = TRUE, sort_by = "signature_name", sort_dir = "sideways")$rows$signature_name,
+    asc$rows$signature_name
+  )
+
+  # Sorting by a joined column orders on the readable label. Paging stays
+  # stable because signature_name breaks ties.
+  by_organism <- search_signatures(conn, is_admin = TRUE, sort_by = "organism", sort_dir = "asc")
+  expect_equal(nrow(by_organism$rows), nrow(asc$rows))
+  expect_setequal(by_organism$rows$signature_hashkey, asc$rows$signature_hashkey)
+
+  # A sorted page is still a page of the whole result set, not a re-ordering of
+  # one page -- the first row of a descending sort must be the last of ascending.
+  page1 <- search_signatures(conn, is_admin = TRUE, sort_by = "signature_name", sort_dir = "desc", limit = 1)
+  expect_equal(page1$rows$signature_name[1], tail(asc$rows$signature_name, 1))
+  expect_equal(page1$total, asc$total)
+})
