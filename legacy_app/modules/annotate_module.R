@@ -1758,10 +1758,10 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       req(hyp)
 
       plot_df <- hype_dotplot_data(hyp, fdr_threshold = input$enrichment_thresh)
-      validate(need(nrow(plot_df) > 0, "No enriched genesets passed the selected FDR threshold."))
+      shiny::validate(shiny::need(nrow(plot_df) > 0, "No enriched genesets passed the selected FDR threshold."))
 
       plot_metadata <- signature_plot_metadata()
-      validate(need(nrow(plot_metadata) > 0, "Signature grouping metadata was not available for plotting."))
+      shiny::validate(shiny::need(nrow(plot_metadata) > 0, "Signature grouping metadata was not available for plotting."))
 
       signature_lookup <- unique(
         plot_metadata[, c("signature", "signature_name", "group_label", "signature_order", "group_order"), drop = FALSE]
@@ -1826,7 +1826,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       req(hyp)
 
       results_df <- extract_hyp_results_table(hyp)
-      validate(need(nrow(results_df) > 0, "No results are available."))
+      shiny::validate(shiny::need(nrow(results_df) > 0, "No results are available."))
 
       DT::datatable(
         results_df,
@@ -1875,7 +1875,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
       req(identical(context$method, "gsea"))
 
       results_df <- extract_hyp_results_table(hyp)
-      validate(need(nrow(results_df) > 0, "No GSEA results are available."))
+      shiny::validate(shiny::need(nrow(results_df) > 0, "No GSEA results are available."))
       results_df
     })
 
