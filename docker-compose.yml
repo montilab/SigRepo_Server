@@ -52,6 +52,32 @@ services:
       - 8050:80
     restart: always
 
+  # The legacy R Shiny interface, restored alongside the React app rather than
+  # replacing it, so both can be run against the same database and compared.
+  # React keeps 8050; Shiny takes 8051.
+  #
+  # Two properties this service has that sigrepo-web does not, and that are the
+  # reason for bringing it back: it bind-mounts the source, so a UI change ships
+  # with `git pull` and a restart rather than an image build; and Shiny Server
+  # gives each user their own R process, so enrichment runs in the user's
+  # session instead of queueing behind everyone else in the single-process API.
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo-api
+    networks:
+      - db-net
+    ports:
+      - 8051:3838
+    restart: always
+    volumes:
+      - sigrepo-difexp-data:/difexp
+      - .Renviron:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/legacy_app/shiny-server.sh"]
+
   # Agentic AI-facing MCP server. No `ports:` mapping on purpose -- it's only
   # reachable by other containers on db-net, not published to the host/
   # internet, since its only auth today is a per-call api_key with no rate
