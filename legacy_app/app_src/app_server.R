@@ -89,12 +89,27 @@ server <- function(input, output, session) {
     }
     
     # Create a user connection handler
+    # api_host / api_port must be passed explicitly. Without them
+    # newConnHandler() falls back to an address hard-coded in the released
+    # SigRepo client, so every API call made through this per-user handler
+    # goes wherever that default points rather than to this deployment.
+    #
+    # getSignature() -> createOmicSignature() fetches the difexp over that
+    # same handler, so a misdirected handler yields sig_obj$difexp = NULL.
+    # Enrichment recovers gene symbols FROM the difexp, so with no difexp
+    # hypeR receives raw Ensembl accessions and matches 0% of any geneset --
+    # which is the "Only 0% of signature was found" failure on Annotate.
+    api_host_env <- base::Sys.getenv("API_HOST")
+    api_port_env <- base::suppressWarnings(base::as.integer(base::Sys.getenv("API_PORT")))
+
     user_conn <- SigRepo::newConnHandler(
       dbname = base::Sys.getenv("DB_NAME"),
       host = base::Sys.getenv("DB_HOST"),
       port = base::as.integer(base::Sys.getenv("DB_PORT")),
       user = user_name,
-      password = user_password
+      password = user_password,
+      api_host = if (base::nzchar(api_host_env)) api_host_env else "http://142.93.67.157:8020",
+      api_port = if (base::is.na(api_port_env)) 8020L else api_port_env
     )
     
     # Validate user
