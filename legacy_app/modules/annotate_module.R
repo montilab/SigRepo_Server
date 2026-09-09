@@ -504,9 +504,14 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
       return(list(data = signature_df, symbol_col = NULL))
     }
 
+    # Deliberately NOT "feature_name". For transcriptomics that column holds
+    # the same Ensembl accession we are trying to translate away from, so
+    # including it made recovery "succeed" by mapping ENSG -> ENSG. hypeR then
+    # matched those accessions against symbol-keyed genesets and reported
+    # "Only 0% of signature was found" instead of a usable error.
     difexp_symbol_col <- find_first_column(
       difexp_df,
-      c("symbol", "gene_symbol", "feature_name", "gene", "gene_name")
+      c("symbol", "gene_symbol", "geneSymbol", "hgnc_symbol", "mgi_symbol", "gene", "gene_name")
     )
     if (is.null(difexp_symbol_col)) {
       return(list(data = signature_df, symbol_col = NULL))
@@ -545,6 +550,7 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
 
   empty_result <- list(
     vectors = list(),
+    notes = character(),
     metadata = data.frame(
       signature = character(),
       signature_name = character(),
@@ -561,6 +567,10 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
 
   sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
   vectors <- list()
+  # Human-readable reasons a signature contributed nothing. Previously every
+  # one of these paths was a bare `next`, so a signature simply disappeared and
+  # the only symptom was hypeR reporting an unexplained 0% overlap.
+  notes <- character()
   metadata <- vector("list", length(sig_objs))
   metadata_idx <- 0
 
@@ -570,6 +580,8 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
 
     signature_df <- extract_signature_table(sig_obj)
     if (is.null(signature_df)) {
+      notes <- c(notes, sprintf(
+        "%s: neither a signature table nor a difexp table was returned.", sig_name))
       next
     }
 
@@ -590,13 +602,27 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
     }
 
     if (is.null(symbol_col)) {
+      notes <- c(notes, sprintf(
+        "%s: no gene-symbol column in the signature or its difexp.", sig_name))
       next
+    }
+
+    if (identical(symbol_col, "feature_name")) {
+      # Symbol recovery from the difexp did not fire, so hypeR is about to be
+      # handed raw feature identifiers. For transcriptomics those are Ensembl
+      # accessions and will match nothing. Say so here rather than leaving the
+      # user with a silent 0% result.
+      notes <- c(notes, sprintf(
+        "%s: enriching on raw feature_name values -- the difexp carried no gene-symbol column, so overlap may be 0%%.",
+        sig_name))
     }
 
     signature_df$symbol <- as.character(signature_df[[symbol_col]])
     signature_df <- signature_df[!is.na(signature_df$symbol) & nzchar(signature_df$symbol), , drop = FALSE]
 
     if (nrow(signature_df) == 0) {
+      notes <- c(notes, sprintf(
+        "%s: every gene symbol was blank or missing.", sig_name))
       next
     }
 
@@ -677,6 +703,7 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
 
   list(
     vectors = vectors,
+    notes = notes,
     metadata = metadata_df
   )
 }
@@ -1703,17 +1730,40 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
           build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "ks")
         }
         signature_vectors <- enrichment_inputs$vectors
+        # Only build_enrichment_signatures() reports these; the ranked builders
+        # return no `notes` element, and length(NULL) is 0, so this is inert there.
+        enrichment_notes <- enrichment_inputs$notes
 
         if (length(signature_vectors) == 0) {
           showNotification(
-            if (identical(enrichment_test, "hypergeo")) {
+            if (length(enrichment_notes) > 0) {
+              paste0(
+                "No valid signatures were available to run enrichment:\n",
+                paste(enrichment_notes, collapse = "\n")
+              )
+            } else if (identical(enrichment_test, "hypergeo")) {
               "No valid signatures were available to run enrichment."
             } else {
               "No ranked signatures were available to run KS/GSEA-style enrichment. Check that the signatures contain numeric score columns."
             },
-            type = "error"
+            type = "error",
+            duration = 20
           )
           return()
+        }
+
+        # Some signatures made it through but others did not, or are being
+        # enriched on identifiers rather than symbols. Without this the run
+        # looks successful while quietly returning nothing for those.
+        if (length(enrichment_notes) > 0) {
+          showNotification(
+            paste0(
+              "Enrichment ran with warnings:\n",
+              paste(enrichment_notes, collapse = "\n")
+            ),
+            type = "warning",
+            duration = 20
+          )
         }
 
         hype_args <- list(
