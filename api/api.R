@@ -301,18 +301,20 @@ update_transcriptomics <- function(res, admin_key, organism = NULL){
   }
 
   print("Updating transcriptomics features to the database for each given organism...")
-  for (s in base::seq_len(base::nrow(organism_tbl))) {
-    base::tryCatch({
-      SigRepo::updateTranscriptomicsFeatureSet(
-        conn_handler = conn_handler,
-        organism = organism_tbl$organism[s]
-      )
-    }, error = function(e){
-      json_response(res, 200, base::data.frame(MESSAGES = base::as.character(e)))
-    })
-  }
+  # One line per organism, and a 500 if any organism actually failed. The old
+  # loop discarded the error handler's response, so every call answered
+  # "Finish updating ..." even when an organism had thrown.
+  result <- run_feature_updates(organism_tbl, function(organism) {
+    SigRepo::updateTranscriptomicsFeatureSet(conn_handler = conn_handler, organism = organism)
+  })
 
-  json_response(res, 200, base::data.frame(MESSAGES = "Finish updating transcriptomics feature set."))
+  json_response(res, if (result$ok) 200 else 500, base::data.frame(
+    MESSAGES = c(
+      if (result$ok) "Finish updating transcriptomics feature set." else "Updating transcriptomics features failed for at least one organism.",
+      result$messages
+    ),
+    stringsAsFactors = FALSE
+  ))
 }
 
 #* Retrieve FTP UniProt data from NCBI and update proteomics feature set in the database
@@ -336,18 +338,17 @@ update_proteomics <- function(res, admin_key, organism = NULL){
   }
 
   print("Updating proteomics features in the database for each given organism...")
-  for (s in base::seq_len(base::nrow(organism_tbl))) {
-    base::tryCatch({
-      SigRepo::updateProteomicsFeatureSet(
-        conn_handler = conn_handler,
-        organism = organism_tbl$organism[s]
-      )
-    }, error = function(e){
-      json_response(res, 200, base::data.frame(MESSAGES = base::as.character(e)))
-    })
-  }
+  result <- run_feature_updates(organism_tbl, function(organism) {
+    SigRepo::updateProteomicsFeatureSet(conn_handler = conn_handler, organism = organism)
+  })
 
-  json_response(res, 200, base::data.frame(MESSAGES = "Finish updating proteomics feature set."))
+  json_response(res, if (result$ok) 200 else 500, base::data.frame(
+    MESSAGES = c(
+      if (result$ok) "Finish updating proteomics feature set." else "Updating proteomics features failed for at least one organism.",
+      result$messages
+    ),
+    stringsAsFactors = FALSE
+  ))
 }
 
 #* Show a list of tables in the database
