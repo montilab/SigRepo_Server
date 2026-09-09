@@ -99,6 +99,32 @@ services:
       - 127.0.0.1:8050:80
     restart: unless-stopped
 
+  # The legacy R Shiny interface, restored alongside the React app rather than
+  # replacing it, so the two can be compared against the same database before
+  # any decision to switch. React stays on 8050; Shiny gets 8051.
+  #
+  # Note what this service does that sigrepo-web cannot: it bind-mounts the
+  # source, so `git pull` deploys a UI change with no image build. That is the
+  # deployment asymmetry that made the React app feel slow to iterate on.
+  sigrepo-shiny:
+    container_name: sigrepo-local-shiny
+    platform: linux/amd64
+    image: montilab/sigrepo:latest
+    depends_on:
+      - sigrepo-mysql
+      - sigrepo-api
+    networks:
+      - db-net-local
+    ports:
+      - 127.0.0.1:8051:3838
+    restart: unless-stopped
+    volumes:
+      - *difexp-volume
+      - *sigrepo-volume
+      - *sigrepo-server-volume
+      - ./.Renviron.local-stack:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/legacy_app/shiny-server.sh"]
+
   sigrepo-mcp:
     container_name: sigrepo-local-mcp
     platform: linux/amd64
