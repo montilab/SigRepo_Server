@@ -166,6 +166,10 @@ generate_db_tables <- function(conn_handler, sigrepo_server_path = base::Sys.get
   proteomics_human_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Proteomics_Homo_Sapiens.csv"), header = TRUE)
   SigRepo::addProteomicsFeatureSet(conn_handler = conn_handler, feature_set = proteomics_human_gene_tbl)
 
+  print("Upload mouse proteomics features to the database...")
+  proteomics_mouse_gene_tbl <- utils::read.csv(base::file.path(sigrepo_server_path, "mysql/data/Proteomics_Mus_Musculus.csv"), header = TRUE)
+  SigRepo::addProteomicsFeatureSet(conn_handler = conn_handler, feature_set = proteomics_mouse_gene_tbl)
+
   #############
   #
   #  USERS ####

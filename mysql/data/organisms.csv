@@ -1,6 +1,6 @@
 organism,biomart_db,biomart_dataset,biomart_description,biomart_version,biomart_updated_date,prot_organism_code,prot_organism_taxid,prot_updated_date
 Homo sapiens,genes,hsapiens_gene_ensembl,Human genes (GRCh38.p14),113,2025-12-10,HUMAN,9606,2025-12-10
-Mus musculus,genes,mmusculus_gene_ensembl,Mouse genes (GRCm39),113,2025-12-10,,,NA
+Mus musculus,genes,mmusculus_gene_ensembl,Mouse genes (GRCm39),113,2025-12-10,MOUSE,10090,NA
 Rattus norvegicus,genes,rnorvegicus_gene_ensembl,Norway rat - BN/NHsdMcwi genes (GRCr8),113,2025-12-10,,,NA
 Danio rerio,genes,drerio_gene_ensembl,Zebrafish genes (GRCz11),113,2025-12-10,,,NA
 Heterocephalus glaber,genes,hgfemale_gene_ensembl,Naked mole-rat female genes (Naked_mole-rat_maternal),113,2025-12-10,,,NA
