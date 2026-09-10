@@ -7,6 +7,7 @@
 #     NULL -- failed with "could not be mapped to a gene symbol" even though
 #     their difexp carried symbols.
 source(testthat::test_path("../../api/lib/common.R"), local = FALSE)
+source(testthat::test_path("../../api/lib/symbols.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/annotate.R"), local = FALSE)
 
 test_that("difexp_symbol_column accepts the names depositors actually use", {

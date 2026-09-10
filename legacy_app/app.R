@@ -19,6 +19,10 @@ source_app_file <- function(...) {
   sys.source(file.path(shiny_path, ...), envir = app_env)
 }
 
+# Shared with the API; the Annotate module calls these at run time.
+server_root <- if (nzchar(env_root)) normalizePath(env_root) else normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
+sys.source(file.path(server_root, "api", "lib", "symbols.R"), envir = app_env)
+
 # Ensure app-local symbols are available in the same environment as ui/server.
 source_app_file("modules", "home_module.R")
 source_app_file("modules", "signature_module.R")
