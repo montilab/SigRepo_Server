@@ -455,13 +455,15 @@ build_dotplot_figure <- function(plot_df, title = "") {
 }
 
 
-# Resolve raw feature identifiers (Ensembl accessions) to gene symbols through
-# the reference table, using an injected lookup so the builders stay testable
-# without a database. `symbol_lookup(feature_names, organism, assay_type)`
-# returns a named character vector: names are feature_name, values are gene
-# symbols, blank/NA meaning unknown. Only transcriptomics is resolved this
-# way: the proteomics reference table currently stores UniProt entry names,
-# not gene symbols, so mapping through it would be worse than the raw ids.
+# Resolve raw feature identifiers (Ensembl or UniProt accessions) to gene
+# symbols through the assay's reference table, using an injected lookup so
+# the builders stay testable without a database.
+# `symbol_lookup(feature_names, organism, assay_type)` returns a named
+# character vector: names are feature_name, values are gene symbols, blank/NA
+# meaning unknown. Only assay types with a symbol-bearing reference table
+# (transcriptomics_features, proteomics_features -- see
+# enrichment_reference_table()) are resolved this way; metabolomics and
+# genetic variants keep whatever identifiers they carry.
 #
 # Returns list(symbols = <named vector or NULL>, note = <character>). The note
 # is only produced when some features could not be mapped, so a fully
@@ -474,7 +476,7 @@ resolve_symbols_by_reference <- function(feature_names, sig_obj, sig_name, symbo
 
   assay_type <- tolower(trimws(as.character(sig_obj$metadata$assay_type %||% "")))
   organism <- trimws(as.character(sig_obj$metadata$organism %||% ""))
-  if (!identical(assay_type, "transcriptomics") || !nzchar(organism)) {
+  if (is.null(enrichment_reference_table(assay_type)) || !nzchar(organism)) {
     return(none)
   }
 

@@ -57,11 +57,19 @@ test_that("hypergeometric builder falls back to raw identifiers with the warning
   expect_true(any(grepl("raw feature_name", out$notes)))
 })
 
-test_that("proteomics signatures never go through the transcriptomics reference lookup", {
-  lk <- recording_lookup(c(P04637 = "P53"))
+test_that("proteomics accessions resolve through the reference lookup, asking for the proteomics table", {
+  lk <- recording_lookup(c(P04637 = "TP53", Q00987 = "MDM2"))
   out <- build_enrichment_signatures(list(make_sig("P", c("P04637", "Q00987"), c(1, -1), assay = "proteomics")), sig_entry("P"), symbol_lookup = lk$f)
+  expect_length(lk$calls(), 1)
+  expect_equal(lk$calls()[[1]]$assay_type, "proteomics")
+  expect_setequal(unique(unlist(out$vectors)), c("TP53", "MDM2"))
+})
+
+test_that("assay types without a symbol reference table never consult the lookup", {
+  lk <- recording_lookup(c(`CE 18:1` = "nonsense"))
+  out <- build_enrichment_signatures(list(make_sig("M", c("CE 18:1", "Xylulose"), c(1, -1), assay = "metabolomics")), sig_entry("M"), symbol_lookup = lk$f)
   expect_length(lk$calls(), 0)
-  expect_setequal(unique(unlist(out$vectors)), c("P04637", "Q00987"))
+  expect_setequal(unique(unlist(out$vectors)), c("CE 18:1", "Xylulose"))
 })
 
 test_that("ranked builder resolves difexp feature names through the reference lookup when the difexp has no symbol column", {
