@@ -455,7 +455,103 @@ build_dotplot_figure <- function(plot_df, title = "") {
 }
 
 
-build_enrichment_signatures <- function(sig_objs, sig_list) {
+# Resolve raw feature identifiers (Ensembl accessions) to gene symbols through
+# the reference table, using an injected lookup so the builders stay testable
+# without a database. `symbol_lookup(feature_names, organism, assay_type)`
+# returns a named character vector: names are feature_name, values are gene
+# symbols, blank/NA meaning unknown. Only transcriptomics is resolved this
+# way: the proteomics reference table currently stores UniProt entry names,
+# not gene symbols, so mapping through it would be worse than the raw ids.
+#
+# Returns list(symbols = <named vector or NULL>, note = <character>). The note
+# is only produced when some features could not be mapped, so a fully
+# resolved signature runs silently.
+resolve_symbols_by_reference <- function(feature_names, sig_obj, sig_name, symbol_lookup) {
+  none <- list(symbols = NULL, note = character())
+  if (is.null(symbol_lookup)) {
+    return(none)
+  }
+
+  assay_type <- tolower(trimws(as.character(sig_obj$metadata$assay_type %||% "")))
+  organism <- trimws(as.character(sig_obj$metadata$organism %||% ""))
+  if (!identical(assay_type, "transcriptomics") || !nzchar(organism)) {
+    return(none)
+  }
+
+  names_in <- unique(as.character(feature_names))
+  names_in <- names_in[!is.na(names_in) & nzchar(names_in)]
+  if (length(names_in) == 0) {
+    return(none)
+  }
+
+  mapped <- tryCatch(symbol_lookup(names_in, organism, assay_type), error = function(e) character())
+  mapped <- mapped[!is.na(mapped) & nzchar(trimws(as.character(mapped)))]
+  if (length(mapped) == 0) {
+    return(none)
+  }
+
+  n_total <- length(names_in)
+  n_mapped <- sum(names_in %in% names(mapped))
+  note <- if (n_mapped < n_total) {
+    sprintf(
+      "%s: %d of %d features mapped to gene symbols through the reference table; %d without a symbol were dropped.",
+      sig_name, n_mapped, n_total, n_total - n_mapped
+    )
+  } else {
+    character()
+  }
+
+  list(symbols = mapped, note = note)
+}
+
+
+# A symbol_lookup backed by the reference tables, opened lazily on the
+# caller's own connection handler so it carries the caller's permissions.
+# Returns list(lookup = <function>, close = <function>); call close() when the
+# enrichment run is over. Any database problem degrades to "no symbols", which
+# makes the builders fall back to their raw-identifier warning instead of
+# aborting the run.
+make_reference_symbol_lookup <- function(conn_handler) {
+  conn <- NULL
+  organism_ids <- list()
+
+  get_conn <- function() {
+    if (is.null(conn)) {
+      conn <<- SigRepo::conn_init(conn_handler = conn_handler)
+    }
+    conn
+  }
+
+  lookup <- function(feature_names, organism, assay_type) {
+    ref_table <- enrichment_reference_table(assay_type)
+    if (is.null(ref_table)) {
+      return(character())
+    }
+    tryCatch({
+      cn <- get_conn()
+      if (is.null(organism_ids[[organism]])) {
+        row <- DBI::dbGetQuery(cn, sprintf(
+          "SELECT organism_id FROM organisms WHERE organism = %s LIMIT 1",
+          DBI::dbQuoteString(cn, organism)
+        ))
+        organism_ids[[organism]] <<- if (nrow(row) > 0) as.integer(row$organism_id[1]) else NA_integer_
+      }
+      lookup_gene_symbols_by_feature_name(cn, ref_table, feature_names, organism_ids[[organism]])
+    }, error = function(e) character())
+  }
+
+  close <- function() {
+    if (!is.null(conn)) {
+      suppressWarnings(try(DBI::dbDisconnect(conn), silent = TRUE))
+      conn <<- NULL
+    }
+  }
+
+  list(lookup = lookup, close = close)
+}
+
+
+build_enrichment_signatures <- function(sig_objs, sig_list, symbol_lookup = NULL) {
   extract_signature_table <- function(sig_obj) {
     table_candidates <- list(sig_obj$signature, sig_obj$difexp)
 
@@ -608,6 +704,18 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
     }
 
     if (identical(symbol_col, "feature_name")) {
+      # The difexp had no symbols; the reference table is the next place to
+      # look before settling for raw identifiers.
+      resolved <- resolve_symbols_by_reference(signature_df$feature_name, sig_obj, sig_name, symbol_lookup)
+      if (!is.null(resolved$symbols)) {
+        signature_df$symbol <- unname(resolved$symbols[as.character(signature_df$feature_name)])
+        signature_df <- signature_df[!is.na(signature_df$symbol) & nzchar(signature_df$symbol), , drop = FALSE]
+        symbol_col <- "symbol"
+        notes <- c(notes, resolved$note)
+      }
+    }
+
+    if (identical(symbol_col, "feature_name")) {
       # Symbol recovery from the difexp did not fire, so hypeR is about to be
       # handed raw feature identifiers. For transcriptomics those are Ensembl
       # accessions and will match nothing. Say so here rather than leaving the
@@ -709,7 +817,7 @@ build_enrichment_signatures <- function(sig_objs, sig_list) {
 }
 
 
-build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks", "gsea")) {
+build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks", "gsea"), symbol_lookup = NULL) {
   find_first_column <- function(df, candidates) {
     matched <- candidates[candidates %in% names(df)][1]
     if (is.na(matched) || !nzchar(matched)) {
@@ -739,6 +847,7 @@ build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks"
   mode <- match.arg(mode)
   empty_result <- list(
     vectors = list(),
+    notes = character(),
     metadata = data.frame(
       signature = character(),
       signature_name = character(),
@@ -756,6 +865,7 @@ build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks"
   sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
   rank_candidates <- c("score", "t_stat", "stat", "t", "logfc", "logFC")
   vectors <- list()
+  notes <- character()
   metadata <- vector("list", length(sig_objs) * 4)
   metadata_idx <- 0
 
@@ -768,10 +878,21 @@ build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks"
       next
     }
 
-    symbol_col <- find_first_column(
-      difexp_df,
-      c("symbol", "gene_symbol", "feature_name", "gene", "gene_name")
-    )
+    # A real symbol column wins. Failing that, resolve feature_name (Ensembl
+    # accessions) through the reference table; only if that yields nothing do
+    # we rank the raw identifiers, which was the previous behaviour.
+    symbol_col <- find_first_column(difexp_df, c("symbol", "gene_symbol", "gene", "gene_name"))
+    if (is.null(symbol_col) && "feature_name" %in% names(difexp_df)) {
+      resolved <- resolve_symbols_by_reference(difexp_df$feature_name, sig_obj, sig_name, symbol_lookup)
+      if (!is.null(resolved$symbols)) {
+        difexp_df$symbol <- unname(resolved$symbols[as.character(difexp_df$feature_name)])
+        difexp_df <- difexp_df[!is.na(difexp_df$symbol) & nzchar(difexp_df$symbol), , drop = FALSE]
+        symbol_col <- "symbol"
+        notes <- c(notes, resolved$note)
+      } else {
+        symbol_col <- "feature_name"
+      }
+    }
     if (is.null(symbol_col)) {
       next
     }
@@ -874,6 +995,7 @@ build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks"
 
   list(
     vectors = vectors,
+    notes = notes,
     metadata = metadata_df
   )
 }
@@ -1722,16 +1844,21 @@ annotate_module_server <- function(id, signature_db, user_conn_handler) {
           gsea = "ks"
         )
 
+        # Symbols missing from a difexp are resolved through the reference
+        # tables on the user's own connection; closed once the builders return.
+        reference <- make_reference_symbol_lookup(user_conn_handler())
+        on.exit(reference$close(), add = TRUE)
         enrichment_inputs <- if (identical(enrichment_test, "hypergeo")) {
-          build_enrichment_signatures(sig_objs, sig_list)
+          build_enrichment_signatures(sig_objs, sig_list, symbol_lookup = reference$lookup)
         } else if (identical(enrichment_method, "gsea")) {
-          build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "gsea")
+          build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "gsea", symbol_lookup = reference$lookup)
         } else {
-          build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "ks")
+          build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "ks", symbol_lookup = reference$lookup)
         }
+        reference$close()
         signature_vectors <- enrichment_inputs$vectors
-        # Only build_enrichment_signatures() reports these; the ranked builders
-        # return no `notes` element, and length(NULL) is 0, so this is inert there.
+        # Both builders report these: dropped signatures, raw-identifier
+        # fallbacks, and partial reference-table mappings.
         enrichment_notes <- enrichment_inputs$notes
 
         if (length(signature_vectors) == 0) {

@@ -133,6 +133,14 @@ options(sigrepo.shiny_path = shiny_path)
 
 bootstrap_env <- .GlobalEnv
 
+# Gene-symbol helpers shared with the API (api/lib/symbols.R): the Annotate
+# module resolves Ensembl accessions through the reference tables with them.
+server_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
+if (!nzchar(server_root)) {
+  server_root <- normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
+}
+sys.source(file.path(server_root, "api", "lib", "symbols.R"), envir = bootstrap_env)
+
 # sourcing modules
 sys.source(file.path(shiny_path, "modules", "home_module.R"), envir = bootstrap_env)
 sys.source(file.path(shiny_path, "modules", "signature_module.R"), envir = bootstrap_env)

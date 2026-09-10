@@ -2,6 +2,7 @@ source(testthat::test_path("../../api/lib/common.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/difexp.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/signature.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/msigdb_cache.R"), local = FALSE)
+source(testthat::test_path("../../api/lib/symbols.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/annotate.R"), local = FALSE)
 source(testthat::test_path("helper-db.R"), local = FALSE)
 
