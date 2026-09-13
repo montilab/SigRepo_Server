@@ -998,11 +998,16 @@ server <- function(input, output, session) {
     user_conn_handler = user_conn_handler_rv
   )
 
+  compare_module_server(
+    "compare",
+    signature_db = signature_db,
+    user_conn_handler = user_conn_handler_rv
+  )
+
   reference_module_server("references", user_conn_handler = user_conn_handler_rv)
   feedbackServer("feedback")
 
   # in progress modules
   # resourcesServer("resources")
-  # compareServer("compare")
   
 } # end bracket, dont touch !!!

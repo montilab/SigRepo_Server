@@ -39,6 +39,7 @@ source_app_file("modals", "delete_modal.R")
 source_app_file("modals", "upload_modal.R")
 source_app_file("modals", "view_modal.R")
 source_app_file("utils", "utils.R")
+source_app_file("utils", "compare_utils.R")
 source_app_file("utils", "validateUser.R")
 
 sys.source(file.path(shiny_path, "app_src", "app_ui.R"), envir = app_env)
