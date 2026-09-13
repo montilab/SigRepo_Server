@@ -44,6 +44,17 @@ test_that("a gene-to-signature lookup can be planned through the new indexes", {
   conn <- db_connect_local()
   on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
 
+  # CI creates these tables seconds before the suite runs, so InnoDB has no
+  # statistics yet and plans a freshly loaded 4-row fixture blind. Without
+  # them, and with signature_feature_set's unique key covering both join
+  # columns (#78), the optimizer scans that key instead of entering from the
+  # gene -- a plan no populated repository uses (production takes
+  # tf_gene_symbol -> sfs_feature_id). Analyze first so the plan reflects the
+  # data rather than the table's age.
+  for (tbl in c("transcriptomics_features", "signature_feature_set", "signatures")) {
+    DBI::dbGetQuery(conn, sprintf("ANALYZE TABLE `%s`", tbl))
+  }
+
   plan <- DBI::dbGetQuery(conn, "
     EXPLAIN SELECT s.signature_id, COUNT(DISTINCT tf.gene_symbol)
     FROM transcriptomics_features tf
