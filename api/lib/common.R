@@ -15,6 +15,15 @@
 # verified). So no call site needs to change. This is only safe because nothing
 # in this codebase relies on same-connection session state -- no transactions,
 # no LAST_INSERT_ID, no temporary tables, no session variables.
+#
+# The API sources this file once. The test suite sources it again in most files,
+# and each time the pool from the previous source would be orphaned without
+# being closed, its recurring maintenance task left on later's event loop for
+# the rest of the session (issue #81). Close it before replacing it.
+if (base::exists(".db_pool", inherits = FALSE) && base::is.environment(.db_pool) &&
+    !base::is.null(.db_pool$pool) && base::requireNamespace("pool", quietly = TRUE)) {
+  base::try(base::suppressWarnings(pool::poolClose(.db_pool$pool)), silent = TRUE)
+}
 .db_pool <- base::new.env(parent = base::emptyenv())
 
 db_pool <- function() {

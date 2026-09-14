@@ -48,12 +48,17 @@ compare_db_rows <- data.frame(
 
 # testServer() quotes its expression, so splice the caller's in rather than
 # passing a promise it would never see `session`/`output` from.
+#
+# It runs on a private later event loop. testServer() reads an output by running
+# the current loop until it is empty, and the DB-backed test files leave
+# pool::dbPool() maintenance tasks rescheduling themselves on the global loop,
+# so in a full test_dir() run every output read hung (issue #81).
 run_compare_module <- function(expr) {
-  eval(bquote(testServer(
+  later::with_temp_loop(eval(bquote(testServer(
     compare_module_server,
     args = list(signature_db = reactive(compare_db_rows), user_conn_handler = reactive("user-conn")),
     .(substitute(expr))
-  )), envir = parent.frame())
+  )), envir = parent.frame()))
 }
 
 # Type a label pairing into the tab's per-signature level inputs.

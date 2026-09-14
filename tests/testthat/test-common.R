@@ -12,6 +12,22 @@ mock_res <- function() {
   e
 }
 
+test_that("sourcing common.R again closes the pool it would otherwise orphan", {
+  testthat::skip_if_not_installed("pool")
+  # Most test files source common.R into the global environment, and each
+  # source replaces .db_pool. An orphaned pool keeps a recurring task on later's
+  # event loop, which blocks every shiny::testServer() output read after it.
+  old <- pool::poolCreate(factory = function() new.env(), minSize = 1, maxSize = 2)
+  # assign() into the environment rather than `.db_pool$pool <-`, which would
+  # also bind a local .db_pool here that still points at the replaced one.
+  base::assign("pool", old, envir = base::get(".db_pool", envir = globalenv()))
+
+  source(testthat::test_path("../../api/lib/common.R"), local = FALSE)
+
+  expect_false(old$valid)
+  expect_null(base::get(".db_pool", envir = globalenv())$pool)
+})
+
 test_that("normalize_flag interprets truthy/falsy strings and defaults", {
   expect_equal(normalize_flag("true"), 1L)
   expect_equal(normalize_flag("YES"), 1L)
