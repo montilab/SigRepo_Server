@@ -33,3 +33,9 @@ delete_difexp_rds <- function(difexp_dir, signature_hashkey) {
 
   invisible(TRUE)
 }
+
+# jsonlite::toJSON() defaults to digits = 4, which rounds scores and turns
+# small p-values into 0; digits = NA keeps full precision.
+difexp_to_json <- function(difexp) {
+  jsonlite::toJSON(difexp, pretty = TRUE, digits = NA)
+}

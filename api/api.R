@@ -467,7 +467,7 @@ get_difexp <- function(res, api_key, signature_hashkey){
 
   difexp <- load_difexp_rds(difexp_dir, signature_hashkey)
   if (!is.null(difexp)) {
-    return(jsonlite::toJSON(difexp, pretty = TRUE))
+    return(difexp_to_json(difexp))
   }
 
   jsonlite::toJSON(
