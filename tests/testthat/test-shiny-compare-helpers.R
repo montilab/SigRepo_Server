@@ -25,17 +25,75 @@ db_rows <- function() {
   )
 }
 
+# ---- defaults ---------------------------------------------------------------
+
+test_that("the tab's defaults are compareSignatures()'s defaults", {
+  formals_defaults <- formals(SigRepo::compareSignatures)
+  for (nm in names(COMPARE_DEFAULTS)) {
+    expected <- eval(formals_defaults[[nm]])
+    if (nm == "method") {
+      expected <- expected[1]
+    }
+    expect_identical(COMPARE_DEFAULTS[[nm]], expected, label = nm)
+  }
+})
+
+test_that("defaults are labelled 'default (value)'", {
+  expect_equal(compare_default_text("adj_p_cutoff"), "default (0.05)")
+  expect_equal(compare_default_text("score_cutoff"), "default (0)")
+  expect_equal(compare_default_text("alternative"), "default (greater)")
+  expect_equal(compare_default_text("adjust"), "default (off)")
+  expect_equal(compare_default_text("background"), "default (none)")
+})
+
+# ---- signature picker filters -----------------------------------------------
+
+facet_rows <- function() {
+  data.frame(
+    signature_id = c(1, 2, 3, 4, 5),
+    signature_name = c("a", "b", "c", "d", "e"),
+    assay_type = c("transcriptomics", "transcriptomics", "proteomics", "transcriptomics", NA),
+    direction_type = c("bi-directional", "uni-directional", "bi-directional", "bi-directional", "bi-directional"),
+    organism = c("Homo sapiens", "Homo sapiens", "Homo sapiens", "Mus musculus", "Homo sapiens"),
+    has_difexp = c(1L, 0L, 1L, 1L, NA),
+    stringsAsFactors = FALSE
+  )
+}
+
+test_that("facet choices are 'All' then the distinct values present, sorted", {
+  expect_equal(compare_facet_choices(facet_rows(), "assay_type"),
+               c("All" = "all", "proteomics" = "proteomics", "transcriptomics" = "transcriptomics"))
+  expect_equal(unname(compare_facet_choices(facet_rows(), "has_difexp")), c("all", "yes", "no"))
+  expect_equal(compare_facet_choices(facet_rows()[0, ], "organism"), c("All" = "all"))
+})
+
+test_that("facets combine, so a template like transcriptomics / bi-directional / Homo sapiens narrows to its rows", {
+  got <- compare_facet_filter(facet_rows(), list(
+    assay_type = "transcriptomics", direction_type = "bi-directional", organism = "Homo sapiens", has_difexp = "all"
+  ))
+  expect_equal(got$signature_id, 1)
+})
+
+test_that("'all', unset facets, and facets the table lacks filter nothing", {
+  expect_equal(nrow(compare_facet_filter(facet_rows(), list(assay_type = "all", organism = NULL, platform = "x"))), 5)
+})
+
+test_that("the difexp facet reads the 0/1 flag and drops unknowns", {
+  expect_equal(compare_facet_filter(facet_rows(), list(has_difexp = "yes"))$signature_id, c(1, 3, 4))
+  expect_equal(compare_facet_filter(facet_rows(), list(has_difexp = "no"))$signature_id, 2)
+})
+
+test_that("picks outside the filtered view survive, picks inside it follow the selection", {
+  # 1 and 4 picked; the view now shows 3 and 4, with 3 selected and 4 deselected.
+  expect_equal(compare_update_picks(c("1", "4"), view_ids = c(3, 4), selected_ids = 3), c("1", "3"))
+})
+
+test_that("new picks go after earlier ones, in the order they were selected", {
+  expect_equal(compare_update_picks("2", view_ids = 1:5, selected_ids = c(2, 5, 1)), c("2", "5", "1"))
+  expect_equal(compare_update_picks(c("1", "2"), view_ids = 1:5, selected_ids = integer()), character())
+})
+
 # ---- parsing free text ------------------------------------------------------
-
-test_that("signature names are split on commas and newlines, trimmed, and deduplicated", {
-  expect_equal(compare_parse_names(" alpha, beta\n\ngamma ,alpha "), c("alpha", "beta", "gamma"))
-})
-
-test_that("an empty names box gives no names", {
-  expect_identical(compare_parse_names(""), character())
-  expect_identical(compare_parse_names(NULL), character())
-  expect_identical(compare_parse_names(" ,\n "), character())
-})
 
 test_that("a blank background box means no background, so the function builds its own", {
   expect_null(compare_parse_background(""))
@@ -104,25 +162,15 @@ test_that("ids resolve to database names in the order they were picked", {
   expect_equal(got$source, c("database", "database"))
 })
 
-test_that("names match case-insensitively and a signature requested twice appears once", {
-  got <- compare_preview_list(db_rows(), signature_ids = 1, signature_names = c("ALPHA", "beta"))
-  expect_equal(got$name, c("alpha", "beta"))
-})
-
 test_that("fetched signatures sharing a name are told apart by id, as compareSignatures() does", {
-  got <- compare_preview_list(db_rows(), signature_names = "shared")
+  got <- compare_preview_list(db_rows(), signature_ids = c(3, 4))
   expect_equal(got$name, c("shared (id 3)", "shared (id 4)"))
+  expect_equal(got$signature_id, c("3", "4"))
 })
 
-test_that("nothing is reported missing when every id and name is found", {
-  got <- compare_preview_list(db_rows(), signature_ids = c(1, 2), signature_names = "beta")
-  expect_identical(attr(got, "missing"), character())
-})
-
-test_that("names nobody can see are reported rather than previewed", {
-  got <- compare_preview_list(db_rows(), signature_ids = 99, signature_names = "nope")
-  expect_equal(nrow(got), 0)
-  expect_equal(attr(got, "missing"), c("id 99", "'nope'"))
+test_that("an id picked twice appears once and an unknown id is not previewed", {
+  got <- compare_preview_list(db_rows(), signature_ids = c(1, 1, 99))
+  expect_equal(got$name, "alpha")
 })
 
 test_that("uploaded signatures follow the fetched ones and report their own direction", {
@@ -179,24 +227,24 @@ settings <- function(...) {
 test_that("a one-list request leaves every second-list argument out", {
   args <- compare_build_args(
     conn_handler = "conn",
-    list1 = list(signature_ids = c(1, 2), signature_names = character(), omic_signatures = list(), label_pairing = NULL),
+    list1 = list(signature_ids = c(1, 2), omic_signatures = list(), label_pairing = NULL),
     list2 = NULL,
     settings = settings()
   )
   expect_equal(args$signature_ids, c(1, 2))
-  expect_false(any(c("signature_ids2", "signature_names2", "omic_signatures2", "label_pairing2") %in% names(args)))
-  expect_false("signature_names" %in% names(args))
+  expect_false(any(c("signature_ids2", "omic_signatures2", "label_pairing2") %in% names(args)))
+  expect_false(any(c("signature_names", "signature_names2") %in% names(args)))
   expect_false("omic_signatures" %in% names(args))
 })
 
 test_that("a two-list request passes the second list through the *2 arguments", {
   args <- compare_build_args(
     conn_handler = "conn",
-    list1 = list(signature_ids = 1, signature_names = character(), omic_signatures = list(), label_pairing = NULL),
-    list2 = list(signature_ids = character(), signature_names = "beta", omic_signatures = list(), label_pairing = list(beta = c("up", "down"))),
+    list1 = list(signature_ids = 1, omic_signatures = list(), label_pairing = NULL),
+    list2 = list(signature_ids = 2, omic_signatures = list(), label_pairing = list(beta = c("up", "down"))),
     settings = settings(method = "ks_rank")
   )
-  expect_equal(args$signature_names2, "beta")
+  expect_equal(args$signature_ids2, 2)
   expect_equal(args$label_pairing2, list(beta = c("up", "down")))
   expect_equal(args$method, "ks_rank")
 })
@@ -205,7 +253,7 @@ test_that("no signatures from the database means no connection handler is passed
   skip_without_example_data()
   args <- compare_build_args(
     conn_handler = "conn",
-    list1 = list(signature_ids = character(), signature_names = character(), omic_signatures = example_signatures()[1:2], label_pairing = NULL),
+    list1 = list(signature_ids = character(), omic_signatures = example_signatures()[1:2], label_pairing = NULL),
     list2 = NULL,
     settings = settings()
   )
@@ -217,8 +265,8 @@ test_that("every argument the tab builds is one compareSignatures() accepts", {
                         "installed SigRepo predates the two-list compareSignatures()")
   args <- compare_build_args(
     conn_handler = "conn",
-    list1 = list(signature_ids = 1, signature_names = "a", omic_signatures = list(), label_pairing = list(a = c("x", "y"))),
-    list2 = list(signature_ids = 2, signature_names = "b", omic_signatures = list(), label_pairing = list(b = c("x", "y"))),
+    list1 = list(signature_ids = 1, omic_signatures = list(), label_pairing = list(a = c("x", "y"))),
+    list2 = list(signature_ids = 2, omic_signatures = list(), label_pairing = list(b = c("x", "y"))),
     settings = settings(background = c("TP53"))
   )
   expect_length(setdiff(names(args), names(formals(SigRepo::compareSignatures))), 0)
@@ -354,6 +402,66 @@ test_that("a matrix is read back from its comparison, and a missing one is NULL"
   res <- overlap_self()
   expect_identical(compare_result_matrix(res, "level1_vs_level1", "counts"), res$comparisons$level1_vs_level1$counts)
   expect_null(compare_result_matrix(res, "level1_vs_level1", "score"))
+})
+
+test_that("a self-comparison is recognised with and without label order", {
+  skip_without_example_data()
+  expect_true(compare_is_self(overlap_self()))
+  expect_false(compare_is_self(ks_two_list()))
+  expect_true(compare_is_self(flat_overlap()))
+})
+
+# ---- the matrix view --------------------------------------------------------
+
+test_that("a self-comparison matrix is labelled S1..Sn on both sides", {
+  skip_without_example_data()
+  res <- overlap_self()
+  labels <- compare_matrix_labels(res)
+  expect_equal(unname(labels$rows), c("S1", "S2", "S3"))
+  expect_equal(names(labels$rows), rownames(res$comparisons$level1_vs_level1$jaccard))
+  expect_identical(labels$cols, labels$rows)
+})
+
+test_that("a two-list matrix labels List 2's columns R1..Rm", {
+  skip_without_example_data()
+  res <- ks_two_list()
+  labels <- compare_matrix_labels(res)
+  expect_equal(unname(labels$cols), c("R1", "R2"))
+  expect_equal(names(labels$cols), colnames(res$comparisons$level1_vs_level1$score))
+})
+
+test_that("the key maps each label to its full signature name and list", {
+  skip_without_example_data()
+  res <- ks_two_list()
+  key <- compare_matrix_key(res)
+  expect_equal(key$label, c("S1", "S2", "R1", "R2"))
+  expect_equal(key$list, c("List 1", "List 1", "List 2", "List 2"))
+  expect_equal(key$signature, c(rownames(res$comparisons$level1_vs_level1$score), colnames(res$comparisons$level1_vs_level1$score)))
+})
+
+test_that("the key takes database ids from the previewed lists, and leaves uploads blank", {
+  skip_without_example_data()
+  res <- overlap_self()
+  names_in_result <- rownames(res$comparisons$level1_vs_level1$jaccard)
+  preview <- data.frame(name = names_in_result, signature_id = c("7", "8", NA), stringsAsFactors = FALSE)
+  key <- compare_matrix_key(res, list(preview))
+  expect_equal(nrow(key), 3)
+  expect_equal(key$signature_id, c("7", "8", NA))
+})
+
+test_that("matrix shading ignores a self-comparison's diagonal", {
+  m <- matrix(c(1, 0.3, 0.3, 1), 2)
+  expect_equal(max(compare_matrix_shading(m, "jaccard", self = TRUE)$cuts), 0.3 * 5 / 6)
+  expect_equal(max(compare_matrix_shading(m, "jaccard")$cuts), 5 / 6)
+})
+
+test_that("p-value shading darkens with significance and score shading is centred on zero", {
+  p <- compare_matrix_shading(matrix(c(0.5, 1e-10), 1), "pvalue")
+  expect_true(all(diff(p$cuts) > 0))
+  expect_equal(length(p$colors), length(p$cuts) + 1)
+  s <- compare_matrix_shading(matrix(c(-2, 1), 1), "score")
+  expect_equal(s$cuts, c(-1.2, -0.4, 0.4, 1.2))
+  expect_null(compare_matrix_shading(matrix(NA_real_, 1), "jaccard"))
 })
 
 test_that("the label order is shown as one table across both lists", {

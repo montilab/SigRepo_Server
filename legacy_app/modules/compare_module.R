@@ -1,10 +1,10 @@
 # compare page modules
 #
 # A front end to SigRepo::compareSignatures(). Each of its two signature lists
-# is built from the same three sources the function takes -- database ids
-# (rows picked from the signature table), database names, and uploaded
-# OmicSignature objects -- and every comparison argument is exposed with the
-# function's own default. The result is read back and plotted with
+# is built from database ids (rows picked from the signature table, narrowed by
+# facet dropdowns) and uploaded OmicSignature objects, and every comparison
+# argument is exposed with the function's own default, which its label prints.
+# The result is read back and plotted with
 # OmicSignature::signature_similarity_heatmap(). The helpers these call live in
 # utils/compare_utils.R.
 
@@ -24,36 +24,37 @@ compare_module_ui <- function(id) {
   ns <- NS(id)
   page_selector <- paste0("#", ns("compare_page"))
 
+  # A label with the compareSignatures() default it starts at.
+  with_default <- function(label, name) {
+    tagList(label, " ", span(class = "compare-default", compare_default_text(name)))
+  }
+
   list_panel <- function(k, title, description) {
     div(
       class = "compare-list",
       tags$h4(title),
       tags$p(class = "compare-muted", description),
       tags$label("Pick from the repository"),
-      DT::DTOutput(ns(paste0("list", k, "_table"))),
-      fluidRow(
-        column(
-          width = 6,
-          textAreaInput(
-            ns(paste0("list", k, "_names")),
-            "Add by signature name",
-            placeholder = "One per line, or comma separated",
-            rows = 3,
-            width = "100%"
-          )
-        ),
-        column(
-          width = 6,
-          fileInput(
-            ns(paste0("list", k, "_upload")),
-            "Upload OmicSignature .rds",
-            multiple = TRUE,
-            accept = ".rds",
-            width = "100%"
-          ),
-          helpText("An OmicSignature, a list of them, or an OmicSignatureCollection.")
-        )
+      div(
+        class = "compare-facets",
+        lapply(names(COMPARE_FACETS), function(facet) {
+          selectInput(ns(paste0("list", k, "_facet_", facet)), COMPARE_FACETS[[facet]], choices = c("All" = "all"))
+        })
       ),
+      DT::DTOutput(ns(paste0("list", k, "_table"))),
+      div(
+        class = "compare-actions",
+        actionLink(ns(paste0("list", k, "_clear")), "Clear picked signatures", icon = icon("xmark"))
+      ),
+      br(),
+      fileInput(
+        ns(paste0("list", k, "_upload")),
+        "Upload OmicSignature .rds",
+        multiple = TRUE,
+        accept = ".rds",
+        width = "100%"
+      ),
+      helpText("An OmicSignature, a list of them, or an OmicSignatureCollection."),
       uiOutput(ns(paste0("list", k, "_summary")))
     )
   }
@@ -82,6 +83,15 @@ compare_module_ui <- function(id) {
       }
       ", page_selector, " .compare-list + .compare-list { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e1ebf2; }
       ", page_selector, " .compare-muted { color: #597189; }
+      ", page_selector, " .compare-default { color: #597189; font-size: 12px; font-weight: normal; white-space: nowrap; }
+      ", page_selector, " .compare-facets { display: flex; gap: 10px; flex-wrap: wrap; }
+      ", page_selector, " .compare-facets .form-group { flex: 1 1 140px; min-width: 140px; margin-bottom: 8px; }
+      ", page_selector, " .compare-matrix { overflow-x: auto; margin-bottom: 14px; }
+      ", page_selector, " .compare-matrix table.dataTable { width: auto !important; margin: 0; }
+      ", page_selector, " .compare-matrix table.dataTable th,
+      ", page_selector, " .compare-matrix table.dataTable td { min-width: 64px; padding: 6px 10px; text-align: center; }
+      ", page_selector, " .compare-matrix table.dataTable tbody th,
+      ", page_selector, " .compare-matrix table.dataTable tbody td:first-child { font-weight: 600; background: #f6f9fc; }
       ", page_selector, " .compare-list-summary {
         padding: 10px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2;
       }
@@ -152,29 +162,40 @@ compare_module_ui <- function(id) {
             class = "compare-card",
             span(class = "compare-step-label", "Step 2"),
             tags$h3("Comparison"),
-            selectInput(ns("method"), "Method", choices = COMPARE_METHOD_CHOICES, selected = "overlap"),
+            selectInput(ns("method"), tagList("Method", " ", span(class = "compare-default", "default (Overlap)")),
+                        choices = COMPARE_METHOD_CHOICES, selected = COMPARE_DEFAULTS$method),
             uiOutput(ns("method_help")),
             fluidRow(
-              column(6, numericInput(ns("score_cutoff"), "Score cutoff (|score| ≥)", value = 0, min = 0, step = 0.1)),
-              column(6, numericInput(ns("adj_p_cutoff"), "Adj. p cutoff (≤)", value = 0.05, min = 0, max = 1, step = 0.01))
+              column(6, numericInput(ns("score_cutoff"), with_default("Score cutoff (|score| ≥)", "score_cutoff"),
+                                     value = COMPARE_DEFAULTS$score_cutoff, min = 0, step = 0.1)),
+              column(6, numericInput(ns("adj_p_cutoff"), with_default("Adj. p cutoff (≤)", "adj_p_cutoff"),
+                                     value = COMPARE_DEFAULTS$adj_p_cutoff, min = 0, max = 1, step = 0.01))
             ),
             fluidRow(
-              column(6, numericInput(ns("min_features"), "Min features", value = 5, min = 3, step = 1)),
-              column(6, numericInput(ns("max_feature"), "Max features", value = 500, min = 3, step = 10))
+              column(6, numericInput(ns("min_features"), with_default("Min features", "min_features"),
+                                     value = COMPARE_DEFAULTS$min_features, min = 3, step = 1)),
+              column(6, numericInput(ns("max_feature"), with_default("Max features", "max_feature"),
+                                     value = COMPARE_DEFAULTS$max_feature, min = 3, step = 10))
             ),
             fluidRow(
-              column(6, selectInput(ns("alternative"), "Alternative", choices = c("greater", "less", "two.sided"), selected = "greater")),
-              column(6, selectInput(ns("p_adjust_method"), "P-value adjustment", choices = stats::p.adjust.methods, selected = "BH"))
+              column(6, selectInput(ns("alternative"), with_default("Alternative", "alternative"),
+                                    choices = c("greater", "less", "two.sided"), selected = COMPARE_DEFAULTS$alternative)),
+              column(6, selectInput(ns("p_adjust_method"), with_default("P-value adjustment", "p_adjust_method"),
+                                    choices = stats::p.adjust.methods, selected = COMPARE_DEFAULTS$p_adjust_method))
             ),
-            checkboxInput(ns("adjust"), "Adjust p-values within each comparison", value = FALSE),
+            checkboxInput(ns("adjust"), with_default("Adjust p-values within each comparison", "adjust"),
+                          value = COMPARE_DEFAULTS$adjust),
             conditionalPanel(
               condition = "input.method == 'gsea'",
               ns = ns,
               tags$h4("GSEA"),
-              selectInput(ns("gsea_score"), "Score to report", choices = c("NES", "ES", "log2err", "size"), selected = "NES"),
+              selectInput(ns("gsea_score"), with_default("Score to report", "gsea_score"),
+                          choices = c("NES", "ES", "log2err", "size"), selected = COMPARE_DEFAULTS$gsea_score),
               fluidRow(
-                column(6, numericInput(ns("min_size"), "minSize", value = 1, min = 1, step = 1)),
-                column(6, numericInput(ns("max_size"), "maxSize (blank = Inf)", value = NA, min = 1, step = 1))
+                column(6, numericInput(ns("min_size"), with_default("minSize", "minSize"),
+                                       value = COMPARE_DEFAULTS$minSize, min = 1, step = 1)),
+                column(6, numericInput(ns("max_size"), tagList("maxSize", " ", span(class = "compare-default", "default (Inf: leave blank)")),
+                                       value = NA, min = 1, step = 1))
               )
             ),
             tags$details(
@@ -182,20 +203,24 @@ compare_module_ui <- function(id) {
               br(),
               textAreaInput(
                 ns("background"),
-                "Background features (overlap tests)",
+                with_default("Background features (overlap tests)", "background"),
                 placeholder = "Leave blank to use every feature in the compared signatures",
                 rows = 3,
                 width = "100%"
               ),
               fluidRow(
-                column(6, textInput(ns("feature_col"), "Feature column", value = "feature_name")),
-                column(6, textInput(ns("score_col"), "Score column", value = "score"))
+                column(6, textInput(ns("feature_col"), with_default("Feature column", "feature_col"), value = COMPARE_DEFAULTS$feature_col)),
+                column(6, textInput(ns("score_col"), with_default("Score column", "score_col"), value = COMPARE_DEFAULTS$score_col))
               ),
               fluidRow(
-                column(6, textInput(ns("adj_p_col"), "Adj. p column", value = "adj_p")),
-                column(6, textInput(ns("p_value_col"), "P-value column", value = "p_value"))
+                column(6, textInput(ns("adj_p_col"), with_default("Adj. p column", "adj_p_col"), value = COMPARE_DEFAULTS$adj_p_col)),
+                column(6, textInput(ns("p_value_col"), with_default("P-value column", "p_value_col"), value = COMPARE_DEFAULTS$p_value_col))
               ),
-              textInput(ns("group_col"), "Group label column", value = "group_label"),
+              helpText(
+                "KS and GSEA rank by the p-value column. A signature without it is ranked by its pvalue column,",
+                "or by the adjusted p-value column if it has neither; the comparison warns when that happens."
+              ),
+              textInput(ns("group_col"), with_default("Group label column", "group_col"), value = COMPARE_DEFAULTS$group_col),
               tags$h4("Label pairing"),
               helpText(
                 "Levels are paired by position (level 1 with level 1, level 2 with level 2), using each signature's own",
@@ -246,13 +271,22 @@ compare_module_ui <- function(id) {
             ),
             tabPanel(
               "Pairs",
-              helpText("Every signature pair with every measure. Self-comparisons list each overlap pair once."),
+              helpText(
+                "Every signature pair with every measure. Self-comparisons list each overlap pair once.",
+                "Copy, CSV and Excel export the rows that pass the column filters, at full precision."
+              ),
               DT::DTOutput(ns("pairs_table"))
             ),
             tabPanel(
               "Matrices",
               uiOutput(ns("matrix_controls")),
-              DT::DTOutput(ns("matrix_table"))
+              helpText(
+                "Rows are List 1 (S1, S2, ...); columns are List 2 (R1, R2, ...), or List 1 again for a self-comparison.",
+                "The key below gives each label's signature. Exports use the full signature names."
+              ),
+              div(class = "compare-matrix", DT::DTOutput(ns("matrix_table"))),
+              tags$h4("Key"),
+              DT::DTOutput(ns("matrix_key"))
             ),
             tabPanel(
               "Label order",
@@ -298,28 +332,78 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       df[, intersect(COMPARE_TABLE_COLUMNS, names(df)), drop = FALSE]
     })
 
-    render_picker <- function() {
-      DT::renderDT({
-        DatatableFX(picker_table(), hidden_columns = integer(), scrollY = "260px", row_selection = "multiple")
-      }, server = TRUE)
-    }
-    output$list1_table <- render_picker()
-    output$list2_table <- render_picker()
+    facet_id <- function(k, facet) paste0("list", k, "_facet_", facet)
 
-    # One list's request from its three sources. Upload problems are kept so
+    # Refill each facet dropdown from the signatures the user can see, keeping
+    # a choice that is still offered.
+    observe({
+      df <- db_table()
+      for (k in 1:2) {
+        for (facet in names(COMPARE_FACETS)) {
+          choices <- compare_facet_choices(df, facet)
+          current <- isolate(input[[facet_id(k, facet)]])
+          updateSelectInput(session, facet_id(k, facet), choices = choices,
+                            selected = if (isTRUE(current %in% choices)) current else "all")
+        }
+      }
+    })
+
+    # KS and GSEA rank against the ranking side's difexp tables, so switching
+    # to one points that side's picker at signatures that have them.
+    observeEvent(list(input$method, input$two_lists), {
+      if (identical(input$method %||% COMPARE_DEFAULTS$method, "overlap")) {
+        return()
+      }
+      k <- if (isTRUE(input$two_lists)) 2 else 1
+      updateSelectInput(session, facet_id(k, "direction_type"), selected = "bi-directional")
+      updateSelectInput(session, facet_id(k, "has_difexp"), selected = "yes")
+    }, ignoreInit = TRUE)
+
+    # The rows a list's picker shows, and the signature ids picked in it. Picks
+    # are kept by id, not by row, so they survive the facets changing the rows.
+    views <- lapply(1:2, function(k) {
+      reactive({
+        facets <- lapply(stats::setNames(names(COMPARE_FACETS), names(COMPARE_FACETS)), function(facet) input[[facet_id(k, facet)]])
+        compare_facet_filter(picker_table(), facets)
+      })
+    })
+    picks <- list(reactiveVal(character()), reactiveVal(character()))
+
+    lapply(1:2, function(k) {
+      table_id <- paste0("list", k, "_table")
+      output[[table_id]] <- DT::renderDT({
+        view <- views[[k]]()
+        selected <- which(as.character(view$signature_id) %in% isolate(picks[[k]]()))
+        DatatableFX(view, hidden_columns = integer(), scrollY = "260px",
+                    row_selection = list(mode = "multiple", selected = selected))
+      }, server = TRUE)
+
+      observeEvent(input[[paste0(table_id, "_rows_selected")]], {
+        view <- isolate(views[[k]]())
+        rows <- input[[paste0(table_id, "_rows_selected")]]
+        rows <- rows[rows >= 1 & rows <= nrow(view)]
+        picks[[k]](compare_update_picks(picks[[k]](), view$signature_id, view$signature_id[rows]))
+      }, ignoreNULL = FALSE, ignoreInit = TRUE)
+
+      proxy <- DT::dataTableProxy(table_id)
+      observeEvent(input[[paste0("list", k, "_clear")]], {
+        picks[[k]](character())
+        DT::selectRows(proxy, NULL)
+      })
+    })
+
+    # One list's request from its two sources. Upload problems are kept so
     # they can be shown next to the list and stop a run.
     list_request <- function(k) {
       reactive({
         df <- db_table()
-        rows <- input[[paste0("list", k, "_table_rows_selected")]]
-        rows <- rows[rows >= 1 & rows <= nrow(df)]
+        picked <- picks[[k]]()
         uploads <- tryCatch(
           list(signatures = compare_read_signature_uploads(input[[paste0("list", k, "_upload")]]), error = NULL),
           error = function(e) list(signatures = list(), error = conditionMessage(e))
         )
         list(
-          signature_ids = df$signature_id[rows],
-          signature_names = compare_parse_names(input[[paste0("list", k, "_names")]]),
+          signature_ids = df$signature_id[match(picked, as.character(df$signature_id), nomatch = 0)],
           omic_signatures = uploads$signatures,
           upload_error = uploads$error
         )
@@ -330,7 +414,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
     previews <- lapply(1:2, function(k) {
       reactive({
         r <- requests[[k]]()
-        compare_preview_list(db_table(), r$signature_ids, r$signature_names, r$omic_signatures)
+        compare_preview_list(db_table(), r$signature_ids, r$omic_signatures)
       })
     })
 
@@ -338,15 +422,8 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       output[[paste0("list", k, "_summary")]] <- renderUI({
         r <- requests[[k]]()
         p <- previews[[k]]()
-        missing <- attr(p, "missing")
         tagList(
           if (!is.null(r$upload_error)) div(class = "alert alert-danger compare-message", r$upload_error),
-          if (length(missing) > 0) {
-            div(
-              class = "alert alert-warning compare-message",
-              sprintf("Not among the signatures you can see, so they will be left out: %s", paste(missing, collapse = ", "))
-            )
-          },
           div(
             class = "compare-list-summary",
             strong(sprintf("%d signature%s in List %d", nrow(p), if (nrow(p) == 1) "" else "s", k)),
@@ -436,27 +513,16 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
     # an input has never been set. A cleared numeric box stays NA so the
     # function's own cutoff validation reports it.
     settings <- reactive({
-      value <- function(x, default) if (is.null(x)) default else x
-      max_size <- input$max_size
-      list(
-        method = value(input$method, "overlap"),
-        background = compare_parse_background(input$background),
-        score_cutoff = value(input$score_cutoff, 0),
-        adj_p_cutoff = value(input$adj_p_cutoff, 0.05),
-        min_features = value(input$min_features, 5),
-        max_feature = value(input$max_feature, 500),
-        feature_col = value(input$feature_col, "feature_name"),
-        score_col = value(input$score_col, "score"),
-        adj_p_col = value(input$adj_p_col, "adj_p"),
-        p_value_col = value(input$p_value_col, "p_value"),
-        group_col = value(input$group_col, "group_label"),
-        adjust = value(input$adjust, FALSE),
-        p_adjust_method = value(input$p_adjust_method, "BH"),
-        alternative = value(input$alternative, "greater"),
-        gsea_score = value(input$gsea_score, "NES"),
-        minSize = value(input$min_size, 1),
-        maxSize = if (is.null(max_size) || is.na(max_size)) Inf else max_size
-      )
+      input_ids <- c(minSize = "min_size", maxSize = "max_size")
+      out <- lapply(stats::setNames(names(COMPARE_DEFAULTS), names(COMPARE_DEFAULTS)), function(nm) {
+        id <- if (nm %in% names(input_ids)) input_ids[[nm]] else nm
+        input[[id]] %||% COMPARE_DEFAULTS[[nm]]
+      })
+      out$background <- compare_parse_background(input$background)
+      if (is.na(out$maxSize)) {
+        out$maxSize <- COMPARE_DEFAULTS$maxSize
+      }
+      out
     })
 
     readiness <- reactive({
@@ -495,7 +561,6 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
           if (!is.null(r$upload_error)) stop(r$upload_error, call. = FALSE)
           list(
             signature_ids = r$signature_ids,
-            signature_names = r$signature_names,
             omic_signatures = r$omic_signatures,
             label_pairing = read_pairing(k)
           )
@@ -513,7 +578,14 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       outcome <- withProgress(message = "Comparing signatures", detail = "Fetching and comparing; this can take a while for GSEA.", value = 0.2, {
         compare_run(prepared$args)
       })
-      run_state(c(list(args = prepared$args), outcome))
+      run_state(c(
+        list(
+          args = prepared$args,
+          previews = if (two) list(previews[[1]](), previews[[2]]()) else list(previews[[1]]()),
+          stamp = format(Sys.time(), "%Y%m%d_%H%M%S")
+        ),
+        outcome
+      ))
     })
 
     result <- reactive({
@@ -547,7 +619,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       req(res)
       comparisons <- compare_comparisons(res)
       first <- compare_result_matrix(res, names(comparisons)[1], compare_table_matrices(res)[1])
-      self <- is.null(res$label_order$sig_list2) && identical(rownames(first), colnames(first))
+      self <- compare_is_self(res)
       method_label <- names(COMPARE_METHOD_CHOICES)[match(res$method, COMPARE_METHOD_CHOICES)]
       item <- function(label, value) div(class = "compare-summary-item", strong(label), span(value))
       div(
@@ -669,19 +741,49 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
 
     # ---- tables -------------------------------------------------------------
 
-    result_datatable <- function(df, rownames = FALSE) {
+    # Copy, CSV and Excel buttons that save as `filename` (the extension is
+    # added by the button) with no title row above the header. Buttons export
+    # the 'display' rendering by default, which is where DT::formatSignif()
+    # rounds; asking for 'export' gets the unrounded values, but then an NA
+    # cell arrives as null and would be written as the text "null".
+    #
+    # A table whose view is headed by short labels passes the full names:
+    # `header_names` for every column including the row names, `row_names`
+    # for column 0. With ordering and search off, export row i is data row i.
+    export_buttons <- function(filename, header_names = NULL, row_names = NULL) {
+      row_js <- if (is.null(row_names)) "" else sprintf("if (column === 0) return %s[row]; ", jsonlite::toJSON(row_names))
+      format <- list(body = DT::JS(sprintf(
+        "function(data, row, column) { %sreturn data === null || data === undefined ? '' : data; }", row_js
+      )))
+      if (!is.null(header_names)) {
+        format$header <- DT::JS(sprintf("function(data, column) { return %s[column]; }", jsonlite::toJSON(header_names)))
+      }
+      lapply(c("copy", "csv", "excel"), function(kind) {
+        button <- list(extend = kind, title = "", exportOptions = list(orthogonal = "export", format = format))
+        if (kind != "copy") {
+          button$filename <- filename
+        }
+        button
+      })
+    }
+
+    export_name <- function(...) {
+      paste(c("signature_comparison", ..., run_state()$stamp), collapse = "_")
+    }
+
+    result_datatable <- function(df, filename) {
       dt <- DT::datatable(
         df,
         extensions = "Buttons",
-        filter = if (rownames) "none" else "top",
-        rownames = rownames,
+        filter = "top",
+        rownames = FALSE,
         class = "compact stripe hover nowrap",
         options = list(
           pageLength = 25,
           lengthMenu = c(10, 25, 50, 100, -1),
           scrollX = TRUE,
           dom = "Bfrtip",
-          buttons = c("copy", "csv", "excel")
+          buttons = export_buttons(filename)
         )
       )
       numeric_cols <- names(df)[vapply(df, function(x) is.double(x), logical(1))]
@@ -694,7 +796,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
     output$pairs_table <- DT::renderDT({
       res <- result()
       req(res)
-      result_datatable(compare_pairs_table(res))
+      result_datatable(compare_pairs_table(res), export_name("pairs"))
     }, server = FALSE)
 
     output$matrix_controls <- renderUI({
@@ -720,11 +822,47 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       comparison <- if (isTRUE(input$table_comparison %in% comparisons)) input$table_comparison else comparisons[1]
       matrix_name <- if (isTRUE(input$table_matrix %in% matrices)) input$table_matrix else matrices[1]
       m <- compare_result_matrix(res, comparison, matrix_name)
+      labels <- compare_matrix_labels(res)
       df <- as.data.frame(m, check.names = FALSE)
       if (matrix_name == "counts") {
         df[] <- lapply(df, as.integer)
       }
-      result_datatable(df, rownames = TRUE)
+      rownames(df) <- unname(labels$rows[rownames(m)])
+      colnames(df) <- unname(labels$cols[colnames(m)])
+
+      dt <- DT::datatable(
+        df,
+        extensions = "Buttons",
+        rownames = TRUE,
+        selection = "none",
+        class = "compact cell-border nowrap",
+        # No scrollX: DataTables would split the header into its own table and
+        # misalign it with the narrow cells. .compare-matrix scrolls instead.
+        options = list(
+          dom = "Bt",
+          paging = FALSE,
+          ordering = FALSE,
+          searching = FALSE,
+          info = FALSE,
+          autoWidth = FALSE,
+          buttons = export_buttons(export_name("matrix", comparison, matrix_name),
+                                   header_names = c("signature", colnames(m)), row_names = rownames(m))
+        )
+      )
+      if (matrix_name != "counts") {
+        dt <- DT::formatSignif(dt, columns = colnames(df), digits = 3)
+      }
+      shading <- compare_matrix_shading(m, matrix_name, self = compare_is_self(res))
+      if (!is.null(shading)) {
+        dt <- DT::formatStyle(dt, columns = colnames(df), backgroundColor = DT::styleInterval(shading$cuts, shading$colors))
+      }
+      dt
+    }, server = FALSE)
+
+    output$matrix_key <- DT::renderDT({
+      res <- result()
+      req(res)
+      result_datatable(compare_matrix_key(res, run_state()$previews), export_name("matrix_key"))
     }, server = FALSE)
 
     output$label_order_table <- DT::renderDT({
@@ -734,7 +872,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       if (is.null(lo)) {
         lo <- data.frame(Message = "Every signature is uni-directional, so there are no group label levels.")
       }
-      result_datatable(lo)
+      result_datatable(lo, export_name("label_order"))
     }, server = FALSE)
 
     # ---- reproducing ---------------------------------------------------------
@@ -750,6 +888,6 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       content = function(file) saveRDS(result(), file)
     )
 
-    list(run_state = run_state, pairing_input_ids = pairing_input_ids)
+    list(run_state = run_state, pairing_input_ids = pairing_input_ids, previews = previews)
   })
 }

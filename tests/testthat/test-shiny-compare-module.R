@@ -42,6 +42,42 @@ test_that("with the second list switched on, uploads go through omic_signatures2
   })
 })
 
+test_that("a ranking signature without p_value is ranked by pvalue or adj_p, and the fallback warning is shown", {
+  skip_without_two_list_client()
+  testthat::skip_if_not(
+    exists("fillRankingPValues", envir = asNamespace("SigRepo"), inherits = FALSE),
+    "installed SigRepo predates the p-value column fallback (montilab/SigRepo#212)"
+  )
+  sigs <- compare_example_data("compare_signatures_example")
+  edit_difexp <- function(sig, edit) {
+    copy <- sig$clone(deep = TRUE)
+    copy$difexp <- edit(copy$difexp)
+    copy
+  }
+  renamed <- edit_difexp(sigs[[3]], function(d) {
+    names(d)[names(d) == "p_value"] <- "pvalue"
+    d
+  })
+  adj_only <- edit_difexp(sigs[[4]], function(d) d[, names(d) != "p_value", drop = FALSE])
+  list2 <- stats::setNames(list(renamed, adj_only), names(sigs)[3:4])
+
+  run_compare_module({
+    session$setInputs(
+      list1_upload = compare_upload_of(sigs[1:2]), two_lists = TRUE, list2_upload = compare_upload_of(list2),
+      method = "ks_rank", adj_p_cutoff = 0.01, min_features = 10
+    )
+    session$setInputs(run = 1)
+    state <- session$returned$run_state()
+    expect_null(state$error)
+    expect_true(all(is.finite(state$result$comparisons$level1_vs_level1$score)))
+    fallback <- state$warnings[grepl("adj_p", state$warnings)]
+    expect_length(fallback, 1)
+    expect_match(fallback, names(sigs)[4], fixed = TRUE)
+    expect_no_match(fallback, names(sigs)[3], fixed = TRUE)
+    expect_match(as.character(output$run_messages$html), "Ranking by &#39;adj_p&#39;|Ranking by 'adj_p'")
+  })
+})
+
 test_that("a second list that is switched off is not sent even if it still holds uploads", {
   skip_without_two_list_client()
   sigs <- compare_example_data("compare_signatures_example")
@@ -69,12 +105,27 @@ test_that("compareSignatures()'s own error is shown when a self-comparison has o
 
 test_that("rows picked from the signature table are requested by id, with the user's connection", {
   run_compare_module({
-    session$setInputs(list1_table_rows_selected = c(2, 1), list1_names = "gamma", two_lists = FALSE, method = "overlap")
+    session$setInputs(two_lists = FALSE, method = "overlap")
+    session$setInputs(list1_table_rows_selected = c(2, 1))
     session$setInputs(run = 1)
     args <- session$returned$run_state()$args
     expect_equal(args$signature_ids, c(12, 11))
-    expect_equal(args$signature_names, "gamma")
+    expect_false("signature_names" %in% names(args))
     expect_equal(args$conn_handler, "user-conn")
+  })
+})
+
+test_that("a pick survives a facet that hides it, and deselecting in the filtered view drops only visible picks", {
+  run_compare_module({
+    session$setInputs(two_lists = FALSE, method = "overlap")
+    session$setInputs(list1_table_rows_selected = c(1, 2))
+    # has_difexp = yes leaves only "alpha" (id 11) in view, still selected.
+    session$setInputs(list1_facet_has_difexp = "yes")
+    expect_equal(session$returned$previews[[1]]()$name, c("alpha", "beta"))
+    session$setInputs(list1_table_rows_selected = integer())
+    expect_equal(session$returned$previews[[1]]()$name, "beta")
+    session$setInputs(list1_clear = 1)
+    expect_equal(nrow(session$returned$previews[[1]]()), 0)
   })
 })
 
@@ -142,7 +193,8 @@ test_that("the heatmap and tables render from a finished comparison", {
                       table_comparison = "level1_vs_level1", table_matrix = "counts")
     expect_type(output$heatmap, "list")
     expect_match(output$pairs_table, "e7386_cal27")
-    expect_match(output$matrix_table, "e7386_hsc3")
+    expect_match(output$matrix_table, "\"S3\"")
+    expect_match(output$matrix_key, "e7386_hsc3")
     expect_match(output$r_call, "SigRepo::compareSignatures(", fixed = TRUE)
   })
 })

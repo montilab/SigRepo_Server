@@ -6,16 +6,97 @@
 # and read its result back for display. Keeping them free of Shiny lets them be
 # tested on their own (tests/testthat/test-shiny-compare-helpers.R).
 
-# ---- parsing free text ------------------------------------------------------
+# ---- defaults ---------------------------------------------------------------
 
-# Signature names typed into a text box, one per line or comma separated.
-compare_parse_names <- function(text) {
-  if (base::is.null(text) || base::length(text) == 0) {
-    return(base::character())
+# compareSignatures()'s defaults for every setting the tab exposes. The inputs
+# start at these values and their labels print them; a test holds them to the
+# function's formals so the two cannot drift apart.
+COMPARE_DEFAULTS <- base::list(
+  method = "overlap",
+  background = NULL,
+  score_cutoff = 0,
+  adj_p_cutoff = 0.05,
+  min_features = 5,
+  max_feature = 500,
+  feature_col = "feature_name",
+  score_col = "score",
+  adj_p_col = "adj_p",
+  p_value_col = "p_value",
+  group_col = "group_label",
+  adjust = FALSE,
+  p_adjust_method = "BH",
+  alternative = "greater",
+  gsea_score = "NES",
+  minSize = 1,
+  maxSize = Inf
+)
+
+# A default as the tab's labels print it: "default (0.05)".
+compare_default_text <- function(name) {
+  value <- COMPARE_DEFAULTS[[name]]
+  shown <- if (base::is.null(value)) {
+    "none"
+  } else if (base::is.logical(value)) {
+    if (base::isTRUE(value)) "on" else "off"
+  } else {
+    base::format(value)
   }
-  x <- base::trimws(base::unlist(base::strsplit(base::paste(text, collapse = "\n"), "[,\n]+")))
-  base::unique(x[!base::is.na(x) & x != ""])
+  base::sprintf("default (%s)", shown)
 }
+
+# ---- signature picker filters -----------------------------------------------
+
+# The picker's facet dropdowns: signature table column -> dropdown label.
+COMPARE_FACETS <- c(
+  assay_type = "Assay",
+  direction_type = "Direction",
+  organism = "Organism",
+  has_difexp = "Difexp table"
+)
+
+# Choices for one facet dropdown, "all" first. has_difexp is a 0/1 flag.
+compare_facet_choices <- function(signature_db, facet) {
+  if (facet == "has_difexp") {
+    return(c("All" = "all", "Yes" = "yes", "No" = "no"))
+  }
+  values <- if (facet %in% base::names(signature_db)) base::as.character(signature_db[[facet]]) else base::character()
+  values <- base::sort(base::unique(values[!base::is.na(values) & values != ""]))
+  c("All" = "all", stats::setNames(values, values))
+}
+
+# The rows of the signature table that pass every facet. `facets` maps a facet
+# to its dropdown value; "all", NULL, or a facet the table lacks filter nothing.
+compare_facet_filter <- function(signature_db, facets) {
+  keep <- base::rep(TRUE, base::nrow(signature_db))
+  for (facet in base::names(facets)) {
+    value <- facets[[facet]]
+    if (base::is.null(value) || base::identical(value, "all") || !facet %in% base::names(signature_db)) {
+      next
+    }
+    column <- signature_db[[facet]]
+    if (facet == "has_difexp") {
+      flag <- base::as.integer(column) == 1L
+      keep <- keep & !base::is.na(flag) & flag == base::identical(value, "yes")
+    } else {
+      keep <- keep & !base::is.na(column) & base::as.character(column) == value
+    }
+  }
+  signature_db[keep, , drop = FALSE]
+}
+
+# The signatures picked for one list once the table shows `view_ids` and has
+# `selected_ids` selected. Picks outside the view survive a filter change;
+# picks inside it follow the selection. Earlier picks keep their order and new
+# ones go last, since pick order is the order compareSignatures() gets.
+compare_update_picks <- function(picked_ids, view_ids, selected_ids) {
+  picked_ids <- base::as.character(picked_ids)
+  view_ids <- base::as.character(view_ids)
+  selected_ids <- base::as.character(selected_ids)
+  kept <- picked_ids[!picked_ids %in% view_ids | picked_ids %in% selected_ids]
+  c(kept, base::setdiff(selected_ids, kept))
+}
+
+# ---- parsing free text ------------------------------------------------------
 
 # Background features typed into a text box. NULL when blank, so
 # compare_omic_signatures() builds its own universe from the signatures.
@@ -90,33 +171,15 @@ compare_read_signature_uploads <- function(files) {
 
 # Preview one list the way compareSignatures() assembles it, from the
 # searchSignature() rows the user can see: rows picked by id (in pick order),
-# then rows matching a requested name case-insensitively (every match), a
-# signature requested both ways kept once, fetched names that collide told
-# apart as "name (id N)", then uploaded signatures under their list names.
+# fetched names that collide told apart as "name (id N)", then uploaded
+# signatures under their list names.
 #
 # The label-pairing inputs are keyed by these names, and compareSignatures()
 # validates label_pairing against the same names, so they have to agree.
-# Requests matching nothing are returned in attr(, "missing").
-compare_preview_list <- function(signature_db, signature_ids = NULL, signature_names = NULL, omic_signatures = NULL) {
-  rows <- signature_db[0, , drop = FALSE]
-  missing <- base::character()
+compare_preview_list <- function(signature_db, signature_ids = NULL, omic_signatures = NULL) {
   db_ids <- base::as.character(signature_db$signature_id)
-
-  ids <- base::as.character(signature_ids)
-  if (base::length(ids) > 0) {
-    # sprintf, not paste: paste("id", character(0)) is "id ", not empty.
-    missing <- c(missing, base::sprintf("id %s", ids[!ids %in% db_ids]))
-    rows <- signature_db[base::match(ids[ids %in% db_ids], db_ids), , drop = FALSE]
-  }
-
-  if (base::length(signature_names) > 0) {
-    found <- base::tolower(base::trimws(base::as.character(signature_db$signature_name)))
-    wanted <- base::tolower(signature_names)
-    missing <- c(missing, base::sprintf("'%s'", signature_names[!wanted %in% found]))
-    ordered <- base::unlist(base::lapply(wanted, function(w) base::which(found == w)), use.names = FALSE)
-    rows <- base::rbind(rows, signature_db[ordered, , drop = FALSE])
-  }
-  rows <- rows[!base::duplicated(base::as.character(rows$signature_id)), , drop = FALSE]
+  ids <- base::unique(base::as.character(signature_ids))
+  rows <- signature_db[base::match(ids[ids %in% db_ids], db_ids), , drop = FALSE]
 
   fetched_names <- base::as.character(rows$signature_name)
   dup <- fetched_names %in% fetched_names[base::duplicated(fetched_names)]
@@ -137,15 +200,14 @@ compare_preview_list <- function(signature_db, signature_ids = NULL, signature_n
     if (base::is.null(labels)) NA_character_ else base::paste(base::sort(base::unique(base::as.character(labels))), collapse = " / ")
   }, base::character(1))
 
-  out <- base::data.frame(
+  base::data.frame(
     name = c(fetched_names, base::names(uploads)),
     source = c(base::rep("database", base::nrow(rows)), base::rep("upload", base::length(uploads))),
+    signature_id = c(base::as.character(rows$signature_id), base::rep(NA_character_, base::length(uploads))),
     direction_type = c(base::as.character(rows$direction_type), base::unname(upload_direction)),
     labels_hint = c(db_hint, base::unname(upload_hint)),
     stringsAsFactors = FALSE
   )
-  base::attr(out, "missing") <- missing
-  out
 }
 
 # ---- label pairing ----------------------------------------------------------
@@ -180,12 +242,12 @@ compare_label_pairing <- function(signature_names, level1, level2) {
 # ---- arguments --------------------------------------------------------------
 
 # The argument list for SigRepo::compareSignatures(). `list1`/`list2` each hold
-# signature_ids, signature_names, omic_signatures and label_pairing; `list2` is
-# NULL for a self-comparison, so none of the *2 arguments are sent. Empty
-# sources are left out rather than sent empty, and so is the connection when
-# nothing comes from the database.
+# signature_ids, omic_signatures and label_pairing; `list2` is NULL for a
+# self-comparison, so none of the *2 arguments are sent. Empty sources are
+# left out rather than sent empty, and so is the connection when nothing comes
+# from the database.
 compare_build_args <- function(conn_handler, list1, list2, settings) {
-  from_database <- function(l) !base::is.null(l) && base::length(c(l$signature_ids, l$signature_names)) > 0
+  from_database <- function(l) !base::is.null(l) && base::length(l$signature_ids) > 0
 
   args <- base::list()
   if (from_database(list1) || from_database(list2)) {
@@ -194,7 +256,6 @@ compare_build_args <- function(conn_handler, list1, list2, settings) {
 
   add_list <- function(args, l, suffix) {
     if (base::length(l$signature_ids) > 0) args[[base::paste0("signature_ids", suffix)]] <- l$signature_ids
-    if (base::length(l$signature_names) > 0) args[[base::paste0("signature_names", suffix)]] <- l$signature_names
     if (base::length(l$omic_signatures) > 0) args[[base::paste0("omic_signatures", suffix)]] <- l$omic_signatures
     if (!base::is.null(l$label_pairing)) args[[base::paste0("label_pairing", suffix)]] <- l$label_pairing
     args
@@ -204,12 +265,7 @@ compare_build_args <- function(conn_handler, list1, list2, settings) {
     args <- add_list(args, list2, "2")
   }
 
-  setting_names <- c(
-    "method", "background", "score_cutoff", "adj_p_cutoff", "min_features", "max_feature",
-    "feature_col", "score_col", "adj_p_col", "p_value_col", "group_col",
-    "adjust", "p_adjust_method", "alternative", "gsea_score", "minSize", "maxSize"
-  )
-  for (nm in setting_names) {
+  for (nm in base::names(COMPARE_DEFAULTS)) {
     if (!base::is.null(settings[[nm]])) args[[nm]] <- settings[[nm]]
   }
   args
@@ -300,6 +356,81 @@ compare_heatmap_modes <- function(result) {
 # One matrix of one comparison, or NULL when the result has no such matrix.
 compare_result_matrix <- function(result, comparison, matrix_name) {
   compare_comparisons(result)[[comparison]][[matrix_name]]
+}
+
+# Whether List 1 was compared against itself. label_order says so directly;
+# an all-uni-directional overlap has none, so fall back to the matrix names.
+compare_is_self <- function(result) {
+  if (!base::is.null(result$label_order)) {
+    return(base::is.null(result$label_order$sig_list2))
+  }
+  m <- compare_comparisons(result)[[1]][[compare_table_matrices(result)[1]]]
+  base::identical(base::rownames(m), base::colnames(m))
+}
+
+# ---- the matrix view --------------------------------------------------------
+
+# Repository signature names run to 80 characters and a third of them share
+# their first 20, so a matrix headed by full or shortened names is unreadable.
+# The Matrices tab heads rows S1..Sn (List 1) and columns R1..Rm (List 2, or S
+# again for a self-comparison) and lists the full names in a key.
+compare_matrix_labels <- function(result) {
+  m <- compare_comparisons(result)[[1]][[compare_table_matrices(result)[1]]]
+  rows <- stats::setNames(base::sprintf("S%d", base::seq_len(base::nrow(m))), base::rownames(m))
+  cols <- if (compare_is_self(result)) rows else stats::setNames(base::sprintf("R%d", base::seq_len(base::ncol(m))), base::colnames(m))
+  base::list(rows = rows, cols = cols)
+}
+
+# The key to those labels. `previews` are the lists as compare_preview_list()
+# showed them before the run, which is where a signature's id comes from.
+compare_matrix_key <- function(result, previews = base::list()) {
+  labels <- compare_matrix_labels(result)
+  part <- function(labels, list_name, preview) {
+    signatures <- base::names(labels)
+    id <- if (base::is.null(preview)) NA_character_ else preview$signature_id[base::match(signatures, preview$name)]
+    base::data.frame(label = base::unname(labels), list = list_name, signature = signatures,
+                     signature_id = id, stringsAsFactors = FALSE)
+  }
+  preview <- function(k) if (base::length(previews) >= k) previews[[k]]
+  out <- part(labels$rows, "List 1", preview(1))
+  if (!compare_is_self(result)) {
+    out <- base::rbind(out, part(labels$cols, "List 2", preview(2)))
+  }
+  out
+}
+
+# Cell shading for one displayed matrix, as the cuts and colours
+# DT::styleInterval() takes: pale to mid blue with the value for jaccard and
+# counts, with significance for p-values, and blue-white-red around zero for
+# rank scores. NULL when there is nothing to shade. A self-comparison's
+# diagonal (each signature against itself) is left out of the range, or its
+# jaccard of 1 and full set sizes would wash every other cell out.
+compare_matrix_shading <- function(m, matrix_name, self = FALSE) {
+  if (self && base::nrow(m) > 1) {
+    m[base::cbind(base::seq_len(base::nrow(m)), base::seq_len(base::nrow(m)))] <- NA
+  }
+  values <- base::as.numeric(m)
+  values <- values[base::is.finite(values)]
+  if (base::length(values) == 0) {
+    return(NULL)
+  }
+  blues <- c("#f7fbff", "#deebf7", "#c6dbef", "#9ecae1", "#7fb5dc", "#6baed6")
+  if (matrix_name == "pvalue") {
+    return(base::list(cuts = c(1e-8, 1e-4, 1e-3, 1e-2, 0.05), colors = base::rev(blues)))
+  }
+  if (matrix_name == "score") {
+    limit <- base::max(base::abs(values))
+    if (limit == 0) {
+      return(NULL)
+    }
+    return(base::list(cuts = limit * c(-0.6, -0.2, 0.2, 0.6),
+                      colors = c("#67a9cf", "#d1e5f0", "#f7f7f7", "#fddbc7", "#ef8a62")))
+  }
+  top <- base::max(values)
+  if (top <= 0) {
+    return(NULL)
+  }
+  base::list(cuts = top * (1:5) / 6, colors = blues)
 }
 
 # Extra ComplexHeatmap::Heatmap() arguments (passed through
