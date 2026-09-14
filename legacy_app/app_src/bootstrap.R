@@ -163,6 +163,7 @@ sys.source(file.path(shiny_path, "modules", "test_module.R"), envir = bootstrap_
 
 # utils
 sys.source(file.path(shiny_path, "utils", "utils.R"), envir = bootstrap_env)
+sys.source(file.path(shiny_path, "utils", "compare_utils.R"), envir = bootstrap_env)
 sys.source(file.path(shiny_path, "utils", "validateUser.R"), envir = bootstrap_env)
 
 # default connection handler for root, DONT USE IN MAIN APP

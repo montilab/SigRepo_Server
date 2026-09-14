@@ -103,6 +103,13 @@ RUN R -e "remotes::install_github(repo = 'montilab/OmicSignature', dependencies 
 # Install dependencies for OmicSignature 
 RUN R -e "BiocManager::install('biomaRt')"
 
+# Install the packages OmicSignature only suggests but signature comparison
+# needs: ComplexHeatmap and circlize draw signature_similarity_heatmap() on the
+# Shiny Compare tab, cba gives its rows and columns an optimal leaf order, and
+# fgsea backs method = "gsea" in compareSignatures() and /signatures/compare.
+# Fail the build rather than ship an image where those silently do not work.
+RUN R -e "BiocManager::install(c('ComplexHeatmap', 'circlize', 'cba', 'fgsea'), ask = FALSE, update = FALSE); stopifnot(all(vapply(c('ComplexHeatmap', 'circlize', 'cba', 'fgsea'), requireNamespace, logical(1), quietly = TRUE)))"
+
 # Install SigRepo 
 RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); remotes::install_github(repo = 'montilab/SigRepo', ref = branch, dependencies = c('Depends','Imports','LinkingTo'))"
 
