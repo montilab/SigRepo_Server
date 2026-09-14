@@ -78,6 +78,29 @@ test_that("a ranking signature without p_value is ranked by pvalue or adj_p, and
   })
 })
 
+test_that("output reads do not wait on callbacks other code left on later's global loop", {
+  # The shape of the maintenance task an open pool::dbPool() keeps: it
+  # reschedules itself, forever in a pool's case. testServer() reads an output
+  # by running later's loop until it is empty, so on the global loop the read
+  # below would wait out every tick. This one stops after ~20 s so a regression
+  # fails on time instead of hanging the suite.
+  ticks_left <- 100
+  handle <- NULL
+  tick <- function() {
+    ticks_left <<- ticks_left - 1
+    if (ticks_left > 0) handle <<- later::later(tick, 0.2)
+  }
+  tick()
+  on.exit(if (ticks_left > 0) handle(), add = TRUE)
+
+  started <- Sys.time()
+  run_compare_module({
+    session$setInputs(two_lists = FALSE, method = "overlap")
+    expect_match(as.character(output$run_readiness$html), "at least two signatures")
+  })
+  expect_lt(as.numeric(difftime(Sys.time(), started, units = "secs")), 5)
+})
+
 test_that("a second list that is switched off is not sent even if it still holds uploads", {
   skip_without_two_list_client()
   sigs <- compare_example_data("compare_signatures_example")

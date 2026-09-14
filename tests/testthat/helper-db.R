@@ -48,3 +48,15 @@ skip_if_no_test_db <- function() {
     )
   )
 }
+
+# api/lib/common.R closes the pool it replaces each time a test file sources it
+# again, which leaves the last file's pool open. Close that one when the run
+# ends, so its maintenance task does not outlive the suite (issue #81).
+withr::defer({
+  if (base::exists(".db_pool", envir = globalenv(), inherits = FALSE) && requireNamespace("pool", quietly = TRUE)) {
+    last_pool <- base::get(".db_pool", envir = globalenv())$pool
+    if (!base::is.null(last_pool)) {
+      try(suppressWarnings(pool::poolClose(last_pool)), silent = TRUE)
+    }
+  }
+}, envir = testthat::teardown_env())
