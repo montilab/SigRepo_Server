@@ -209,3 +209,42 @@ test_that("every result view renders for a real fgsea result", {
     expect_match(output$hyper_table$html, "reactable")
   })
 })
+
+test_that("an empty dot plot says which cutoff to raise", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()$native
+  run_annotate_module(args = list(geneset_loader = fixture_loader, runner = function(...) res), {
+    session$setInputs(source = "genes", test = "hypergeometric", background_mode = "default",
+                      gene_text = "TP53\nMYC", load_genesets = 1, run = 1)
+    session$setInputs(dot_val = "pval", dot_cutoff = 1e-300, dot_top = 20, dot_color = "significance",
+                      dot_size = "geneset", dot_abrv = 50, dot_key = TRUE)
+    expect_identical(nrow(dot_data()), 0L)
+    expect_match(output$dot_hint$html, "No geneset has p-value ≤ 1e-300")
+    session$setInputs(dot_cutoff = 1)
+    expect_true(nrow(dot_data()) > 0)
+    expect_error(output$dot_hint)
+  })
+})
+
+test_that("a Results row picks its query and geneset for the Enrichment tab, even before the tab has opened", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()$kstest
+  run_annotate_module(args = list(geneset_loader = fixture_loader, runner = function(...) res), {
+    session$setInputs(source = "genes", test = "kstest", background_mode = "default",
+                      gene_text = "# r\nTP53 2\nMYC -1", load_genesets = 1, run = 1)
+    table <- results_table()
+    row <- which(table$query == names(annotate_result_hyps(.(res)))[2])[3]
+    session$setInputs(results_table_rows_selected = row)
+    expect_identical(enrichment_pick(), list(query = table$query[row], geneset = table$label[row]))
+
+    controls <- output$enrichment_controls$html
+    expect_match(controls, sprintf("<option value=\"%s\" selected>", table$query[row]), fixed = TRUE)
+    expect_match(controls, sprintf("<option value=\"%s\" selected>", table$label[row]), fixed = TRUE)
+
+    # A new run with the same query names starts from a clean pick, and the
+    # geneset dropdown is rebuilt with that query's genesets.
+    session$setInputs(enrichment_query = table$query[row], enrichment_geneset = table$label[row], run = 2)
+    expect_null(enrichment_pick())
+    expect_match(output$enrichment_controls$html, table$label[row], fixed = TRUE)
+  })
+})

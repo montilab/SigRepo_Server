@@ -436,3 +436,22 @@ test_that("R code names uploads, rgsets and long gene lists by reference", {
   expect_match(long, "signature <- readRDS(\"annotate_gene_lists.rds\")", fixed = TRUE)
   expect_silent(parse(text = long))
 })
+
+test_that("empty plot controls fall back to their default, others to at least the minimum", {
+  expect_identical(annotate_number_or(NULL, 20, min = 1), 20)
+  expect_identical(annotate_number_or(NA, 20, min = 1), 20)
+  expect_identical(annotate_number_or(0, 20, min = 1), 1)
+  expect_identical(annotate_number_or(35, 20, min = 1), 35)
+})
+
+test_that("integer inputs from the browser compare equal to the defaults", {
+  gs <- structure(list(), class = "gsets")
+  args <- annotate_build_args("repository", "conn", signature_ids = 11, genesets = gs,
+                              settings = annotate_settings(test = "fgsea", direction = NULL, seed = 1L, power = 1L,
+                                                           fgsea_args = list(sampleSize = 101L, minSize = 15L, maxSize = Inf)))
+  expect_identical(args$fgsea_args, list(minSize = 15))
+  expect_identical(args$seed, 1)
+  code <- annotate_r_code(args, list(source = "custom"))
+  expect_false(grepl("seed =|power =|sampleSize|15L", code))
+  expect_match(code, "fgsea_args = list(minSize = 15)", fixed = TRUE)
+})

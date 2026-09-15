@@ -555,8 +555,10 @@ annotate_build_args <- function(source, conn_handler = NULL, signature_ids = NUL
     if (base::identical(test, "fgsea")) {
       args$seed <- setting("seed")
       fgsea_args <- settings$fgsea_args %||% base::list()
+      # Browser inputs arrive as integers (101L), so compare values, not types.
+      fgsea_args <- base::lapply(fgsea_args, base::as.numeric)
       changed <- base::vapply(base::names(fgsea_args), function(nm) {
-        !base::identical(fgsea_args[[nm]], ANNOTATE_FGSEA_DEFAULTS[[nm]])
+        !base::isTRUE(base::all.equal(fgsea_args[[nm]], ANNOTATE_FGSEA_DEFAULTS[[nm]]))
       }, base::logical(1))
       args$fgsea_args <- fgsea_args[changed]
     }
@@ -568,6 +570,11 @@ annotate_build_args <- function(source, conn_handler = NULL, signature_ids = NUL
   args$pval <- setting("pval")
   args$fdr <- setting("fdr")
   args$verbose <- FALSE
+  # Numbers typed into the tab arrive as integers; send and print them as
+  # the doubles runHypeR()'s defaults are.
+  for (nm in base::intersect(c("min_query_genes", "power", "seed", "pval", "fdr"), base::names(args))) {
+    if (base::is.integer(args[[nm]])) args[[nm]] <- base::as.numeric(args[[nm]])
+  }
   args
 }
 
@@ -894,4 +901,12 @@ annotate_export_buttons <- function(filename) {
     }
     button
   })
+}
+
+# A plot control's number: `default` when the box is empty, otherwise at least `min`.
+annotate_number_or <- function(x, default, min = -Inf) {
+  if (base::is.null(x) || base::length(x) == 0 || base::is.na(x[1])) {
+    return(default)
+  }
+  base::max(min, x[1])
 }

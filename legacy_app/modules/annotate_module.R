@@ -373,6 +373,7 @@ annotate_module_ui <- function(id) {
             tabPanel(
               "Dot plot",
               uiOutput(ns("dot_controls")),
+              uiOutput(ns("dot_hint")),
               div(class = "annotate-plot-scroll", plotOutput(ns("dot_plot"), height = "auto", width = "auto")),
               div(
                 class = "annotate-actions",
@@ -913,6 +914,8 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
           source = input$source %||% "repository",
           genesets_description = loaded$description,
           key = run_key(args, loaded$description),
+          # Two runs in the same second are still two runs to observers.
+          run = input$run,
           stamp = format(Sys.time(), "%Y%m%d_%H%M%S")
         ),
         outcome
@@ -981,6 +984,16 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     # Outputs draw with tryCatch(..., error = conditionMessage), so a string is
     # a failure to show in place. need() evaluates its message even when the
     # check passes, so the message is only built for a failure.
+    # Runs a drawing step and returns its error message instead of raising it.
+    # req() stops with Shiny's silent error, which has to reach Shiny rather
+    # than be shown as a failure.
+    attempt <- function(expr) {
+      tryCatch(expr, error = function(e) {
+        if (inherits(e, "shiny.silent.error")) stop(e)
+        conditionMessage(e)
+      })
+    }
+
     stop_if_failed <- function(value, what) {
       failed <- is.character(value) && !inherits(value, "shiny.tag")
       shiny::validate(shiny::need(!failed, if (failed) paste(what, value)))
@@ -1022,11 +1035,11 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         val = val,
         pval = if (identical(val, "pval")) cutoff else 1,
         fdr = if (identical(val, "fdr")) cutoff else 1,
-        top = max(1, input$dot_top %||% 20, na.rm = TRUE),
+        top = annotate_number_or(input$dot_top, 20, min = 1),
         color_by = keep_choice(input$dot_color, color_choices),
         size_by = keep_choice(input$dot_size, c("geneset", "overlap", "none")),
         signature_key = input$dot_key %||% TRUE,
-        abrv = max(10, input$dot_abrv %||% 50, na.rm = TRUE)
+        abrv = annotate_number_or(input$dot_abrv, 50, min = 10)
       )
       out
     })
@@ -1040,6 +1053,18 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       )
     })
 
+    # plotHypeRDots() draws a blank panel when nothing passes; say what to change.
+    output$dot_hint <- renderUI({
+      dots <- dot_data()
+      req(!is.null(dots), nrow(dots) == 0)
+      s <- dot_settings()
+      cutoff <- if (identical(s$val, "fdr")) s$fdr else s$pval
+      div(class = "alert alert-info annotate-message", sprintf(
+        "No geneset has %s ≤ %s in any query. Raise the cutoff (up to 1) to see the strongest genesets anyway.",
+        if (identical(s$val, "fdr")) "FDR" else "p-value", format(cutoff)
+      ))
+    })
+
     dot_size <- reactive({
       annotate_dot_size(dot_data(), length(annotate_result_hyps(result())))
     })
@@ -1050,7 +1075,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
 
     output$dot_plot <- renderPlot({
       req(result())
-      plot <- tryCatch(draw_dots(), error = function(e) conditionMessage(e))
+      plot <- attempt(draw_dots())
       stop_if_failed(plot, "The dot plot could not be drawn:")
       plot
     }, res = 96, height = function() round(dot_size()$height * 96), width = function() round(dot_size()$width * 96))
@@ -1077,29 +1102,35 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
 
     # ---- enrichment ----------------------------------------------------------------
 
-    # A geneset picked in the Results table waits here until the geneset
-    # dropdown has been refilled for its query.
-    pending_geneset <- reactiveVal(NULL)
+    # The query and geneset last picked from the Results table. The controls
+    # are rebuilt from it rather than updated, since they may not have been
+    # rendered yet (the tab has never been opened) when a row is picked.
+    enrichment_pick <- reactiveVal(NULL)
+    observeEvent(run_state(), enrichment_pick(NULL))
 
     output$enrichment_controls <- renderUI({
       res <- result()
       req(res)
       queries <- names(annotate_result_hyps(res))
+      pick <- enrichment_pick()
+      query <- keep_choice(pick$query %||% isolate(input$enrichment_query), queries)
+      genesets <- annotate_query_genesets(res, query)
+      wanted <- if (identical(pick$query, query)) pick$geneset else isolate(input$enrichment_geneset)
       div(
         class = "annotate-controls",
-        selectInput(ns("enrichment_query"), "Query", choices = queries,
-                    selected = keep_choice(isolate(input$enrichment_query), queries), width = "340px"),
-        selectInput(ns("enrichment_geneset"), "Geneset", choices = character(), width = "420px")
+        selectInput(ns("enrichment_query"), "Query", choices = queries, selected = query, width = "440px"),
+        selectInput(ns("enrichment_geneset"), "Geneset", choices = genesets, selected = keep_choice(wanted, genesets), width = "440px")
       )
     })
 
-    observeEvent(list(result(), input$enrichment_query), {
+    # A different query lists its own genesets, keeping the picked one for it.
+    observeEvent(input$enrichment_query, {
       res <- result()
-      req(res, input$enrichment_query)
+      req(res)
       genesets <- annotate_query_genesets(res, input$enrichment_query)
-      wanted <- pending_geneset() %||% isolate(input$enrichment_geneset)
+      pick <- enrichment_pick()
+      wanted <- if (identical(pick$query, input$enrichment_query)) pick$geneset else isolate(input$enrichment_geneset)
       updateSelectInput(session, "enrichment_geneset", choices = genesets, selected = keep_choice(wanted, genesets))
-      pending_geneset(NULL)
     })
 
     enrichment_selection <- reactive({
@@ -1116,14 +1147,14 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     }
 
     output$enrichment_plot <- renderPlot({
-      plot <- tryCatch(draw_enrichment(), error = function(e) conditionMessage(e))
+      plot <- attempt(draw_enrichment())
       stop_if_failed(plot, "The enrichment plot could not be drawn:")
       plot
     }, res = 96)
 
     output$enrichment_details <- renderUI({
       sel <- enrichment_selection()
-      details <- tryCatch(annotate_enrichment_summary(result(), sel$query, sel$geneset), error = function(e) conditionMessage(e))
+      details <- attempt(annotate_enrichment_summary(result(), sel$query, sel$geneset))
       stop_if_failed(details, "The enrichment details could not be computed:")
       tagList(
         tags$table(
@@ -1149,7 +1180,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       div(
         class = "annotate-controls",
         selectInput(ns("map_type"), "Map", choices = types, selected = keep_choice(isolate(input$map_type), types), width = "160px"),
-        selectInput(ns("map_query"), "Query", choices = queries, selected = keep_choice(isolate(input$map_query), queries), width = "320px"),
+        selectInput(ns("map_query"), "Query", choices = queries, selected = keep_choice(isolate(input$map_query), queries), width = "440px"),
         selectInput(ns("map_val"), "Colour by", choices = c("FDR" = "fdr", "p-value" = "pval"),
                     selected = keep_choice(isolate(input$map_val), c("fdr", "pval")), width = "110px"),
         numericInput(ns("map_cutoff"), "FDR ≤", value = isolate(input$map_cutoff) %||% 0.05, min = 0, max = 1, step = 0.01, width = "90px"),
@@ -1178,9 +1209,9 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         query = keep_choice(input$map_query, queries),
         val = keep_choice(input$map_val, c("fdr", "pval")),
         fdr = if (is.null(cutoff) || is.na(cutoff)) 1 else cutoff,
-        top = max(2, input$map_top %||% 25, na.rm = TRUE),
+        top = annotate_number_or(input$map_top, 25, min = 2),
         similarity_metric = keep_choice(input$map_metric, c("jaccard_similarity", "overlap_similarity")),
-        similarity_cutoff = input$map_similarity %||% 0.2
+        similarity_cutoff = annotate_number_or(input$map_similarity, 0.2, min = 0)
       )
     })
 
@@ -1243,12 +1274,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       df <- isolate(results_table())
       row <- input$results_table_rows_selected
       req(length(row) == 1, row <= nrow(df))
-      pending_geneset(df$label[row])
-      updateSelectInput(session, "enrichment_query", selected = df$query[row])
-      if (identical(isolate(input$enrichment_query), df$query[row])) {
-        updateSelectInput(session, "enrichment_geneset", selected = df$label[row])
-        pending_geneset(NULL)
-      }
+      enrichment_pick(list(query = df$query[row], geneset = df$label[row]))
       updateTabsetPanel(session, "result_tabs", selected = "Enrichment")
     })
 
@@ -1269,7 +1295,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     output$hyper_table <- renderUI({
       res <- result()
       req(res)
-      table <- tryCatch(hypeR::rctbl_build(res), error = function(e) conditionMessage(e))
+      table <- attempt(hypeR::rctbl_build(res))
       stop_if_failed(table, "hypeR could not build its table:")
       table
     })
