@@ -20,6 +20,15 @@ ANNOTATE_SOURCE_CHOICES <- c(
   "Gene lists" = "genes"
 )
 
+# Enrichment map layouts: hypeR's own, then igraph layouts that spread out
+# maps with few links (hypeR's lines unlinked genesets up along one edge).
+ANNOTATE_MAP_LAYOUTS <- c(
+  "hypeR default" = "layout_nicely",
+  "Force-directed" = "layout_with_fr",
+  "Circle" = "layout_in_circle",
+  "Grid" = "layout_on_grid"
+)
+
 ANNOTATE_TEST_HELP <- list(
   hypergeometric = paste(
     "Tests whether each query's genes overlap a geneset more than chance in a background population.",
@@ -1118,7 +1127,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       wanted <- if (identical(pick$query, query)) pick$geneset else isolate(input$enrichment_geneset)
       div(
         class = "annotate-controls",
-        selectInput(ns("enrichment_query"), "Query", choices = queries, selected = query, width = "440px"),
+        selectInput(ns("enrichment_query"), "Query", choices = queries, selected = query, width = "580px"),
         selectInput(ns("enrichment_geneset"), "Geneset", choices = genesets, selected = keep_choice(wanted, genesets), width = "440px")
       )
     })
@@ -1180,7 +1189,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       div(
         class = "annotate-controls",
         selectInput(ns("map_type"), "Map", choices = types, selected = keep_choice(isolate(input$map_type), types), width = "160px"),
-        selectInput(ns("map_query"), "Query", choices = queries, selected = keep_choice(isolate(input$map_query), queries), width = "440px"),
+        selectInput(ns("map_query"), "Query", choices = queries, selected = keep_choice(isolate(input$map_query), queries), width = "580px"),
         selectInput(ns("map_val"), "Colour by", choices = c("FDR" = "fdr", "p-value" = "pval"),
                     selected = keep_choice(isolate(input$map_val), c("fdr", "pval")), width = "110px"),
         numericInput(ns("map_cutoff"), "FDR ≤", value = isolate(input$map_cutoff) %||% 0.05, min = 0, max = 1, step = 0.01, width = "90px"),
@@ -1193,7 +1202,9 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
             selectInput(ns("map_metric"), "Similarity", choices = c("Jaccard" = "jaccard_similarity", "Overlap" = "overlap_similarity"),
                         selected = keep_choice(isolate(input$map_metric), c("jaccard_similarity", "overlap_similarity")), width = "120px"),
             numericInput(ns("map_similarity"), "Similarity cutoff", value = isolate(input$map_similarity) %||% 0.2,
-                         min = 0, max = 1, step = 0.05, width = "130px")
+                         min = 0, max = 1, step = 0.05, width = "130px"),
+            selectInput(ns("map_layout"), "Layout", choices = ANNOTATE_MAP_LAYOUTS,
+                        selected = keep_choice(isolate(input$map_layout), ANNOTATE_MAP_LAYOUTS), width = "170px")
           )
         )
       )
@@ -1215,10 +1226,19 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       )
     })
 
+    map_layout <- reactive({
+      keep_choice(input$map_layout, ANNOTATE_MAP_LAYOUTS)
+    })
+
     # plotHypeRMap() returns NULL with a warning when there is nothing to draw.
     map_outcome <- reactive({
       s <- map_settings()
-      compare_run(c(list(result()), s), runner = SigRepo::plotHypeRMap)
+      layout <- map_layout()
+      outcome <- compare_run(c(list(result()), s), runner = SigRepo::plotHypeRMap)
+      if (!is.null(outcome$result) && identical(s$type, "emap")) {
+        outcome$result <- annotate_map_layout(outcome$result, layout)
+      }
+      outcome
     })
 
     output$map_message <- renderUI({
@@ -1316,7 +1336,8 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         map = if (!is.null(map)) c(list(query = map$query), annotate_changed_args(
           map[setdiff(names(map), "query")],
           list(type = "emap", val = "fdr", pval = 1, fdr = 1, top = 25, similarity_metric = "jaccard_similarity", similarity_cutoff = 0.2)
-        ))
+        )),
+        map_layout = if (!is.null(map) && identical(map$type, "emap")) isolate(map_layout())
       )
       annotate_r_code(state$args, state$genesets_description, plots = plots)
     })

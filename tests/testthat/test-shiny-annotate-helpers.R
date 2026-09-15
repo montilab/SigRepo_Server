@@ -455,3 +455,23 @@ test_that("integer inputs from the browser compare equal to the defaults", {
   expect_false(grepl("seed =|power =|sampleSize|15L", code))
   expect_match(code, "fgsea_args = list(minSize = 15)", fixed = TRUE)
 })
+
+test_that("enrichment maps can be re-laid out, and the R code says how", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()$fgsea
+  map <- suppressWarnings(SigRepo::plotHypeRMap(res, query = names(annotate_result_hyps(res))[1], similarity_cutoff = 0.02))
+  expect_identical(annotate_map_layout(map, "layout_nicely"), map)
+  spread <- annotate_map_layout(map, "layout_with_fr")
+  expect_s3_class(spread, "visNetwork")
+  expect_identical(spread$x$nodes$id, map$x$nodes$id)
+  expect_false(isTRUE(all.equal(spread$x$nodes$x, map$x$nodes$x)))
+  expect_null(annotate_map_layout(NULL, "layout_with_fr"))
+
+  args <- annotate_build_args("genes", gene_lists = list(g = c(A = 1)), genesets = structure(list(), class = "gsets"),
+                              settings = annotate_settings(test = "fgsea", direction = NULL))
+  code <- annotate_r_code(args, list(source = "custom"), plots = list(map = list(query = "g | up"), map_layout = "layout_with_fr"))
+  expect_silent(parse(text = code))
+  expect_match(code, "SigRepo::plotHypeRMap(res, query = \"g | up\") |>\n  visNetwork::visIgraphLayout(layout = \"layout_with_fr\", randomSeed = 1)", fixed = TRUE)
+  default <- annotate_r_code(args, list(source = "custom"), plots = list(map = list(query = "g | up"), map_layout = "layout_nicely"))
+  expect_false(grepl("visIgraphLayout", default))
+})

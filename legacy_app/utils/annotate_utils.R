@@ -860,7 +860,13 @@ annotate_r_code <- function(args, genesets_description = NULL, plots = base::lis
   plot_lines <- base::character()
   if (!base::is.null(plots$dots)) plot_lines <- c(plot_lines, plot_call("plotHypeRDots", "res", plots$dots))
   if (!base::is.null(plots$enrichment)) plot_lines <- c(plot_lines, plot_call("plotHypeREnrichment", "res", plots$enrichment))
-  if (!base::is.null(plots$map)) plot_lines <- c(plot_lines, plot_call("plotHypeRMap", "res", plots$map))
+  if (!base::is.null(plots$map)) {
+    map_line <- plot_call("plotHypeRMap", "res", plots$map)
+    if (!base::is.null(plots$map_layout) && !base::identical(plots$map_layout, "layout_nicely")) {
+      map_line <- base::sprintf("%s |>\n  visNetwork::visIgraphLayout(layout = %s, randomSeed = 1)", map_line, base::deparse(plots$map_layout))
+    }
+    plot_lines <- c(plot_lines, map_line)
+  }
   if (base::length(plot_lines) > 0) {
     lines <- c(lines, "", plot_lines)
   }
@@ -909,4 +915,13 @@ annotate_number_or <- function(x, default, min = -Inf) {
     return(default)
   }
   base::max(min, x[1])
+}
+
+# An enrichment map re-laid out with an igraph layout. hypeR's own
+# (layout_nicely) is returned as it is; others are seeded so they repeat.
+annotate_map_layout <- function(map, layout = "layout_nicely") {
+  if (base::is.null(map) || base::identical(layout, "layout_nicely")) {
+    return(map)
+  }
+  visNetwork::visIgraphLayout(map, layout = layout, randomSeed = 1)
 }
