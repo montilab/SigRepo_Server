@@ -860,3 +860,38 @@ annotate_r_code <- function(args, genesets_description = NULL, plots = base::lis
   lines <- c(lines, "SigRepo::hypeRToExcel(res, file_path = \"annotate_results.xlsx\")")
   base::paste(lines, collapse = "\n")
 }
+
+# ---- module support ---------------------------------------------------------------
+
+# The MSigDB cache the API and MCP server read: MSIGDB_CACHE_DIR, or
+# data/msigdb_genesets in the SigRepo_Server checkout the app runs from.
+annotate_msigdb_cache_dir <- function(shiny_path = base::getOption("sigrepo.shiny_path", "")) {
+  server_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
+  if (!base::nzchar(server_root)) {
+    server_root <- base::normalizePath(base::file.path(shiny_path, ".."), mustWork = FALSE)
+  }
+  default_msigdb_cache_dir(server_root)
+}
+
+# The arguments of a plot call that differ from the plot function's defaults,
+# for the R code. `defaults` is a named list of the defaults to compare with.
+annotate_changed_args <- function(values, defaults) {
+  keep <- base::vapply(base::names(values), function(nm) {
+    !base::is.null(values[[nm]]) && !(nm %in% base::names(defaults) && base::isTRUE(base::all.equal(values[[nm]], defaults[[nm]])))
+  }, base::logical(1))
+  values[keep]
+}
+
+# Copy, CSV and Excel buttons that save as `filename` with no title row. As in
+# the Compare tab, they export the unrounded values ('export' orthogonal data)
+# and write NA cells as blanks rather than "null".
+annotate_export_buttons <- function(filename) {
+  format <- base::list(body = DT::JS("function(data, row, column) { return data === null || data === undefined ? '' : data; }"))
+  base::lapply(c("copy", "csv", "excel"), function(kind) {
+    button <- base::list(extend = kind, title = "", exportOptions = base::list(orthogonal = "export", format = format))
+    if (kind != "copy") {
+      button$filename <- filename
+    }
+    button
+  })
+}

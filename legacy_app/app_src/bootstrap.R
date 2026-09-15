@@ -133,13 +133,13 @@ options(sigrepo.shiny_path = shiny_path)
 
 bootstrap_env <- .GlobalEnv
 
-# Gene-symbol helpers shared with the API (api/lib/symbols.R): the Annotate
-# module resolves Ensembl accessions through the reference tables with them.
+# The on-disk MSigDB cache helpers are shared with the API
+# (api/lib/msigdb_cache.R); the Annotate tab loads genesets with them.
 server_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
 if (!nzchar(server_root)) {
   server_root <- normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
 }
-sys.source(file.path(server_root, "api", "lib", "symbols.R"), envir = bootstrap_env)
+sys.source(file.path(server_root, "api", "lib", "msigdb_cache.R"), envir = bootstrap_env)
 
 # sourcing modules
 sys.source(file.path(shiny_path, "modules", "home_module.R"), envir = bootstrap_env)
@@ -150,7 +150,6 @@ sys.source(file.path(shiny_path, "modules", "compare_module.R"), envir = bootstr
 sys.source(file.path(shiny_path, "modules", "reference_module.R"), envir = bootstrap_env)
 sys.source(file.path(shiny_path, "modules", "resource_module.R"), envir = bootstrap_env)
 sys.source(file.path(shiny_path, "modules", "feedback_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "hypeR_module.R"), envir = bootstrap_env)
 
 # sourcing modals
 sys.source(file.path(shiny_path, "modals", "manage_users_modal.R"), envir = bootstrap_env)
@@ -164,6 +163,7 @@ sys.source(file.path(shiny_path, "modules", "test_module.R"), envir = bootstrap_
 # utils
 sys.source(file.path(shiny_path, "utils", "utils.R"), envir = bootstrap_env)
 sys.source(file.path(shiny_path, "utils", "compare_utils.R"), envir = bootstrap_env)
+sys.source(file.path(shiny_path, "utils", "annotate_utils.R"), envir = bootstrap_env)
 sys.source(file.path(shiny_path, "utils", "validateUser.R"), envir = bootstrap_env)
 
 # default connection handler for root, DONT USE IN MAIN APP

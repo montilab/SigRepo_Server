@@ -104,17 +104,19 @@ annotate_db_rows <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# testServer() quotes its expression, so splice the caller's in. It runs on a
-# private later loop so DB pools left by other test files cannot hang output
-# reads (issue #81).
+# testServer() evaluates its expression inside the module, where the test's
+# own variables are out of sight, so the caller marks them .(name) and they are
+# spliced in as values first. It runs on a private later loop so DB pools left
+# by other test files cannot hang output reads (issue #81).
 run_annotate_module <- function(expr, args = list()) {
   defaults <- list(
     signature_db = reactive(annotate_db_rows),
     user_conn_handler = reactive("user-conn")
   )
+  body <- do.call(bquote, list(substitute(expr), where = parent.frame()))
   later::with_temp_loop(eval(bquote(testServer(
     annotate_module_server,
     args = .(utils::modifyList(defaults, args)),
-    .(substitute(expr))
+    .(body)
   ))))
 }
