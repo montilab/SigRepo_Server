@@ -508,3 +508,355 @@ annotate_parse_custom_geneset_file <- function(path, file_name) {
   }
   base::lapply(base::split(genes[keep], sets[keep]), base::unique)
 }
+
+# ---- arguments ------------------------------------------------------------------
+
+# The argument list for SigRepo::runHypeR(). `source` is where the signatures
+# come from, and only that source's argument is sent, since runHypeR() takes
+# one: repository picks as signature_id, uploads as a named omic_signature
+# list, gene lists as hypeR-native `signature`. The connection goes with the
+# SigRepo sources (uploads use it to look up gene symbols). Test settings are
+# sent only for the test that uses them, and the ranking settings hypeR-native
+# input cannot take are left out.
+annotate_build_args <- function(source, conn_handler = NULL, signature_ids = NULL, omic_signatures = NULL,
+                                gene_lists = NULL, genesets, settings) {
+  test <- settings$test %||% ANNOTATE_DEFAULTS$test
+  native <- base::identical(source, "genes")
+
+  args <- switch(
+    source,
+    repository = base::list(conn_handler = conn_handler, signature_id = signature_ids),
+    upload = base::list(conn_handler = conn_handler, omic_signature = omic_signatures),
+    genes = base::list(signature = gene_lists),
+    base::stop(base::sprintf("Unknown signature source '%s'.", source), call. = FALSE)
+  )
+  if (!native && base::is.null(conn_handler)) {
+    args$conn_handler <- NULL
+  }
+  args$genesets <- genesets
+  args$test <- test
+
+  setting <- function(name) settings[[name]] %||% ANNOTATE_DEFAULTS[[name]]
+  if (base::identical(test, "hypergeometric")) {
+    if (!native) args$split <- setting("split")
+    args$min_query_genes <- setting("min_query_genes")
+  } else {
+    if (!native || base::identical(test, "fgsea")) {
+      args$direction <- settings$direction %||% annotate_default_direction(test)
+    }
+    if (!native) {
+      args$ks_source <- setting("ks_source")
+      args$score_col <- setting("score_col")
+    }
+    args$power <- setting("power")
+    if (base::identical(test, "kstest")) {
+      args$absolute <- setting("absolute")
+    }
+    if (base::identical(test, "fgsea")) {
+      args$seed <- setting("seed")
+      fgsea_args <- settings$fgsea_args %||% base::list()
+      changed <- base::vapply(base::names(fgsea_args), function(nm) {
+        !base::identical(fgsea_args[[nm]], ANNOTATE_FGSEA_DEFAULTS[[nm]])
+      }, base::logical(1))
+      args$fgsea_args <- fgsea_args[changed]
+    }
+  }
+  args$fdr_scope <- setting("fdr_scope")
+  if (!base::is.null(settings$background)) {
+    args$background <- settings$background
+  }
+  args$pval <- setting("pval")
+  args$fdr <- setting("fdr")
+  args$verbose <- FALSE
+  args
+}
+
+# The same inputs for SigRepo::prepareHypeRSignatures(), which builds the
+# queries runHypeR() would test without testing them.
+annotate_prepare_args <- function(args) {
+  args[base::intersect(base::names(args), base::names(base::formals(SigRepo::prepareHypeRSignatures)))]
+}
+
+# ---- running --------------------------------------------------------------------
+
+# runHypeR() and prepareHypeRSignatures() through compare_run(), which keeps
+# their warnings (backgrounds replaced, genes removed, genesets or signatures
+# dropped) for the tab to show and returns errors instead of raising them.
+annotate_run <- function(args, runner = SigRepo::runHypeR) {
+  compare_run(args, runner = runner)
+}
+
+annotate_preview <- function(args, runner = SigRepo::prepareHypeRSignatures) {
+  compare_run(annotate_prepare_args(args), runner = runner)
+}
+
+# ---- reading the result -----------------------------------------------------------
+
+# The result's queries as a named list of hyps. runHypeR() returns a hyp for a
+# single query by construction; it is named the way SigRepo's plot functions
+# name it (signature | group | direction), so the names work as their `query`.
+annotate_result_hyps <- function(result) {
+  if (methods::is(result, "multihyp")) {
+    return(result$data)
+  }
+  if (!methods::is(result, "hyp")) {
+    base::stop("The result is not a hypeR hyp or multihyp.", call. = FALSE)
+  }
+  parts <- base::vapply(c("SigRepo Signature Name", "Group Label", "SigRepo Direction"), function(key) {
+    annotate_info_value(result, key)
+  }, base::character(1))
+  parts <- parts[base::nzchar(parts)]
+  stats::setNames(base::list(result), if (base::length(parts) == 0) "query" else base::paste(parts, collapse = " | "))
+}
+
+# One info value as a string, "" when absent.
+annotate_info_value <- function(hyp, key) {
+  value <- hyp$info[[key]]
+  if (base::is.null(value) || base::length(value) == 0 || base::is.na(value[1])) "" else base::as.character(value[1])
+}
+
+annotate_result_test <- function(result) {
+  annotate_info_value(annotate_result_hyps(result)[[1]], "Test")
+}
+
+annotate_is_ranked <- function(result) {
+  annotate_result_test(result) %in% c("kstest", "fgsea")
+}
+
+annotate_result_genesets <- function(result) {
+  annotate_result_hyps(result)[[1]]$args$genesets
+}
+
+annotate_uses_rgsets <- function(result) {
+  methods::is(annotate_result_genesets(result), "rgsets")
+}
+
+# Every query's result table stacked, headed by which query and signature each
+# row belongs to. Columns are hypeR's own for the test that ran.
+annotate_results_table <- function(result) {
+  hyps <- annotate_result_hyps(result)
+  parts <- base::lapply(base::names(hyps), function(query) {
+    hyp <- hyps[[query]]
+    data <- hyp$data
+    if (base::is.null(data) || base::nrow(data) == 0) {
+      return(NULL)
+    }
+    base::rownames(data) <- NULL
+    base::cbind(
+      base::data.frame(
+        query = query,
+        signature_name = annotate_info_value(hyp, "SigRepo Signature Name"),
+        group_label = annotate_info_value(hyp, "Group Label"),
+        direction = annotate_info_value(hyp, "SigRepo Direction"),
+        stringsAsFactors = FALSE
+      ),
+      data
+    )
+  })
+  parts <- parts[!base::vapply(parts, base::is.null, base::logical(1))]
+  if (base::length(parts) == 0) {
+    return(base::data.frame(query = base::character(), label = base::character(), pval = base::numeric(),
+                            fdr = base::numeric(), stringsAsFactors = FALSE))
+  }
+  out <- base::do.call(base::rbind, parts)
+  base::rownames(out) <- NULL
+  out
+}
+
+# A query's genesets, most significant first.
+annotate_query_genesets <- function(result, query) {
+  hyps <- annotate_result_hyps(result)
+  data <- if (query %in% base::names(hyps)) hyps[[query]]$data else NULL
+  if (base::is.null(data) || base::nrow(data) == 0) {
+    return(base::character())
+  }
+  data$label[base::order(data$fdr, data$pval, data$label)]
+}
+
+# One row per query: what hypeR recorded about the test and what SigRepo
+# recorded about how the query was built.
+annotate_provenance_table <- function(result) {
+  hyps <- annotate_result_hyps(result)
+  keys <- c("Test", "Signature Type", "Signature Size", "Genesets", "Background", "Power", "Absolute",
+            "Sample Size", "Min Size", "Max Size", "Seed", "fgsea Args", ANNOTATE_PROVENANCE_KEYS)
+  keys <- keys[base::vapply(keys, function(key) base::any(base::vapply(hyps, function(h) !base::is.null(h$info[[key]]), base::logical(1))), base::logical(1))]
+  out <- base::data.frame(query = base::names(hyps), stringsAsFactors = FALSE)
+  for (key in keys) {
+    out[[key]] <- base::vapply(hyps, annotate_info_value, base::character(1), key = key, USE.NAMES = FALSE)
+  }
+  out
+}
+
+# Headline numbers for the results card.
+annotate_summary <- function(result, fdr = 0.05) {
+  hyps <- annotate_result_hyps(result)
+  table <- annotate_results_table(result)
+  significant <- table$label[!base::is.na(table$fdr) & table$fdr <= fdr]
+  genesets <- annotate_result_genesets(result)
+  value_set <- function(key) {
+    values <- base::unique(base::vapply(hyps, annotate_info_value, base::character(1), key = key, USE.NAMES = FALSE))
+    values[base::nzchar(values)]
+  }
+  base::list(
+    test = annotate_result_test(result),
+    n_queries = base::length(hyps),
+    genesets_name = base::sprintf("%s (%s)", genesets$name %||% "genesets", genesets$version %||% ""),
+    n_genesets = base::length(genesets$genesets),
+    n_rows = base::nrow(table),
+    n_significant = base::length(base::unique(significant)),
+    fdr = fdr,
+    fdr_scope = value_set("SigRepo FDR Scope"),
+    backgrounds = value_set("SigRepo Background Source")
+  )
+}
+
+# Plot size in inches for plotHypeRDots(), from the rule in its documentation,
+# plus a line of caption for each signature the key lists.
+annotate_dot_size <- function(dots, n_queries) {
+  if (base::is.null(dots) || base::nrow(dots) == 0) {
+    return(base::list(width = 7, height = 3.2))
+  }
+  clamp <- function(x, lo, hi) base::min(base::max(x, lo), hi)
+  label_chars <- base::max(base::nchar(base::as.character(dots$label_abrv)))
+  query_chars <- base::max(base::nchar(base::as.character(dots$query_label)))
+  n_signatures <- base::length(base::unique(dots$signature_code))
+  base::list(
+    width = clamp(5 + 0.085 * label_chars + 1.2 * n_queries, 7, 20),
+    height = clamp(1.6 + 0.30 * base::length(base::unique(dots$label)) + 0.05 * query_chars +
+                     if (n_signatures > 1) 0.2 * n_signatures else 0, 3.2, 22)
+  )
+}
+
+# What one geneset scored for one query: a Measure/Value table and the genes
+# behind it (leading edge for ranked tests, overlap for hypergeometric).
+annotate_enrichment_summary <- function(result, query, geneset) {
+  hyps <- annotate_result_hyps(result)
+  hyp <- hyps[[query]]
+  test <- annotate_info_value(hyp, "Test")
+  format_number <- function(x) if (base::length(x) == 0 || base::is.na(x)) "" else base::format(base::signif(x, 3))
+  split_genes <- function(x) {
+    genes <- base::trimws(base::unlist(base::strsplit(base::as.character(x %||% ""), ",")))
+    genes[base::nzchar(genes)]
+  }
+
+  if (base::identical(test, "hypergeometric")) {
+    row <- hyp$data[hyp$data$label == geneset, , drop = FALSE]
+    genes <- if (base::nrow(row) > 0) split_genes(row$hits[1]) else base::character()
+    table <- base::data.frame(
+      Measure = c("Query", "Geneset", "Query genes", "Geneset size", "Overlap", "Background", "p-value", "FDR"),
+      Value = c(
+        query, geneset, base::length(hyp$args$signature),
+        if (base::nrow(row) > 0) row$geneset[1] else "",
+        if (base::nrow(row) > 0) row$overlap[1] else "",
+        if (base::nrow(row) > 0) row$background[1] else "",
+        if (base::nrow(row) > 0) format_number(row$pval[1]) else "",
+        if (base::nrow(row) > 0) format_number(row$fdr[1]) else ""
+      ),
+      stringsAsFactors = FALSE
+    )
+    return(base::list(table = table, genes = genes, genes_label = "Overlapping genes"))
+  }
+
+  e <- SigRepo::hypeREnrichmentData(result, geneset, query = query)$summary
+  measures <- c(
+    Query = query,
+    Ranking = e$ranking,
+    Geneset = geneset,
+    Direction = e$direction %||% "",
+    `Enrichment score (ES)` = format_number(e$es),
+    NES = if (base::identical(test, "fgsea")) format_number(e$nes) else NA,
+    `hypeR score` = if (base::identical(test, "kstest")) format_number(e$score) else NA,
+    `ES position` = if (base::is.na(e$es_position)) "" else base::format(e$es_position),
+    `Hits in ranking` = base::sprintf("%d of %d ranked genes", e$n_hits, e$n_ranked),
+    `p-value` = format_number(e$pval),
+    FDR = format_number(e$fdr)
+  )
+  measures <- measures[!base::is.na(measures)]
+  base::list(
+    table = base::data.frame(Measure = base::names(measures), Value = base::unname(measures), stringsAsFactors = FALSE),
+    genes = e$leading_edge_genes,
+    genes_label = "Leading edge genes"
+  )
+}
+
+# ---- the equivalent R code ----------------------------------------------------------
+
+# An R script that reproduces the run and the plots on screen. Only arguments
+# that differ from runHypeR()'s defaults are written. The connection handler,
+# uploaded signatures, long gene lists and custom genesets cannot be printed,
+# so they are referred to by name with a comment saying where they come from
+# (the tab offers the genesets and gene lists as downloads).
+annotate_r_code <- function(args, genesets_description = NULL, plots = base::list()) {
+  test <- args$test %||% ANNOTATE_DEFAULTS$test
+  by_reference <- c("conn_handler", "omic_signature", "genesets")
+  lines <- base::character()
+
+  if ("conn_handler" %in% base::names(args)) {
+    lines <- c(lines, "conn_handler <- SigRepo::newConnHandler(...)  # your SigRepo login")
+  }
+  if ("omic_signature" %in% base::names(args)) {
+    lines <- c(lines, "omic_signature <- readRDS(\"<the OmicSignature file(s) uploaded to the app>.rds\")  # a named list")
+  }
+  if ("signature" %in% base::names(args)) {
+    inline <- base::paste(base::deparse(args$signature, width.cutoff = 500L), collapse = "")
+    if (base::nchar(inline) <= 2000) {
+      lines <- c(lines, base::paste("signature <-", inline))
+    } else {
+      lines <- c(lines, "signature <- readRDS(\"annotate_gene_lists.rds\")  # the gene lists download")
+    }
+    by_reference <- c(by_reference, "signature")
+  }
+
+  d <- genesets_description
+  genesets_line <- if (base::is.null(d)) {
+    "genesets <- readRDS(\"annotate_genesets.rds\")  # the genesets download"
+  } else if (base::identical(d$source, "msigdb")) {
+    base::paste0(
+      "genesets <- SigRepo::getHypeRGenesets(\"msigdb\", msigdb_species = ", base::deparse(d$species),
+      ", msigdb_collection = ", base::deparse(d$collection),
+      if (base::nzchar(d$subcollection %||% "")) base::paste0(", msigdb_subcollection = ", base::deparse(d$subcollection)) else "",
+      if (base::isTRUE(d$clean)) ", msigdb_clean = TRUE" else "",
+      ")",
+      if (base::identical(d$origin, "cache")) base::sprintf("  # the app used its MSigDB cache, version %s", d$version) else ""
+    )
+  } else if (base::identical(d$source, "rgsets")) {
+    base::sprintf("genesets <- hypeR::hyperdb_rgsets(%s, %s)", base::deparse(d$collection), base::deparse(d$version))
+  } else {
+    "genesets <- readRDS(\"annotate_genesets.rds\")  # the genesets download"
+  }
+  lines <- c(lines, genesets_line, "")
+
+  differs <- function(nm) {
+    if (nm %in% by_reference || nm %in% c("signature_id", "test")) {
+      return(TRUE)
+    }
+    if (nm == "verbose") {
+      return(FALSE)
+    }
+    default <- if (nm == "direction") annotate_default_direction(test) else if (nm == "fgsea_args") base::list() else ANNOTATE_DEFAULTS[[nm]]
+    !base::isTRUE(base::all.equal(args[[nm]], default, check.attributes = FALSE))
+  }
+  written <- base::Filter(differs, base::names(args))
+  call_lines <- base::vapply(written, function(nm) {
+    value <- if (nm %in% by_reference) nm else base::paste(base::deparse(args[[nm]], width.cutoff = 500L), collapse = " ")
+    base::sprintf("  %s = %s", nm, value)
+  }, base::character(1))
+  lines <- c(lines, base::paste0("res <- SigRepo::runHypeR(\n", base::paste(call_lines, collapse = ",\n"), "\n)"))
+
+  plot_call <- function(fun, first, arguments) {
+    arguments <- arguments[!base::vapply(arguments, base::is.null, base::logical(1))]
+    rendered <- base::vapply(base::names(arguments), function(nm) {
+      base::sprintf("%s = %s", nm, base::paste(base::deparse(arguments[[nm]], width.cutoff = 500L), collapse = " "))
+    }, base::character(1))
+    base::sprintf("SigRepo::%s(%s)", fun, base::paste(c(first, rendered), collapse = ", "))
+  }
+  plot_lines <- base::character()
+  if (!base::is.null(plots$dots)) plot_lines <- c(plot_lines, plot_call("plotHypeRDots", "res", plots$dots))
+  if (!base::is.null(plots$enrichment)) plot_lines <- c(plot_lines, plot_call("plotHypeREnrichment", "res", plots$enrichment))
+  if (!base::is.null(plots$map)) plot_lines <- c(plot_lines, plot_call("plotHypeRMap", "res", plots$map))
+  if (base::length(plot_lines) > 0) {
+    lines <- c(lines, "", plot_lines)
+  }
+  lines <- c(lines, "SigRepo::hypeRToExcel(res, file_path = \"annotate_results.xlsx\")")
+  base::paste(lines, collapse = "\n")
+}

@@ -202,3 +202,237 @@ test_that("custom genesets parse from text, GMT and CSV", {
   expect_identical(custom$description$source, "custom")
   expect_match(annotate_genesets_label(custom$description), "^Custom: 1 genesets \\(custom upload\\)$")
 })
+
+# ---- arguments ----------------------------------------------------------------------
+
+annotate_settings <- function(...) utils::modifyList(ANNOTATE_DEFAULTS, list(...))
+
+test_that("each source sends only its own signature argument", {
+  gs <- structure(list(), class = "gsets")
+  repo <- annotate_build_args("repository", conn_handler = "conn", signature_ids = c(11, 12), genesets = gs, settings = annotate_settings())
+  expect_identical(repo$conn_handler, "conn")
+  expect_identical(repo$signature_id, c(11, 12))
+  expect_false(any(c("omic_signature", "signature") %in% names(repo)))
+
+  up <- annotate_build_args("upload", conn_handler = "conn", omic_signatures = list(a = 1), genesets = gs, settings = annotate_settings())
+  expect_identical(up$omic_signature, list(a = 1))
+  expect_false(any(c("signature_id", "signature") %in% names(up)))
+
+  genes <- annotate_build_args("genes", conn_handler = "conn", gene_lists = list(g = "TP53"), genesets = gs, settings = annotate_settings())
+  expect_identical(genes$signature, list(g = "TP53"))
+  expect_false(any(c("conn_handler", "signature_id", "omic_signature", "split") %in% names(genes)))
+})
+
+test_that("each test sends only the settings it uses", {
+  gs <- structure(list(), class = "gsets")
+  hyper <- annotate_build_args("repository", "conn", signature_ids = 11, genesets = gs,
+                               settings = annotate_settings(split = FALSE, min_query_genes = 2, background = 20000))
+  expect_identical(hyper[c("test", "split", "min_query_genes", "background")],
+                   list(test = "hypergeometric", split = FALSE, min_query_genes = 2, background = 20000))
+  expect_false(any(c("direction", "ks_source", "power", "seed", "fgsea_args", "absolute") %in% names(hyper)))
+  expect_false(hyper$verbose)
+
+  ks <- annotate_build_args("repository", "conn", signature_ids = 11, genesets = gs,
+                            settings = annotate_settings(test = "kstest", direction = "both", ks_source = "signature"))
+  expect_identical(ks[c("direction", "ks_source", "score_col", "power", "absolute")],
+                   list(direction = "both", ks_source = "signature", score_col = "score", power = 1, absolute = FALSE))
+  expect_false(any(c("split", "min_query_genes", "seed", "background") %in% names(ks)))
+
+  fg <- annotate_build_args("upload", "conn", omic_signatures = list(a = 1), genesets = gs,
+                            settings = annotate_settings(test = "fgsea", direction = NULL, seed = 7,
+                                                         fgsea_args = list(sampleSize = 101, minSize = 15, maxSize = Inf)))
+  expect_identical(fg$direction, "both")
+  expect_identical(fg$seed, 7)
+  expect_identical(fg$fgsea_args, list(minSize = 15))
+  expect_false("absolute" %in% names(fg))
+
+  native_ks <- annotate_build_args("genes", gene_lists = list(g = c(A = 1)), genesets = gs, settings = annotate_settings(test = "kstest"))
+  expect_false(any(c("direction", "ks_source", "score_col") %in% names(native_ks)))
+  native_fg <- annotate_build_args("genes", gene_lists = list(g = c(A = 1)), genesets = gs,
+                                   settings = annotate_settings(test = "fgsea", direction = "up"))
+  expect_identical(native_fg$direction, "up")
+})
+
+test_that("preview arguments are the ones prepareHypeRSignatures() takes", {
+  skip_without_hyper_client()
+  args <- annotate_build_args("upload", "conn", omic_signatures = list(a = 1), genesets = annotate_fixture_genesets(),
+                              settings = annotate_settings(test = "kstest", direction = "both"))
+  prepared <- annotate_prepare_args(args)
+  expect_true(all(names(prepared) %in% names(formals(SigRepo::prepareHypeRSignatures))))
+  expect_false(any(c("genesets", "fdr", "power") %in% names(prepared)))
+  expect_identical(prepared$direction, "both")
+})
+
+test_that("running keeps warnings and returns errors", {
+  ok <- annotate_run(list(x = 1), runner = function(x) {
+    warning("used background = 23467 instead")
+    "result"
+  })
+  expect_identical(ok$result, "result")
+  expect_identical(ok$warnings, "used background = 23467 instead")
+  expect_null(ok$error)
+
+  bad <- annotate_run(list(), runner = function() stop("\nNo query is left.\n"))
+  expect_null(bad$result)
+  expect_identical(bad$error, "No query is left.")
+
+  skip_without_hyper_client()
+  preview <- annotate_preview(
+    annotate_build_args("upload", NULL, omic_signatures = list(LLFS = annotate_llfs()), genesets = annotate_fixture_genesets(),
+                        settings = annotate_settings())
+  )
+  expect_null(preview$error)
+  expect_identical(preview$result$info$query, c("LLFS | Group1", "LLFS | Group2"))
+})
+
+# ---- reading results ------------------------------------------------------------------
+
+test_that("results read the same for a hyp and a multihyp", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()
+  expect_identical(names(annotate_result_hyps(res$kstest)), c("LLFS_Aging_Gene_2023 | up", "LLFS_Aging_Gene_2023 | down"))
+  single <- annotate_result_hyps(res$kstest_single)
+  expect_length(single, 1)
+  expect_identical(names(single), "LLFS_Aging_Gene_2023 | up")
+  expect_identical(annotate_result_test(res$fgsea), "fgsea")
+  expect_true(annotate_is_ranked(res$kstest))
+  expect_false(annotate_is_ranked(res$hypergeometric))
+  expect_false(annotate_uses_rgsets(res$hypergeometric))
+  expect_error(annotate_result_hyps(list()), "not a hypeR")
+})
+
+test_that("the results table stacks every query under its signature", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()
+  for (name in names(res)) {
+    table <- annotate_results_table(res[[name]])
+    hyps <- annotate_result_hyps(res[[name]])
+    expect_identical(nrow(table), sum(vapply(hyps, function(h) nrow(h$data), integer(1))), info = name)
+    expect_identical(names(table)[1:5], c("query", "signature_name", "group_label", "direction", "label"), info = name)
+  }
+  hyper <- annotate_results_table(res$hypergeometric)
+  expect_setequal(unique(hyper$signature_name), c("LLFS", "LLFS_copy"))
+  expect_true(all(c("overlap", "background", "hits") %in% names(hyper)))
+  expect_true(all(c("es", "nes", "le") %in% names(annotate_results_table(res$fgsea))))
+})
+
+test_that("a query's genesets are listed most significant first", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()$fgsea
+  query <- names(annotate_result_hyps(res))[1]
+  labels <- annotate_query_genesets(res, query)
+  data <- annotate_result_hyps(res)[[query]]$data
+  expect_setequal(labels, data$label)
+  expect_identical(labels[1], data$label[order(data$fdr, data$pval, data$label)][1])
+  expect_identical(annotate_query_genesets(res, "no such query"), character())
+})
+
+test_that("provenance has one row per query with the SigRepo keys", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()
+  hyper <- annotate_provenance_table(res$hypergeometric)
+  expect_identical(nrow(hyper), 4L)
+  expect_true(all(c("Test", "SigRepo Background Source", "SigRepo FDR Scope", "Group Label") %in% names(hyper)))
+  expect_false("Seed" %in% names(hyper))
+  fg <- annotate_provenance_table(res$fgsea)
+  expect_true(all(c("Seed", "Sample Size", "fgsea Args") %in% names(fg)))
+})
+
+test_that("the summary counts queries, genesets and significant genesets", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()$hypergeometric
+  s <- annotate_summary(res, fdr = 0.05)
+  table <- annotate_results_table(res)
+  expect_identical(s$test, "hypergeometric")
+  expect_identical(s$n_queries, 4L)
+  expect_identical(s$n_genesets, 24L)
+  expect_identical(s$genesets_name, "FIXTURE (1)")
+  expect_identical(s$n_significant, length(unique(table$label[table$fdr <= 0.05])))
+  expect_identical(s$fdr_scope, "run")
+  expect_true(length(s$backgrounds) >= 1)
+})
+
+test_that("dot plot size follows plotHypeRDots()'s documented rule and clamps", {
+  expect_identical(annotate_dot_size(NULL, 2), list(width = 7, height = 3.2))
+  dots <- data.frame(label = sprintf("SET_%d", 1:10), label_abrv = sprintf("SET_%d", 1:10),
+                     query_label = "up", signature_code = "S1", stringsAsFactors = FALSE)
+  size <- annotate_dot_size(dots, n_queries = 2)
+  expect_equal(size$width, max(7, 5 + 0.085 * 6 + 1.2 * 2))
+  expect_equal(size$height, 1.6 + 0.30 * 10 + 0.05 * 2)
+  big <- data.frame(label = sprintf("SET_%d", 1:200), label_abrv = strrep("x", 50), query_label = "q",
+                    signature_code = "S1", stringsAsFactors = FALSE)
+  expect_identical(annotate_dot_size(big, n_queries = 40), list(width = 20, height = 22))
+})
+
+test_that("an enrichment summary reports each test's own measures and genes", {
+  skip_without_hyper_client()
+  res <- annotate_fixture_results()
+  fg <- res$fgsea
+  query <- names(annotate_result_hyps(fg))[1]
+  geneset <- annotate_query_genesets(fg, query)[1]
+  s <- annotate_enrichment_summary(fg, query, geneset)
+  expect_true(all(c("NES", "Enrichment score (ES)", "FDR", "Hits in ranking") %in% s$table$Measure))
+  expect_false("hypeR score" %in% s$table$Measure)
+  expect_identical(s$genes_label, "Leading edge genes")
+  expect_true(length(s$genes) > 0)
+
+  ks <- res$kstest
+  kq <- names(annotate_result_hyps(ks))[1]
+  ksum <- annotate_enrichment_summary(ks, kq, annotate_query_genesets(ks, kq)[1])
+  expect_true("hypeR score" %in% ksum$table$Measure)
+  expect_false("NES" %in% ksum$table$Measure)
+
+  hyper <- res$hypergeometric
+  hq <- names(annotate_result_hyps(hyper))[1]
+  hg <- annotate_query_genesets(hyper, hq)[1]
+  hs <- annotate_enrichment_summary(hyper, hq, hg)
+  row <- annotate_result_hyps(hyper)[[hq]]$data
+  row <- row[row$label == hg, ]
+  expect_identical(hs$table$Value[hs$table$Measure == "Overlap"], as.character(row$overlap))
+  expect_identical(length(hs$genes), as.integer(row$overlap))
+})
+
+# ---- R code ---------------------------------------------------------------------------
+
+test_that("the R code parses and writes only non-default arguments", {
+  args <- annotate_build_args("repository", "conn", signature_ids = c(11, 12), genesets = structure(list(), class = "gsets"),
+                              settings = annotate_settings(test = "fgsea", direction = NULL, fdr_scope = "query",
+                                                           fgsea_args = list(minSize = 15), background = list(`11` = 20000, `12` = "difexp")))
+  code <- annotate_r_code(
+    args,
+    genesets_description = list(source = "msigdb", species = "Mus musculus", collection = "M2", subcollection = "CP:REACTOME",
+                                clean = TRUE, origin = "cache", version = "2026.1.Mm"),
+    plots = list(dots = list(fdr = 0.05, top = 20), enrichment = list(geneset = "REACTOME_X", query = "alpha | up"),
+                 map = list(type = "emap", query = "alpha | up", similarity_cutoff = 0.2))
+  )
+  expect_silent(parse(text = code))
+  expect_match(code, "conn_handler <- SigRepo::newConnHandler(...)", fixed = TRUE)
+  expect_match(code, "msigdb_species = \"Mus musculus\", msigdb_collection = \"M2\", msigdb_subcollection = \"CP:REACTOME\", msigdb_clean = TRUE)", fixed = TRUE)
+  expect_match(code, "signature_id = c(11, 12)", fixed = TRUE)
+  expect_match(code, "test = \"fgsea\"", fixed = TRUE)
+  expect_match(code, "fdr_scope = \"query\"", fixed = TRUE)
+  expect_match(code, "fgsea_args = list(minSize = 15)", fixed = TRUE)
+  expect_match(code, "background = list(\"11\" = 20000, \"12\" = \"difexp\")", fixed = TRUE)
+  expect_false(grepl("direction =|power =|seed =|verbose =|pval =", code))
+  expect_match(code, "SigRepo::plotHypeRDots(res, fdr = 0.05, top = 20)", fixed = TRUE)
+  expect_match(code, "SigRepo::plotHypeREnrichment(res, geneset = \"REACTOME_X\", query = \"alpha | up\")", fixed = TRUE)
+  expect_match(code, "SigRepo::hypeRToExcel(res", fixed = TRUE)
+})
+
+test_that("R code names uploads, rgsets and long gene lists by reference", {
+  gs <- structure(list(), class = "gsets")
+  up <- annotate_r_code(annotate_build_args("upload", "conn", omic_signatures = list(a = 1), genesets = gs, settings = annotate_settings()),
+                        genesets_description = list(source = "rgsets", collection = "REACTOME", version = "70.0"))
+  expect_silent(parse(text = up))
+  expect_match(up, "omic_signature <- readRDS(", fixed = TRUE)
+  expect_match(up, "omic_signature = omic_signature", fixed = TRUE)
+  expect_match(up, "genesets <- hypeR::hyperdb_rgsets(\"REACTOME\", \"70.0\")", fixed = TRUE)
+
+  short <- annotate_r_code(annotate_build_args("genes", gene_lists = list(g = c("TP53", "MYC")), genesets = gs, settings = annotate_settings()),
+                           genesets_description = list(source = "custom"))
+  expect_match(short, "signature <- list(g = c(\"TP53\", \"MYC\"))", fixed = TRUE)
+  expect_match(short, "genesets <- readRDS(\"annotate_genesets.rds\")", fixed = TRUE)
+  long <- annotate_r_code(annotate_build_args("genes", gene_lists = list(g = sprintf("GENE%d", 1:2000)), genesets = gs, settings = annotate_settings()))
+  expect_match(long, "signature <- readRDS(\"annotate_gene_lists.rds\")", fixed = TRUE)
+  expect_silent(parse(text = long))
+})
