@@ -166,23 +166,6 @@ test_that("a cache miss fetches live only when the server allows it", {
   expect_identical(mh$description$version, "msigdbr 25.1.1")
 })
 
-test_that("hyperdb rgsets choices come from <source>_v<version>.rds files", {
-  available <- data.frame(
-    source = c("KEGG", "METABOANALYST", "REACTOME", "REFMET"),
-    gsets = c("KEGG_v92.0.rds", "METABOANALYST_DRUG_v5.0.rds", "REACTOME_v70.0.rds", "README.md")
-  )
-  choices <- annotate_rgsets_choices(available)
-  expect_identical(choices$source, c("KEGG", "REACTOME"))
-  expect_identical(choices$version, c("92.0", "70.0"))
-  expect_identical(choices$label, c("KEGG (v92.0)", "REACTOME (v70.0)"))
-  expect_identical(annotate_rgsets_choices(NULL)$source, c("KEGG", "REACTOME"))
-
-  expect_error(
-    annotate_load_rgsets("SMPDB", "2.75", loader = function(...) hypeR::gsets$new(list(a = "x"), name = "s", version = "1", quiet = TRUE)),
-    "not a hierarchy"
-  )
-})
-
 test_that("custom genesets parse from text, GMT and CSV", {
   expect_identical(annotate_parse_custom_geneset_text("mine", "TP53, MYC\nTP53"), list(mine = c("TP53", "MYC")))
   expect_error(annotate_parse_custom_geneset_text("", "TP53"), "name")
@@ -297,7 +280,6 @@ test_that("results read the same for a hyp and a multihyp", {
   expect_identical(annotate_result_test(res$fgsea), "fgsea")
   expect_true(annotate_is_ranked(res$kstest))
   expect_false(annotate_is_ranked(res$hypergeometric))
-  expect_false(annotate_uses_rgsets(res$hypergeometric))
   expect_error(annotate_result_hyps(list()), "not a hypeR")
 })
 
@@ -325,17 +307,6 @@ test_that("a query's genesets are listed most significant first", {
   expect_setequal(labels, data$label)
   expect_identical(labels[1], data$label[order(data$fdr, data$pval, data$label)][1])
   expect_identical(annotate_query_genesets(res, "no such query"), character())
-})
-
-test_that("provenance has one row per query with the SigRepo keys", {
-  skip_without_hyper_client()
-  res <- annotate_fixture_results()
-  hyper <- annotate_provenance_table(res$hypergeometric)
-  expect_identical(nrow(hyper), 4L)
-  expect_true(all(c("Test", "SigRepo Background Source", "SigRepo FDR Scope", "Group Label") %in% names(hyper)))
-  expect_false("Seed" %in% names(hyper))
-  fg <- annotate_provenance_table(res$fgsea)
-  expect_true(all(c("Seed", "Sample Size", "fgsea Args") %in% names(fg)))
 })
 
 test_that("the summary counts queries, genesets and significant genesets", {
@@ -419,14 +390,14 @@ test_that("the R code parses and writes only non-default arguments", {
   expect_match(code, "SigRepo::hypeRToExcel(res", fixed = TRUE)
 })
 
-test_that("R code names uploads, rgsets and long gene lists by reference", {
+test_that("R code names uploads, custom genesets and long gene lists by reference", {
   gs <- structure(list(), class = "gsets")
   up <- annotate_r_code(annotate_build_args("upload", "conn", omic_signatures = list(a = 1), genesets = gs, settings = annotate_settings()),
-                        genesets_description = list(source = "rgsets", collection = "REACTOME", version = "70.0"))
+                        genesets_description = list(source = "custom"))
   expect_silent(parse(text = up))
   expect_match(up, "omic_signature <- readRDS(", fixed = TRUE)
   expect_match(up, "omic_signature = omic_signature", fixed = TRUE)
-  expect_match(up, "genesets <- hypeR::hyperdb_rgsets(\"REACTOME\", \"70.0\")", fixed = TRUE)
+  expect_match(up, "genesets <- readRDS(\"annotate_genesets.rds\")", fixed = TRUE)
 
   short <- annotate_r_code(annotate_build_args("genes", gene_lists = list(g = c("TP53", "MYC")), genesets = gs, settings = annotate_settings()),
                            genesets_description = list(source = "custom"))
@@ -456,22 +427,3 @@ test_that("integer inputs from the browser compare equal to the defaults", {
   expect_match(code, "fgsea_args = list(minSize = 15)", fixed = TRUE)
 })
 
-test_that("enrichment maps can be re-laid out, and the R code says how", {
-  skip_without_hyper_client()
-  res <- annotate_fixture_results()$fgsea
-  map <- suppressWarnings(SigRepo::plotHypeRMap(res, query = names(annotate_result_hyps(res))[1], similarity_cutoff = 0.02))
-  expect_identical(annotate_map_layout(map, "layout_nicely"), map)
-  spread <- annotate_map_layout(map, "layout_with_fr")
-  expect_s3_class(spread, "visNetwork")
-  expect_identical(spread$x$nodes$id, map$x$nodes$id)
-  expect_false(isTRUE(all.equal(spread$x$nodes$x, map$x$nodes$x)))
-  expect_null(annotate_map_layout(NULL, "layout_with_fr"))
-
-  args <- annotate_build_args("genes", gene_lists = list(g = c(A = 1)), genesets = structure(list(), class = "gsets"),
-                              settings = annotate_settings(test = "fgsea", direction = NULL))
-  code <- annotate_r_code(args, list(source = "custom"), plots = list(map = list(query = "g | up"), map_layout = "layout_with_fr"))
-  expect_silent(parse(text = code))
-  expect_match(code, "SigRepo::plotHypeRMap(res, query = \"g | up\") |>\n  visNetwork::visIgraphLayout(layout = \"layout_with_fr\", randomSeed = 1)", fixed = TRUE)
-  default <- annotate_r_code(args, list(source = "custom"), plots = list(map = list(query = "g | up"), map_layout = "layout_nicely"))
-  expect_false(grepl("visIgraphLayout", default))
-})

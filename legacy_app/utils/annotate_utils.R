@@ -50,7 +50,8 @@ ANNOTATE_TEST_CHOICES <- c(
 
 ANNOTATE_TEST_LABELS <- c(hypergeometric = "Hypergeometric", kstest = "KS test", fgsea = "GSEA (fgsea)")
 
-# The SigRepo keys runHypeR() appends to every hyp's info, in order.
+# The SigRepo keys runHypeR() appends to every hyp's info, in order. A test
+# holds them to the client's own list.
 ANNOTATE_PROVENANCE_KEYS <- c(
   "SigRepo Signature ID", "SigRepo Signature Name", "Group Label", "Symbol Source",
   "SigRepo Direction", "SigRepo Ranked Table", "SigRepo Score Column", "SigRepo Split",
@@ -333,10 +334,10 @@ annotate_msigdb_subcollections <- function(collection) {
 }
 
 # A hypeR::gsets from a named list of symbol vectors or an msigdbr-style table
-# (gs_name, gene_symbol) -- the on-disk cache holds both forms. gsets and rgsets
-# pass through.
+# (gs_name, gene_symbol) -- the on-disk cache holds both forms. A gsets object
+# passes through.
 annotate_as_gsets <- function(x, name, version, clean = FALSE) {
-  if (methods::is(x, "gsets") || methods::is(x, "rgsets")) {
+  if (methods::is(x, "gsets")) {
     return(x)
   }
   if (base::is.data.frame(x)) {
@@ -397,44 +398,6 @@ annotate_load_msigdb <- function(species, collection, subcollection = "", clean 
   )
 }
 
-# hyperdb rgsets (genesets with a hierarchy, which hierarchy maps need). The
-# repository lists files as <source>/<source>_v<version>.rds; `available` is
-# hypeR::hyperdb_available(), or NULL for the ones hypeR documents.
-annotate_rgsets_choices <- function(available = NULL) {
-  fallback <- base::data.frame(source = c("KEGG", "REACTOME"), version = c("92.0", "70.0"), stringsAsFactors = FALSE)
-  out <- if (base::is.null(available) || base::nrow(available) == 0) {
-    fallback
-  } else {
-    source <- base::as.character(available$source)
-    file <- base::as.character(available$gsets)
-    match <- base::startsWith(file, base::paste0(source, "_v")) & base::grepl("\\.rds$", file)
-    base::data.frame(
-      source = source[match],
-      version = base::sub("\\.rds$", "", base::substring(file[match], base::nchar(source[match]) + 3)),
-      stringsAsFactors = FALSE
-    )
-  }
-  if (base::nrow(out) == 0) {
-    out <- fallback
-  }
-  out$label <- base::sprintf("%s (v%s)", out$source, out$version)
-  out
-}
-
-annotate_load_rgsets <- function(source, version, loader = hypeR::hyperdb_rgsets) {
-  genesets <- loader(source, version)
-  if (!methods::is(genesets, "rgsets")) {
-    base::stop(base::sprintf("hyperdb's %s v%s is not a hierarchy (rgsets), so it cannot be used here.", source, version), call. = FALSE)
-  }
-  base::list(
-    genesets = genesets,
-    description = base::list(
-      source = "rgsets", collection = source, clean = FALSE, origin = "hyperdb",
-      name = source, version = version, n = base::length(genesets$genesets)
-    )
-  )
-}
-
 annotate_load_custom <- function(genesets, clean = FALSE) {
   gsets <- annotate_as_gsets(genesets, name = "Custom", version = base::format(base::Sys.Date()), clean = clean)
   base::list(
@@ -453,7 +416,6 @@ annotate_genesets_label <- function(description) {
   where <- switch(
     description$source,
     msigdb = base::sprintf("%s, MSigDB %s %s", description$species, if (description$origin == "cache") "cache" else "live", description$version),
-    rgsets = base::sprintf("hyperdb v%s", description$version),
     custom = "custom upload"
   )
   base::sprintf("%s: %s genesets (%s)", description$name, base::format(description$n, big.mark = ","), where)
@@ -634,10 +596,6 @@ annotate_result_genesets <- function(result) {
   annotate_result_hyps(result)[[1]]$args$genesets
 }
 
-annotate_uses_rgsets <- function(result) {
-  methods::is(annotate_result_genesets(result), "rgsets")
-}
-
 # Every query's result table stacked, headed by which query and signature each
 # row belongs to. Columns are hypeR's own for the test that ran.
 annotate_results_table <- function(result) {
@@ -678,20 +636,6 @@ annotate_query_genesets <- function(result, query) {
     return(base::character())
   }
   data$label[base::order(data$fdr, data$pval, data$label)]
-}
-
-# One row per query: what hypeR recorded about the test and what SigRepo
-# recorded about how the query was built.
-annotate_provenance_table <- function(result) {
-  hyps <- annotate_result_hyps(result)
-  keys <- c("Test", "Signature Type", "Signature Size", "Genesets", "Background", "Power", "Absolute",
-            "Sample Size", "Min Size", "Max Size", "Seed", "fgsea Args", ANNOTATE_PROVENANCE_KEYS)
-  keys <- keys[base::vapply(keys, function(key) base::any(base::vapply(hyps, function(h) !base::is.null(h$info[[key]]), base::logical(1))), base::logical(1))]
-  out <- base::data.frame(query = base::names(hyps), stringsAsFactors = FALSE)
-  for (key in keys) {
-    out[[key]] <- base::vapply(hyps, annotate_info_value, base::character(1), key = key, USE.NAMES = FALSE)
-  }
-  out
 }
 
 # Headline numbers for the results card.
@@ -826,8 +770,6 @@ annotate_r_code <- function(args, genesets_description = NULL, plots = base::lis
       ")",
       if (base::identical(d$origin, "cache")) base::sprintf("  # the app used its MSigDB cache, version %s", d$version) else ""
     )
-  } else if (base::identical(d$source, "rgsets")) {
-    base::sprintf("genesets <- hypeR::hyperdb_rgsets(%s, %s)", base::deparse(d$collection), base::deparse(d$version))
   } else {
     "genesets <- readRDS(\"annotate_genesets.rds\")  # the genesets download"
   }
@@ -860,13 +802,6 @@ annotate_r_code <- function(args, genesets_description = NULL, plots = base::lis
   plot_lines <- base::character()
   if (!base::is.null(plots$dots)) plot_lines <- c(plot_lines, plot_call("plotHypeRDots", "res", plots$dots))
   if (!base::is.null(plots$enrichment)) plot_lines <- c(plot_lines, plot_call("plotHypeREnrichment", "res", plots$enrichment))
-  if (!base::is.null(plots$map)) {
-    map_line <- plot_call("plotHypeRMap", "res", plots$map)
-    if (!base::is.null(plots$map_layout) && !base::identical(plots$map_layout, "layout_nicely")) {
-      map_line <- base::sprintf("%s |>\n  visNetwork::visIgraphLayout(layout = %s, randomSeed = 1)", map_line, base::deparse(plots$map_layout))
-    }
-    plot_lines <- c(plot_lines, map_line)
-  }
   if (base::length(plot_lines) > 0) {
     lines <- c(lines, "", plot_lines)
   }
@@ -915,13 +850,4 @@ annotate_number_or <- function(x, default, min = -Inf) {
     return(default)
   }
   base::max(min, x[1])
-}
-
-# An enrichment map re-laid out with an igraph layout. hypeR's own
-# (layout_nicely) is returned as it is; others are seeded so they repeat.
-annotate_map_layout <- function(map, layout = "layout_nicely") {
-  if (base::is.null(map) || base::identical(layout, "layout_nicely")) {
-    return(map)
-  }
-  visNetwork::visIgraphLayout(map, layout = layout, randomSeed = 1)
 }

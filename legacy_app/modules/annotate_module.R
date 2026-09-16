@@ -2,7 +2,7 @@
 #
 # A front end to SigRepo::runHypeR(). Signatures come from one source per run
 # (repository picks, uploaded OmicSignature objects, or hypeR-native gene
-# lists), genesets from the MSigDB cache, hyperdb rgsets or custom files, and
+# lists), genesets from the MSigDB cache or custom files, and
 # every argument of the chosen test is exposed with the function's own default,
 # which its label prints. prepareHypeRSignatures() previews the queries a run
 # would test. The result is read back with SigRepo's hypeR plot and data
@@ -20,15 +20,6 @@ ANNOTATE_SOURCE_CHOICES <- c(
   "Gene lists" = "genes"
 )
 
-# Enrichment map layouts: hypeR's own, then igraph layouts that spread out
-# maps with few links (hypeR's lines unlinked genesets up along one edge).
-ANNOTATE_MAP_LAYOUTS <- c(
-  "hypeR default" = "layout_nicely",
-  "Force-directed" = "layout_with_fr",
-  "Circle" = "layout_in_circle",
-  "Grid" = "layout_on_grid"
-)
-
 ANNOTATE_TEST_HELP <- list(
   hypergeometric = paste(
     "Tests whether each query's genes overlap a geneset more than chance in a background population.",
@@ -39,12 +30,11 @@ ANNOTATE_TEST_HELP <- list(
   kstest = paste(
     "Ranks each signature's difexp table by score and tests whether a geneset's genes sit toward the top of the",
     "ranking (hypeR's one-sided KS test). Direction down ranks by the negated score, both tests each end as its own",
-    "query, and a categorical signature is ranked within each category. The p-value does not depend on power."
+    "query, and a categorical signature is ranked within each category."
   ),
   fgsea = paste(
     "Runs fgsea::fgseaMultilevel() once per difexp ranking and splits pathways by the sign of their enrichment",
-    "score: up (ES > 0) and down (ES < 0). Power is fgsea's gseaParam and changes the p-values; each run is seeded",
-    "so results repeat."
+    "score: up (ES > 0) and down (ES < 0). Each run is seeded, so results repeat."
   )
 )
 
@@ -57,7 +47,7 @@ annotate_module_ui <- function(id) {
     tagList(label, " ", span(class = "annotate-default", annotate_default_text(name, test)))
   }
   runtime_fetch <- runtime_msigdb_fetch_allowed()
-  geneset_sources <- c("MSigDB" = "msigdb", if (runtime_fetch) c("hypeR rgsets (hierarchies)" = "rgsets"), "Custom" = "custom")
+  geneset_sources <- c("MSigDB" = "msigdb", "Custom" = "custom")
   species_choices <- unique(c(
     "Homo sapiens", "Mus musculus",
     tryCatch(msigdbr::msigdbr_species()$species_name, error = function(e) character())
@@ -211,14 +201,6 @@ annotate_module_ui <- function(id) {
                 "Mouse collections (MH, M1-M8) use the mouse database; other species map human collections to orthologs."
               )
             ),
-            if (runtime_fetch) {
-              conditionalPanel(
-                condition = "input.geneset_source == 'rgsets'",
-                ns = ns,
-                selectInput(ns("rgsets"), "Hierarchy", choices = c("Loading..." = "")),
-                helpText("Genesets with a parent-child hierarchy from hypeR's hyperdb, downloaded when loaded. Results can be drawn as hierarchy maps.")
-              )
-            },
             conditionalPanel(
               condition = "input.geneset_source == 'custom'",
               ns = ns,
@@ -268,84 +250,45 @@ annotate_module_ui <- function(id) {
                 ns = ns,
                 selectInput(ns("direction"), with_default("Direction", "direction"), choices = c("up", "down", "both"),
                             selected = ANNOTATE_DEFAULTS$direction)
-              ),
-              conditionalPanel(
-                condition = "input.source != 'genes'",
-                ns = ns,
-                fluidRow(
-                  column(6, selectInput(ns("ks_source"), with_default("Ranked table", "ks_source"), choices = c("difexp", "signature"),
-                                        selected = ANNOTATE_DEFAULTS$ks_source)),
-                  column(6, textInput(ns("score_col"), with_default("Score column", "score_col"), value = ANNOTATE_DEFAULTS$score_col))
-                )
-              ),
-              fluidRow(
-                column(6, numericInput(ns("power"), with_default("Power", "power"), value = ANNOTATE_DEFAULTS$power, min = 0, step = 0.5)),
-                column(6, conditionalPanel(
-                  condition = "input.test == 'kstest'",
-                  ns = ns,
-                  checkboxInput(ns("absolute"), with_default("Absolute", "absolute"), value = ANNOTATE_DEFAULTS$absolute)
-                ))
               )
             ),
 
+            tags$h4("Background"),
+            selectInput(
+              ns("background_mode"), with_default("Background", "background"),
+              choices = c(
+                "Auto (difexp when complete, else 23467)" = "default",
+                "Population size" = "number",
+                "Each signature's difexp genes" = "difexp",
+                "Gene universe" = "genes",
+                "Per signature" = "per_signature"
+              )
+            ),
             conditionalPanel(
-              condition = "input.test == 'fgsea'",
+              condition = "input.background_mode == 'number'",
               ns = ns,
-              tags$h4("fgsea"),
-              fluidRow(
-                column(6, numericInput(ns("seed"), with_default("Seed", "seed"), value = ANNOTATE_DEFAULTS$seed, step = 1)),
-                column(6, numericInput(ns("sample_size"), with_default("sampleSize", "sampleSize"),
-                                       value = ANNOTATE_FGSEA_DEFAULTS$sampleSize, min = 1, step = 10))
-              ),
-              fluidRow(
-                column(6, numericInput(ns("min_size"), with_default("minSize", "minSize"), value = ANNOTATE_FGSEA_DEFAULTS$minSize, min = 1, step = 1)),
-                column(6, numericInput(ns("max_size"), tagList("maxSize", " ", span(class = "annotate-default", "default (Inf: leave blank)")),
-                                       value = NA, min = 1, step = 10))
-              )
+              numericInput(ns("background_number"), "Population size", value = 23467, min = 1, step = 100)
             ),
-
-            tags$h4("Significance"),
-            selectInput(ns("fdr_scope"), with_default("FDR adjusted across", "fdr_scope"),
-                        choices = c("The whole run" = "run", "Each query" = "query"), selected = ANNOTATE_DEFAULTS$fdr_scope),
-            fluidRow(
-              column(6, numericInput(ns("pval"), with_default("Keep p ≤", "pval"), value = ANNOTATE_DEFAULTS$pval, min = 0, max = 1, step = 0.01)),
-              column(6, numericInput(ns("fdr"), with_default("Keep FDR ≤", "fdr"), value = ANNOTATE_DEFAULTS$fdr, min = 0, max = 1, step = 0.01))
+            conditionalPanel(
+              condition = "input.background_mode == 'genes'",
+              ns = ns,
+              textAreaInput(ns("background_genes"), "Background genes", rows = 3, width = "100%",
+                            placeholder = "Every gene measured, separated by commas or new lines")
             ),
-            helpText("These cutoffs filter the stored result. Leave them at 1 to keep every geneset and filter the plots instead."),
-
-            tags$details(
-              tags$summary(strong("Background")),
-              selectInput(
-                ns("background_mode"), with_default("Background", "background"),
-                choices = c(
-                  "Auto (difexp when complete, else 23467)" = "default",
-                  "Population size" = "number",
-                  "Each signature's difexp genes" = "difexp",
-                  "Gene universe" = "genes",
-                  "Per signature" = "per_signature"
-                )
-              ),
-              conditionalPanel(
-                condition = "input.background_mode == 'number'",
-                ns = ns,
-                numericInput(ns("background_number"), "Population size", value = 23467, min = 1, step = 100)
-              ),
-              conditionalPanel(
-                condition = "input.background_mode == 'genes'",
-                ns = ns,
-                textAreaInput(ns("background_genes"), "Background genes", rows = 3, width = "100%",
-                              placeholder = "Every gene measured, separated by commas or new lines")
-              ),
-              conditionalPanel(
-                condition = "input.background_mode == 'per_signature'",
-                ns = ns,
-                uiOutput(ns("background_table"))
-              ),
-              helpText(
-                "Auto uses each signature's measured difexp genes for the hypergeometric test when the difexp looks complete,",
-                "and 23467 with a warning when it looks filtered. KS and GSEA rank the whole table, so a population size",
-                "does not change them; a gene universe or difexp background reduces queries and genesets to those genes."
-              )
+            conditionalPanel(
+              condition = "input.background_mode == 'per_signature'",
+              ns = ns,
+              uiOutput(ns("background_table"))
+            ),
+            helpText(
+              "Auto uses each signature's measured difexp genes for the hypergeometric test when the difexp looks complete,",
+              "and 23467 with a warning when it looks filtered. KS and GSEA rank the whole table, so a population size",
+              "does not change them; a gene universe or difexp background reduces queries and genesets to those genes."
+            ),
+            helpText(
+              "Every other runHypeR() argument stays at its default: the ranked table is the difexp, ranked by the score",
+              "column, with power 1, no absolute scoring, fgsea's own sampling and seed, FDR pooled across the run, and",
+              "every geneset kept (filter the plots instead)."
             )
           ),
 
@@ -406,26 +349,12 @@ annotate_module_ui <- function(id) {
               )
             ),
             tabPanel(
-              "Maps",
-              uiOutput(ns("map_controls")),
-              uiOutput(ns("map_message")),
-              visNetwork::visNetworkOutput(ns("map"), height = "640px")
-            ),
-            tabPanel(
               "Results",
               helpText(
                 "Every query's hypeR table. Select a row to open its enrichment plot.",
                 "Copy, CSV and Excel export the rows that pass the column filters, at full precision."
               ),
               DT::DTOutput(ns("results_table"))
-            ),
-            tabPanel(
-              "Provenance",
-              helpText(
-                "How each query was built and tested: hypeR's own record of the test and the keys runHypeR() adds",
-                "(symbol source, background used, genes removed, genesets dropped, FDR scope)."
-              ),
-              DT::DTOutput(ns("provenance_table"))
             ),
             tabPanel(
               "hypeR table",
@@ -490,8 +419,8 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     })
 
     # Ranked tests on the difexp table need signatures that have one.
-    observeEvent(list(input$test, input$ks_source), {
-      if (!identical(input$test %||% "hypergeometric", "hypergeometric") && identical(input$ks_source %||% "difexp", "difexp")) {
+    observeEvent(input$test, {
+      if (!identical(input$test %||% "hypergeometric", "hypergeometric")) {
         updateSelectInput(session, "facet_has_difexp", selected = "yes")
       }
     }, ignoreInit = TRUE)
@@ -620,20 +549,9 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       updateSelectInput(session, "subcollection", choices = choices, selected = unname(choices)[1])
     })
 
-    rgsets_loaded <- reactiveVal(FALSE)
-    observeEvent(input$geneset_source, {
-      if (!identical(input$geneset_source, "rgsets") || rgsets_loaded()) {
-        return()
-      }
-      available <- tryCatch(hypeR::hyperdb_available(), error = function(e) NULL)
-      choices <- annotate_rgsets_choices(available)
-      updateSelectInput(session, "rgsets", choices = stats::setNames(paste(choices$source, choices$version, sep = "|"), choices$label))
-      rgsets_loaded(TRUE)
-    })
-
     # A change to what would be loaded drops what was loaded, so a run never
     # uses genesets the picker no longer shows.
-    observeEvent(list(input$geneset_source, input$species, input$collection, input$subcollection, input$rgsets,
+    observeEvent(list(input$geneset_source, input$species, input$collection, input$subcollection,
                       input$custom_file, input$clean), {
       if (!is.null(genesets_state())) {
         genesets_state(NULL)
@@ -646,10 +564,6 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         source,
         msigdb = list(source = source, species = input$species, collection = input$collection,
                       subcollection = input$subcollection %||% "", clean = isTRUE(input$clean)),
-        rgsets = {
-          parts <- strsplit(input$rgsets %||% "", "|", fixed = TRUE)[[1]]
-          list(source = source, rgsets = parts[1], version = parts[2])
-        },
         custom = list(source = source, file = input$custom_file, name = input$custom_name,
                       genes = input$custom_genes, clean = isTRUE(input$clean))
       )
@@ -749,29 +663,18 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       )
     })
 
+    # The tab exposes the test, how signatures are split, direction and the
+    # background; every other runHypeR() argument stays at its default, and is
+    # named here so the R code and the defaults cannot drift apart.
     settings <- reactive({
       test <- input$test %||% ANNOTATE_DEFAULTS$test
-      max_size <- input$max_size
-      list(
+      utils::modifyList(ANNOTATE_DEFAULTS, list(
         test = test,
         split = input$split %||% ANNOTATE_DEFAULTS$split,
         direction = input$direction %||% annotate_default_direction(test),
-        ks_source = input$ks_source %||% ANNOTATE_DEFAULTS$ks_source,
-        score_col = trimws(input$score_col %||% ANNOTATE_DEFAULTS$score_col),
-        min_query_genes = input$min_query_genes %||% ANNOTATE_DEFAULTS$min_query_genes,
-        fdr_scope = input$fdr_scope %||% ANNOTATE_DEFAULTS$fdr_scope,
-        seed = input$seed %||% ANNOTATE_DEFAULTS$seed,
-        fgsea_args = list(
-          sampleSize = input$sample_size %||% ANNOTATE_FGSEA_DEFAULTS$sampleSize,
-          minSize = input$min_size %||% ANNOTATE_FGSEA_DEFAULTS$minSize,
-          maxSize = if (is.null(max_size) || is.na(max_size)) Inf else max_size
-        ),
-        background = background()$value,
-        power = input$power %||% ANNOTATE_DEFAULTS$power,
-        absolute = input$absolute %||% ANNOTATE_DEFAULTS$absolute,
-        pval = input$pval %||% ANNOTATE_DEFAULTS$pval,
-        fdr = input$fdr %||% ANNOTATE_DEFAULTS$fdr
-      )
+        fgsea_args = ANNOTATE_FGSEA_DEFAULTS,
+        background = background()$value
+      ))
     })
 
     # ---- readiness -------------------------------------------------------------
@@ -787,10 +690,10 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       if (identical(source, "repository")) {
         rows <- picked_rows()
         if (nrow(rows) == 0) problems <- c(problems, "Pick at least one signature from the repository.")
-        ranked_difexp <- !identical(s$test, "hypergeometric") && identical(s$ks_source, "difexp")
+        ranked_difexp <- !identical(s$test, "hypergeometric")
         no_difexp <- rows$signature_name[!is.na(rows$has_difexp) & as.integer(rows$has_difexp) != 1L]
         if (ranked_difexp && length(no_difexp) > 0) {
-          notes <- c(notes, sprintf("%s has no difexp table and will be skipped; rank the signature table instead (Ranked table: signature).",
+          notes <- c(notes, sprintf("%s has no difexp table to rank and will be skipped.",
                                     paste(sprintf("'%s'", no_difexp), collapse = ", ")))
         }
         state <- genesets_state()
@@ -819,9 +722,6 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         problems <- c(problems, "A per-signature background needs repository or uploaded signatures; gene lists take one background.")
       }
       if (!is.null(background()$error)) problems <- c(problems, background()$error)
-      if (!identical(s$test, "hypergeometric") && identical(source, "repository") && !nzchar(s$score_col)) {
-        problems <- c(problems, "Enter the score column to rank by.")
-      }
       state <- genesets_state()
       if (is.null(state$genesets)) problems <- c(problems, "Load genesets in Step 2.")
 
@@ -1179,82 +1079,6 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     output$download_enrichment_png <- plot_download("enrichment", "png", enrichment_size, draw_enrichment)
     output$download_enrichment_pdf <- plot_download("enrichment", "pdf", enrichment_size, draw_enrichment)
 
-    # ---- maps ------------------------------------------------------------------------
-
-    output$map_controls <- renderUI({
-      res <- result()
-      req(res)
-      queries <- names(annotate_result_hyps(res))
-      types <- c("Enrichment map" = "emap", if (annotate_uses_rgsets(res)) c("Hierarchy map" = "hmap"))
-      div(
-        class = "annotate-controls",
-        selectInput(ns("map_type"), "Map", choices = types, selected = keep_choice(isolate(input$map_type), types), width = "160px"),
-        selectInput(ns("map_query"), "Query", choices = queries, selected = keep_choice(isolate(input$map_query), queries), width = "580px"),
-        selectInput(ns("map_val"), "Colour by", choices = c("FDR" = "fdr", "p-value" = "pval"),
-                    selected = keep_choice(isolate(input$map_val), c("fdr", "pval")), width = "110px"),
-        numericInput(ns("map_cutoff"), "FDR ≤", value = isolate(input$map_cutoff) %||% 0.05, min = 0, max = 1, step = 0.01, width = "90px"),
-        numericInput(ns("map_top"), "Top", value = isolate(input$map_top) %||% 25, min = 2, step = 1, width = "80px"),
-        conditionalPanel(
-          condition = "input.map_type == 'emap'",
-          ns = ns,
-          div(
-            class = "annotate-controls",
-            selectInput(ns("map_metric"), "Similarity", choices = c("Jaccard" = "jaccard_similarity", "Overlap" = "overlap_similarity"),
-                        selected = keep_choice(isolate(input$map_metric), c("jaccard_similarity", "overlap_similarity")), width = "120px"),
-            numericInput(ns("map_similarity"), "Similarity cutoff", value = isolate(input$map_similarity) %||% 0.2,
-                         min = 0, max = 1, step = 0.05, width = "130px"),
-            selectInput(ns("map_layout"), "Layout", choices = ANNOTATE_MAP_LAYOUTS,
-                        selected = keep_choice(isolate(input$map_layout), ANNOTATE_MAP_LAYOUTS), width = "170px")
-          )
-        )
-      )
-    })
-
-    map_settings <- reactive({
-      res <- result()
-      req(res)
-      queries <- names(annotate_result_hyps(res))
-      cutoff <- input$map_cutoff
-      list(
-        type = keep_choice(input$map_type, c("emap", if (annotate_uses_rgsets(res)) "hmap")),
-        query = keep_choice(input$map_query, queries),
-        val = keep_choice(input$map_val, c("fdr", "pval")),
-        fdr = if (is.null(cutoff) || is.na(cutoff)) 1 else cutoff,
-        top = annotate_number_or(input$map_top, 25, min = 2),
-        similarity_metric = keep_choice(input$map_metric, c("jaccard_similarity", "overlap_similarity")),
-        similarity_cutoff = annotate_number_or(input$map_similarity, 0.2, min = 0)
-      )
-    })
-
-    map_layout <- reactive({
-      keep_choice(input$map_layout, ANNOTATE_MAP_LAYOUTS)
-    })
-
-    # plotHypeRMap() returns NULL with a warning when there is nothing to draw.
-    map_outcome <- reactive({
-      s <- map_settings()
-      layout <- map_layout()
-      outcome <- compare_run(c(list(result()), s), runner = SigRepo::plotHypeRMap)
-      if (!is.null(outcome$result) && identical(s$type, "emap")) {
-        outcome$result <- annotate_map_layout(outcome$result, layout)
-      }
-      outcome
-    })
-
-    output$map_message <- renderUI({
-      m <- map_outcome()
-      text <- c(m$error, m$warnings)
-      if (length(text) == 0 && is.null(m$result)) text <- "Nothing to draw for these settings."
-      if (length(text) == 0) return(NULL)
-      div(class = "alert alert-info annotate-message", paste(text, collapse = "\n"))
-    })
-
-    output$map <- visNetwork::renderVisNetwork({
-      m <- map_outcome()
-      req(m$result)
-      m$result
-    })
-
     # ---- tables ------------------------------------------------------------------------
 
     results_table <- reactive({
@@ -1298,20 +1122,6 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       updateTabsetPanel(session, "result_tabs", selected = "Enrichment")
     })
 
-    output$provenance_table <- DT::renderDT({
-      res <- result()
-      req(res)
-      DT::datatable(
-        annotate_provenance_table(res),
-        extensions = "Buttons",
-        rownames = FALSE,
-        selection = "none",
-        class = "compact stripe hover",
-        options = list(dom = "Bt", paging = FALSE, scrollX = TRUE, ordering = FALSE,
-                       buttons = annotate_export_buttons(export_name("provenance")))
-      )
-    }, server = FALSE)
-
     output$hyper_table <- renderUI({
       res <- result()
       req(res)
@@ -1327,17 +1137,11 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       req(state$args, state$result)
       dots <- isolate(tryCatch(dot_settings(), error = function(e) NULL))
       enrichment <- tryCatch(enrichment_selection(), error = function(e) NULL)
-      map <- tryCatch(map_settings(), error = function(e) NULL)
       plots <- list(
         dots = if (!is.null(dots)) annotate_changed_args(
           dots, list(val = "fdr", pval = 1, fdr = 1, top = 20, color_by = "significance", size_by = "geneset", signature_key = TRUE, abrv = 50)
         ),
-        enrichment = if (!is.null(enrichment)) list(geneset = enrichment$geneset, query = enrichment$query),
-        map = if (!is.null(map)) c(list(query = map$query), annotate_changed_args(
-          map[setdiff(names(map), "query")],
-          list(type = "emap", val = "fdr", pval = 1, fdr = 1, top = 25, similarity_metric = "jaccard_similarity", similarity_cutoff = 0.2)
-        )),
-        map_layout = if (!is.null(map) && identical(map$type, "emap")) isolate(map_layout())
+        enrichment = if (!is.null(enrichment)) list(geneset = enrichment$geneset, query = enrichment$query)
       )
       annotate_r_code(state$args, state$genesets_description, plots = plots)
     })
@@ -1378,19 +1182,13 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
 }
 
 
-# Load Step 2's genesets for real: the MSigDB cache (or msigdbr), hyperdb, or
-# custom files and text.
+# Load Step 2's genesets for real: the MSigDB cache (or msigdbr), or custom
+# files and text.
 annotate_default_geneset_loader <- function(request) {
   switch(
     request$source,
     msigdb = annotate_load_msigdb(request$species, request$collection, request$subcollection, clean = request$clean,
                                   cache_dir = annotate_msigdb_cache_dir()),
-    rgsets = {
-      if (is.null(request$rgsets) || is.na(request$rgsets) || !nzchar(request$rgsets)) {
-        stop("Choose a hierarchy to load.", call. = FALSE)
-      }
-      annotate_load_rgsets(request$rgsets, request$version)
-    },
     custom = {
       sets <- list()
       if (!is.null(request$file)) {

@@ -66,7 +66,7 @@ test_that("a run needs signatures and loaded genesets, and says so", {
 test_that("ranked tests flag signatures without a difexp and a species mismatch", {
   skip_without_hyper_client()
   run_annotate_module(args = list(geneset_loader = fixture_loader), {
-    session$setInputs(source = "repository", test = "kstest", ks_source = "difexp", score_col = "score", background_mode = "default")
+    session$setInputs(source = "repository", test = "kstest", background_mode = "default")
     session$setInputs(signature_table_rows_selected = c(2, 3), load_genesets = 1)
     notes <- readiness()$notes
     expect_true(any(grepl("'beta' has no difexp table", notes)))
@@ -103,11 +103,8 @@ test_that("preview and run call the client with the repository arguments", {
     skipped = data.frame(signature = character(), reason = character(), message = character())
   ))
   run_annotate_module(args = list(geneset_loader = fixture_loader, runner = run$runner, previewer = preview$runner), {
-    session$setInputs(
-      source = "repository", test = "fgsea", direction = "both", ks_source = "difexp", score_col = "score",
-      power = 1, seed = 1, sample_size = 101, min_size = 15, max_size = NA,
-      fdr_scope = "run", pval = 1, fdr = 1, background_mode = "number", background_number = 20000
-    )
+    session$setInputs(source = "repository", test = "fgsea", direction = "both",
+                      background_mode = "number", background_number = 20000)
     session$setInputs(signature_table_rows_selected = 1, load_genesets = 1)
 
     session$setInputs(preview = 1)
@@ -121,7 +118,12 @@ test_that("preview and run call the client with the repository arguments", {
     args <- .(run$calls)()[[1]]
     expect_identical(args$signature_id, 11)
     expect_identical(args$test, "fgsea")
-    expect_identical(args$fgsea_args, list(minSize = 15))
+    # Everything the tab no longer exposes is sent at runHypeR()'s own default,
+    # so the R code leaves it out.
+    expect_length(args$fgsea_args, 0)
+    expect_identical(args[c("fdr_scope", "pval", "fdr", "ks_source", "score_col", "power", "seed")],
+                     list(fdr_scope = "run", pval = 1, fdr = 1, ks_source = "difexp", score_col = "score", power = 1, seed = 1))
+    expect_false("absolute" %in% names(args))
     expect_identical(args$background, 20000)
     expect_identical(args$genesets, annotate_fixture_genesets())
     expect_identical(run_state()$result, .(res))
@@ -129,7 +131,7 @@ test_that("preview and run call the client with the repository arguments", {
     expect_match(output$result_summary$html, "GSEA \\(fgsea\\)")
     expect_false(grepl("settings have changed", output$run_messages$html))
 
-    session$setInputs(fdr_scope = "query")
+    session$setInputs(background_number = 15000)
     expect_match(output$run_messages$html, "settings have changed since this run")
   })
 })
@@ -141,7 +143,7 @@ test_that("uploads and gene lists are sent as their own arguments", {
   saveRDS(list(LLFS = annotate_llfs()), path)
   run_annotate_module(args = list(geneset_loader = fixture_loader, runner = run$runner), {
     session$setInputs(source = "upload", test = "hypergeometric", split = FALSE, min_query_genes = 4,
-                      fdr_scope = "run", pval = 1, fdr = 1, background_mode = "default")
+                      background_mode = "default")
     session$setInputs(upload = annotate_upload_of(.(path), "llfs.rds"), load_genesets = 1)
     expect_match(output$signature_summary$html, "LLFS")
     session$setInputs(run = 1)
@@ -193,19 +195,15 @@ test_that("every result view renders for a real fgsea result", {
     expect_true(is.list(output$enrichment_plot))
     expect_match(output$enrichment_details$html, "Leading edge genes")
 
-    session$setInputs(map_type = "emap", map_query = query, map_val = "fdr", map_cutoff = 1, map_top = 25,
-                      map_metric = "jaccard_similarity", map_similarity = 0.05)
-    expect_false(is.null(map_outcome()$result) && length(map_outcome()$warnings) == 0)
-
     code <- output$r_code
     expect_match(code, "SigRepo::runHypeR(", fixed = TRUE)
     expect_match(code, "test = \"fgsea\"", fixed = TRUE)
     expect_match(code, "SigRepo::plotHypeRDots(res, fdr = 0.25, top = 10, color_by = \"score\")", fixed = TRUE)
     expect_match(code, sprintf("SigRepo::plotHypeREnrichment(res, geneset = \"%s\"", geneset), fixed = TRUE)
+    expect_false(grepl("plotHypeRMap", code))
     expect_silent(parse(text = code))
 
     expect_true(nchar(output$results_table) > 0)
-    expect_true(nchar(output$provenance_table) > 0)
     expect_match(output$hyper_table$html, "reactable")
   })
 })
