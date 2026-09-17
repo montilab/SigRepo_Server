@@ -338,6 +338,37 @@ sudo docker network create -d bridge db-net &>/dev/null || echo "Docker network 
 echo "Start the mysql container. If prompted, enter the admin password to give permission..."
 sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-mysql
 
+# Wait for MySQL to accept connections before anything tries to use it.
+#
+# `docker compose up -d` returns as soon as the container is STARTED, which on a
+# fresh install is long before the server is usable: the data directory above
+# was just wiped, so mysqld first initializes it, and during that it listens on
+# no network port at all. The API boots faster than that, so without this wait
+# the database build can race MySQL and fail with
+# "Can't connect to MySQL server on 'sigrepo-mysql:3306' (111)" -- leaving the
+# containers running and the database empty.
+#
+# --protocol=TCP on purpose: the initializing server is reachable over its local
+# socket before it accepts TCP, and TCP is how the API and Shiny reach it.
+echo "Waiting for the database to accept connections..."
+mysql_ready=""
+for attempt in $(seq 1 60); do
+  if sudo docker exec sigrepo-mysql mysqladmin ping \
+       -h 127.0.0.1 --protocol=TCP -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent &>/dev/null; then
+    mysql_ready="yes"
+    break
+  fi
+  sleep 5
+done
+
+if [ -z "${mysql_ready}" ]; then
+  echo ""
+  echo "WARNING: MySQL did not accept connections within five minutes. Check"
+  echo "  sudo docker logs sigrepo-mysql"
+  exit 1
+fi
+echo "Database is up."
+
 # Address MySQL by its container name, not its IP. Docker assigns a new IP every
 # time a container is recreated, so an IP written here works until the first
 # `docker compose down && up` and then silently stops resolving. The name is
