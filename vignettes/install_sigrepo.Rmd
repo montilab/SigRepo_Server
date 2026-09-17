@@ -132,6 +132,8 @@ It is the only account on this instance, and it is an administrator.
 
   - The installer builds the database for you by calling the API's **`init_db`** endpoint, which creates the schema and loads reference tables such as organisms, phenotypes, platforms and sample types. You do not need to run it yourself.
 
+  - A local install fetches MSigDB gene set collections with `msigdbr` when they are not in the on-disk cache, so enrichment can use any collection, not only the ones the installer cached. A virtual machine install keeps the cache-only behaviour that sigrepo.org runs with; to change either, set `MSIGDB_ALLOW_RUNTIME_FETCH` in the **.Renviron** file of the database directory.
+
   - If the installer reports that the database was not built, it prints the `curl` command to retry `init_db` and the command that starts the web interface afterwards. The **Admin Key** that command needs is stored in the **.Renviron** file in the database directory you chose in step (5), e.g. **$HOME/SigRepo_DB**.
 
 7. Open the **Web interface** address printed in step (5), e.g. `http://localhost:8051`, to confirm that the `SigRepo` R Shiny app is running. Sign in with the admin account you created during installation.

@@ -31,10 +31,19 @@ while true; do
   fi
 done
 
-# Act based on choice
+# Act based on choice.
+#
+# MSIGDB_ALLOW_RUNTIME_FETCH decides what enrichment does when a gene set
+# collection is not in the on-disk MSigDB cache: fetch it with msigdbr, or fail
+# with "MSigDB cache file was not found". The cache exists for sigrepo.org,
+# whose droplet cannot afford to pull collections at request time. A local
+# machine can, and a cache that is missing a collection should not be a dead
+# end there -- so local installs fall back to fetching, and server installs
+# keep the cache-only behaviour production runs with.
 case $choice in
   1)
     SERVER_URL="localhost"
+    MSIGDB_RUNTIME_FETCH="true"
     ;;
   2)
     while true; do
@@ -45,6 +54,7 @@ case $choice in
         continue
       else
         SERVER_URL=${DB_HOST}
+        MSIGDB_RUNTIME_FETCH="false"
         break
       fi
     done
@@ -350,6 +360,7 @@ DB_PORT = '${DB_CONTAINER_PORT}'
 DB_USER = 'root'
 DB_PASSWORD = '${MYSQL_ROOT_PASSWORD}'
 ADMIN_KEY = '${ADMIN_KEY}'
+MSIGDB_ALLOW_RUNTIME_FETCH = '${MSIGDB_RUNTIME_FETCH}'
 EOF
 
 # Start sigrepo-api containers
@@ -397,6 +408,7 @@ DB_USER = 'root'
 DB_PASSWORD = '${MYSQL_ROOT_PASSWORD}'
 API_HOST = 'sigrepo-api'
 API_PORT = '3838'
+MSIGDB_ALLOW_RUNTIME_FETCH = '${MSIGDB_RUNTIME_FETCH}'
 EOF
 chmod 600 "${MYSQL_DIR}/.Renviron.shiny"
 
