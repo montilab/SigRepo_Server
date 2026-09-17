@@ -70,7 +70,7 @@ git clone https://github.com/montilab/SigRepo_Server
 cd SigRepo_Server
 ```
 
-5. Run `install_sigrepo.sh` to initialize the MySQL database instance, configure the API endpoints, and launch the web interface simultaneously.
+5. Run `install_sigrepo.sh` to initialize the MySQL database instance, configure the API endpoints, build the database, and launch the R Shiny web interface.
 
 ```bash
 bash install_sigrepo.sh
@@ -107,43 +107,38 @@ hostname -I
 ![](images/setup-db-instance-location.png)
 
 
-- Once you’ve finished the rest of the installation steps without any issues, you should see an output similar to the following.
+- The script then asks for a MySQL root password and creates your **admin account** (username, email and password). This is the account you sign in to the web interface with; it is the only account on a new instance.
+
+- The installer pulls the images, starts the MySQL database and the API, builds the database schema and reference tables (this takes several minutes), and finally starts the R Shiny web interface. When it finishes you should see output similar to the following. If a default port (3306, 8020 or 8051) is already in use on your machine, the installer picks a free port instead and prints it here.
 
 ```
-[+] Running 3/3
- ✔ Container sigrepo-mysql  Running                                                                                                                                                                                                                                       0.0s 
- ✔ Container sigrepo-api    Running                                                                                                                                                                                                                                       0.0s 
- ✔ Container sigrepo-web    Started                                                                                                                                                                                                                                       0.0s 
+==============================
+   SIGREPO IS READY           
+==============================
 
-SigRepo setup is complete!
-SigRepo MySQL database is currently deployed at port 3306
-SigRepo API is currently deployed at localhost:8020/__docs__/
-The SigRepo web interface is currently deployed at localhost:8050
+  Web interface    http://localhost:8051
+  API docs         http://localhost:8020/__docs__/
+  MySQL database   port 3306
+
+Sign in as '<your admin username>' with the password you chose.
+It is the only account on this instance, and it is an administrator.
 ```
 
-6. Based on the output from the previous step (5), open your web browser of choice and navigate to `http://localhost:8020 /__docs__/` to verify that `SigRepo` API is successfully hosted.
+6. Open your web browser and navigate to the **API docs** address printed in step (5), e.g. `http://localhost:8020/__docs__/`, to verify that the `SigRepo` API is running.
 
 ![](images/sigrepo-api-localhost.png)
 
 **Important Notes:**
 
-  - Based on the results from step (5), the **MySQL database** is deployed on **port 3306**, the **API** runs on **port 8020**, and the **web interface** is launched on **port 8050**. 
-  
-  - It's important to note that although the database is created during the initial setup, it starts out empty — there are no schema or data tables created at this stage. Therefore, running the API is the next important step as it builds the database structure and fills it with the required tables. Without this step, users will not be able to access or interact with the database, and the SigRepo web interface will fail to run properly.
+  - The installer builds the database for you by calling the API's **`init_db`** endpoint, which creates the schema and loads reference tables such as organisms, phenotypes, platforms and sample types. You do not need to run it yourself.
 
-  - Among the list of API endpoints available at `localhost:8020/__docs__/`, the **`init_db`** endpoint is specifically used to initialize the database with its schema and essential reference tables such as organisms, phenotypes, platforms, sample types, etc. 
-  
-  - To execute this endpoint, click the **“Try it out”** button in the API directive. This opens an interactive prompt where you can run the API directly. You will need to provide an **Admin Key** for authentication before execution.
-  
-  - If you’ve forgotten the **Admin Key** from step (5), you can retrieve it from the **.Renviron** file, where all environment variables are stored. This file is located in the **$HOME/SigRepo_DB** directory of your local machine.
-  
-![](images/init_db.png)
+  - A local install fetches MSigDB gene set collections with `msigdbr` when they are not in the on-disk cache, so enrichment can use any collection, not only the ones the installer cached. A virtual machine install keeps the cache-only behaviour that sigrepo.org runs with; to change either, set `MSIGDB_ALLOW_RUNTIME_FETCH` in the **.Renviron** file of the database directory.
 
-7. After completing the database setup in step (6), open your preferred web browser and go to `http://localhost:8050` to confirm that the `SigRepo` web interface is running as expected. A fresh instance opens on the sign-in screen. 
+  - If the installer reports that the database was not built, it prints the `curl` command to retry `init_db` and the command that starts the web interface afterwards. The **Admin Key** that command needs is stored in the **.Renviron** file in the database directory you chose in step (5), e.g. **$HOME/SigRepo_DB**.
 
-**Note:** Try to login with default **username = "montilab"** and **password = "sigrepo"**
+7. Open the **Web interface** address printed in step (5), e.g. `http://localhost:8051`, to confirm that the `SigRepo` R Shiny app is running. Sign in with the admin account you created during installation.
 
-![](images/sigrepo-react-localhost.png)
+![](images/sigrepo-shiny-localhost.png)
 
 <br>
 

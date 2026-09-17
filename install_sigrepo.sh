@@ -31,10 +31,19 @@ while true; do
   fi
 done
 
-# Act based on choice
+# Act based on choice.
+#
+# MSIGDB_ALLOW_RUNTIME_FETCH decides what enrichment does when a gene set
+# collection is not in the on-disk MSigDB cache: fetch it with msigdbr, or fail
+# with "MSigDB cache file was not found". The cache exists for sigrepo.org,
+# whose droplet cannot afford to pull collections at request time. A local
+# machine can, and a cache that is missing a collection should not be a dead
+# end there -- so local installs fall back to fetching, and server installs
+# keep the cache-only behaviour production runs with.
 case $choice in
   1)
     SERVER_URL="localhost"
+    MSIGDB_RUNTIME_FETCH="true"
     ;;
   2)
     while true; do
@@ -45,6 +54,7 @@ case $choice in
         continue
       else
         SERVER_URL=${DB_HOST}
+        MSIGDB_RUNTIME_FETCH="false"
         break
       fi
     done
@@ -206,19 +216,20 @@ EOF
 
 # Stop previously containers
 echo "Shut down existing containers. Enter the admin password if prompted for permission...."
-# sigrepo-shiny is retired, but is still named here so an upgrade from an
-# older install stops the leftover container instead of leaving it running.
-sudo docker stop sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null || echo ""
+# sigrepo-web (the retired React interface) is still named here so an upgrade
+# from an older install stops the leftover container instead of leaving it
+# running beside the Shiny app.
+sudo docker stop sigrepo-mysql sigrepo-api sigrepo-shiny sigrepo-web &>/dev/null || echo ""
 
 # Removing previously images
 echo "Remove existing images. Enter the admin password if prompted for permission..."
-sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest montilab/sigrepo-web:latest &>/dev/null || echo ""
+sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest &>/dev/null || echo ""
 
 # NOT `docker system prune -a`: that deletes every unused image, container,
 # network and build cache on the whole machine, including other projects'. This
 # removes only the containers this installer manages.
 echo "Remove the previous SigRepo containers..."
-sudo docker rm -f sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null || true
+sudo docker rm -f sigrepo-mysql sigrepo-api sigrepo-shiny sigrepo-web &>/dev/null || true
 
 sudo rm -rf ${DATABASE_DIR}/* ${DATABASE_DIR}/.[!.]* 2>/dev/null || true
 sudo rm -rf ${DIFEXP_DIR}/* ${DIFEXP_DIR}/.[!.]* 2>/dev/null || true
@@ -239,7 +250,7 @@ find_available_port () {
 echo "Locate open ports to host MySQL database, API, and the web interface..."
 DB_HOST_PORT=$( find_available_port 3306 )
 API_PORT=$( find_available_port 8020 )
-WEB_PORT=$( find_available_port 8050 )
+WEB_PORT=$( find_available_port 8051 )
 
 echo "DB PORT (host): ${DB_HOST_PORT}"
 echo "API PORT: ${API_PORT}"
@@ -294,18 +305,25 @@ services:
       - ./users.csv:/SigRepo_Server/mysql/data/users.csv:ro
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  sigrepo-web:
-    container_name: sigrepo-web
+  # The web interface: the R Shiny app in legacy_app/, the same UI sigrepo.org
+  # serves. It runs from the same image as the API and reads its own
+  # .Renviron.shiny, which addresses MySQL and the API by container name.
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
     platform: linux/amd64
-    image: montilab/sigrepo-web:latest
+    image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
     networks:
       - db-net
     ports:
-      - ${WEB_PORT}:80
+      - ${WEB_PORT}:3838
     restart: always
+    volumes:
+      - *difexp-volume
+      - .Renviron.shiny:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/legacy_app/shiny-server.sh"]
 
 networks:
   db-net:
@@ -319,6 +337,37 @@ sudo docker network create -d bridge db-net &>/dev/null || echo "Docker network 
 # Start Docker containers
 echo "Start the mysql container. If prompted, enter the admin password to give permission..."
 sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-mysql
+
+# Wait for MySQL to accept connections before anything tries to use it.
+#
+# `docker compose up -d` returns as soon as the container is STARTED, which on a
+# fresh install is long before the server is usable: the data directory above
+# was just wiped, so mysqld first initializes it, and during that it listens on
+# no network port at all. The API boots faster than that, so without this wait
+# the database build can race MySQL and fail with
+# "Can't connect to MySQL server on 'sigrepo-mysql:3306' (111)" -- leaving the
+# containers running and the database empty.
+#
+# --protocol=TCP on purpose: the initializing server is reachable over its local
+# socket before it accepts TCP, and TCP is how the API and Shiny reach it.
+echo "Waiting for the database to accept connections..."
+mysql_ready=""
+for attempt in $(seq 1 60); do
+  if sudo docker exec sigrepo-mysql mysqladmin ping \
+       -h 127.0.0.1 --protocol=TCP -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent &>/dev/null; then
+    mysql_ready="yes"
+    break
+  fi
+  sleep 5
+done
+
+if [ -z "${mysql_ready}" ]; then
+  echo ""
+  echo "WARNING: MySQL did not accept connections within five minutes. Check"
+  echo "  sudo docker logs sigrepo-mysql"
+  exit 1
+fi
+echo "Database is up."
 
 # Address MySQL by its container name, not its IP. Docker assigns a new IP every
 # time a container is recreated, so an IP written here works until the first
@@ -342,6 +391,7 @@ DB_PORT = '${DB_CONTAINER_PORT}'
 DB_USER = 'root'
 DB_PASSWORD = '${MYSQL_ROOT_PASSWORD}'
 ADMIN_KEY = '${ADMIN_KEY}'
+MSIGDB_ALLOW_RUNTIME_FETCH = '${MSIGDB_RUNTIME_FETCH}'
 EOF
 
 # Start sigrepo-api containers
@@ -377,9 +427,21 @@ echo "API_PORT = '${CONTAINER_API_PORT}'" >> "${MYSQL_DIR}/.Renviron"
 # 3306 was already taken on this machine.
 echo "DB_HOST_PORT = '${DB_HOST_PORT}'" >> "${MYSQL_DIR}/.Renviron" 
 
-# Start sigrepo-web containers
-echo "Start the sigrepo-web container. If prompted, enter the admin password to give permission..."
-sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-web
+# The Shiny app reads DB_HOST / DB_PORT / API_HOST / API_PORT, but it reads them
+# from INSIDE its container, where the host-side addresses above point at the
+# container itself. So it gets its own file with the in-network addresses: MySQL
+# and the API by container name, on the ports they listen on inside the network.
+cat > "${MYSQL_DIR}/.Renviron.shiny" <<EOF
+DB_NAME = 'sigrepo'
+DB_HOST = '${DB_LOCAL_HOST}'
+DB_PORT = '${DB_CONTAINER_PORT}'
+DB_USER = 'root'
+DB_PASSWORD = '${MYSQL_ROOT_PASSWORD}'
+API_HOST = 'sigrepo-api'
+API_PORT = '3838'
+MSIGDB_ALLOW_RUNTIME_FETCH = '${MSIGDB_RUNTIME_FETCH}'
+EOF
+chmod 600 "${MYSQL_DIR}/.Renviron.shiny"
 
 # Build the database.
 #
@@ -408,6 +470,8 @@ if [ -z "${api_ready}" ]; then
   echo "  sudo docker logs sigrepo-api"
   echo "and then build it by hand with:"
   echo "  curl -X POST '${API_URL}/init_db' -d 'admin_key=${ADMIN_KEY}'"
+  echo "then start the web interface with:"
+  echo "  sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny"
   exit 1
 fi
 
@@ -428,6 +492,28 @@ else
   db_ready=""
 fi
 
+# Start the web interface only once the database exists: the app signs users in
+# against the users table, so starting it on an empty database gives a login
+# page that rejects every account.
+if [ -n "${db_ready}" ]; then
+  echo "Start the sigrepo-shiny web interface. If prompted, enter the admin password to give permission..."
+  sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny
+
+  echo "Waiting for the web interface to come up..."
+  web_ready=""
+  for attempt in $(seq 1 60); do
+    if curl -s -o /dev/null --max-time 5 "http://127.0.0.1:${WEB_PORT}/" 2>/dev/null; then
+      web_ready="yes"
+      break
+    fi
+    sleep 5
+  done
+  if [ -z "${web_ready}" ]; then
+    echo "WARNING: the web interface did not answer within five minutes. Check"
+    echo "  sudo docker logs sigrepo-shiny"
+  fi
+fi
+
 # Done
 echo ""
 if [ -n "${db_ready}" ]; then
@@ -445,12 +531,15 @@ else
   echo "The containers are running, but the database was not built."
   echo "Retry it with:"
   echo "  curl -X POST '${API_URL}/init_db' -d 'admin_key=${ADMIN_KEY}'"
+  echo "and then start the web interface with:"
+  echo "  sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny"
 fi
 echo ""
 echo "Configuration and credentials are in ${MYSQL_DIR}:"
-echo "  .Renviron    database settings and the admin key for setup endpoints"
-echo "  .mysql_env   MySQL root credentials"
-echo "  users.csv    the admin account this instance was seeded with"
+echo "  .Renviron        database settings and the admin key for setup endpoints"
+echo "  .Renviron.shiny  database and API settings for the web interface"
+echo "  .mysql_env       MySQL root credentials"
+echo "  users.csv        the admin account this instance was seeded with"
 echo ""
 echo "This instance is self-contained. It shares nothing with sigrepo.org."
 echo ""
