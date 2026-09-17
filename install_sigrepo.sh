@@ -206,19 +206,20 @@ EOF
 
 # Stop previously containers
 echo "Shut down existing containers. Enter the admin password if prompted for permission...."
-# sigrepo-shiny is retired, but is still named here so an upgrade from an
-# older install stops the leftover container instead of leaving it running.
-sudo docker stop sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null || echo ""
+# sigrepo-web (the retired React interface) is still named here so an upgrade
+# from an older install stops the leftover container instead of leaving it
+# running beside the Shiny app.
+sudo docker stop sigrepo-mysql sigrepo-api sigrepo-shiny sigrepo-web &>/dev/null || echo ""
 
 # Removing previously images
 echo "Remove existing images. Enter the admin password if prompted for permission..."
-sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest montilab/sigrepo-web:latest &>/dev/null || echo ""
+sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest &>/dev/null || echo ""
 
 # NOT `docker system prune -a`: that deletes every unused image, container,
 # network and build cache on the whole machine, including other projects'. This
 # removes only the containers this installer manages.
 echo "Remove the previous SigRepo containers..."
-sudo docker rm -f sigrepo-mysql sigrepo-api sigrepo-web sigrepo-shiny &>/dev/null || true
+sudo docker rm -f sigrepo-mysql sigrepo-api sigrepo-shiny sigrepo-web &>/dev/null || true
 
 sudo rm -rf ${DATABASE_DIR}/* ${DATABASE_DIR}/.[!.]* 2>/dev/null || true
 sudo rm -rf ${DIFEXP_DIR}/* ${DIFEXP_DIR}/.[!.]* 2>/dev/null || true
@@ -239,7 +240,7 @@ find_available_port () {
 echo "Locate open ports to host MySQL database, API, and the web interface..."
 DB_HOST_PORT=$( find_available_port 3306 )
 API_PORT=$( find_available_port 8020 )
-WEB_PORT=$( find_available_port 8050 )
+WEB_PORT=$( find_available_port 8051 )
 
 echo "DB PORT (host): ${DB_HOST_PORT}"
 echo "API PORT: ${API_PORT}"
@@ -294,18 +295,25 @@ services:
       - ./users.csv:/SigRepo_Server/mysql/data/users.csv:ro
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  sigrepo-web:
-    container_name: sigrepo-web
+  # The web interface: the R Shiny app in legacy_app/, the same UI sigrepo.org
+  # serves. It runs from the same image as the API and reads its own
+  # .Renviron.shiny, which addresses MySQL and the API by container name.
+  sigrepo-shiny:
+    container_name: sigrepo-shiny
     platform: linux/amd64
-    image: montilab/sigrepo-web:latest
+    image: montilab/sigrepo:latest
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
     networks:
       - db-net
     ports:
-      - ${WEB_PORT}:80
+      - ${WEB_PORT}:3838
     restart: always
+    volumes:
+      - *difexp-volume
+      - .Renviron.shiny:/SigRepo_Server/.Renviron
+    entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/legacy_app/shiny-server.sh"]
 
 networks:
   db-net:
@@ -377,9 +385,20 @@ echo "API_PORT = '${CONTAINER_API_PORT}'" >> "${MYSQL_DIR}/.Renviron"
 # 3306 was already taken on this machine.
 echo "DB_HOST_PORT = '${DB_HOST_PORT}'" >> "${MYSQL_DIR}/.Renviron" 
 
-# Start sigrepo-web containers
-echo "Start the sigrepo-web container. If prompted, enter the admin password to give permission..."
-sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-web
+# The Shiny app reads DB_HOST / DB_PORT / API_HOST / API_PORT, but it reads them
+# from INSIDE its container, where the host-side addresses above point at the
+# container itself. So it gets its own file with the in-network addresses: MySQL
+# and the API by container name, on the ports they listen on inside the network.
+cat > "${MYSQL_DIR}/.Renviron.shiny" <<EOF
+DB_NAME = 'sigrepo'
+DB_HOST = '${DB_LOCAL_HOST}'
+DB_PORT = '${DB_CONTAINER_PORT}'
+DB_USER = 'root'
+DB_PASSWORD = '${MYSQL_ROOT_PASSWORD}'
+API_HOST = 'sigrepo-api'
+API_PORT = '3838'
+EOF
+chmod 600 "${MYSQL_DIR}/.Renviron.shiny"
 
 # Build the database.
 #
@@ -408,6 +427,8 @@ if [ -z "${api_ready}" ]; then
   echo "  sudo docker logs sigrepo-api"
   echo "and then build it by hand with:"
   echo "  curl -X POST '${API_URL}/init_db' -d 'admin_key=${ADMIN_KEY}'"
+  echo "then start the web interface with:"
+  echo "  sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny"
   exit 1
 fi
 
@@ -428,6 +449,28 @@ else
   db_ready=""
 fi
 
+# Start the web interface only once the database exists: the app signs users in
+# against the users table, so starting it on an empty database gives a login
+# page that rejects every account.
+if [ -n "${db_ready}" ]; then
+  echo "Start the sigrepo-shiny web interface. If prompted, enter the admin password to give permission..."
+  sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny
+
+  echo "Waiting for the web interface to come up..."
+  web_ready=""
+  for attempt in $(seq 1 60); do
+    if curl -s -o /dev/null --max-time 5 "http://127.0.0.1:${WEB_PORT}/" 2>/dev/null; then
+      web_ready="yes"
+      break
+    fi
+    sleep 5
+  done
+  if [ -z "${web_ready}" ]; then
+    echo "WARNING: the web interface did not answer within five minutes. Check"
+    echo "  sudo docker logs sigrepo-shiny"
+  fi
+fi
+
 # Done
 echo ""
 if [ -n "${db_ready}" ]; then
@@ -445,12 +488,15 @@ else
   echo "The containers are running, but the database was not built."
   echo "Retry it with:"
   echo "  curl -X POST '${API_URL}/init_db' -d 'admin_key=${ADMIN_KEY}'"
+  echo "and then start the web interface with:"
+  echo "  sudo docker compose -f ${MYSQL_DIR}/docker-compose.yml up -d sigrepo-shiny"
 fi
 echo ""
 echo "Configuration and credentials are in ${MYSQL_DIR}:"
-echo "  .Renviron    database settings and the admin key for setup endpoints"
-echo "  .mysql_env   MySQL root credentials"
-echo "  users.csv    the admin account this instance was seeded with"
+echo "  .Renviron        database settings and the admin key for setup endpoints"
+echo "  .Renviron.shiny  database and API settings for the web interface"
+echo "  .mysql_env       MySQL root credentials"
+echo "  users.csv        the admin account this instance was seeded with"
 echo ""
 echo "This instance is self-contained. It shares nothing with sigrepo.org."
 echo ""
