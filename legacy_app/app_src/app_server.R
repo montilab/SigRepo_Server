@@ -992,11 +992,12 @@ server <- function(input, output, session) {
     collection_trigger = collection_trigger
   )
 
-  annotate_module_server(
-    "annotate",
-    signature_db = signature_db,
-    user_conn_handler = user_conn_handler_rv
-  )
+  # Annotate is closed while its hypeR rebuild (#83) is tested; see app_ui.R.
+  # annotate_module_server(
+  #   "annotate",
+  #   signature_db = signature_db,
+  #   user_conn_handler = user_conn_handler_rv
+  # )
 
   compare_module_server(
     "compare",
