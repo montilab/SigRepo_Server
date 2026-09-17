@@ -196,7 +196,20 @@ ui <- shiny::fluidPage(
       tabPanel("Home", home_module_ui("home")),
       tabPanel("Signatures", signature_module_ui("signatures")),
       tabPanel("Collections", collection_module_ui("collections")),
-      tabPanel("Annotate", annotate_module_ui("annotate")),
+      # Annotate is closed while its hypeR rebuild (#83) is tested; restore
+      # annotate_module_ui("annotate") here and its server call in app_server.R.
+      tabPanel(
+        "Annotate",
+        div(
+          style = "max-width: 680px; margin: 60px auto; padding: 32px 36px; border-radius: 16px; background: #f4f8fb; border: 1px solid #d6e3ee; text-align: center;",
+          tags$i(class = "fa fa-tools", style = "font-size: 40px; color: #28658d;"),
+          tags$h2("Annotate is under development", style = "margin: 18px 0 12px 0; color: #153b59; font-weight: 700;"),
+          tags$p(
+            style = "margin: 0; font-size: 16px; line-height: 1.6; color: #3d4f5c;",
+            "We are rebuilding signature enrichment on hypeR. The new Annotate tab will be available here soon."
+          )
+        )
+      ),
       tabPanel("Compare", compare_module_ui("compare")),
       tabPanel("Browsing", reference_module_ui("references")),
       tabPanel("Feedback ", feedbackUI("feedback")),
