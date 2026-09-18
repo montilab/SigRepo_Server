@@ -1,0 +1,60 @@
+name: Bug report
+description: Something is broken. Say what you ran, what happened, and the error.
+labels: ["bug", "ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A good bug report says three things: what was run, what happened, and the
+        error. [SigRepo#75](https://github.com/montilab/SigRepo/issues/75) is the
+        report we want people to copy.
+
+  - type: textarea
+    id: ran
+    attributes:
+      label: What was run
+      description: The code, the request or the steps, so someone else can reproduce it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: The error
+      description: >-
+        The full message, pasted, not paraphrased. For API and Shiny problems,
+        container logs help: `docker logs sigrepo-api --tail 100`.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Production (sigrepo.org)
+        - Local stack
+        - Test host (montilab.bu.edu)
+        - A branch or worktree preview
+        - Somewhere else / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: next
+    attributes:
+      label: Next step
+      description: >-
+        If you know what should happen next, say so. If it needs a decision from
+        someone, say which decision and apply the needs-decision label.
+    validations:
+      required: false
