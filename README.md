@@ -7,8 +7,8 @@
 target="_blank"><strong>SigRepo</strong></a>, a platform for storing,
 sharing, and comparing omic signatures. It is a reproducible framework
 for deploying a SigRepo instance — locally or on a Linux-based cloud
-host — and for interacting with it through a REST API, a web interface,
-and an MCP server for AI agents.
+host — and for interacting with it through a REST API, an R Shiny web
+interface, and an MCP server for AI agents.
 
 The client half is the <a href="https://github.com/montilab/SigRepo"
 target="_blank"><strong>SigRepo</strong></a> R package; signatures
@@ -32,11 +32,19 @@ The server is a set of containerized services:
   analysis endpoints (signature comparison, enrichment) so that analysis
   runs server-side rather than requiring users to download whole
   signatures.
-- **Web interface** — a React single-page app, built to static assets
-  and served by nginx, which also proxies `/api` to the API container so
-  the browser talks to a single origin. It replaced the R Shiny
-  dashboard, which is archived in
-  [SigRepo\_Server\_Legacy](https://github.com/montilab/SigRepo_Server_Legacy).
+- **Web interface** — an
+  <a href="https://shiny.posit.co" target="_blank">R Shiny</a>
+  application (`legacy_app/`), run by Shiny Server, and the interface
+  our instance serves. From the browser you sign in, browse and deposit
+  signatures and collections, browse the controlled vocabularies and
+  gene set resources, and compare signatures. Two properties decided it
+  over the React app it replaced: it bind-mounts its source, so a UI
+  change ships with a `git pull` and a container restart rather than an
+  image build; and Shiny Server gives every user their own R process, so
+  an analysis runs in that user’s session instead of queueing behind
+  everyone else in the single-process API. The React single-page app is
+  still in the repo under `web/` and still builds as the `sigrepo-web`
+  container, but it is no longer the served interface.
 - **MCP server** — a
   <a href="https://modelcontextprotocol.io" target="_blank">Model Context
   Protocol</a> endpoint that lets AI agents search signatures, retrieve
@@ -87,6 +95,12 @@ signatures:
 
 Active work, not yet part of the deployed stack:
 
+- **Signature enrichment in the web interface** — the Shiny *Annotate*
+  tab is being rebuilt directly on
+  <a href="https://github.com/montilab/hypeR" target="_blank">hypeR</a>,
+  so that the tab and the `SigRepo` R package run enrichment the same
+  way. The tab shows an under-development page until that rebuild lands;
+  the API’s enrichment endpoints are unaffected.
 - **AI-assisted signature authoring** — an agent service that reads a
   study’s differential-expression output and description, proposes
   metadata from SigRepo’s controlled vocabularies, and emits a validated
@@ -100,6 +114,8 @@ Active work, not yet part of the deployed stack:
 See the <a
 href="https://montilab.github.io/SigRepo_Server/articles/install_sigrepo.html"
 target="_blank">installation guide</a> for standing up your own
-instance. The stack is defined with `docker compose`; the MySQL service,
-the API, the web app, and the MCP server each run as their own container
-on a shared internal network, with only the intended ports published.
+instance. `install_sigrepo.sh` starts the database and the API, builds
+the schema and reference tables, and brings up the Shiny interface. The
+stack is defined with `docker compose`; the MySQL service, the API, the
+Shiny interface, and the MCP server each run as their own container on a
+shared internal network, with only the intended ports published.

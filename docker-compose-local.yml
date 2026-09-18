@@ -82,6 +82,8 @@ services:
       - ./.Renviron.local-stack:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
+  # The React single-page app. No longer the served interface -- sigrepo-shiny
+  # below is -- but kept so it can still be run against the same database.
   sigrepo-web:
     container_name: sigrepo-local-web
     platform: linux/amd64
@@ -99,13 +101,13 @@ services:
       - 127.0.0.1:8050:80
     restart: unless-stopped
 
-  # The legacy R Shiny interface, restored alongside the React app rather than
-  # replacing it, so the two can be compared against the same database before
-  # any decision to switch. React stays on 8050; Shiny gets 8051.
+  # The SigRepo web interface: the R Shiny app in legacy_app/, run by Shiny
+  # Server. This is the served interface; sigrepo-web above is kept but no
+  # longer served. Shiny gets 8051; React stays on 8050.
   #
   # Note what this service does that sigrepo-web cannot: it bind-mounts the
-  # source, so `git pull` deploys a UI change with no image build. That is the
-  # deployment asymmetry that made the React app feel slow to iterate on.
+  # source, so `git pull` deploys a UI change with no image build. That
+  # deployment asymmetry is part of why this is the interface that is served.
   sigrepo-shiny:
     container_name: sigrepo-local-shiny
     platform: linux/amd64
