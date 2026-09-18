@@ -87,10 +87,10 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  # The SigRepo web interface (React), served as static assets by nginx, which
-  # also proxies /api to sigrepo-api so the browser talks to a single origin.
-  # This replaced the R Shiny dashboard as the served UI. The Shiny app now
-  # lives in https://github.com/montilab/SigRepo_Server_Legacy.
+  # The React single-page app, built to static assets and served by nginx,
+  # which also proxies /api to sigrepo-api so the browser talks to a single
+  # origin. It is no longer the served interface -- sigrepo-shiny below is --
+  # but it is kept here so it can still be run against the same database.
   sigrepo-web:
     container_name: sigrepo-web
     platform: linux/amd64
@@ -104,12 +104,12 @@ services:
       - 8050:80
     restart: always
 
-  # The legacy R Shiny interface, restored alongside the React app rather than
-  # replacing it, so both can be run against the same database and compared.
-  # React keeps 8050; Shiny takes 8051.
+  # The SigRepo web interface: the R Shiny app in legacy_app/, run by Shiny
+  # Server. This is the interface that is served; the React app above is kept
+  # but no longer served. Shiny takes 8051; React keeps 8050.
   #
   # Two properties this service has that sigrepo-web does not, and that are the
-  # reason for bringing it back: it bind-mounts the source, so a UI change ships
+  # reason it is the one served: it bind-mounts the source, so a UI change ships
   # with `git pull` and a restart rather than an image build; and Shiny Server
   # gives each user their own R process, so enrichment runs in the user's
   # session instead of queueing behind everyone else in the single-process API.
