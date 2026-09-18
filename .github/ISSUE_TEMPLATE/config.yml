@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: How we work
+    url: https://github.com/montilab/SigRepo_Server/blob/master/CONTRIBUTING.md
+    about: The rules for issues, branches, pull requests and the board. Read this first.
+  - name: R client problem
+    url: https://github.com/montilab/SigRepo/issues/new/choose
+    about: Anything about addSignature(), getSignature(), runHypeR() or the reference dictionaries belongs in SigRepo.
