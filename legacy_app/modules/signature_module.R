@@ -258,11 +258,10 @@ signature_module_ui <- function(id) {
           class = "signature-toolbar",
           div(
             class = "signature-toolbar-primary",
-            actionButton(
-              ns("open_create_modal"),
-              "Create Signature",
-              icon = icon("plus-circle")
-            ),
+            # The Create Signature button is withdrawn for now: the create path
+            # is untested. Its modal and the observers behind it are left in
+            # place below, so restoring the button is all that is needed to
+            # bring it back.
             actionButton(
               ns("open_upload_modal"),
               "Upload Signature",

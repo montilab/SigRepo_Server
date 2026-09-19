@@ -6,6 +6,22 @@
 # the source data frame, and the tab indexes signature_db() with them.
 load_signature_app()
 
+test_that("the Create Signature button is not offered", {
+  # Withdrawn for now: the create path is untested. The modal and its server
+  # are deliberately left in place so the button can be put back.
+  markup <- as.character(signature_module_ui("signatures"))
+
+  expect_no_match(markup, "Create Signature", fixed = TRUE)
+  expect_no_match(markup, "open_create_modal", fixed = TRUE)
+})
+
+test_that("Upload Signature is still offered", {
+  # Guards against the removal above taking the neighbouring button with it.
+  markup <- as.character(signature_module_ui("signatures"))
+
+  expect_match(markup, "Upload Signature", fixed = TRUE)
+})
+
 test_that("selecting a row makes that row the active signature", {
   run_signature_module({
     session$setInputs(signature_tbl_rows_selected = 2, signature_tbl_row_last_clicked = 2)
