@@ -61,6 +61,31 @@ test_that("the signature id filter is a box you can type an id into", {
   })
 })
 
+test_that("has_difexp filters with a dropdown of its options", {
+  run_signature_module({
+    cells <- signature_filter_cells(output$signature_tbl)
+    cell <- cells[[match("has_difexp", names(signature_db_rows))]]
+
+    expect_match(cell, 'data-type="factor"', fixed = TRUE)
+    expect_match(cell, "<select multiple", fixed = TRUE)
+    expect_match(cell, "Yes", fixed = TRUE)
+    expect_match(cell, "No", fixed = TRUE)
+  })
+})
+
+test_that("a high-cardinality column keeps its search box", {
+  run_signature_module({
+    cells <- signature_filter_cells(output$signature_tbl)
+    cell <- cells[[match("phenotype", names(signature_db_rows))]]
+
+    expect_no_match(cell, "<select multiple", fixed = TRUE)
+  })
+})
+
+# The metadata table's cell values are fetched separately under serverSide, so
+# they are not in the rendered payload. signature_metadata_frame() is unit
+# tested in test-shiny-signature-helpers.R instead.
+
 test_that("a genuine numeric cutoff still filters by range", {
   # Only identifiers were meant to change; a range is the right question for a
   # quantity.

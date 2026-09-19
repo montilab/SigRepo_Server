@@ -934,12 +934,7 @@ signature_module_server <- function(id,
     output$signature_metadata_table <- DT::renderDataTable({
       req(selected_sig())
 
-      sig <- signature_display_frame(selected_sig())
-      df <- data.frame(
-        Field = prettify_colnames(names(sig)),
-        Value = unlist(sig[1, ], use.names = FALSE),
-        stringsAsFactors = FALSE
-      )
+      df <- signature_metadata_frame(selected_sig())
 
       DatatableFX(
         df,
@@ -951,7 +946,7 @@ signature_module_server <- function(id,
     output$signature_file_table <- DT::renderDataTable({
       req(current_signature_feature_set())
 
-      feature_set <- current_signature_feature_set()
+      feature_set <- signature_display_frame(current_signature_feature_set())
 
       DatatableFX(
         feature_set,
@@ -977,7 +972,7 @@ signature_module_server <- function(id,
     output$difexp_file_table <- DT::renderDataTable({
       req(signature_difexp())
 
-      difexp <- signature_difexp()
+      difexp <- signature_display_frame(signature_difexp())
 
       DatatableFX(
         difexp,

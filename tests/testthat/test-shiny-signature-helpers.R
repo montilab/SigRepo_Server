@@ -74,13 +74,14 @@ test_that("prettify_colnames returns an empty vector for no columns", {
 # ---- signature_display_frame ------------------------------------------------
 
 test_that("visibility is shown as Public or Private rather than 1 or 0", {
+  # A factor, so DT offers a dropdown; what it displays is the label.
   shown <- signature_display_frame(signature_rows())
-  expect_identical(shown$visibility, c("Public", "Private", NA_character_))
+  expect_identical(as.character(shown$visibility), c("Public", "Private", NA_character_))
 })
 
 test_that("has_difexp is shown as Yes or No rather than 1 or 0", {
   shown <- signature_display_frame(signature_rows())
-  expect_identical(shown$has_difexp, c("Yes", "No", "Yes"))
+  expect_identical(as.character(shown$has_difexp), c("Yes", "No", "Yes"))
 })
 
 test_that("identifier columns become character so DT filters them with a text box", {
@@ -113,6 +114,118 @@ test_that("the display frame leaves a table without those columns alone", {
 
 test_that("an empty table survives the display transform", {
   expect_identical(nrow(signature_display_frame(signature_rows()[0, ])), 0L)
+})
+
+# ---- controlled vocabulary --------------------------------------------------
+
+# DT picks the filter widget from the column type, so a factor is what turns a
+# search box into a dropdown of its levels.
+
+test_that("has_difexp is a dropdown of Yes and No", {
+  shown <- signature_display_frame(signature_rows())
+
+  expect_s3_class(shown$has_difexp, "factor")
+  expect_identical(levels(shown$has_difexp), c("Yes", "No"))
+})
+
+test_that("visibility is a dropdown of Public and Private", {
+  shown <- signature_display_frame(signature_rows())
+
+  expect_s3_class(shown$visibility, "factor")
+  expect_identical(levels(shown$visibility), c("Public", "Private"))
+})
+
+test_that("both flag options are offered even when the data holds only one", {
+  # Every signature here is public; "Private" must still be selectable, or the
+  # filter cannot express the question.
+  one_sided <- data.frame(visibility = c(1L, 1L), has_difexp = c(1L, 1L))
+  shown <- signature_display_frame(one_sided)
+
+  expect_identical(levels(shown$visibility), c("Public", "Private"))
+  expect_identical(levels(shown$has_difexp), c("Yes", "No"))
+})
+
+test_that("controlled vocabulary columns become dropdowns", {
+  df <- data.frame(
+    organism = c("Homo sapiens", "Mus musculus"),
+    direction_type = c("bi-directional", "categorical"),
+    assay_type = c("transcriptomics", "proteomics"),
+    platform_name = c("transcriptomics by array", "proteomics by mass spectrometry"),
+    sample_type = c("liver", "HSC-3 cell"),
+    user_name = c("montilab", "root"),
+    stringsAsFactors = FALSE
+  )
+  shown <- signature_display_frame(df)
+
+  for (column in names(df)) {
+    expect_s3_class(shown[[column]], "factor")
+  }
+})
+
+test_that("a dropdown's options are sorted", {
+  df <- data.frame(organism = c("Mus musculus", "Homo sapiens"), stringsAsFactors = FALSE)
+
+  expect_identical(levels(signature_display_frame(df)$organism), c("Homo sapiens", "Mus musculus"))
+})
+
+test_that("free text columns keep their search box", {
+  # phenotype has 256 distinct values in the repository and description is prose;
+  # neither is a vocabulary.
+  df <- data.frame(
+    phenotype = c("old vs. young", "TAZ KD"),
+    description = c("a", "b"),
+    signature_name = c("alpha", "beta"),
+    stringsAsFactors = FALSE
+  )
+  shown <- signature_display_frame(df)
+
+  expect_type(shown$phenotype, "character")
+  expect_type(shown$description, "character")
+  expect_type(shown$signature_name, "character")
+})
+
+test_that("a vocabulary column that grows too large falls back to a search box", {
+  # A dropdown of hundreds of options is worse than typing. The guard keeps a
+  # vocabulary that unexpectedly explodes from producing an unusable filter.
+  df <- data.frame(
+    sample_type = paste0("tissue_", seq_len(SIGNATURE_VOCABULARY_MAX_LEVELS + 1)),
+    stringsAsFactors = FALSE
+  )
+
+  expect_type(signature_display_frame(df)$sample_type, "character")
+})
+
+test_that("a vocabulary column exactly at the limit is still a dropdown", {
+  df <- data.frame(
+    sample_type = paste0("tissue_", seq_len(SIGNATURE_VOCABULARY_MAX_LEVELS)),
+    stringsAsFactors = FALSE
+  )
+
+  expect_s3_class(signature_display_frame(df)$sample_type, "factor")
+})
+
+# ---- signature_metadata_frame -----------------------------------------------
+
+test_that("the metadata table shows flag words, not factor codes", {
+  # unlist() on a one-row frame turns a factor into its integer code, so making
+  # the vocabulary columns factors would have printed visibility as 1.
+  meta <- signature_metadata_frame(signature_rows()[1, , drop = FALSE])
+
+  expect_identical(meta$Value[[match("Visibility", meta$Field)]], "Public")
+  expect_identical(meta$Value[[match("Organism", meta$Field)]], "Mus musculus")
+})
+
+test_that("the metadata table labels its fields readably", {
+  meta <- signature_metadata_frame(signature_rows()[1, , drop = FALSE])
+
+  expect_true("Signature ID" %in% meta$Field)
+  expect_false("signature_id" %in% meta$Field)
+})
+
+test_that("the metadata table reports a missing value as NA, not a code", {
+  meta <- signature_metadata_frame(signature_rows()[3, , drop = FALSE])
+
+  expect_true(is.na(meta$Value[[match("Visibility", meta$Field)]]))
 })
 
 # ---- signature_hidden_columns -----------------------------------------------
@@ -313,7 +426,8 @@ test_that("the main table shows readable headers instead of database names", {
 })
 
 test_that("the main table shows visibility as a word", {
-  expect_true(any(unlist(signature_table_widget(signature_rows())$x$data) == "Public"))
+  cells <- unlist(lapply(signature_table_widget(signature_rows())$x$data, as.character))
+  expect_true("Public" %in% cells)
 })
 
 test_that("the main table hides the noisy columns by default", {

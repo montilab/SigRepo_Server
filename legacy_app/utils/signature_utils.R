@@ -30,11 +30,38 @@ SIGNATURE_HIDDEN_COLUMNS <- c(
 # its match.arg() defaults by a test rather than by memory.
 SIGNATURE_ACCESS_TYPES <- c("owner", "editor", "viewer")
 
-# 1/0 columns that read as flags, not numbers.
+# 1/0 columns that read as flags, not numbers. Both labels are always offered
+# as filter options, even when the data happens to hold only one of them.
 SIGNATURE_FLAG_LABELS <- list(
   visibility = c(yes = "Public", no = "Private"),
   has_difexp = c(yes = "Yes", no = "No")
 )
+
+# Columns drawn from a controlled vocabulary. DT picks its filter widget from
+# the column type, so rendering these as factors turns their search boxes into
+# dropdowns of the available options. Deliberately excluded: phenotype (256
+# distinct values in the repository), keywords, description, signature_name and
+# cutoff_description -- all free text, where typing beats a list. covariates is
+# free text too, despite being short.
+SIGNATURE_VOCABULARY_COLUMNS <- c(
+  "organism",
+  "direction_type",
+  "assay_type",
+  "platform_name",
+  "sample_type",
+  "user_name",
+  # Signature feature set and difexp columns.
+  "direction",
+  "group_label",
+  "assay",
+  "nomenclature_type",
+  "match_status",
+  "feature_database"
+)
+
+# A dropdown of hundreds of options is worse than a search box, so a vocabulary
+# that grows past this stays a text filter.
+SIGNATURE_VOCABULARY_MAX_LEVELS <- 50L
 
 #' Render a 1/0 database flag as its two labels.
 #'
@@ -65,7 +92,16 @@ signature_display_frame <- function(df) {
   for (column in names(SIGNATURE_FLAG_LABELS)) {
     if (column %in% names(df)) {
       labels <- SIGNATURE_FLAG_LABELS[[column]]
-      df[[column]] <- label_binary_column(df[[column]], labels[["yes"]], labels[["no"]])
+      df[[column]] <- factor(
+        label_binary_column(df[[column]], labels[["yes"]], labels[["no"]]),
+        levels = c(labels[["yes"]], labels[["no"]])
+      )
+    }
+  }
+
+  for (column in SIGNATURE_VOCABULARY_COLUMNS) {
+    if (column %in% names(df)) {
+      df[[column]] <- as_vocabulary_column(df[[column]])
     }
   }
 
@@ -76,6 +112,40 @@ signature_display_frame <- function(df) {
   }
 
   df
+}
+
+#' Render a controlled-vocabulary column as a factor, so DT filters it with a
+#' dropdown of its values rather than a search box.
+#'
+#' Falls back to text when the vocabulary is too large to pick from.
+as_vocabulary_column <- function(x) {
+  values <- as.character(x)
+  levels <- sort(unique(values[!is.na(values) & nzchar(values)]))
+
+  if (length(levels) > SIGNATURE_VOCABULARY_MAX_LEVELS) {
+    return(values)
+  }
+
+  factor(values, levels = levels)
+}
+
+#' The Field/Value table shown for the selected signature.
+#'
+#' Values are read column by column: unlist() on a one-row frame would turn the
+#' vocabulary factors into their integer codes, printing visibility as 1.
+#'
+#' @param sig A one-row data.frame from SigRepo::searchSignature().
+#'
+#' @return A data.frame of Field and Value.
+#' @export
+signature_metadata_frame <- function(sig) {
+  shown <- signature_display_frame(sig)
+
+  data.frame(
+    Field = prettify_colnames(names(shown)),
+    Value = vapply(shown, function(column) as.character(column[[1]]), character(1), USE.NAMES = FALSE),
+    stringsAsFactors = FALSE
+  )
 }
 
 #' Zero-based positions of the columns the signature table hides by default.
