@@ -258,11 +258,10 @@ signature_module_ui <- function(id) {
           class = "signature-toolbar",
           div(
             class = "signature-toolbar-primary",
-            actionButton(
-              ns("open_create_modal"),
-              "Create Signature",
-              icon = icon("plus-circle")
-            ),
+            # The Create Signature button is withdrawn for now: the create path
+            # is untested. Its modal and the observers behind it are left in
+            # place below, so restoring the button is all that is needed to
+            # bring it back.
             actionButton(
               ns("open_upload_modal"),
               "Upload Signature",
@@ -297,13 +296,26 @@ signature_module_ui <- function(id) {
 }
 
 
-signature_module_server <- function(id, signature_db, user_conn_handler, signature_trigger) {
+# search_user_fn, grant_fn and access_fn are injected so the Manage Access path
+# can be tested without a database (tests/testthat/test-shiny-signature-access.R).
+signature_module_server <- function(id,
+                                    signature_db,
+                                    user_conn_handler,
+                                    signature_trigger,
+                                    search_user_fn = SigRepo::searchUser,
+                                    grant_fn = grant_signature_access,
+                                    access_fn = fetch_signature_access) {
+  if (is.null(grant_fn)) grant_fn <- grant_signature_access
+  if (is.null(search_user_fn)) search_user_fn <- SigRepo::searchUser
+  if (is.null(access_fn)) access_fn <- fetch_signature_access
+
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     selected_sig <- reactiveVal(NULL)
     signature_feature_set <- reactiveVal(NULL)
     signature_difexp <- reactiveVal(NULL)
     access_user_tbl <- reactiveVal(NULL)
+    current_access <- reactiveVal(NULL)
     basket_signatures <- reactiveVal(data.frame())
     last_clicked_row <- reactiveVal(NULL)
     create_upload_df <- reactiveVal(NULL)
@@ -692,23 +704,10 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     }
 
     output$signature_tbl <- renderDT({
-      df <- signature_db()
-
-      hidden_columns <- integer(0)
-      hidden_names <- c("description")
-      for (col_name in hidden_names) {
-        if (col_name %in% names(df)) {
-          hidden_columns <- c(hidden_columns, match(col_name, names(df)) - 1)
-        }
-      }
-
-      DatatableFX(
-        df = df,
-        hidden_columns = unique(hidden_columns),
-        scrollY = "500px",
-        row_selection = "multiple",
-        escape = FALSE
-      )
+      # Readable headers, Public/Private instead of 1/0, a search box rather
+      # than a slider on the id, and the noisy columns folded behind the
+      # column-visibility button. See signature_table_widget().
+      signature_table_widget(signature_db())
     }, server = TRUE)
 
     observeEvent(input$signature_tbl_row_last_clicked, {
@@ -826,22 +825,17 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
         names(basket_df)
       )
 
-      basket_display <- basket_df[, display_columns, drop = FALSE]
-      colnames(basket_display) <- c(
-        "Signature",
-        "Owner",
-        "Visibility",
-        "Organism",
-        "Phenotype",
-        "Direction",
-        "Created"
-      )
+      # Headers come from the shared labeller rather than a hand-kept list: the
+      # list above is an intersect(), so a missing column used to leave the
+      # rename assigning seven names to fewer columns.
+      basket_display <- signature_display_frame(basket_df[, display_columns, drop = FALSE])
 
       DatatableFX(
         basket_display,
         hidden_columns = integer(0),
         scrollY = "320px",
-        row_selection = "none"
+        row_selection = "none",
+        column_labels = prettify_colnames(names(basket_display))
       )
     }, server = TRUE)
 
@@ -940,12 +934,7 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     output$signature_metadata_table <- DT::renderDataTable({
       req(selected_sig())
 
-      sig <- selected_sig()
-      df <- data.frame(
-        Field = names(sig),
-        Value = unlist(sig[1, ], use.names = FALSE),
-        stringsAsFactors = FALSE
-      )
+      df <- signature_metadata_frame(selected_sig())
 
       DatatableFX(
         df,
@@ -957,10 +946,13 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     output$signature_file_table <- DT::renderDataTable({
       req(current_signature_feature_set())
 
+      feature_set <- signature_display_frame(current_signature_feature_set())
+
       DatatableFX(
-        current_signature_feature_set(),
+        feature_set,
         hidden_columns = integer(0),
-        scrollY = "500px"
+        scrollY = "500px",
+        column_labels = prettify_colnames(names(feature_set))
       )
     }, server = TRUE)
 
@@ -980,10 +972,13 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
     output$difexp_file_table <- DT::renderDataTable({
       req(signature_difexp())
 
+      difexp <- signature_display_frame(signature_difexp())
+
       DatatableFX(
-        signature_difexp(),
+        difexp,
         hidden_columns = integer(0),
-        scrollY = "500px"
+        scrollY = "500px",
+        column_labels = prettify_colnames(names(difexp))
       )
     }, server = TRUE)
 
@@ -1440,33 +1435,49 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
       ))
     })
 
+    selected_signature_id <- reactive({
+      sig <- selected_sig()
+      if (is.null(sig) || !"signature_id" %in% names(sig)) {
+        return(NULL)
+      }
+      sig$signature_id[[1]]
+    })
+
+    # Registered once, when the module starts. It used to be registered inside
+    # the confirm handler, which stacked a new copy of its observers per click.
+    manage_users_modal_server(
+      input = input,
+      output = output,
+      session = session,
+      entity_id = selected_signature_id,
+      entity_name = reactive(signature_field_value(selected_sig(), "signature_name")),
+      user_conn_handler = user_conn_handler,
+      grant_fn = grant_fn,
+      current_access = current_access
+    )
+
     observeEvent(input$access_btn, {
       req(selected_sig())
 
-      user_tbl <- SigRepo::searchUser(conn_handler = user_conn_handler())
+      user_tbl <- tryCatch(
+        search_user_fn(conn_handler = user_conn_handler()),
+        error = function(e) {
+          showNotification(paste("Could not load the user list:", e$message), type = "error")
+          NULL
+        }
+      )
+      req(user_tbl)
+
       access_user_tbl(user_tbl)
+      current_access(access_fn(user_conn_handler(), selected_signature_id()))
 
       showModal(
         manage_users_modal_ui(
           session$ns,
-          name = selected_sig()$signature_name[[1]],
+          entity_label = "signature",
+          entity_name = signature_field_value(selected_sig(), "signature_name"),
           user_tbl = user_tbl
         )
-      )
-    })
-
-    observeEvent(input$confirm_add_users, {
-      req(selected_sig(), access_user_tbl())
-
-      manage_users_modal_server(
-        input = input,
-        output = output,
-        session = session,
-        name = selected_sig()$signature_name[[1]],
-        user_tbl = access_user_tbl(),
-        type = "Signature",
-        selected = reactive(selected_sig()),
-        user_conn_handler = user_conn_handler
       )
     })
 
@@ -1509,6 +1520,13 @@ signature_module_server <- function(id, signature_db, user_conn_handler, signatu
 
         utils::zip(zipfile = file, files = exported_files, flags = "-j")
       }
+    )
+
+    # Exposed so the tab's state can be asserted on in testServer(); the app
+    # itself does not read these.
+    list(
+      selected_signature = selected_sig,
+      basket = basket_signatures
     )
   })
 }
