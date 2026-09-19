@@ -49,7 +49,13 @@ COLUMN_LABELS <- c(
   logfc = "logFC",
   p_value = "p-value",
   adj_p = "Adj. p",
-  aveexpr = "Avg. expression"
+  aveexpr = "Avg. expression",
+  feature_id = "Feature ID",
+  feature_database = "Feature database",
+  nomenclature_type = "Nomenclature",
+  match_status = "Match status",
+  sig_feature_hashkey = "Feature hash key",
+  access_sig_hashkey = "Access hash key"
 )
 
 #' Human-readable headers for raw database column names.
@@ -71,12 +77,23 @@ prettify_colnames <- function(columns) {
   unmapped <- is.na(labels)
   if (any(unmapped)) {
     labels[unmapped] <- vapply(columns[unmapped], function(column) {
+      # A single camelCase word is already a name people know -- lfcSE and
+      # baseMean come straight from DESeq2 -- so leave it be rather than
+      # rewriting it as "LfcSE".
+      if (!grepl("[_.]", column) && grepl("[a-z][A-Z]", column)) {
+        return(column)
+      }
+
       words <- strsplit(column, "[_.]+")[[1]]
       words <- words[nzchar(words)]
       if (length(words) == 0) {
         return(column)
       }
-      paste(toupper(substring(words, 1, 1)), substring(words, 2), sep = "", collapse = " ")
+
+      words <- paste0(toupper(substring(words, 1, 1)), substring(words, 2))
+      # "feature_id" reads as an identifier, not as the word "Id".
+      words[tolower(words) == "id"] <- "ID"
+      paste(words, collapse = " ")
     }, character(1), USE.NAMES = FALSE)
   }
 

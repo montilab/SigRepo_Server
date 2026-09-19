@@ -45,6 +45,22 @@ test_that("an unmapped snake_case column falls back to title case", {
   )
 })
 
+test_that("established camelCase statistics keep their own spelling", {
+  # difexp tables carry DESeq2/limma columns. Title-casing turned lfcSE into
+  # "LfcSE" and baseMean into "BaseMean", which is wrong, not merely ugly.
+  expect_identical(
+    prettify_colnames(c("lfcSE", "baseMean", "AveExpr")),
+    c("lfcSE", "baseMean", "AveExpr")
+  )
+})
+
+test_that("id suffixes are capitalised as ID", {
+  expect_identical(
+    prettify_colnames(c("feature_id", "collection_id", "some_other_id")),
+    c("Feature ID", "Collection ID", "Some Other ID")
+  )
+})
+
 test_that("prettify_colnames preserves length and order", {
   input <- c("year", "not_a_real_column", "PMID")
   expect_length(prettify_colnames(input), length(input))
