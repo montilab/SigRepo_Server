@@ -129,6 +129,35 @@ as_vocabulary_column <- function(x) {
   factor(values, levels = levels)
 }
 
+#' Which columns get a plain dropdown filter, and what it offers.
+#'
+#' A factor alone only buys DT's selectize widget, which is still a box you
+#' type into. This says which columns to replace with a plain <select>, and
+#' carries the options along: the Signature tab's tables render server side, so
+#' the browser only ever holds one page of rows and cannot collect them itself.
+#'
+#' @param df A data.frame already through signature_display_frame().
+#'
+#' @return A list of `list(column = <zero-based position>, options = <character>)`,
+#'   one entry per dropdown column, in column order. Empty when there are none.
+#' @export
+vocabulary_filter_spec <- function(df) {
+  spec <- list()
+
+  for (position in seq_along(df)) {
+    column <- df[[position]]
+    if (!is.factor(column) || length(levels(column)) == 0) next
+
+    spec[[length(spec) + 1L]] <- list(
+      # DT numbers columns from zero.
+      column = as.integer(position - 1L),
+      options = levels(column)
+    )
+  }
+
+  spec
+}
+
 #' The Field/Value table shown for the selected signature.
 #'
 #' Values are read column by column: unlist() on a one-row frame would turn the
@@ -205,9 +234,32 @@ signature_table_widget <- function(df) {
     hidden_columns = signature_hidden_columns(shown),
     numeric_sort_columns = signature_numeric_sort_columns(shown),
     column_labels = prettify_colnames(names(shown)),
+    vocabulary_filters = vocabulary_filter_spec(shown),
     scrollY = "500px",
     row_selection = "multiple",
     escape = FALSE
+  )
+}
+
+#' Build one of the tables below the main one: the feature set, or difexp.
+#'
+#' Both carry per-signature columns that cannot be enumerated ahead of time, so
+#' the headers come from the fallback in prettify_colnames() and the dropdowns
+#' are decided by column type rather than by name.
+#'
+#' @param df A data.frame from SigRepo::getSignature() or getDifexp().
+#'
+#' @return A DT::datatable object.
+#' @export
+signature_detail_table_widget <- function(df) {
+  shown <- signature_display_frame(df)
+
+  DatatableFX(
+    shown,
+    hidden_columns = integer(0),
+    column_labels = prettify_colnames(names(shown)),
+    vocabulary_filters = vocabulary_filter_spec(shown),
+    scrollY = "500px"
   )
 }
 

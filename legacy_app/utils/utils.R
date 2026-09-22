@@ -115,6 +115,59 @@ prettify_colnames <- function(columns) {
 #'
 #' @return A DT::datatable object.
 #' @export
+#' The script that turns a column's filter into a plain dropdown.
+#'
+#' DT builds every filter cell the same way: a visible `<input type="search">`
+#' over a hidden `<select>` that selectize takes over when clicked. Even for a
+#' factor that leaves a box you type into, so the dropdown has to replace the
+#' input rather than be asked for. The options come from
+#' `options$vocabularyFilters` rather than off the page because these tables
+#' render server side, where the browser holds one page of rows at a time.
+#'
+#' Selecting writes DT's own factor search value -- a JSON array of the chosen
+#' values, read identically by its client-side filter and its server-side
+#' doColumnSearch() -- into DT's input and fires the event DT already listens
+#' for. Nothing here filters anything; DT still does that.
+#'
+#' @return A DT::JS callback.
+vocabulary_filter_js <- function() {
+  # DT wraps this in function(table) { ... }, so it is a body, not a function.
+  DT::JS(
+    "  var spec = table.settings()[0].oInit.vocabularyFilters;",
+    "  if (!spec) return table;",
+    "  var cells = $(table.table().header()).find('tr:last td');",
+    "  [].concat(spec).forEach(function(entry) {",
+    # DataTables drops a hidden column from the DOM, so the filter row holds a
+    # cell per VISIBLE column while the spec counts them all. Asking for the
+    # visible position keeps each dropdown on its own column; without it every
+    # column after a hidden one gets the previous column's options, silently.
+    # The cell is then held as an element, so a later colvis toggle moves it
+    # along with its column. A column hidden at render has no cell, and is
+    # skipped rather than landing on its neighbour.
+    "    var visible = table.column(entry.column).index('visible');",
+    "    if (visible === null || visible === undefined) return;",
+    "    var $td = $(cells[visible]);",
+    "    if ($td.length === 0) return;",
+    "    var $input = $td.children('div').first().children('input');",
+    "    $input.parent().hide();",
+    "    var $select = $('<select/>', {",
+    "      'class': 'form-control input-sm',",
+    "      css: {width: '100%'}",
+    "    });",
+    "    $select.append($('<option/>', {value: '', text: 'All'}));",
+    "    [].concat(entry.options || []).forEach(function(option) {",
+    "      $select.append($('<option/>', {value: option, text: option}));",
+    "    });",
+    "    $select.on('change', function() {",
+    "      var value = $select.val();",
+    "      $input.val(value === '' ? '' : JSON.stringify([value])).trigger('input');",
+    "    });",
+    "    $td.prepend($select);",
+    "  });",
+    "  return table;"
+  )
+}
+
 DatatableFX <- function(df,
                         hidden_columns = c(0, 6, 7, 8, 11, 14, 15, 16, 19, 24, 25, 26),
                         scrollY = "500px",
@@ -122,7 +175,8 @@ DatatableFX <- function(df,
                         rownames = FALSE,
                         escape = TRUE,
                         column_labels = NULL,
-                        numeric_sort_columns = integer(0)) {
+                        numeric_sort_columns = integer(0),
+                        vocabulary_filters = NULL) {
 
   # Check if df is valid
   if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
@@ -157,13 +211,24 @@ DatatableFX <- function(df,
     column_labels <- base::colnames(df)
   }
 
+  # A controlled vocabulary reads better as a dropdown than as a box you type
+  # into. Only the tables that ask for it are affected: with no spec there is
+  # no callback and no extra option, so every other table renders as before.
+  # DT tests callback with missing(), so it has to be left out, not set to NULL.
+  dropdown_options <- list()
+  dropdown_callback <- list()
+  if (length(vocabulary_filters) > 0) {
+    dropdown_options <- list(vocabularyFilters = vocabulary_filters)
+    dropdown_callback <- list(callback = vocabulary_filter_js())
+  }
+
   # Render the datatable
-  DT::datatable(
-    df,
+  do.call(DT::datatable, c(dropdown_callback, list(
+    data = df,
     extensions = "Buttons",
     filter = "top",
     colnames = column_labels,
-    options = list(
+    options = c(dropdown_options, list(
       pageLength = 50,
       lengthMenu = c(10,25, 50, 100, 500, -1),
       scrollY = scrollY,
@@ -179,12 +244,12 @@ DatatableFX <- function(df,
       # colvis lets users bring back columns hidden by default.
       buttons = c('copy', 'csv', 'excel', 'colvis'),
       columnDefs = column_defs
-    ),
+    )),
     class = "compact stripe hover nowrap",
     selection = row_selection,
     rownames = rownames,
     escape = escape
-  )
+  )))
 }
 
 # === Reusable Delete Confirmation Modal ===

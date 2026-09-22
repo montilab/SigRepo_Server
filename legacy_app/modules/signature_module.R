@@ -946,14 +946,7 @@ signature_module_server <- function(id,
     output$signature_file_table <- DT::renderDataTable({
       req(current_signature_feature_set())
 
-      feature_set <- signature_display_frame(current_signature_feature_set())
-
-      DatatableFX(
-        feature_set,
-        hidden_columns = integer(0),
-        scrollY = "500px",
-        column_labels = prettify_colnames(names(feature_set))
-      )
+      signature_detail_table_widget(current_signature_feature_set())
     }, server = TRUE)
 
     output$difexp_panel <- renderUI({
@@ -972,14 +965,7 @@ signature_module_server <- function(id,
     output$difexp_file_table <- DT::renderDataTable({
       req(signature_difexp())
 
-      difexp <- signature_display_frame(signature_difexp())
-
-      DatatableFX(
-        difexp,
-        hidden_columns = integer(0),
-        scrollY = "500px",
-        column_labels = prettify_colnames(names(difexp))
-      )
+      signature_detail_table_widget(signature_difexp())
     }, server = TRUE)
 
     observeEvent(input$view_btn, {

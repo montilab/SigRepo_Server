@@ -204,6 +204,74 @@ test_that("a vocabulary column exactly at the limit is still a dropdown", {
   expect_s3_class(signature_display_frame(df)$sample_type, "factor")
 })
 
+# ---- vocabulary_filter_spec -------------------------------------------------
+
+# A factor alone only gets DT's selectize box, which is still a search box you
+# type into. The spec says which columns get a plain <select> instead, and
+# carries the options with it: these tables render server side, so the browser
+# never sees more than one page of rows and cannot collect the options itself.
+
+test_that("a dropdown column is listed with its position and options", {
+  df <- data.frame(
+    signature_name = c("alpha", "beta"),
+    organism = c("Mus musculus", "Homo sapiens"),
+    stringsAsFactors = FALSE
+  )
+
+  spec <- vocabulary_filter_spec(signature_display_frame(df))
+
+  expect_length(spec, 1L)
+  expect_identical(spec[[1]]$column, 1L)
+  expect_identical(spec[[1]]$options, c("Homo sapiens", "Mus musculus"))
+})
+
+test_that("columns are numbered from zero, the way DT numbers them", {
+  df <- data.frame(organism = "Mus musculus", stringsAsFactors = FALSE)
+
+  expect_identical(vocabulary_filter_spec(signature_display_frame(df))[[1]]$column, 0L)
+})
+
+test_that("search box columns are left out of the spec", {
+  # Free text and genuine quantities keep the widgets they have: a search box
+  # for phenotype, a range slider for adj_p_cutoff.
+  df <- data.frame(
+    phenotype = c("old vs young", "TAZ KD"),
+    adj_p_cutoff = c(0.05, 0.01),
+    stringsAsFactors = FALSE
+  )
+
+  expect_identical(vocabulary_filter_spec(signature_display_frame(df)), list())
+})
+
+test_that("a vocabulary too large for a dropdown is left out too", {
+  # signature_display_frame() already fell back to text for it; the spec must
+  # not put the dropdown back.
+  df <- data.frame(
+    sample_type = paste0("tissue_", seq_len(SIGNATURE_VOCABULARY_MAX_LEVELS + 1)),
+    stringsAsFactors = FALSE
+  )
+
+  expect_identical(vocabulary_filter_spec(signature_display_frame(df)), list())
+})
+
+test_that("a dropdown offers every level, not just the values present", {
+  # The levels, not the values present, are what the dropdown must offer, or
+  # the filter cannot ask for the rows that are missing today.
+  all_public <- data.frame(visibility = c(1L, 1L))
+
+  spec <- vocabulary_filter_spec(signature_display_frame(all_public))
+
+  expect_identical(spec[[1]]$options, c("Public", "Private"))
+})
+
+test_that("a column with no options at all is left out", {
+  # A <select> holding only "All" asks nothing. The flags are exempt: their two
+  # options are fixed, so they survive an empty table.
+  df <- data.frame(organism = character(0), stringsAsFactors = FALSE)
+
+  expect_identical(vocabulary_filter_spec(signature_display_frame(df)), list())
+})
+
 # ---- signature_metadata_frame -----------------------------------------------
 
 test_that("the metadata table shows flag words, not factor codes", {
@@ -445,4 +513,107 @@ test_that("the main table sorts the id column numerically despite its text filte
 
 test_that("the main table copes with no signatures at all", {
   expect_s3_class(signature_table_widget(data.frame()), "datatables")
+})
+
+# ---- dropdown filters on the rendered table ---------------------------------
+
+# The options travel with the widget rather than being read off the page: these
+# tables render server side, so the browser holds one page of rows at a time.
+
+dropdown_options <- function(widget, column) {
+  spec <- widget$x$options$vocabularyFilters
+  entry <- Filter(function(e) identical(e$column, column), spec)
+
+  if (length(entry) == 0) NULL else entry[[1]]$options
+}
+
+test_that("the main table's vocabulary columns carry their options", {
+  widget <- signature_table_widget(signature_rows())
+
+  expect_identical(dropdown_options(widget, 2L), "Mus musculus")
+  expect_identical(dropdown_options(widget, 7L), c("Public", "Private"))
+})
+
+test_that("a dropdown after a hidden column keeps counting every column", {
+  # adj_p_cutoff is hidden and sits before visibility. The positions here count
+  # all columns; the browser translates each to its visible position, because
+  # DataTables drops a hidden column from the DOM. Pre-subtracting them here
+  # instead would put every later dropdown on its neighbour's column -- which
+  # is what happened, silently, until the translation was added.
+  shown <- signature_display_frame(signature_rows())
+
+  expect_true("adj_p_cutoff" %in% SIGNATURE_HIDDEN_COLUMNS)
+  expect_identical(match("visibility", names(shown)) - 1L, 7L)
+  expect_identical(dropdown_options(signature_table_widget(signature_rows()), 7L),
+                   c("Public", "Private"))
+})
+
+test_that("the main table's free text and quantity columns carry none", {
+  widget <- signature_table_widget(signature_rows())
+
+  expect_null(dropdown_options(widget, 1L))
+  expect_null(dropdown_options(widget, 3L))
+})
+
+test_that("the main table ships the script that draws the dropdowns", {
+  expect_s3_class(signature_table_widget(signature_rows())$x$callback, "JS_EVAL")
+})
+
+test_that("a table with no dropdowns is left exactly as it was", {
+  # Compare, Collection, Reference and Annotate all come through here; none of
+  # them should gain a callback or an options key they did not have before.
+  plain <- DatatableFX(data.frame(a = c("x", "y"), stringsAsFactors = FALSE))
+
+  expect_null(plain$x$callback)
+  expect_null(plain$x$options$vocabularyFilters)
+})
+
+# ---- signature_detail_table_widget ------------------------------------------
+
+# The feature set and difexp tables below the main one. Their columns vary per
+# signature, so what they get is decided by type, not by a list of names.
+
+difexp_rows <- function() {
+  data.frame(
+    feature_name = c("Cd19", "Actb", "Gapdh"),
+    direction = c("up", "dn", "up"),
+    logFC = c(1.2, -0.4, 0.8),
+    stringsAsFactors = FALSE
+  )
+}
+
+test_that("a difexp vocabulary column gets a dropdown", {
+  expect_identical(
+    dropdown_options(signature_detail_table_widget(difexp_rows()), 1L),
+    c("dn", "up")
+  )
+})
+
+test_that("a difexp feature column keeps its search box", {
+  # feature_name is an identifier, not a vocabulary: there are as many values
+  # as there are rows.
+  expect_null(dropdown_options(signature_detail_table_widget(difexp_rows()), 0L))
+})
+
+test_that("a difexp quantity keeps its range slider", {
+  expect_null(dropdown_options(signature_detail_table_widget(difexp_rows()), 2L))
+})
+
+test_that("the detail tables show readable headers", {
+  header <- as.character(signature_detail_table_widget(difexp_rows())$x$container)
+
+  expect_match(header, "Feature", fixed = TRUE)
+  expect_no_match(header, "feature_name", fixed = TRUE)
+})
+
+test_that("a detail table leaves a camelCase statistic alone", {
+  # logFC and adj.P.Val are how the difexp tables name their columns; the
+  # title-case fallback must not turn them into Logfc and Adj.p.val.
+  header <- as.character(signature_detail_table_widget(difexp_rows())$x$container)
+
+  expect_match(header, "logFC", fixed = TRUE)
+})
+
+test_that("a detail table with no rows still renders", {
+  expect_s3_class(signature_detail_table_widget(difexp_rows()[0, ]), "datatables")
 })
