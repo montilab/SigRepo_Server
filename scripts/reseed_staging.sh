@@ -57,6 +57,12 @@ case "$MODE" in
     docker exec "$CONTAINER" sh -c \
       'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --databases sigrepo' \
       2>/dev/null | gzip > "$backup"
+    # gzip writes a perfectly valid archive when its input produced nothing, so
+    # an unchecked backup can be two bytes of emptiness. This is the only copy
+    # of whatever staging held; verify it before dropping anything for it.
+    [ "${PIPESTATUS[0]}" -eq 0 ] || die "the pre-restore backup failed; refusing to drop anything"
+    gunzip -t "$backup" || die "the pre-restore backup is corrupt; refusing to drop anything"
+    [ -s "$backup" ] || die "the pre-restore backup is empty; refusing to drop anything"
 
     echo "dropping and restoring; this takes a couple of minutes"
     docker exec "$CONTAINER" sh -c \
@@ -66,8 +72,13 @@ case "$MODE" in
     # Capture mysql's own status, not the filter's. A grep that prints nothing
     # exits 1, which reads as a failed restore when the restore was fine: that
     # exact mistake made a successful run report "restore exit: 1" on 2026-09-24.
+    #
+    # The `|| true` MUST stay inside the brace group. As a trailing operator it
+    # is a separate command in the AND/OR list, so `true` runs, PIPESTATUS
+    # collapses to its own single element, and `set -u` then kills the script on
+    # the next line -- on a restore that had just succeeded.
     gunzip -c "$FILE" | docker exec -i "$CONTAINER" sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD"' 2>&1 \
-      | grep -v "Using a password" || true
+      | { grep -v "Using a password" || true; }
     status=${PIPESTATUS[1]}
     [ "$status" -eq 0 ] || die "restore failed with status $status; the pre-restore backup is at $backup"
 
