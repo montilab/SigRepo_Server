@@ -22,7 +22,11 @@ HOST=127.0.0.1
 PORT=8020
 API_KEY=""
 CONTAINMENT=0
-TIMEOUT=120
+TIMEOUT=30
+# Enrichment and compare are genuinely slow on montilab: 2 CPUs, ~3.4 GB free
+# against other people's workloads, and a single R worker that serialises every
+# request. A short budget there turns "slow" into a red deploy.
+LONG_TIMEOUT=${LONG_TIMEOUT:-420}
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -30,6 +34,7 @@ while [ $# -gt 0 ]; do
     --port)        PORT=$2; shift 2 ;;
     --api-key)     API_KEY=$2; shift 2 ;;
     --timeout)     TIMEOUT=$2; shift 2 ;;
+    --long-timeout) LONG_TIMEOUT=$2; shift 2 ;;
     --containment) CONTAINMENT=1; shift ;;
     -h|--help)     sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -63,10 +68,42 @@ print(cur)
 ' "$1"
 }
 
-# Every request is bounded. A staging instance that hangs has to fail, because a
-# stalled deploy looks exactly like a slow one.
-get()  { curl -s --max-time "$TIMEOUT" "$1"; }
-post() { curl -s --max-time "$TIMEOUT" -X POST -H 'Content-Type: application/json' -d "$2" "$1"; }
+# Every request is bounded twice: --connect-timeout so a filtered or black-holed
+# host fails in seconds rather than burning the whole budget, and --max-time so a
+# stalled instance fails at all. A deploy that hangs looks exactly like a slow
+# one, and the difference has to be visible.
+CONNECT_TIMEOUT=${CONNECT_TIMEOUT:-5}
+
+get()  { curl -s --connect-timeout "$CONNECT_TIMEOUT" --max-time "$TIMEOUT" "$1"; }
+
+# POST, writing the body to $BODY and printing the HTTP status. The status is
+# the point: the API answers failures with json_error(), which serialises to
+# [{"MESSAGES": "..."}] -- a NON-EMPTY JSON list. Anything that tests the body
+# for truthiness rather than for success passes on a 500.
+BODY=$(mktemp)
+trap 'rm -f "$BODY"' EXIT
+post_code() {
+  local url=$1 data=$2 budget=${3:-$TIMEOUT}
+  curl -s -o "$BODY" -w '%{http_code}' \
+    --connect-timeout "$CONNECT_TIMEOUT" --max-time "$budget" \
+    -X POST -H 'Content-Type: application/json' -d "$data" "$url"
+}
+
+# True when the body is an API error payload rather than a result.
+is_api_error() {
+  python3 -c '
+import json, sys
+try:
+    doc = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)          # unparseable is not a result either
+if isinstance(doc, list) and doc and isinstance(doc[0], dict) and "MESSAGES" in doc[0]:
+    sys.exit(0)
+if isinstance(doc, dict) and "MESSAGES" in doc:
+    sys.exit(0)
+sys.exit(1)
+' "$BODY"
+}
 
 echo "=== SigRepo smoke test against ${BASE} ==="
 
@@ -97,11 +134,14 @@ fi
 #    geneset_resources table, and the compose bind mount of the source hides the
 #    cache baked into the image. data/msigdb_genesets is gitignored, so a fresh
 #    clone has nothing to resolve against and every enrichment fails.
-gs=$(post "${BASE}/annotate/genesets" \
+gs_code=$(post_code "${BASE}/annotate/genesets" \
   "{\"api_key\":\"${API_KEY}\",\"species\":\"Homo sapiens\",\"collection\":\"H\"}")
+gs=$(cat "$BODY")
 n_gs=$(printf '%s' "$gs" | json_field n_genesets)
 src=$(printf '%s' "$gs" | json_field source)
-if [ -n "$n_gs" ] && printf '%s' "$n_gs" | grep -qE '^[0-9]+$' && [ "$n_gs" -gt 0 ]; then
+if [ "$gs_code" != "200" ]; then
+  fail "gene sets resolve" "HTTP $gs_code: $(printf '%s' "$gs" | head -c 200)"
+elif [ -n "$n_gs" ] && printf '%s' "$n_gs" | grep -qE '^[0-9]+$' && [ "$n_gs" -gt 0 ]; then
   pass "gene sets resolve ($n_gs Hallmark sets, source=$src)"
 else
   fail "gene sets resolve" "$(printf '%s' "$gs" | head -c 200)"
@@ -125,12 +165,15 @@ if [ -z "${first:-}" ]; then
   fail "signature compare" "no human signature available to test with"
 else
   # 4. Does hypeR work end to end.
-  enr=$(post "${BASE}/annotate/run" \
-    "{\"api_key\":\"${API_KEY}\",\"signature_hashkeys\":[\"${first}\"],\"test\":\"hypergeometric\",\"species\":\"Homo sapiens\",\"collection\":\"H\",\"fdr\":0.25}")
-  if printf '%s' "$enr" | json_field geneset_source > /dev/null; then
+  enr_code=$(post_code "${BASE}/annotate/run" \
+    "{\"api_key\":\"${API_KEY}\",\"signature_hashkeys\":[\"${first}\"],\"test\":\"hypergeometric\",\"species\":\"Homo sapiens\",\"collection\":\"H\",\"fdr\":0.25}" \
+    "$LONG_TIMEOUT")
+  if [ "$enr_code" != "200" ] || is_api_error; then
+    fail "enrichment run" "HTTP $enr_code: $(head -c 200 "$BODY")"
+  elif json_field geneset_source < "$BODY" > /dev/null; then
     pass "enrichment run"
   else
-    fail "enrichment run" "$(printf '%s' "$enr" | head -c 200)"
+    fail "enrichment run" "no geneset_source in the response: $(head -c 200 "$BODY")"
   fi
 
   # 5. Does compare work. This is what ComplexHeatmap, circlize, cba and fgsea
@@ -138,12 +181,20 @@ else
   if [ -z "${second:-}" ]; then
     fail "signature compare" "need two human signatures, found one"
   else
-    cmp=$(post "${BASE}/signatures/compare" \
-      "{\"api_key\":\"${API_KEY}\",\"signature_hashkeys\":[\"${first}\",\"${second}\"],\"method\":\"overlap\"}")
-    if printf '%s' "$cmp" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin) else 1)' 2>/dev/null; then
+    # The whole reason this check exists is an image predating ComplexHeatmap,
+    # circlize, cba and fgsea. That failure arrives as a 500 whose body is
+    # [{"MESSAGES": "Signature comparison failed: there is no package called
+    # 'ComplexHeatmap'"}] -- non-empty, and therefore truthy. Test the status
+    # and the payload shape, never the body's truthiness.
+    cmp_code=$(post_code "${BASE}/signatures/compare" \
+      "{\"api_key\":\"${API_KEY}\",\"signature_hashkeys\":[\"${first}\",\"${second}\"],\"method\":\"overlap\"}" \
+      "$LONG_TIMEOUT")
+    if [ "$cmp_code" != "200" ] || is_api_error; then
+      fail "signature compare" "HTTP $cmp_code: $(head -c 200 "$BODY")"
+    elif [ -s "$BODY" ]; then
       pass "signature compare"
     else
-      fail "signature compare" "$(printf '%s' "$cmp" | head -c 200)"
+      fail "signature compare" "empty response"
     fi
   fi
 fi
@@ -152,14 +203,28 @@ fi
 #    where docker is usable, and a check that quietly does nothing is worse than
 #    one that is absent.
 if [ "$CONTAINMENT" -eq 1 ]; then
-  published=$(docker ps --format '{{.Names}}	{{.Ports}}' 2>/dev/null | grep sigrepo-local)
+  # Match EVERY SigRepo container, not just sigrepo-local-*: a vm-compose or
+  # default-compose stack (sigrepo-api, sigrepo-mysql) publishes on 0.0.0.0 by
+  # design, and filtering those out would hide the exact thing being checked.
+  # Overridable so the check itself is testable with synthetic docker output:
+  # the formats that matter (a routable address, the IPv6 wildcard) are awkward
+  # to produce on demand and must not go untested for that reason.
+  published=$(${DOCKER_PS:-docker ps --format '{{.Names}}	{{.Ports}}'} 2>/dev/null | grep -E '(^|[[:space:]])sigrepo')
   if [ -z "$published" ]; then
-    fail "containment" "no sigrepo-local containers visible to docker ps"
-  elif printf '%s' "$published" | grep -q '0\.0\.0\.0'; then
-    fail "containment" "a sigrepo-local port is published on 0.0.0.0"
-    printf '%s\n' "$published"
+    fail "containment" "no sigrepo containers visible to docker ps"
   else
-    pass "containment (every published port on 127.0.0.1)"
+    # Assert every publish is ON loopback, rather than looking for the single
+    # string 0.0.0.0. A bind to a routable address (128.197.x.x:8020->3838/tcp)
+    # or to the IPv6 wildcard ([::]:8020->) contains no 0.0.0.0 at all.
+    nonloopback=$(printf '%s\n' "$published" \
+      | grep -oE '[][0-9a-fA-F.:*]+:[0-9]+->' \
+      | grep -vE '^127\.0\.0\.1:' || true)
+    if [ -n "$nonloopback" ]; then
+      fail "containment" "published off 127.0.0.1: $(printf '%s' "$nonloopback" | tr '\n' ' ')"
+      printf '%s\n' "$published"
+    else
+      pass "containment (every published port on 127.0.0.1)"
+    fi
   fi
 fi
 
