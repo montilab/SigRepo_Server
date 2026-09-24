@@ -94,9 +94,15 @@ echo "--- containment, against every binding format ---"
 # dangerous formats are awkward to produce on demand. DOCKER_PS makes the check
 # testable rather than leaving them untested.
 
+# Feed the listing through a real FILE rather than an inline printf. An inline
+# command string mangles the tabs and newlines and word-splits on the ports,
+# which makes every case pass or fail for reasons unrelated to what it claims to
+# test -- the first version of this harness did exactly that.
+FAKE_PS=$(mktemp)
 containment_case() {
   local label=$1 want=$2 fake=$3
-  OUT=$(DOCKER_PS="printf %s\n$fake" bash "$SCRIPT" \
+  printf '%b\n' "$fake" > "$FAKE_PS"
+  OUT=$(DOCKER_PS="cat $FAKE_PS" bash "$SCRIPT" \
           --host 127.0.0.1 --port 9 --api-key none --containment 2>&1)
   if printf '%s' "$OUT" | grep -q "$want"; then ok "$label"; else
     bad "$label"; printf '%s\n' "$OUT" | grep -i containment
@@ -108,7 +114,25 @@ containment_case "routable address is caught"      "FAIL  containment" 'sigrepo-
 containment_case "IPv6 wildcard is caught"         "FAIL  containment" 'sigrepo-api\t[::]:8020->3838/tcp'
 containment_case "a vm stack alongside is caught"  "FAIL  containment" 'sigrepo-local-api\t127.0.0.1:8020->3838/tcp\nsigrepo-mysql\t0.0.0.0:3306->3306/tcp'
 containment_case "all-loopback passes"             "PASS  containment" 'sigrepo-local-api\t127.0.0.1:8020->3838/tcp\nsigrepo-local-shiny\t127.0.0.1:8051->3838/tcp'
-containment_case "no containers is a failure"      "FAIL  containment" ''
+containment_case "no containers is a failure"      "FAIL  containment" ""
+
+# The real montilab listing, from the first staging deploy on 2026-09-24.
+# sigrepo-activate-user and sigrepo-rstudio are OTHER lab services on that
+# shared host. They merely share the name prefix, they have been internet-open
+# since long before SigRepo staging existed, and they are not ours to change.
+# Failing on them makes every deploy report "not healthy" for a condition nobody
+# can fix, and a check that cries wolf every run is one people learn to ignore.
+MONTILAB_REAL='sigrepo-local-shiny\t8021/tcp, 127.0.0.1:8051->3838/tcp\nsigrepo-local-mcp\t3838/tcp, 8021/tcp\nsigrepo-local-api\t8021/tcp, 127.0.0.1:8020->3838/tcp\nsigrepo-local-web\t127.0.0.1:8050->80/tcp\nsigrepo-activate-user\t0.0.0.0:8080->3838/tcp, [::]:8080->3838/tcp\nsigrepo-local-mcp-proxy\t80/tcp, 127.0.0.1:8021->8021/tcp\nsigrepo-local-mysql\t127.0.0.1:3306->3306/tcp, 33060/tcp\nsigrepo-rstudio\t0.0.0.0:7878->8787/tcp, [::]:7878->8787/tcp'
+containment_case "other lab containers sharing the prefix are ignored" "PASS  containment" "$MONTILAB_REAL"
+
+# But a vm-compose stack IS ours, and an exposed one beside a local stack is the
+# case the prefix match was broadened for in the first place.
+containment_case "an exposed vm-compose stack of ours is still caught" "FAIL  containment" 'sigrepo-local-api\t127.0.0.1:8020->3838/tcp\nsigrepo-api\t0.0.0.0:8020->3838/tcp'
+containment_case "an exposed production mysql of ours is still caught" "FAIL  containment" 'sigrepo-local-api\t127.0.0.1:8020->3838/tcp\nsigrepo-mysql\t0.0.0.0:3306->3306/tcp'
+
+# A container anyone could start on a shared host must not be able to fail our
+# deploys, nor to hide behind the allow-list.
+containment_case "an unrelated sigrepo-* container cannot fail the deploy" "PASS  containment" 'sigrepo-local-api\t127.0.0.1:8020->3838/tcp\nsigrepo-someone-elses-app\t0.0.0.0:9999->80/tcp'
 
 echo "=== $FAILURES failure(s) ==="
 [ "$FAILURES" -eq 0 ]
