@@ -61,7 +61,15 @@ jobs:
             exit 0
           fi
 
-          changed=$(git diff --name-only "$BEFORE" "$SHA" || echo "")
+          # A force push leaves $BEFORE unreachable and git diff fails. Build
+          # rather than skip: skipping would publish nothing for a force-pushed
+          # Dockerfile change, and the next deploy would quietly run an image
+          # that does not match the branch.
+          if ! changed=$(git diff --name-only "$BEFORE" "$SHA" 2>/dev/null); then
+            echo "could not diff $BEFORE..$SHA (force push?); building to be safe"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if printf '%s\n' "$changed" | grep -qE '^(Dockerfile|install_r_packages\.R|DESCRIPTION)$'; then
             echo "build=true"  >> "$GITHUB_OUTPUT"
           else
@@ -122,7 +130,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: github.event_name == 'push'
+        # Not just 'push': a manual dispatch has to publish too, otherwise
+        # workflow_dispatch only warms the build cache. It is also the only way
+        # to create the first :dev image, because merging this workflow change
+        # to dev touches nothing in the paths filter.
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -161,7 +173,7 @@ jobs:
             ${{ matrix.build_args }}
             SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
           platforms: linux/amd64
-          push: ${{ github.event_name == 'push' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ needs.decide.outputs.tag }}
             ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ github.sha }}
