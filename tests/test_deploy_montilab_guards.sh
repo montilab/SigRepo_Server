@@ -71,7 +71,64 @@ echo "SIGREPO_IMAGE_TAG=no-such-tag-xyz" > "$WORK/server/.env"
 OUT=$(run); RC=$?
 expect_abort "unpublished image tag is refused" "is not published" "$OUT" "$RC"
 
-# 5. A clean pair with a real tag: dry run reaches the stop point and exits 0.
+# Restore a publishable tag: the previous case deliberately left an unpublished
+# one, and every case below needs to get PAST the tag check to test its own guard.
+echo "SIGREPO_IMAGE_TAG=latest" > "$WORK/server/.env"
+
+# 5. STAGED but uncommitted changes. `git diff --quiet` compares the working
+#    tree to the INDEX, so `git add` with no commit sails past it -- and then
+#    `git merge --ff-only` fails. Because the merge loop does the server first
+#    and the client second, that leaves staging running a NEW server against an
+#    OLD client: exactly the half-deployed state this script exists to prevent.
+echo "staged but not committed" >> "$WORK/client/DESCRIPTION"
+git -C "$WORK/client" add DESCRIPTION
+OUT=$(run); RC=$?
+expect_abort "staged-but-uncommitted changes are refused" "refusing to merge over them" "$OUT" "$RC"
+git -C "$WORK/client" reset -q --hard origin/dev
+
+# 6a. A harmless untracked file must NOT block a deploy. montilab legitimately
+#     carries helper scripts that are not in the repo, and a guard that refuses
+#     every deploy over one is a guard people route around.
+echo "helper" > "$WORK/client/run_something_local.sh"
+OUT=$(run); RC=$?
+if [ "$RC" -eq 0 ]; then
+  echo "PASS  a harmless untracked file does not block a deploy"
+else
+  echo "FAIL  a harmless untracked file blocked the deploy"; FAILURES=$((FAILURES+1))
+  printf '%s\n' "$OUT" | tail -3
+fi
+rm -f "$WORK/client/run_something_local.sh"
+
+# 6b. An untracked file that origin/dev is ABOUT TO ADD does break --ff-only,
+#     and must be refused.
+git -C "$WORK/client" reset -q --hard origin/dev~5
+INCOMING=$(git -C "$WORK/client" diff --name-only --diff-filter=A HEAD origin/dev | head -1)
+if [ -n "$INCOMING" ]; then
+  mkdir -p "$(dirname "$WORK/client/$INCOMING")"
+  echo "in the way" > "$WORK/client/$INCOMING"
+  OUT=$(run); RC=$?
+  expect_abort "an untracked file blocking an incoming add is refused" "in the way of origin/dev" "$OUT" "$RC"
+  rm -f "$WORK/client/$INCOMING"
+else
+  echo "SKIP  no incoming file additions in the last 5 commits to collide with"
+fi
+git -C "$WORK/client" reset -q --hard origin/dev
+
+# 7. A checkout sitting on the wrong branch. Every comparison here is against
+#    origin/dev, and `git merge --ff-only origin/dev` fast forwards whatever
+#    HEAD points at -- so on a checkout still on master it would move master to
+#    dev's tip, which is the direct-to-master push that branch protection and
+#    the hotfix rule exist to prevent.
+git -C "$WORK/server" checkout -q -B master origin/dev
+OUT=$(run); RC=$?
+expect_abort "a checkout not on dev is refused" "not on the dev branch" "$OUT" "$RC"
+git -C "$WORK/server" checkout -q -B dev origin/dev
+
+# 8. An unrecognised argument must not silently become a real deploy.
+OUT=$(SERVER_DIR=$WORK/server CLIENT_DIR=$WORK/client LOG=$WORK/deploy.log bash "$SCRIPT" --dryrun 2>&1); RC=$?
+expect_abort "a mistyped flag is refused, not treated as a real run" "unknown argument" "$OUT" "$RC"
+
+# 9. A clean pair with a real tag: dry run reaches the stop point and exits 0.
 echo "SIGREPO_IMAGE_TAG=latest" > "$WORK/server/.env"
 OUT=$(run); RC=$?
 if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "DRY RUN: stopping before any change"; then

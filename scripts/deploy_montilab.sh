@@ -27,9 +27,19 @@ SHINY_TUNNEL_HINT=${SHINY_TUNNEL_HINT:-http://127.0.0.1:9051}
 SERVICES="sigrepo-api sigrepo-shiny sigrepo-mcp"
 
 DRY_RUN=0
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=1
+# Anything unrecognised is refused rather than ignored. This is pasted as a sudo
+# line on a shared host, and silently upgrading "--dryrun" from "show me what
+# would happen" into "do it" is the wrong way to be wrong.
+case "${1:-}" in
+  "")        : ;;
+  --dry-run) DRY_RUN=1 ;;
+  *)         echo "ABORT: unknown argument: $1 (only --dry-run is accepted)" >&2; exit 1 ;;
+esac
 
-exec > >(tee "$LOG") 2>&1
+# Append rather than truncate: the log of a deploy that just failed is the thing
+# you want when the retry also fails.
+exec > >(tee -a "$LOG") 2>&1
+echo; echo "######## deploy started $(date '+%F %T') ########"
 step() { echo; echo "===== $* ====="; date '+%F %T'; }
 die()  { echo "ABORT: $*"; exit 1; }
 
@@ -61,7 +71,35 @@ for d in "$SERVER_DIR" "$CLIENT_DIR"; do
   # than printing "has  local commit(s)" and guessing.
   [ -n "$ahead" ] && [ -n "$behind" ] || die "could not compare $d against origin/dev"
   [ "$ahead" = "0" ] || die "$d has $ahead local commit(s) origin/dev lacks; not fast-forwardable"
-  git -C "$d" diff --quiet || die "$d has uncommitted tracked changes; refusing to merge over them"
+
+  # `git diff --quiet` compares the working tree to the INDEX only, so a STAGED
+  # but uncommitted change passes it -- and then `git merge --ff-only` fails.
+  # Since this loop does the server first and the client second, that would
+  # leave staging running a NEW server against an OLD client, which is the exact
+  # half-deployed state the two-phase check exists to prevent.
+  dirty=$(git -C "$d" status --porcelain --untracked-files=no)
+  [ -z "$dirty" ] || die "$d has staged or modified tracked files; refusing to merge over them:
+$(printf '%s' "$dirty" | head -5)"
+
+  # Untracked files break --ff-only only when origin/dev is about to add that
+  # same path, so refuse exactly those rather than any stray file. montilab
+  # legitimately carries untracked helper scripts, and blocking every deploy
+  # over one would make this guard something to route around.
+  collisions=""
+  while IFS= read -r f; do
+    [ -n "$f" ] && [ -e "$d/$f" ] && collisions="$collisions $f"
+  done <<< "$(git -C "$d" diff --name-only --diff-filter=A HEAD origin/dev 2>/dev/null)"
+  [ -z "$collisions" ] || die "untracked files in $d are in the way of origin/dev:$collisions"
+
+  # Every comparison above is against origin/dev, but `git merge --ff-only
+  # origin/dev` fast forwards whatever HEAD points at. On a checkout still on
+  # master that would move master to dev's tip: the direct-to-master change that
+  # branch protection and the hotfix rule exist to prevent, and it would make
+  # "what is staging running" unanswerable from the branch name.
+  branch=$(git -C "$d" symbolic-ref --quiet --short HEAD) \
+    || die "$d has a detached HEAD; run: git -C $d checkout dev"
+  [ "$branch" = "dev" ] \
+    || die "$d is not on the dev branch (HEAD is on '$branch'); run: git -C $d checkout dev"
 done
 
 # Turn "manifest unknown" halfway through a deploy into a clear message now.
