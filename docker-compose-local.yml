@@ -37,6 +37,17 @@ x-difexp-volume: &difexp-volume
   source: ./.local-data/difexp
   target: /difexp
 
+# The image the API, Shiny and MCP services all run.
+#
+# montilab.bu.edu is the staging instance: it runs the dev line and sets
+# SIGREPO_IMAGE_TAG=dev in its own .env (gitignored). Everywhere else the
+# variable is unset and this resolves to :latest exactly as it always has, so a
+# checkout without a .env behaves identically to before this was parameterised.
+#
+# sigrepo-mysql and sigrepo-web are deliberately NOT parameterised: neither is
+# built from the branch under test, so staging runs the same ones as everyone.
+x-sigrepo-image: &sigrepo-image montilab/sigrepo:${SIGREPO_IMAGE_TAG:-latest}
+
 # The sibling checkouts, mounted over the image's copies exactly as the VM does.
 x-sigrepo-volume: &sigrepo-volume
   type: bind
@@ -67,7 +78,7 @@ services:
   sigrepo-api:
     container_name: sigrepo-local-api
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: *sigrepo-image
     depends_on:
       - sigrepo-mysql
     networks:
@@ -111,7 +122,7 @@ services:
   sigrepo-shiny:
     container_name: sigrepo-local-shiny
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: *sigrepo-image
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
@@ -130,7 +141,7 @@ services:
   sigrepo-mcp:
     container_name: sigrepo-local-mcp
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: *sigrepo-image
     depends_on:
       - sigrepo-mysql
     networks:
