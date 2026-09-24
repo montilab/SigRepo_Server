@@ -35,15 +35,11 @@ jobs:
     # suite that finished in 24 seconds. Both steps are uncached network work
     # and varied 100x between runs. The R library cache was never the problem --
     # it hit every time, including on that 98 minute run.
-    # NOTE: this should become
-    #   montilab/sigrepo:${{ github.ref_name == 'dev' && 'dev' || 'latest' }}
-    # once a :dev image exists. Until then a dev branch that adds an R package
-    # builds :dev correctly and then fails its tests in :latest, which lacks the
-    # package, and the only way to go green is to merge to master first -- the
-    # loop the staging gate exists to break. Flipping it before the first :dev
-    # image is published would make every dev run fail to pull its container,
-    # which is why it is not flipped here. See issue #115.
-    container: montilab/sigrepo:latest
+    # Run dev's suite in dev's own image. Otherwise a dev branch that adds an R
+    # package builds :dev correctly and then fails its tests inside :latest,
+    # which lacks that package -- and the only way to go green would be to merge
+    # to master first, which is the loop the staging gate exists to break.
+    container: montilab/sigrepo:${{ github.ref_name == 'dev' && 'dev' || 'latest' }}
     concurrency:
       group: test-${{ github.event_name != 'pull_request' || github.run_id }}
       cancel-in-progress: true
