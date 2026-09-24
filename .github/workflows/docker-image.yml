@@ -1,13 +1,76 @@
 name: SigRepo Docker Build
 
 on:
+  # dev is here because montilab.bu.edu runs it and needs an image whose R
+  # environment matches. The dev build is gated in the `decide` job below
+  # rather than by a second `push:` key with its own paths filter: YAML keeps
+  # only the last duplicate key, so that spelling would silently delete the
+  # master build.
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
+  workflow_dispatch:
 
 jobs:
+  # Decides whether this push deserves an image, and under which tag.
+  #
+  # On master/main: always build, tag :latest, bake the master client.
+  # On dev: build only when the R environment itself changed, tag :dev, bake
+  # the dev client. Everything else on dev is bind-mounted into the running
+  # containers, so the image does not need to move -- and publishing on every
+  # dev merge is the expensive part worth avoiding.
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+      tag: ${{ steps.check.outputs.tag }}
+      sigrepo_branch: ${{ steps.check.outputs.sigrepo_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$REF" != "dev" ]; then
+            echo "tag=latest"          >> "$GITHUB_OUTPUT"
+            echo "sigrepo_branch=master" >> "$GITHUB_OUTPUT"
+            echo "build=true"          >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "tag=dev"            >> "$GITHUB_OUTPUT"
+          echo "sigrepo_branch=dev" >> "$GITHUB_OUTPUT"
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A first push to a new branch reports an all-zero "before", and
+          # a diff against it is not meaningful: build rather than guess.
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed=$(git diff --name-only "$BEFORE" "$SHA" || echo "")
+          if printf '%s\n' "$changed" | grep -qE '^(Dockerfile|install_r_packages\.R|DESCRIPTION)$'; then
+            echo "build=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-push:
+    needs: decide
+    if: needs.decide.outputs.build == 'true'
     runs-on: ubuntu-latest
     env:
       # The Docker Hub *login* identity (secrets.DOCKERHUB_USERNAME, a bot
@@ -33,7 +96,6 @@ jobs:
             dockerfile: Dockerfile
             build_args: |
               R_VERSION=4.4.3
-              SIGREPO_BRANCH=master
             # "sigrepo" is load-bearing: docker-compose.yml pulls the API and
             # MCP services from montilab/sigrepo:latest. The old sigrepo-shiny
             # alias is gone -- it published this same API image under a name
@@ -73,13 +135,14 @@ jobs:
         env:
           EXTRA_REPOS: ${{ matrix.extra_repos }}
           SHA: ${{ github.sha }}
+          TAG: ${{ needs.decide.outputs.tag }}
         run: |
           {
             echo "tags<<TAGS_EOF"
             if [ -n "$EXTRA_REPOS" ]; then
               IFS=',' read -ra EXTRAS <<< "$EXTRA_REPOS"
               for repo in "${EXTRAS[@]}"; do
-                echo "${DOCKERHUB_NAMESPACE}/${repo}:latest"
+                echo "${DOCKERHUB_NAMESPACE}/${repo}:${TAG}"
                 echo "${DOCKERHUB_NAMESPACE}/${repo}:${SHA}"
               done
             fi
@@ -87,15 +150,20 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and push ${{ matrix.image_repo }}
+        # sigrepo-mysql and sigrepo-web build from mysql/ and web/ and are not
+        # under test on the staging line, so a dev run builds only the API.
+        if: ${{ github.ref_name != 'dev' || matrix.image_repo == 'sigrepo-api' }}
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          build-args: ${{ matrix.build_args }}
+          build-args: |
+            ${{ matrix.build_args }}
+            SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ needs.decide.outputs.tag }}
             ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ github.sha }}
             ${{ steps.extra_tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.image_repo }}
