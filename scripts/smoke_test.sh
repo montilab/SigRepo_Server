@@ -203,13 +203,25 @@ fi
 #    where docker is usable, and a check that quietly does nothing is worse than
 #    one that is absent.
 if [ "$CONTAINMENT" -eq 1 ]; then
-  # Match EVERY SigRepo container, not just sigrepo-local-*: a vm-compose or
-  # default-compose stack (sigrepo-api, sigrepo-mysql) publishes on 0.0.0.0 by
-  # design, and filtering those out would hide the exact thing being checked.
-  # Overridable so the check itself is testable with synthetic docker output:
-  # the formats that matter (a routable address, the IPv6 wildcard) are awkward
-  # to produce on demand and must not go untested for that reason.
-  published=$(${DOCKER_PS:-docker ps --format '{{.Names}}	{{.Ports}}'} 2>/dev/null | grep -E '(^|[[:space:]])sigrepo')
+  # Match OUR container names exactly, not a "sigrepo" prefix.
+  #
+  # Both halves of this are load-bearing. Matching only sigrepo-local-* would
+  # hide a docker-compose-vm.yml or docker-compose.yml stack (sigrepo-api,
+  # sigrepo-mysql) published on 0.0.0.0 right beside a local one, which is the
+  # exact thing being checked. But matching the bare prefix sweeps in containers
+  # that are not ours: montilab runs sigrepo-activate-user and sigrepo-rstudio,
+  # other lab services that have been internet-open since long before SigRepo
+  # staging existed and are not ours to change. Failing on those made every
+  # deploy report "not healthy" for a condition nobody can fix, and a check that
+  # cries wolf on every run is one people learn to ignore.
+  #
+  # The names are enumerable and all three compose files agree on them.
+  #
+  # DOCKER_PS is overridable so the check is testable with synthetic output: the
+  # formats that matter (a routable address, the IPv6 wildcard) are awkward to
+  # produce on demand and must not go untested for that reason.
+  OURS='^sigrepo(-local)?-(mysql|api|web|shiny|mcp|mcp-proxy)[[:space:]]'
+  published=$(${DOCKER_PS:-docker ps --format '{{.Names}}	{{.Ports}}'} 2>/dev/null | grep -E "$OURS")
   if [ -z "$published" ]; then
     fail "containment" "no sigrepo containers visible to docker ps"
   else
