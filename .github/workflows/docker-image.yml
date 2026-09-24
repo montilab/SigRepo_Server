@@ -169,9 +169,12 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          build-args: |
-            ${{ matrix.build_args }}
-            SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
+          # Concatenated, not a two-line block: matrix.build_args is a block
+          # scalar that already ends in a newline, and sigrepo-web's is empty.
+          # A literal two-line form would hand the action a leading blank line
+          # for that entry, and relying on it to discard one is an unnecessary
+          # bet. This yields exactly the arguments, with no blank lines.
+          build-args: ${{ matrix.build_args }}SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
