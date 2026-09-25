@@ -121,6 +121,10 @@ Re-running the provided script carries none of that risk.
 - `2026-09-25-rename-type-platform.sql` /
   `2026-09-25-rename-type-platform-rollback.sql`: renames
   `signatures.direction_type` to `signatures.type` and
-  `platforms.platform_name` to `platforms.platform`. Metadata-only
-  (`RENAME COLUMN`, not `CHANGE COLUMN`); see the comments in the forward
-  script for why `CHANGE COLUMN` is avoided for the `SET(...)` column.
+  `platforms.platform_name` to `platforms.platform`, and also renames the
+  `platforms` unique index from `platform_name` to `platform` so a migrated
+  database's index name matches what a fresh install from
+  `mysql/schema/platforms.sql` produces. Metadata-only (`RENAME COLUMN` and
+  `RENAME INDEX`, not `CHANGE COLUMN`); see the comments in the forward
+  script for why `CHANGE COLUMN` is avoided for the `SET(...)` column, and
+  for why the index needs its own explicit rename.

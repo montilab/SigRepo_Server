@@ -13,10 +13,15 @@
 -- mysql/schema/signatures.sql). RENAME COLUMN needs no type restatement.
 --
 -- This is a metadata-only, in-place operation: no table rebuild, no row copy,
--- and duration is independent of row count. Indexes follow the renamed column
--- automatically, so the UNIQUE constraint on platforms needs no separate
--- statement. No foreign key references either column; they reference
--- platform_id.
+-- and duration is independent of row count. When a column that an index
+-- covers is renamed, the column reference inside that index follows
+-- automatically; the UNIQUE constraint on platforms keeps guarding the right
+-- column with no separate ALTER for that. But the index's own NAME does not
+-- follow the column rename, so this script also renames the index itself
+-- back to `platform_name`, undoing the forward migration's `RENAME INDEX`.
+-- signatures has no index at all on direction_type/type (confirmed via SHOW
+-- INDEX), so it needs no equivalent statement. No foreign key references
+-- either renamed column; they reference platform_id.
 --
 -- Each rename is guarded so re-running this file is a no-op.
 --
@@ -70,10 +75,30 @@ PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- The column rename above does not rename the index. Rename the index back
+-- to the name a fresh install of the pre-rename schema would produce.
+-- RENAME INDEX is available in MySQL 5.7 and later, so it is safe under
+-- this file's 8.0 floor.
+SET @has_platform_index := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'platforms'
+    AND INDEX_NAME = 'platform'
+);
+SET @sql := IF(
+  @has_platform_index > 0,
+  'ALTER TABLE `platforms` RENAME INDEX `platform` TO `platform_name`',
+  'DO 0'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 -- Postcondition: the precondition above closes one route to a silent no-op
 -- (no default database), but it is not the only conceivable one. Verify the
--- actual end state directly and fail loudly if either original column is
--- missing, rather than let the script exit 0 having accomplished nothing.
+-- actual end state directly, columns and index name both, and fail loudly if
+-- any of it is missing, rather than let the script exit 0 having
+-- accomplished nothing or only partly completed.
 SET @has_direction_type_after := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -86,10 +111,16 @@ SET @has_platform_name_after := (
     AND TABLE_NAME = 'platforms'
     AND COLUMN_NAME = 'platform_name'
 );
+SET @has_platform_name_index_after := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'platforms'
+    AND INDEX_NAME = 'platform_name'
+);
 SET @postcondition_sql := IF(
-  @has_direction_type_after > 0 AND @has_platform_name_after > 0,
+  @has_direction_type_after > 0 AND @has_platform_name_after > 0 AND @has_platform_name_index_after > 0,
   'DO 0',
-  'SELECT `Rollback did not complete: signatures.direction_type or platforms.platform_name is still missing` FROM `migration_postcondition_failed`'
+  'SELECT `Rollback did not complete: signatures.direction_type, platforms.platform_name, or the platform_name index is still missing` FROM `migration_postcondition_failed`'
 );
 PREPARE postcondition_stmt FROM @postcondition_sql;
 EXECUTE postcondition_stmt;
