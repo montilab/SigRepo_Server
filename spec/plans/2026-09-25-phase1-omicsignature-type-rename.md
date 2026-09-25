@@ -32,10 +32,10 @@
 ## Review Focus
 
 1. A metadata list carrying both `type` and `direction_type` must error rather than silently preferring one. Covered in Task 1.
-2. A JSON file written by an older version of the package, carrying `direction_type`, must still load through `readJson()` with a warning. Covered in Task 6.
-3. Assigning a legacy metadata list through `obj$metadata <- ...` must normalize, not store the old key. This path does not go through `initialize()`. Covered in Task 3.
-4. `createMetadata(direction_type = "bi")` must still apply the `"bi"` to `"bi-directional"` shorthand recoding after forwarding through the deprecated argument. Covered in Task 4.
-5. `createMetadata()` receiving both `type` and `direction_type` must error. Covered in Task 4.
+2. A JSON file written by an older version of the package, carrying `direction_type`, must still load through `readJson()` with a warning. Covered in Task 5.
+3. Assigning a legacy metadata list through `obj$metadata <- ...` must normalize, not store the old key. This path does not go through `initialize()`. Covered in Task 2.
+4. `createMetadata(direction_type = "bi")` must still apply the `"bi"` to `"bi-directional"` shorthand recoding after forwarding through the deprecated argument. Covered in Task 3.
+5. `createMetadata()` receiving both `type` and `direction_type` must error. Covered in Task 3.
 
 ---
 
@@ -147,21 +147,46 @@ git commit -m "Add internal normalizer for deprecated direction_type metadata fi
 
 ---
 
-### Task 2: Switch `checkMetadata()` to `type` and wire in the normalizer
+### Task 2: Switch the R6 class to `type`
 
 **Files:**
-- Modify: `R/OmicSignature.R:303-323` (the `checkMetadata` private method opening) and `R/OmicSignature.R:388` area is unchanged
+- Modify: `R/OmicSignature.R` — `checkMetadata()` at `:303-323`, `initialize()` at `:92-95`, `:122`, `:151`, the `metadata` active binding at `:157-183`, `:189`, `:199`, `:224-240`, and `.extract_signature_rows()` at `:3-19`
 - Test: `tests/testthat/test-OmicSignature.R`
 
 **Interfaces:**
 - Consumes: `.normalize_metadata_names()` from Task 1.
-- Produces: `checkMetadata(metadata, v = FALSE)`. The `signatureType` parameter is removed because the method body never reads it. Requires `type` in the required field list and validates `metadata$type`.
+- Produces: `checkMetadata(metadata, v = FALSE)`. The `signatureType` parameter is removed, because the method body never reads it. `.extract_signature_rows(difexp, conditions, type)`. Every internal read of the direction field goes through `private$.metadata$type`.
 
-- [ ] **Step 1: Write the failing test**
+**Why `checkMetadata` and `initialize` are one task rather than two:** `initialize()` reads `metadata$direction_type` three times *before* `checkMetadata()` runs. Changing only `checkMetadata()` would leave the class unable to construct from the new field name at all, because `initialize()` would pass `signatureType = NULL` into `checkSignature()`, which stops with "Signature type not specified" (`R/OmicSignature.R:420`). That is the entire feature, so there is no state in which a reviewer could accept the first half and reject the second.
+
+- [ ] **Step 1: Write the failing tests**
 
 Append to `tests/testthat/test-OmicSignature.R`:
 
 ```r
+test_that("OmicSignature$new() constructs from metadata using the field name type", {
+  ## This is the guard for the initialize() bypass. Before the fix, initialize()
+  ## reads metadata$direction_type, which is NULL on a modern metadata list, so
+  ## checkSignature() receives signatureType = NULL and stops with
+  ## "Signature type not specified" -- the new field name does not work at all.
+  modern_metadata <- list(
+    signature_name = "modern_sig",
+    phenotype = "test",
+    organism = predefined_organisms[1],
+    type = "uni-directional",
+    assay_type = predefined_assaytypes[1]
+  )
+  signature <- data.frame(
+    probe_id = c("probe_1", "probe_2"),
+    feature_name = c("A", "B"),
+    score = c(2, -2),
+    stringsAsFactors = FALSE
+  )
+  capture.output(sig <- OmicSignature$new(metadata = modern_metadata, signature = signature))
+  expect_equal(sig$metadata$type, "uni-directional")
+  expect_equal(nrow(sig$signature), 2)
+})
+
 test_that("OmicSignature$new() accepts legacy direction_type metadata with a warning", {
   legacy_metadata <- list(
     signature_name = "legacy_sig",
@@ -201,14 +226,64 @@ test_that("OmicSignature$new() errors when metadata omits type", {
     "does not contain attribute\\(s\\): type"
   )
 })
+
+test_that("a bi-directional signature is still validated when metadata uses type", {
+  ## Proves the direction value actually reaches checkSignature(), rather than
+  ## the construction merely succeeding: a bi-directional signature requires a
+  ## group_label column.
+  modern_bi <- list(
+    signature_name = "modern_bi",
+    phenotype = "test",
+    organism = predefined_organisms[1],
+    type = "bi-directional",
+    assay_type = predefined_assaytypes[1]
+  )
+  no_group <- data.frame(
+    probe_id = c("probe_1", "probe_2"),
+    feature_name = c("A", "B"),
+    score = c(2, -2),
+    stringsAsFactors = FALSE
+  )
+  expect_error(
+    OmicSignature$new(metadata = modern_bi, signature = no_group),
+    "group_label"
+  )
+})
+
+test_that("assigning a legacy metadata list through the active binding normalizes it", {
+  ## Builds its own object rather than using make_uni_test_signature(), whose
+  ## metadata is still keyed direction_type until Task 4. Keeping this test
+  ## self-contained means every test in this task passes by the end of it.
+  modern_metadata <- list(
+    signature_name = "binding_sig",
+    phenotype = "test",
+    organism = predefined_organisms[1],
+    type = "uni-directional",
+    assay_type = predefined_assaytypes[1]
+  )
+  signature <- data.frame(
+    probe_id = c("probe_1", "probe_2"),
+    feature_name = c("A", "B"),
+    score = c(2, 1),
+    stringsAsFactors = FALSE
+  )
+  capture.output(sig <- OmicSignature$new(metadata = modern_metadata, signature = signature))
+
+  replacement <- sig$metadata
+  names(replacement)[names(replacement) == "type"] <- "direction_type"
+  warns <- testthat::capture_warnings(sig$metadata <- replacement)
+  expect_true(any(grepl("direction_type.*deprecated", warns)))
+  expect_equal(sig$metadata$type, "uni-directional")
+  expect_false("direction_type" %in% names(sig$metadata))
+})
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run tests to verify they fail**
 
 Run: `Rscript -e 'devtools::load_all("."); testthat::test_file("tests/testthat/test-OmicSignature.R")'`
-Expected: FAIL. The first test fails because `checkMetadata()` still requires `direction_type` and errors before the warning; the second fails because the missing-attribute message still names `direction_type`.
+Expected: FAIL. The first test fails because `checkMetadata()` still requires `direction_type`; the "omits type" test fails because the missing-attribute message still names `direction_type`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: Update `checkMetadata()`**
 
 In `R/OmicSignature.R`, change the `checkMetadata` signature and opening block from:
 
@@ -235,6 +310,8 @@ to:
         metadataRequired <- c("signature_name", "phenotype", "organism", "type", "assay_type")
 ```
 
+The `signatureType` parameter is removed rather than kept, because the method body never reads it; Step 4 removes the only call that passes it.
+
 Then change the validation block from:
 
 ```r
@@ -253,77 +330,7 @@ to:
         }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `Rscript -e 'devtools::load_all("."); testthat::test_file("tests/testthat/test-OmicSignature.R")'`
-Expected: The two new tests PASS. Other tests in this file and elsewhere will still fail, because callers and helpers have not been updated yet. Tasks 3 and 5 fix those. Do not chase them here.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add R/OmicSignature.R tests/testthat/test-OmicSignature.R
-git commit -m "Require metadata field 'type' in checkMetadata and accept legacy direction_type"
-```
-
----
-
-### Task 3: Fix the `initialize()` bypass and the active bindings
-
-**Files:**
-- Modify: `R/OmicSignature.R:92-95`, `R/OmicSignature.R:122`, `R/OmicSignature.R:151`, `R/OmicSignature.R:157-183` (the `metadata` active binding), `R/OmicSignature.R:189`, `R/OmicSignature.R:199`, `R/OmicSignature.R:224-240`, and `.extract_signature_rows()` at `R/OmicSignature.R:3-19`
-- Test: `tests/testthat/test-OmicSignature.R`
-
-**Interfaces:**
-- Consumes: `checkMetadata(metadata, v)` from Task 2.
-- Produces: `.extract_signature_rows(difexp, conditions, type)`. All internal reads of the direction field go through `private$.metadata$type`.
-
-**Why this task exists separately:** `initialize()` currently reads `metadata$direction_type` three times *before* `checkMetadata()` runs, so those reads bypass the normalizer entirely. A legacy metadata list would normalize for storage but pass `NULL` as `signatureType` to `checkSignature()` and `checkDifexp()`.
-
-- [ ] **Step 1: Write the failing test**
-
-Append to `tests/testthat/test-OmicSignature.R`:
-
-```r
-test_that("legacy metadata still drives signature validation, not just storage", {
-  ## A bi-directional signature requires group_label. If the legacy name is
-  ## normalized for storage but not passed to checkSignature(), the missing
-  ## group_label column goes undetected.
-  legacy_metadata <- list(
-    signature_name = "legacy_bi",
-    phenotype = "test",
-    organism = predefined_organisms[1],
-    direction_type = "bi-directional",
-    assay_type = predefined_assaytypes[1]
-  )
-  no_group <- data.frame(
-    probe_id = c("probe_1", "probe_2"),
-    feature_name = c("A", "B"),
-    score = c(2, -2),
-    stringsAsFactors = FALSE
-  )
-  expect_error(
-    suppressWarnings(OmicSignature$new(metadata = legacy_metadata, signature = no_group)),
-    "group_label"
-  )
-})
-
-test_that("assigning a legacy metadata list through the active binding normalizes it", {
-  sig <- make_uni_test_signature("binding_sig", features = c("A", "B"), scores = c(2, 1))
-  replacement <- sig$metadata
-  names(replacement)[names(replacement) == "type"] <- "direction_type"
-  warns <- testthat::capture_warnings(sig$metadata <- replacement)
-  expect_true(any(grepl("direction_type.*deprecated", warns)))
-  expect_equal(sig$metadata$type, "uni-directional")
-  expect_false("direction_type" %in% names(sig$metadata))
-})
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `Rscript -e 'devtools::load_all("."); testthat::test_file("tests/testthat/test-OmicSignature.R")'`
-Expected: FAIL. The binding test fails on `identical(new_metadata$direction_type, private$.metadata$direction_type)` comparing `NULL` to `NULL`, which skips revalidation and stores without complaint.
-
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 4: Fix `initialize()` and the active bindings**
 
 In `initialize()`, replace lines 92-95:
 
@@ -339,7 +346,8 @@ with:
 ```r
         ## check metadata first, then read the direction field from the
         ## normalized result: reading it off the raw `metadata` argument would
-        ## bypass .normalize_metadata_names() for legacy inputs.
+        ## bypass .normalize_metadata_names() for legacy inputs and would be
+        ## NULL for modern ones, which checkSignature() rejects outright.
         private$.metadata <- private$checkMetadata(metadata, v = print_message)
         signature_type <- private$.metadata$type
         private$.signature <- private$checkSignature(signature, signatureType = signature_type, v = print_message)
@@ -347,7 +355,7 @@ with:
           difexp <- private$checkDifexp(difexp, signatureType = signature_type, v = print_message)
 ```
 
-In the `metadata` active binding, replace `private$checkMetadata(value, v = print_message)` (keeping the call, dropping nothing since it already omits `signatureType`) and replace every `$direction_type` read with `$type`:
+In the `metadata` active binding, replace every `$direction_type` read with `$type`:
 
 ```r
           new_metadata <- private$checkMetadata(value, v = print_message)
@@ -370,23 +378,23 @@ In the `metadata` active binding, replace `private$checkMetadata(value, v = prin
           }
 ```
 
-Replace the remaining `private$.metadata$direction_type` reads at lines 122, 151, 189 and 199 with `private$.metadata$type`. Rename the `.extract_signature_rows()` third parameter from `direction_type` to `type`, updating its body (`is_grouped <- type %in% c("bi-directional", "categorical")`) and its call site at line 151. Update the comment block near line 224 and the error string at line 234 from `direction_type` to `type`.
+Replace the remaining `private$.metadata$direction_type` reads at lines 122, 151, 189 and 199 with `private$.metadata$type`. Rename `.extract_signature_rows()`'s third parameter from `direction_type` to `type`, updating its body (`is_grouped <- type %in% c("bi-directional", "categorical")`) and its call site at line 151. Update the comment block near line 224 and the error string at line 234 from `direction_type` to `type`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run tests to verify they pass**
 
 Run: `Rscript -e 'devtools::load_all("."); testthat::test_file("tests/testthat/test-OmicSignature.R")'`
-Expected: The new tests PASS. Tests relying on `helper-signatures.R` still fail until Task 5.
+Expected: all five new tests PASS. Other test files in the suite still fail, because `helper-signatures.R` and the JSON fixtures still use `direction_type`; Tasks 4 and 5 fix those. Do not chase them here.
 
-- [ ] **Step 5: Commit**
+Confirm specifically that the first and fourth new tests pass, since those two are the guard for the `initialize()` bypass.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add R/OmicSignature.R tests/testthat/test-OmicSignature.R
-git commit -m "Read the direction field from normalized metadata throughout OmicSignature"
+git commit -m "Switch OmicSignature R6 class to the metadata field type"
 ```
 
----
-
-### Task 4: `createMetadata()` takes `type`, with a deprecated `direction_type`
+### Task 3: `createMetadata()` takes `type`, with a deprecated `direction_type`
 
 **Files:**
 - Modify: `R/createMetadata.R` (whole file)
@@ -529,7 +537,7 @@ git commit -m "Rename createMetadata() direction_type argument to type with depr
 
 ---
 
-### Task 5: Update remaining callers, helpers and test fixtures
+### Task 4: Update remaining callers, helpers and test fixtures
 
 **Files:**
 - Modify: `R/OmicSigFromDifexp.R:26`
@@ -539,7 +547,7 @@ git commit -m "Rename createMetadata() direction_type argument to type with depr
 - Modify: `data-raw/create_compare_unidirectional_data.R`, `data-raw/create_compare_mixed_direction_data.R`, `data-raw/create_compare_label_pairing_data.R`
 
 **Interfaces:**
-- Consumes: the `type` metadata field from Tasks 2 through 4.
+- Consumes: the `type` metadata field from Tasks 2 and 3.
 - Produces: nothing new. This task makes the existing suite green.
 
 - [ ] **Step 1: Run the full suite to enumerate remaining failures**
@@ -583,7 +591,7 @@ Expected output: only the deliberate deprecation references, which are `R/normal
 - [ ] **Step 4: Run the full suite to verify it passes**
 
 Run: `Rscript -e 'devtools::load_all("."); testthat::test_dir("tests/testthat")'`
-Expected: PASS, zero failures. JSON tests may still fail if they read `inst/extdata` fixtures; if so, leave them and finish in Task 6.
+Expected: PASS, zero failures. JSON tests may still fail if they read `inst/extdata` fixtures; if so, leave them and finish in Task 5.
 
 - [ ] **Step 5: Commit**
 
@@ -594,7 +602,7 @@ git commit -m "Update OmicSignature callers, helpers and builders to metadata fi
 
 ---
 
-### Task 6: JSON fixtures and the legacy-file regression test
+### Task 5: JSON fixtures and the legacy-file regression test
 
 **Files:**
 - Modify: `inst/extdata/OmS_example_1.json`, `inst/extdata/OmS_example_2.json`, `inst/extdata/OmS_example_3.json`, `inst/extdata/Myc_reduce_mice_liver_24m_OmS.json`
@@ -602,7 +610,7 @@ git commit -m "Update OmicSignature callers, helpers and builders to metadata fi
 - Test: `tests/testthat/test-readwriteJson.R`
 
 **Interfaces:**
-- Consumes: the shim from Tasks 1 through 3.
+- Consumes: the shim from Tasks 1 and 2.
 - Produces: `inst/extdata/OmS_legacy_direction_type.json`, a fixture that deliberately keeps the old field name so the shim has a file-level regression test rather than only a unit test.
 
 - [ ] **Step 1: Write the failing test**
@@ -682,7 +690,7 @@ git commit -m "Rename JSON fixture metadata field to type and add a legacy-forma
 
 ---
 
-### Task 7: Documentation, vignettes and a clean package check
+### Task 6: Documentation, vignettes and a clean package check
 
 **Files:**
 - Modify: `vignettes/CreateOmS.Rmd`, `vignettes/CompareUnidirectional.Rmd`, `vignettes/CompareMixedDirection.Rmd`
@@ -690,7 +698,7 @@ git commit -m "Rename JSON fixture metadata field to type and add a legacy-forma
 - Modify: `DESCRIPTION` (version bump), `NAMESPACE` (regenerated)
 
 **Interfaces:**
-- Consumes: everything from Tasks 1 through 6.
+- Consumes: everything from Tasks 1 through 5.
 - Produces: a package that passes `R CMD check` with no new warnings or notes.
 
 - [ ] **Step 1: Update the vignettes**
@@ -722,6 +730,6 @@ git commit -m "Document metadata field rename to type and bump version to 1.4.0"
 
 ## Final verification
 
-- [ ] `grep -rn "direction_type" R tests vignettes data-raw inst` returns only the intentional deprecation sites listed in Task 5 Step 3, plus the legacy JSON fixture.
+- [ ] `grep -rn "direction_type" R tests vignettes data-raw inst` returns only the intentional deprecation sites listed in Task 4 Step 3, plus the legacy JSON fixture.
 - [ ] `Rscript -e 'devtools::check()'` is clean.
 - [ ] Open the pull request against `main`. Do not merge phase 2 in either SigRepo repo until this is released, because phase 2's client reads `metadata$type`.
