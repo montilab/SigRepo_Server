@@ -45,9 +45,9 @@ SIGNATURE_FLAG_LABELS <- list(
 # free text too, despite being short.
 SIGNATURE_VOCABULARY_COLUMNS <- c(
   "organism",
-  "direction_type",
+  "type",
   "assay_type",
-  "platform_name",
+  "platform",
   "sample_type",
   "user_name",
   # Signature feature set and difexp columns.

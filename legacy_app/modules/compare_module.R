@@ -16,7 +16,7 @@ COMPARE_METHOD_CHOICES <- c(
 )
 
 COMPARE_TABLE_COLUMNS <- c(
-  "signature_id", "signature_name", "organism", "direction_type", "assay_type",
+  "signature_id", "signature_name", "organism", "type", "assay_type",
   "phenotype", "has_difexp", "user_name"
 )
 
@@ -320,7 +320,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       df <- signature_db()
       if (!is.data.frame(df) || !"signature_id" %in% names(df)) {
         return(data.frame(
-          signature_id = numeric(), signature_name = character(), direction_type = character(),
+          signature_id = numeric(), signature_name = character(), type = character(),
           stringsAsFactors = FALSE
         ))
       }
@@ -355,7 +355,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
         return()
       }
       k <- if (isTRUE(input$two_lists)) 2 else 1
-      updateSelectInput(session, facet_id(k, "direction_type"), selected = "bi-directional")
+      updateSelectInput(session, facet_id(k, "type"), selected = "bi-directional")
       updateSelectInput(session, facet_id(k, "has_difexp"), selected = "yes")
     }, ignoreInit = TRUE)
 
@@ -432,7 +432,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
                 tags$li(
                   p$name[i], " ",
                   span(class = "compare-source", sprintf("(%s%s)", p$source[i],
-                                                         if (is.na(p$direction_type[i])) "" else paste(",", p$direction_type[i])))
+                                                         if (is.na(p$type[i])) "" else paste(",", p$type[i])))
                 )
               }))
             }
@@ -448,7 +448,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
     # stays with its signature when others are added or removed.
     pairing_input_ids <- function(k) {
       p <- previews[[k]]()
-      pairable <- p$name[is.na(p$direction_type) | p$direction_type != "uni-directional"]
+      pairable <- p$name[is.na(p$type) | p$type != "uni-directional"]
       stats::setNames(lapply(pairable, function(nm) {
         key <- digest::digest(nm, algo = "crc32", serialize = FALSE)
         c(level1 = sprintf("pair%d_%s_1", k, key), level2 = sprintf("pair%d_%s_2", k, key))
