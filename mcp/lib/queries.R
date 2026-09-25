@@ -22,10 +22,10 @@ list_vocabulary <- function(conn) {
   ")$sample_type
 
   platform <- DBI::dbGetQuery(conn, "
-    SELECT DISTINCT pl.platform_name FROM platforms pl
+    SELECT DISTINCT pl.platform FROM platforms pl
     INNER JOIN signatures s ON s.platform_id = pl.platform_id
-    ORDER BY pl.platform_name
-  ")$platform_name
+    ORDER BY pl.platform
+  ")$platform
 
   assay_type <- DBI::dbGetQuery(conn, "SELECT DISTINCT assay_type FROM signatures ORDER BY assay_type")$assay_type
 

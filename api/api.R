@@ -1291,8 +1291,8 @@ features_search_route <- function(res, api_key = "", assay_type = "transcriptomi
 #* @param keyword
 #* @param limit
 #* @param offset
-#* @param sort_by One of signature_name, organism, assay_type, direction_type,
-#*   phenotype, sample_type, platform_name, year, user_name, visibility.
+#* @param sort_by One of signature_name, organism, assay_type, type,
+#*   phenotype, sample_type, platform, year, user_name, visibility.
 #*   Anything else falls back to signature_name.
 #* @param sort_dir asc (default) or desc
 #' @get /signatures/search

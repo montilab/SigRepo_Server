@@ -53,9 +53,9 @@ test_that("search_signatures_by_genes ranks by overlap, scores Jaccard, and hono
                       (SELECT signature_id FROM signatures WHERE signature_hashkey = '%s')", hashkey))
     exec_sql(sprintf("DELETE FROM signatures WHERE signature_hashkey = '%s'", hashkey))
     exec_sql(sprintf(
-      "INSERT INTO signatures (signature_name, organism_id, direction_type, assay_type, phenotype_id,
+      "INSERT INTO signatures (signature_name, organism_id, type, assay_type, phenotype_id,
                                platform_id, sample_type_id, user_name, visibility, signature_hashkey)
-       SELECT '%s', organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id,
+       SELECT '%s', organism_id, type, assay_type, phenotype_id, platform_id, sample_type_id,
               user_name, %d, '%s'
        FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'",
       name, visibility, hashkey
