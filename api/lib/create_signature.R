@@ -1,7 +1,7 @@
 # Signature upload backing POST /signatures/upload. Accepts two shapes:
 #
 #  - A real `OmicSignature` R6 object (montilab/OmicSignature, currently
-#    installed as v1.3.0 -- NOT the unmerged S4-migration branch some
+#    installed as v1.4.0 -- NOT the unmerged S4-migration branch some
 #    exploration briefly assumed was live) -- e.g.
 #    `saveRDS(OmicSignature$new(metadata, signature, difexp), f)`. This is
 #    the shape Shiny's own "Upload Signature" feature works with
@@ -9,7 +9,7 @@
 #    user actually has on hand. Fields come from `$metadata` (an R6 active
 #    binding returning a flat list; required keys checked by
 #    OmicSignature's private$checkMetadata(): signature_name, phenotype,
-#    organism, direction_type, assay_type) and `$signature` (a data.frame
+#    organism, type, assay_type) and `$signature` (a data.frame
 #    keyed by `feature_name`, not a DB id -- resolved below via the same
 #    feature_hashkey lookup addTranscriptomicsSignatureSet()/
 #    addProteomicsSignatureSet() use).
