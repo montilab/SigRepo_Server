@@ -96,9 +96,20 @@ DEALLOCATE PREPARE stmt;
 
 -- Postcondition: the precondition above closes one route to a silent no-op
 -- (no default database), but it is not the only conceivable one. Verify the
--- actual end state directly, columns and index name both, and fail loudly if
--- any of it is missing, rather than let the script exit 0 having
--- accomplished nothing or only partly completed.
+-- actual end state directly and fail loudly if any of it is missing, rather
+-- than let the script exit 0 having accomplished nothing or only partly
+-- completed.
+--
+-- As in the forward migration, the index check here is a negative assertion
+-- (no leftover `platform`-named index remains) rather than a positive one
+-- (a `platform_name`-named index exists). A database that never had this
+-- unique index under either name -- documented drift, see the forward
+-- script's comment -- correctly no-ops the index rename block above in both
+-- directions, and a positive existence check would then dead-end an operator
+-- on every re-run with no way to satisfy it. The negative assertion only
+-- confirms the rollback undid what the forward migration could have done:
+-- if a `platform` index existed, it is gone (renamed back to
+-- `platform_name`); if none existed, none exists now either.
 SET @has_direction_type_after := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -111,16 +122,16 @@ SET @has_platform_name_after := (
     AND TABLE_NAME = 'platforms'
     AND COLUMN_NAME = 'platform_name'
 );
-SET @has_platform_name_index_after := (
+SET @has_platform_index_after := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE()
     AND TABLE_NAME = 'platforms'
-    AND INDEX_NAME = 'platform_name'
+    AND INDEX_NAME = 'platform'
 );
 SET @postcondition_sql := IF(
-  @has_direction_type_after > 0 AND @has_platform_name_after > 0 AND @has_platform_name_index_after > 0,
+  @has_direction_type_after > 0 AND @has_platform_name_after > 0 AND @has_platform_index_after = 0,
   'DO 0',
-  'SELECT `Rollback did not complete: signatures.direction_type, platforms.platform_name, or the platform_name index is still missing` FROM `migration_postcondition_failed`'
+  'SELECT `Rollback did not complete: signatures.direction_type or platforms.platform_name is still missing, or an index named platform still remains` FROM `migration_postcondition_failed`'
 );
 PREPARE postcondition_stmt FROM @postcondition_sql;
 EXECUTE postcondition_stmt;

@@ -99,9 +99,23 @@ DEALLOCATE PREPARE stmt;
 
 -- Postcondition: the precondition above closes one route to a silent no-op
 -- (no default database), but it is not the only conceivable one. Verify the
--- actual end state directly, columns and index name both, and fail loudly if
--- any of it is missing, rather than let the script exit 0 having
--- accomplished nothing or only partly completed.
+-- actual end state directly and fail loudly if any of it is missing, rather
+-- than let the script exit 0 having accomplished nothing or only partly
+-- completed.
+--
+-- The index check here is deliberately a negative assertion (no leftover
+-- `platform_name`-named index remains) rather than a positive one (a
+-- `platform`-named index exists). This project has documented drift between
+-- the repo schema and deployed databases on exactly this class of unique
+-- index, so a database that never had the index at all -- under either name
+-- -- is a real possibility. On such a database, the guarded rename block
+-- above correctly no-ops (there is no `platform_name` index to rename), and
+-- a positive "does `platform` exist" check would then fail every single
+-- time, including on a re-run, with no way for an operator to satisfy it
+-- short of hand-creating an index this migration was never meant to add.
+-- The negative assertion instead only confirms the rename did what it could:
+-- if a `platform_name` index existed, it is gone (renamed to `platform`); if
+-- none existed, none exists now either, and that is success, not failure.
 SET @has_type_after := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -114,16 +128,16 @@ SET @has_platform_after := (
     AND TABLE_NAME = 'platforms'
     AND COLUMN_NAME = 'platform'
 );
-SET @has_platform_index_after := (
+SET @has_platform_name_index_after := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE()
     AND TABLE_NAME = 'platforms'
-    AND INDEX_NAME = 'platform'
+    AND INDEX_NAME = 'platform_name'
 );
 SET @postcondition_sql := IF(
-  @has_type_after > 0 AND @has_platform_after > 0 AND @has_platform_index_after > 0,
+  @has_type_after > 0 AND @has_platform_after > 0 AND @has_platform_name_index_after = 0,
   'DO 0',
-  'SELECT `Migration did not complete: signatures.type, platforms.platform, or the platform index is still missing` FROM `migration_postcondition_failed`'
+  'SELECT `Migration did not complete: signatures.type or platforms.platform is still missing, or an index named platform_name still remains` FROM `migration_postcondition_failed`'
 );
 PREPARE postcondition_stmt FROM @postcondition_sql;
 EXECUTE postcondition_stmt;
