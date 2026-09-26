@@ -1389,6 +1389,17 @@ build_signature_metadata_table <- function(sig_objs, sig_list) {
       organism = flatten_report_value(metadata$organism),
       assay_type = flatten_report_value(metadata$assay_type),
       phenotype = flatten_report_value(metadata$phenotype),
+      # Deliberate belt-and-braces fallback, not a live code path: every
+      # metadata list reaching here from SigRepo::getSignature() already has
+      # `type` (checkOmicSignature() hard-fails on anything still carrying
+      # direction_type), so the direction_type side never fires against that
+      # source. It stays because this table can also be built from metadata
+      # that did not come through getSignature() -- see the author %||%
+      # user_name fallback a few lines below and the assay_type/organism
+      # fallbacks near the top of this file, which keep the same style for
+      # the same reason. The client's copy of this function (SigRepo's
+      # hypeR_examples.R) omits this fallback because its inputs are
+      # guaranteed to already be normalized.
       type = flatten_report_value(metadata$type %||% metadata$direction_type),
       description = flatten_report_value(metadata$description),
       score_cutoff = flatten_report_value(metadata$score_cutoff),
@@ -1397,6 +1408,8 @@ build_signature_metadata_table <- function(sig_objs, sig_list) {
       p_value_cutoff = flatten_report_value(metadata$p_value_cutoff),
       keywords = flatten_report_value(metadata$keywords),
       sample_type = flatten_report_value(metadata$sample_type),
+      # Same deliberate fallback as `type` above, for the platform/
+      # platform_name rename; see the comment there.
       platform = flatten_report_value(metadata$platform %||% metadata$platform_name),
       covariates = flatten_report_value(metadata$covariates),
       author = flatten_report_value(metadata$author %||% metadata$user_name),
