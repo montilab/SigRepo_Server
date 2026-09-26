@@ -78,6 +78,19 @@ json_response <- function(res, status = 200, payload = NULL) {
   payload
 }
 
+# Message for a route's 500 body when a tryCatch() handler receives a
+# condition. sprintf("%s", err) used to flatten the condition to its message
+# alone, so a failure deep in a seeding step reached the caller with no hint
+# of where it happened; keep the call when there is one (#130).
+route_error_message <- function(err) {
+  message <- base::sprintf("ERROR: %s", base::conditionMessage(err))
+  call <- base::conditionCall(err)
+  if (base::is.null(call)) {
+    return(message)
+  }
+  base::sprintf("%s (in %s)", message, base::paste(base::deparse(call), collapse = " "))
+}
+
 json_error <- function(res, status = 400, message) {
   payload <- base::data.frame(MESSAGES = as.character(message), stringsAsFactors = FALSE)
   # Tag the payload so callers (e.g. validate_api_key()'s "return the error

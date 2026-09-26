@@ -194,7 +194,7 @@ init_db <- function(res, admin_key){
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized the database."))
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
@@ -214,7 +214,7 @@ reset_db <- function(res, admin_key){
     json_response(res, 200, base::data.frame(MESSAGES = "Finish reset the database."))
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
@@ -234,7 +234,7 @@ init_db_schema <- function(res, admin_key){
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized schema for the database."))
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
@@ -254,7 +254,7 @@ init_db_tables <- function(res, admin_key){
     json_response(res, 200, base::data.frame(MESSAGES = "Finish initialized reference tables for the database."))
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
@@ -283,7 +283,7 @@ init_db_genesets <- function(res, admin_key, full_sweep = FALSE){
     )))
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
@@ -326,7 +326,7 @@ ensure_geneset_resource_route <- function(req, res, api_key = "", species = "", 
     json_response(res, 200, payload)
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
@@ -473,7 +473,7 @@ retrieve_db_table <- function(res, admin_key, db_table_name, search_var = "", se
     }
   }, error = function(err){
     print(err)
-    json_error(res, 500, base::sprintf("ERROR: %s", err))
+    json_error(res, 500, route_error_message(err))
   })
 }
 
