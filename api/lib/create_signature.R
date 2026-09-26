@@ -1,7 +1,7 @@
 # Signature upload backing POST /signatures/upload. Accepts two shapes:
 #
 #  - A real `OmicSignature` R6 object (montilab/OmicSignature, currently
-#    installed as v1.3.0 -- NOT the unmerged S4-migration branch some
+#    installed as v1.4.0 -- NOT the unmerged S4-migration branch some
 #    exploration briefly assumed was live) -- e.g.
 #    `saveRDS(OmicSignature$new(metadata, signature, difexp), f)`. This is
 #    the shape Shiny's own "Upload Signature" feature works with
@@ -9,7 +9,7 @@
 #    user actually has on hand. Fields come from `$metadata` (an R6 active
 #    binding returning a flat list; required keys checked by
 #    OmicSignature's private$checkMetadata(): signature_name, phenotype,
-#    organism, direction_type, assay_type) and `$signature` (a data.frame
+#    organism, type, assay_type) and `$signature` (a data.frame
 #    keyed by `feature_name`, not a DB id -- resolved below via the same
 #    feature_hashkey lookup addTranscriptomicsSignatureSet()/
 #    addProteomicsSignatureSet() use).
@@ -38,7 +38,7 @@
 # md5(tolower(paste0(...))), so it doubles as the feature_hashkey function),
 # and api/lib/difexp.R (save_difexp_rds).
 
-REQUIRED_UPLOAD_METADATA_FIELDS <- c("signature_name", "direction_type", "assay_type", "organism", "phenotype")
+REQUIRED_UPLOAD_METADATA_FIELDS <- c("signature_name", "type", "assay_type", "organism", "phenotype")
 
 meta_str <- function(metadata, field) {
   value <- metadata[[field]]
@@ -48,35 +48,68 @@ meta_str <- function(metadata, field) {
   base::trimws(base::as.character(value[1]))
 }
 
+# Accept the retired metadata field names on upload.
+#
+# Deliberately asymmetric with everything this API emits: responses use only
+# `type` and `platform`, but uploads must keep working for users holding .rds
+# files written by an older OmicSignature, and for /signatures/export output
+# written before the platform column was renamed. Strict out, tolerant in.
+#
+# Returns list(ok = TRUE, metadata = <normalized>) or
+# list(ok = FALSE, message = ...) when both spellings are present, which is
+# ambiguous rather than merely old.
+normalize_upload_metadata_names <- function(metadata) {
+  renames <- base::list(direction_type = "type", platform_name = "platform")
+  for (old_name in base::names(renames)) {
+    new_name <- renames[[old_name]]
+    if (!old_name %in% base::names(metadata)) {
+      next
+    }
+    if (new_name %in% base::names(metadata)) {
+      return(base::list(ok = FALSE, message = base::sprintf(
+        "Uploaded metadata contains both '%s' and the retired '%s'. Keep only '%s'.",
+        new_name, old_name, new_name
+      )))
+    }
+    base::names(metadata)[base::names(metadata) == old_name] <- new_name
+  }
+  base::list(ok = TRUE, metadata = metadata)
+}
+
 # Normalizes either accepted shape into a common
-# list(metadata, feature_tbl, difexp_tbl, feature_key, platform_field), or
+# list(metadata, feature_tbl, difexp_tbl, feature_key), or
 # list(ok = FALSE, ...) if `uploaded` matches neither. `feature_key` says
 # whether feature_tbl's rows resolve to a DB feature via `feature_name`
 # (real OmicSignature objects) or already carry a resolved `feature_id`
-# (this API's own /signatures/export shape). `platform_field` says which
-# metadata key holds the platform value ("platform" on a real
-# OmicSignature -- the OmicSignature package's own field name -- vs.
-# "platform_name" on /signatures/export's output, which joins in the DB
-# column name directly).
+# (this API's own /signatures/export shape). Both shapes' metadata is routed
+# through normalize_upload_metadata_names() on the way in, so by the time
+# `metadata` is returned here it holds only `type` and `platform`, whichever
+# retired spelling ("direction_type", "platform_name") the caller sent.
 normalize_upload <- function(uploaded) {
   if (base::inherits(uploaded, "OmicSignature")) {
+    normalized <- normalize_upload_metadata_names(uploaded$metadata)
+    if (!normalized$ok) {
+      return(base::list(ok = FALSE, reason = "invalid_upload", message = normalized$message))
+    }
     return(base::list(
       ok = TRUE,
-      metadata = uploaded$metadata,
+      metadata = normalized$metadata,
       feature_tbl = uploaded$signature,
       difexp_tbl = uploaded$difexp,
-      feature_key = "feature_name",
-      platform_field = "platform"
+      feature_key = "feature_name"
     ))
   }
   if (base::is.list(uploaded) && !base::is.null(uploaded$metadata) && !base::is.null(uploaded$signature)) {
+    normalized <- normalize_upload_metadata_names(uploaded$metadata)
+    if (!normalized$ok) {
+      return(base::list(ok = FALSE, reason = "invalid_upload", message = normalized$message))
+    }
     return(base::list(
       ok = TRUE,
-      metadata = uploaded$metadata,
+      metadata = normalized$metadata,
       feature_tbl = uploaded$signature,
       difexp_tbl = uploaded$difexp,
-      feature_key = "feature_id",
-      platform_field = "platform_name"
+      feature_key = "feature_id"
     ))
   }
   base::list(
@@ -162,8 +195,8 @@ validate_upload_shape <- function(norm) {
   }
 
   required_cols <- if (norm$feature_key == "feature_name") c("probe_id", "feature_name") else c("probe_id", "feature_id")
-  direction_type <- meta_str(metadata, "direction_type")
-  if (!base::is.null(direction_type) && direction_type != "uni-directional") {
+  type <- meta_str(metadata, "type")
+  if (!base::is.null(type) && type != "uni-directional") {
     required_cols <- c(required_cols, "group_label")
   }
 
@@ -408,8 +441,8 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
     if (base::is.null(organism_id)) {
       return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown organism: '%s'.", meta_str(metadata, "organism"))))
     }
-    platform_value <- meta_str(metadata, norm$platform_field) %||% "unknown"
-    platform_id <- lookup_id(conn, "platforms", "platform_id", "platform_name", platform_value)
+    platform_value <- meta_str(metadata, "platform") %||% "unknown"
+    platform_id <- lookup_id(conn, "platforms", "platform_id", "platform", platform_value)
     if (base::is.null(platform_id)) {
       return(base::list(ok = FALSE, reason = "invalid_upload", message = base::sprintf("Unknown platform: '%s'.", platform_value)))
     }
@@ -442,7 +475,7 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
     num_down <- base::sum(scores < 0, na.rm = TRUE)
 
     insert_cols <- c(
-      "signature_name", "organism_id", "direction_type", "assay_type", "phenotype_id", "platform_id", "sample_type_id",
+      "signature_name", "organism_id", "type", "assay_type", "phenotype_id", "platform_id", "sample_type_id",
       "covariates", "description", "score_cutoff", "logfc_cutoff", "p_value_cutoff", "adj_p_cutoff", "cutoff_description",
       "keywords", "PMID", "year", "others", "has_difexp", "num_of_difexp", "num_up_regulated", "num_down_regulated",
       "user_name", "visibility", "signature_hashkey"
@@ -450,7 +483,7 @@ build_signature_from_upload <- function(auth, uploaded, visibility = FALSE, dife
     insert_vals <- c(
       sql_value(conn, signature_name),
       base::as.character(organism_id),
-      sql_value(conn, meta_str(metadata, "direction_type")),
+      sql_value(conn, meta_str(metadata, "type")),
       sql_value(conn, assay_type),
       base::as.character(phenotype_id),
       base::as.character(platform_id),

@@ -297,18 +297,18 @@ export async function getInsights(recentLimit = 5): Promise<Insights> {
 }
 
 // Mirrors the full `signatures` table (mysql/schema/signatures.sql), plus
-// the joined organism/phenotype/sample_type/platform_name lookups and a
+// the joined organism/phenotype/sample_type/platform lookups and a
 // computed feature_count. See search_signatures() in api/lib/signature.R.
 export interface SignatureSummary {
   signature_id: number;
   signature_hashkey: string;
   signature_name: string;
-  direction_type: string;
+  type: string;
   assay_type: string;
   organism: string | null;
   phenotype: string | null;
   sample_type: string | null;
-  platform_name: string | null;
+  platform: string | null;
   covariates: string | null;
   description: string | null;
   score_cutoff: number | null;
@@ -331,8 +331,8 @@ export interface SignatureSummary {
 }
 
 export type SignatureSortKey =
-  | "signature_name" | "organism" | "assay_type" | "direction_type" | "phenotype"
-  | "sample_type" | "platform_name" | "year" | "user_name" | "visibility";
+  | "signature_name" | "organism" | "assay_type" | "type" | "phenotype"
+  | "sample_type" | "platform" | "year" | "user_name" | "visibility";
 
 export interface SearchSignaturesParams {
   organism?: string;
@@ -461,7 +461,7 @@ export interface CompareLabelOrder {
 export interface CompareSignatureMeta {
   name: string;
   hashkey: string;
-  direction_type: string | null;
+  type: string | null;
 }
 
 export interface CompareResult {
