@@ -157,10 +157,10 @@ export default function SignaturesPage() {
       { key: "signature_name", label: "Signature", render: (r) => <span className="cell-strong">{r.signature_name}</span> },
       { key: "organism", label: "Organism", filterable: true, render: (r) => <span className="cell-italic">{r.organism ?? "—"}</span> },
       { key: "assay_type", label: "Assay", filterable: true, render: (r) => <Badge tone="neutral">{r.assay_type}</Badge> },
-      { key: "direction_type", label: "Direction Type", filterable: true },
+      { key: "type", label: "Direction", filterable: true },
       { key: "phenotype", label: "Phenotype", filterable: true, render: (r) => r.phenotype ?? "—" },
       { key: "sample_type", label: "Sample Type", filterable: true, render: (r) => r.sample_type ?? "—" },
-      { key: "platform_name", label: "Platform", filterable: true, render: (r) => r.platform_name ?? "—" },
+      { key: "platform", label: "Platform", filterable: true, render: (r) => r.platform ?? "—" },
       { key: "year", label: "Year", render: (r) => formatValue(r.year) },
       { key: "user_name", label: "Owner" },
       {

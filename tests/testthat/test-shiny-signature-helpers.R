@@ -31,7 +31,7 @@ signature_rows <- function() {
 
 test_that("known SigRepo columns get their curated labels", {
   expect_identical(
-    prettify_colnames(c("signature_id", "direction_type", "adj_p_cutoff", "num_of_difexp", "user_name")),
+    prettify_colnames(c("signature_id", "type", "adj_p_cutoff", "num_of_difexp", "user_name")),
     c("Signature ID", "Direction", "Adj. p cutoff", "Difexp rows", "Owner")
   )
 })
@@ -148,9 +148,9 @@ test_that("both flag options are offered even when the data holds only one", {
 test_that("controlled vocabulary columns become dropdowns", {
   df <- data.frame(
     organism = c("Homo sapiens", "Mus musculus"),
-    direction_type = c("bi-directional", "categorical"),
+    type = c("bi-directional", "categorical"),
     assay_type = c("transcriptomics", "proteomics"),
-    platform_name = c("transcriptomics by array", "proteomics by mass spectrometry"),
+    platform = c("transcriptomics by array", "proteomics by mass spectrometry"),
     sample_type = c("liver", "HSC-3 cell"),
     user_name = c("montilab", "root"),
     stringsAsFactors = FALSE

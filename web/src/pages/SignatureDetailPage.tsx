@@ -80,7 +80,7 @@ function pills(value: unknown): ReactNode {
 }
 
 // Groups the raw signature row (every column of `signatures`, plus the
-// joined organism/phenotype/sample_type/platform_name) into labeled
+// joined organism/phenotype/sample_type/platform) into labeled
 // sections instead of one flat alphabetical dump. Excludes:
 //  - signature_id/organism_id/phenotype_id/platform_id/sample_type_id --
 //    internal foreign keys; the joined human-readable columns replace them.
@@ -304,8 +304,8 @@ export default function SignatureDetailPage() {
         { label: "Organism", value: sig.organism },
         { label: "Phenotype", value: sig.phenotype },
         { label: "Sample", value: sig.sample_type },
-        { label: "Platform", value: sig.platform_name },
-        { label: "Direction", value: sig.direction_type },
+        { label: "Platform", value: sig.platform },
+        { label: "Direction", value: sig.type },
         { label: "Year", value: sig.year },
       ].filter((c) => hasValue(c.value))
     : [];

@@ -73,11 +73,11 @@ vis_seed_signature <- function(conn, owner, name, visibility) {
   organism_id <- vocab_id("organisms", "organism_id", "organism", "vis test organism")
   phenotype_id <- vocab_id("phenotypes", "phenotype_id", "phenotype", "unknown")
   sample_type_id <- vocab_id("sample_types", "sample_type_id", "sample_type", "unknown")
-  platform_id <- vocab_id("platforms", "platform_id", "platform_name", "vis test platform")
+  platform_id <- vocab_id("platforms", "platform_id", "platform", "vis test platform")
 
   DBI::dbExecute(conn, base::sprintf(
     "INSERT INTO signatures
-       (signature_name, organism_id, direction_type, assay_type, phenotype_id,
+       (signature_name, organism_id, type, assay_type, phenotype_id,
         platform_id, sample_type_id, description, user_name, visibility, signature_hashkey)
      VALUES (%s, %d, 'uni-directional', 'transcriptomics', %d, %d, %d, 'vis', %s, %d, %s)",
     DBI::dbQuoteLiteral(conn, name), organism_id, phenotype_id, platform_id,

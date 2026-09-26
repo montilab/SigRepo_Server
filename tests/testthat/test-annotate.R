@@ -311,8 +311,8 @@ test_that("run_enrichment runs multiple signatures at once and skips ones that c
   # exists for, since signature_hashkey is unique but signature_name isn't.
   exec_sql("
     INSERT INTO signatures
-      (signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
-    SELECT signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, 'ci_admin', 1, 'ci_test_signature_hashkey_dup1'
+      (signature_name, organism_id, type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
+    SELECT signature_name, organism_id, type, assay_type, phenotype_id, platform_id, sample_type_id, 'ci_admin', 1, 'ci_test_signature_hashkey_dup1'
     FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'
   ")
   on.exit({

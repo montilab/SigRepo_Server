@@ -43,6 +43,43 @@ load_repo_package <- function(repo_dir, package_name, required = TRUE) {
 # Load SigRepo package
 load_repo_package("SIGREPO_DIR", "SigRepo")
 
+# Fail loudly at boot if the installed OmicSignature is too old, rather than
+# as a failure deep inside a tool call. Mirrors the identical check in
+# api/api.R -- see the comment there for the full reasoning. This server has
+# no bind mount for OmicSignature either (see docker-compose-vm.yml:
+# omic-signature-volume is mounted only on sigrepo-shiny), so, like api.R,
+# whatever version the montilab/sigrepo image was built with is what runs
+# here regardless of any `git pull`.
+assert_omic_signature_version <- function(min_version = "1.4.0") {
+  installed_version <- base::tryCatch(
+    utils::packageVersion("OmicSignature"),
+    error = function(e) NULL
+  )
+
+  if (base::is.null(installed_version)) {
+    base::stop(base::sprintf(
+      "OmicSignature is not installed, but this MCP server requires OmicSignature >= %s.",
+      min_version
+    ))
+  }
+
+  if (installed_version < base::package_version(min_version)) {
+    base::stop(base::sprintf(
+      paste(
+        "Installed OmicSignature %s is older than the %s this MCP server",
+        "requires. Rebuild or re-pull the montilab/sigrepo image with an",
+        "updated OmicSignature -- a bind mount and restart will not fix",
+        "this, see mysql/migrations/README.md."
+      ),
+      base::as.character(installed_version),
+      min_version
+    ))
+  }
+
+  base::invisible(installed_version)
+}
+assert_omic_signature_version()
+
 ## Create a database handler (used by api/lib/auth.R's require_api_key, and
 ## by SigRepo:: functions like getSignature()/runHypeR() that round-trip
 ## through the REST API for the difexp table -- not just DB access).

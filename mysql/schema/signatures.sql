@@ -5,7 +5,7 @@ CREATE TABLE `signatures` (
   `signature_id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `signature_name` VARCHAR(255) NOT NULL,
   `organism_id` INT UNSIGNED NOT NULL,
-  `direction_type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
+  `type` SET("uni-directional", "bi-directional", "categorical") NOT NULL,
   `assay_type` SET("transcriptomics", "proteomics", "metabolomics", "methylomics", "genetic_variants") NOT NULL,
   -- The last member is 'genetic_variants', matching the deployed repository
   -- (SHOW CREATE TABLE on production, 2026-08-26) and the
