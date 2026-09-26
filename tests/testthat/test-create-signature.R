@@ -498,7 +498,7 @@ test_that("resolve_feature_ids resolves metabolites case-insensitively, matching
   expect_equal(upper_case$feature_ids, as.integer(expected_id))
 })
 
-test_that("normalize_upload() accepts legacy metadata field names from both shapes", {
+test_that("normalize_upload() accepts a legacy OmicSignature object carrying direction_type", {
   skip_if_not(omic_signature_available, "OmicSignature package not installed")
 
   # A real OmicSignature object -- the shape this task exists to keep
@@ -519,10 +519,15 @@ test_that("normalize_upload() accepts legacy metadata field names from both shap
   expect_equal(norm$feature_key, "feature_name")
   expect_equal(norm$metadata$type, "uni-directional")
   expect_null(norm$metadata$direction_type)
+})
 
+test_that("normalize_upload() accepts a legacy /signatures/export list carrying platform_name", {
   # This API's own /signatures/export output, from before the platform
   # column rename -- the other accepted shape, keyed by feature_id rather
-  # than feature_name.
+  # than feature_name. This is a plain list, not an OmicSignature object, so
+  # it needs no OmicSignature package to construct or to exercise -- unlike
+  # the OmicSignature-object case above, this half must run in every
+  # environment, OmicSignature installed or not.
   export_shape <- base::list(
     metadata = base::list(
       signature_name = "export_upload",
