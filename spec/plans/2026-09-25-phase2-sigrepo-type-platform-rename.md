@@ -709,11 +709,15 @@ Read each site rather than running a blind substitution: `compare_module.R` has 
 
 - [ ] **Step 2: Update the R client documentation page**
 
-`legacy_app/www/R_client.Rmd` is a user-facing tutorial rendered into the app. Update its `direction_type` occurrences to `type`, then re-knit so the `.html` matches:
+`legacy_app/www/R_client.Rmd` is a user-facing tutorial rendered into the app. Update its `direction_type` occurrences to `type`.
 
-```bash
-Rscript -e 'rmarkdown::render("legacy_app/www/knits/R_client.Rmd")'
-```
+**Do not knit `legacy_app/www/knits/R_client.Rmd` to regenerate the `.html`.**
+That document's chunks execute by default against the production droplet and
+contain live `addSignature()`, `deleteSignature()`, and `updateSignature()`
+calls -- rendering it writes to and deletes from production data. Edit the
+committed `.html` output directly instead (it is not derived from the `.Rmd`
+at build time; nothing in this repo re-knits it), and get the corresponding
+source edits into the `.Rmd` without executing it.
 
 Confirm whether `legacy_app/www/R_client.html` is a copy of the knit output or a separately maintained file before editing it directly.
 
