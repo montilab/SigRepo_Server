@@ -216,10 +216,7 @@ EOF
 
 # Stop previously containers
 echo "Shut down existing containers. Enter the admin password if prompted for permission...."
-# sigrepo-web (the retired React interface) is still named here so an upgrade
-# from an older install stops the leftover container instead of leaving it
-# running beside the Shiny app.
-sudo docker stop sigrepo-mysql sigrepo-api sigrepo-shiny sigrepo-web &>/dev/null || echo ""
+sudo docker stop sigrepo-mysql sigrepo-api sigrepo-shiny &>/dev/null || echo ""
 
 # Removing previously images
 echo "Remove existing images. Enter the admin password if prompted for permission..."
@@ -229,7 +226,7 @@ sudo docker rmi --force montilab/sigrepo-mysql:latest montilab/sigrepo:latest &>
 # network and build cache on the whole machine, including other projects'. This
 # removes only the containers this installer manages.
 echo "Remove the previous SigRepo containers..."
-sudo docker rm -f sigrepo-mysql sigrepo-api sigrepo-shiny sigrepo-web &>/dev/null || true
+sudo docker rm -f sigrepo-mysql sigrepo-api sigrepo-shiny &>/dev/null || true
 
 sudo rm -rf ${DATABASE_DIR}/* ${DATABASE_DIR}/.[!.]* 2>/dev/null || true
 sudo rm -rf ${DIFEXP_DIR}/* ${DIFEXP_DIR}/.[!.]* 2>/dev/null || true
