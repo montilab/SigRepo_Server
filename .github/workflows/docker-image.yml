@@ -2,9 +2,9 @@ name: SigRepo Docker Build
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
 
 jobs:
   build-and-push:
@@ -31,9 +31,13 @@ jobs:
           - image_repo: sigrepo-api
             context: .
             dockerfile: Dockerfile
+            # SIGREPO_BRANCH is NOT pinned here. It is computed per branch in
+            # the "Compute branch refs" step below, so a dev image bakes in the
+            # SigRepo client from dev rather than from master. An image tagged
+            # dev whose client came from master is only half dev, which is
+            # harder to reason about than having no dev image at all.
             build_args: |
               R_VERSION=4.4.3
-              SIGREPO_BRANCH=master
             # "sigrepo" is load-bearing: docker-compose.yml pulls the API and
             # MCP services from montilab/sigrepo:latest. The old sigrepo-shiny
             # alias is gone -- it published this same API image under a name
@@ -66,6 +70,28 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Which branch is being built decides two things: the moving tag the
+      # image is published under, and which SigRepo client gets baked into it.
+      #
+      # On a pull_request, github.ref_name is the synthetic "<n>/merge" ref, so
+      # the target branch has to come from github.base_ref instead. PR builds
+      # never push (see the login and push conditions), but the build args
+      # still need to be right or the PR would be testing a different image
+      # than the merge will produce.
+      - name: Compute branch refs
+        id: refs
+        env:
+          TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+        run: |
+          if [ "$TARGET_BRANCH" = "dev" ]; then
+            echo "moving_tag=dev"   >> "$GITHUB_OUTPUT"
+            echo "sigrepo_ref=dev"  >> "$GITHUB_OUTPUT"
+          else
+            echo "moving_tag=latest"   >> "$GITHUB_OUTPUT"
+            echo "sigrepo_ref=master"  >> "$GITHUB_OUTPUT"
+          fi
+          echo "building for '$TARGET_BRANCH'" >&2
+
       # matrix.extra_repos holds plain repo names (see note in the job-level
       # env above for why the namespace isn't secrets.DOCKERHUB_USERNAME).
       - name: Compute extra image tags
@@ -73,13 +99,14 @@ jobs:
         env:
           EXTRA_REPOS: ${{ matrix.extra_repos }}
           SHA: ${{ github.sha }}
+          MOVING_TAG: ${{ steps.refs.outputs.moving_tag }}
         run: |
           {
             echo "tags<<TAGS_EOF"
             if [ -n "$EXTRA_REPOS" ]; then
               IFS=',' read -ra EXTRAS <<< "$EXTRA_REPOS"
               for repo in "${EXTRAS[@]}"; do
-                echo "${DOCKERHUB_NAMESPACE}/${repo}:latest"
+                echo "${DOCKERHUB_NAMESPACE}/${repo}:${MOVING_TAG}"
                 echo "${DOCKERHUB_NAMESPACE}/${repo}:${SHA}"
               done
             fi
@@ -91,11 +118,13 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          build-args: ${{ matrix.build_args }}
+          build-args: |
+            ${{ matrix.build_args }}
+            ${{ matrix.image_repo == 'sigrepo-api' && format('SIGREPO_BRANCH={0}', steps.refs.outputs.sigrepo_ref) || '' }}
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ steps.refs.outputs.moving_tag }}
             ${{ env.DOCKERHUB_NAMESPACE }}/${{ matrix.image_repo }}:${{ github.sha }}
             ${{ steps.extra_tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.image_repo }}
