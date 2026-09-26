@@ -34,17 +34,12 @@ The server is a set of containerized services:
   signatures.
 - **Web interface** — an
   <a href="https://shiny.posit.co" target="_blank">R Shiny</a>
-  application (`legacy_app/`), run by Shiny Server, and the interface
-  our instance serves. From the browser you sign in, browse and deposit
-  signatures and collections, browse the controlled vocabularies and
-  gene set resources, and compare signatures. Two properties decided it
-  over the React app it replaced: it bind-mounts its source, so a UI
+  application (`legacy_app/`), the interface our instance serves. From
+  the browser you sign in, browse and deposit signatures and
+  collections, browse the controlled vocabularies and gene set
+  resources, and compare signatures. It bind-mounts its source, so a UI
   change ships with a `git pull` and a container restart rather than an
-  image build; and Shiny Server gives every user their own R process, so
-  an analysis runs in that user’s session instead of queueing behind
-  everyone else in the single-process API. The React single-page app is
-  still in the repo under `web/` and still builds as the `sigrepo-web`
-  container, but it is no longer the served interface.
+  image build.
 - **MCP server** — a
   <a href="https://modelcontextprotocol.io" target="_blank">Model Context
   Protocol</a> endpoint that lets AI agents search signatures, retrieve

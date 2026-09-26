@@ -9,10 +9,7 @@
 # step run from a running API process instead.
 
 # msigdb_slugify()/msigdb_cache_file()/default_msigdb_cache_dir()/
-# msigdb_collection_metadata() used to be duplicated here (that dependency
-# lived on a separate, not-yet-merged branch) -- now that
-# codex/react-modern-redesign has merged, they're sourced from the real
-# api/lib/msigdb_cache.R instead.
+# msigdb_collection_metadata() are sourced from api/lib/msigdb_cache.R.
 msigdb_genesets_species_default <- c("Homo sapiens", "Mus musculus")
 
 # H (Hallmark), C2 (curated: canonical pathways), C5 (ontology: GO terms) --
