@@ -47,6 +47,56 @@ load_repo_package <- function(repo_dir, package_name, required = TRUE) {
 # Load SigRepo package
 load_repo_package("SIGREPO_DIR", "SigRepo")
 
+# Fail loudly at boot if the installed OmicSignature is too old, rather than
+# as a 500 on the first request that needs it. build_omic_signature()
+# (api/lib/omic_signature.R) passes `type =` metadata into
+# OmicSignature$new()/createOmicSignature(), which is a hard validation
+# error on any OmicSignature older than 1.4.0 -- exactly the failure shape
+# already recorded in the comment at the top of api/lib/omic_signature.R,
+# where an undetected client version mismatch made /signatures/compare fail
+# on every call in production before anyone noticed why. This check exists
+# because neither this file nor mcp/run_sigrepo_mcp.R ever load OmicSignature
+# via load_repo_package()/pkgload the way SigRepo is loaded above -- there is
+# no bind mount for it here (see docker-compose-vm.yml: omic-signature-volume
+# is mounted only on sigrepo-shiny) -- so the version actually running is
+# always whatever remotes::install_github() baked into the montilab/sigrepo
+# image at build time, and a `git pull` plus restart cannot change it.
+#
+# Same detection style as .omic_signature_supports_difexp() below in
+# api/lib/omic_signature.R: read the installed version defensively and act
+# on what is actually there, rather than assume.
+assert_omic_signature_version <- function(min_version = "1.4.0") {
+  installed_version <- base::tryCatch(
+    utils::packageVersion("OmicSignature"),
+    error = function(e) NULL
+  )
+
+  if (base::is.null(installed_version)) {
+    base::stop(base::sprintf(
+      "OmicSignature is not installed, but this API requires OmicSignature >= %s.",
+      min_version
+    ))
+  }
+
+  if (installed_version < base::package_version(min_version)) {
+    base::stop(base::sprintf(
+      paste(
+        "Installed OmicSignature %s is older than the %s this API requires.",
+        "build_omic_signature() (api/lib/omic_signature.R) passes `type =`",
+        "metadata into OmicSignature$new(), which is a hard validation error",
+        "before 1.4.0. Rebuild or re-pull the montilab/sigrepo image with an",
+        "updated OmicSignature -- a bind mount and restart will not fix this,",
+        "see mysql/migrations/README.md."
+      ),
+      base::as.character(installed_version),
+      min_version
+    ))
+  }
+
+  base::invisible(installed_version)
+}
+assert_omic_signature_version()
+
 ## Create a database handler
 conn_handler <- SigRepo::newConnHandler(
   dbname = base::Sys.getenv("DB_NAME"),

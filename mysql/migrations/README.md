@@ -71,25 +71,98 @@ including only one of the two renamed columns present, means the database is
 in a mixed state; see "Recovering from a failure partway through" below
 before doing anything further.
 
-## Restart the API and Shiny after renaming
+## Deploying this migration: rebuild the image, don't just restart it
 
 Renaming these columns immediately breaks any running code that still
 queries the old column names: the Plumber API, the MCP server, and the
-legacy Shiny app in this repo (`SigRepo_Server`), all of which live under
-`api/`, `mcp/`, and `legacy_app/`, plus the R client package in the separate
-`SigRepo` repo. The migration and the corresponding code change in both
-repos must be deployed together:
+legacy Shiny app in this repo (`SigRepo_Server`), plus the R client package
+in the separate `SigRepo` repo, which now also requires `OmicSignature (>=
+1.4.0)` (see `SigRepo/DESCRIPTION`) because building an `OmicSignature`
+object with `type =` metadata is a hard validation error on any older
+`OmicSignature`. The database migration and the code changes in both repos
+must be deployed together -- but "deploy the code changes" is **not** the
+same as "restart the containers", and getting that distinction wrong is
+exactly what breaks `/signatures/compare`, the GEM enrichment route, and
+Annotate on this rename.
+
+**What actually determines which client code runs**, verified directly
+against `docker-compose-vm.yml` and the current `montilab/sigrepo:latest`
+image (do not take this on faith -- re-check both if either changes):
+
+- `sigrepo-api`, `sigrepo-mcp`, and `sigrepo-shiny` all run
+  `image: montilab/sigrepo:latest`. That image's `Dockerfile` installs
+  `SigRepo` and `OmicSignature` with `remotes::install_github()` at build
+  time -- they are ordinary installed R packages baked into the image, not
+  loaded from a working copy by default.
+- `docker-compose-vm.yml` bind-mounts `/SigRepo` (the `sigrepo-volume`) into
+  all three of those services, and `/OmicSignature`
+  (`omic-signature-volume`) into **only `sigrepo-shiny`** -- it appears
+  exactly once in the compose file, at the `sigrepo-shiny` service. Neither
+  `sigrepo-api` nor `sigrepo-mcp` mount `/OmicSignature` at all.
+- A bind mount only changes which code runs if something actually loads
+  from it. `legacy_app/app_src/bootstrap.R` (Shiny) calls
+  `load_repo_package("OMICSIG_DIR", "OmicSignature")`, so Shiny at least
+  attempts to load OmicSignature from the mounted source. `api/api.R` and
+  `mcp/run_sigrepo_mcp.R` never call `load_repo_package` for OmicSignature
+  at all -- only for `SigRepo` -- so the API and MCP always run the
+  image-installed OmicSignature regardless of any mount.
+- `load_repo_package()` itself only loads from a mounted source path if
+  `pkgload` or `devtools` is importable; otherwise it silently falls back to
+  `library(package_name)`, i.e. the image-installed version, with no
+  warning. Confirmed directly against the running `montilab/sigrepo:latest`
+  image: **neither `pkgload` nor `devtools` is installed.**
+  `SigRepo_Server/DESCRIPTION`'s `Imports` (what `install_r_packages.R`
+  installs) lists neither, `devtools` is `Suggests`-only, and the
+  `Dockerfile`'s explicit `remotes::install_github()` calls for
+  `SigRepo`/`OmicSignature`/`hypeR`/`hypeR-GEM` all pass
+  `dependencies = c('Depends','Imports','LinkingTo')`, which excludes
+  `Suggests`.
+- The practical consequence: **the `/SigRepo` bind mount is inert in this
+  image for all three services, and the `/OmicSignature` bind mount is
+  inert too, including on `sigrepo-shiny`, which is the one service that
+  actually tries to use it.** A `git pull` on the host followed by only
+  restarting containers changes none of the R package code that
+  `sigrepo-api`, `sigrepo-mcp`, or `sigrepo-shiny` execute. (This is
+  different from `legacy_app/`, `api/`, and `mcp/` themselves, which
+  `shiny-server.sh`/`api-server.sh`/`mcp-server.sh` run directly off the
+  bind-mounted `/SigRepo_Server` tree as plain scripts, not as an installed
+  package -- `git pull` plus restart genuinely does update those.)
+- Checked directly: the `montilab/sigrepo:latest` image pulled for this
+  repo's local stack currently has **OmicSignature 1.3.0** installed --
+  already below the 1.4.0 floor this rename requires. Restarting that image
+  against a migrated database, with no rebuild, reproduces the exact
+  production incident recorded in the comment at the top of
+  `api/lib/omic_signature.R`: `build_omic_signature()` passes `type =` into
+  `OmicSignature$new()`, which is a hard validation error against
+  OmicSignature < 1.4.0, so `/signatures/compare` and the GEM enrichment
+  route fail on every call, and Annotate breaks wherever it builds a
+  signature the same way.
+
+**So the deploy step is:**
 
 1. Apply the migration and verify it per "Verifying a run" above.
-2. Deploy/restart the API, MCP, and Shiny processes so they are running code
-   that queries the new column names, and deploy the matching `SigRepo`
-   client release wherever it is installed.
+2. Rebuild the `montilab/sigrepo` image from this branch's `Dockerfile` (or
+   re-pull it once CI has published a rebuilt image), so the image's
+   installed `SigRepo` and `OmicSignature` are both current -- `SigRepo` at
+   a release containing this rename's client changes, `OmicSignature` at
+   `>= 1.4.0`. Recreate `sigrepo-api`, `sigrepo-mcp`, and `sigrepo-shiny`
+   from that image (`docker compose up -d --force-recreate` or equivalent);
+   a plain `restart` reuses the already-running container's already-loaded
+   packages and, on `sigrepo-shiny`, its already-started R process, so it is
+   not sufficient even after the image is rebuilt.
+3. As a backstop, not a substitute for the above: this branch adds a
+   boot-time check (`assert_omic_signature_version()` in `api/api.R` and
+   `mcp/run_sigrepo_mcp.R`) that refuses to start `sigrepo-api` or
+   `sigrepo-mcp` at all if the installed `OmicSignature` is older than
+   1.4.0. This turns a silent per-request 500 into an immediate, loud
+   startup failure, but it does not make the mismatched image work -- the
+   fix is still to rebuild it.
 
 Do not leave a migrated database pointed at old code, and do not deploy new
 code against an unmigrated database: the two must move together, per
 environment. A given environment (local, BUMC, production) is migrated and
-running matching code, or it is unmigrated and running old code; it should
-never sit in between.
+running a rebuilt image with matching code, or it is unmigrated and running
+the old image; it should never sit in between.
 
 ## Recovering from a failure partway through
 
