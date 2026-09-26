@@ -88,7 +88,7 @@ tunnel with your own BU account:
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
-  -L 9051:127.0.0.1:8051 -L 9050:127.0.0.1:8050 -L 9020:127.0.0.1:8020 montilab
+  -L 9051:127.0.0.1:8051 -L 9020:127.0.0.1:8020 montilab
 ```
 
 with `Host montilab` proxying through `scc4.bu.edu` — not scc2, which has no

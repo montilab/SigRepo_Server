@@ -30,37 +30,9 @@ services:
       - .Renviron:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  # The React single-page app, built to static assets and served by nginx,
-  # which also proxies /api to sigrepo-api so the browser talks to a single
-  # origin. It is no longer the served interface -- sigrepo-shiny below is --
-  # but it is kept here so it can still be run against the same database.
-  sigrepo-web:
-    container_name: sigrepo-web
-    platform: linux/amd64
-    # image + build together on purpose: `docker compose pull` fetches the
-    # CI-published image (so a deploy never compiles the bundle on the server),
-    # while `docker compose build sigrepo-web` still rebuilds from ./web for
-    # local development against uncommitted changes.
-    image: montilab/sigrepo-web:latest
-    build:
-      context: ./web
-    depends_on:
-      - sigrepo-api
-    networks:
-      - db-net
-    ports:
-      - 8050:80
-    restart: always
-
-  # The SigRepo web interface: the R Shiny app in legacy_app/, run by Shiny
-  # Server. This is the interface that is served; the React app above is kept
-  # but no longer served. Shiny takes 8051; React keeps 8050.
-  #
-  # Two properties this service has that sigrepo-web does not, and that are the
-  # reason it is the one served: it bind-mounts the source, so a UI change ships
-  # with `git pull` and a restart rather than an image build; and Shiny Server
-  # gives each user their own R process, so enrichment runs in the user's
-  # session instead of queueing behind everyone else in the single-process API.
+  # The SigRepo web interface: the R Shiny app in legacy_app/. It bind-mounts
+  # the source, so a UI change ships with `git pull` and a restart rather than
+  # an image build.
   sigrepo-shiny:
     container_name: sigrepo-shiny
     platform: linux/amd64

@@ -104,23 +104,11 @@ jobs:
             dockerfile: Dockerfile
             build_args: |
               R_VERSION=4.4.3
-            # "sigrepo" is load-bearing: docker-compose.yml pulls the API and
-            # MCP services from montilab/sigrepo:latest. The old sigrepo-shiny
-            # alias is gone -- it published this same API image under a name
-            # implying it served the Shiny dashboard, which no longer exists
-            # here (it moved to SigRepo_Server_Legacy). The served UI is now
-            # sigrepo-web, built below from its own Dockerfile rather than
-            # aliased onto this one.
+            # "sigrepo" is load-bearing: docker-compose.yml pulls the API,
+            # Shiny and MCP services from montilab/sigrepo:latest. The old
+            # sigrepo-shiny alias is gone; the Shiny app in legacy_app/ runs
+            # from this same image with its source bind-mounted.
             extra_repos: "sigrepo"
-          # The React interface that replaced the Shiny dashboard. Until now it
-          # had no published image at all -- docker-compose.yml only carried a
-          # `build:` stanza, so every deployment had to compile the bundle on
-          # the server. Publishing it makes deploying a pull like the others.
-          - image_repo: sigrepo-web
-            context: web
-            dockerfile: web/Dockerfile
-            build_args: ""
-            extra_repos: ""
 
     steps:
       - name: Checkout repository
@@ -162,18 +150,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build and push ${{ matrix.image_repo }}
-        # sigrepo-mysql and sigrepo-web build from mysql/ and web/ and are not
-        # under test on the staging line, so a dev run builds only the API.
+        # sigrepo-mysql builds from mysql/ and is not under test on the
+        # staging line, so a dev run builds only the API.
         if: ${{ github.ref_name != 'dev' || matrix.image_repo == 'sigrepo-api' }}
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           # Concatenated, not a two-line block: matrix.build_args is a block
-          # scalar that already ends in a newline, and sigrepo-web's is empty.
-          # A literal two-line form would hand the action a leading blank line
-          # for that entry, and relying on it to discard one is an unnecessary
-          # bet. This yields exactly the arguments, with no blank lines.
+          # scalar that already ends in a newline, so a literal two-line form
+          # would hand the action a blank line between the two. This yields
+          # exactly the arguments, with no blank lines.
           build-args: ${{ matrix.build_args }}SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}

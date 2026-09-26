@@ -15,7 +15,7 @@
 #
 # Differences from production, all deliberate:
 #
-#   * Every port binds to 127.0.0.1. Production publishes 8020/8050/3306 on
+#   * Every port binds to 127.0.0.1. Production publishes 8020/3306 on
 #     0.0.0.0, which is how they answer directly from the internet bypassing
 #     nginx and TLS. There is no reason to reproduce that on a laptop.
 #   * Paths are relative to this file, so the stack is portable rather than
@@ -44,8 +44,8 @@ x-difexp-volume: &difexp-volume
 # variable is unset and this resolves to :latest exactly as it always has, so a
 # checkout without a .env behaves identically to before this was parameterised.
 #
-# sigrepo-mysql and sigrepo-web are deliberately NOT parameterised: neither is
-# built from the branch under test, so staging runs the same ones as everyone.
+# sigrepo-mysql is deliberately NOT parameterised: it is not built from the
+# branch under test, so staging runs the same one as everyone.
 x-sigrepo-image: &sigrepo-image montilab/sigrepo:${SIGREPO_IMAGE_TAG:-latest}
 
 # The sibling checkouts, mounted over the image's copies exactly as the VM does.
@@ -93,32 +93,9 @@ services:
       - ./.Renviron.local-stack:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  # The React single-page app. No longer the served interface -- sigrepo-shiny
-  # below is -- but kept so it can still be run against the same database.
-  sigrepo-web:
-    container_name: sigrepo-local-web
-    platform: linux/amd64
-    # image + build: pull the published one to match production exactly, or
-    # `docker compose -f docker-compose-local.yml build sigrepo-web` to test an
-    # uncommitted interface change.
-    image: montilab/sigrepo-web:latest
-    build:
-      context: ./web
-    depends_on:
-      - sigrepo-api
-    networks:
-      - db-net-local
-    ports:
-      - 127.0.0.1:8050:80
-    restart: unless-stopped
-
-  # The SigRepo web interface: the R Shiny app in legacy_app/, run by Shiny
-  # Server. This is the served interface; sigrepo-web above is kept but no
-  # longer served. Shiny gets 8051; React stays on 8050.
-  #
-  # Note what this service does that sigrepo-web cannot: it bind-mounts the
-  # source, so `git pull` deploys a UI change with no image build. That
-  # deployment asymmetry is part of why this is the interface that is served.
+  # The SigRepo web interface: the R Shiny app in legacy_app/. It bind-mounts
+  # the source, so a UI change ships with `git pull` and a restart rather than
+  # an image build.
   sigrepo-shiny:
     container_name: sigrepo-local-shiny
     platform: linux/amd64
