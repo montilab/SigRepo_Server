@@ -43,8 +43,8 @@ The server is a set of containerized services:
 - **MCP server** — a
   <a href="https://modelcontextprotocol.io" target="_blank">Model Context
   Protocol</a> endpoint that lets AI agents search signatures, retrieve
-  signature context, compare signatures, browse gene sets, and run
-  enrichment, grounded in the stored data. It sits behind a
+  signature context, compare signatures and browse gene sets, grounded
+  in the stored data. It sits behind a
   rate-limiting reverse proxy and is reachable at
   <https://sigrepo.org/mcp/>.
 
