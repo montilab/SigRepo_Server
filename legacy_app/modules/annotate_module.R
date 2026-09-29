@@ -28,13 +28,15 @@ ANNOTATE_TEST_HELP <- list(
     "the genesets are skipped."
   ),
   kstest = paste(
-    "Ranks each signature's difexp table by score and tests whether a geneset's genes sit toward the top of the",
-    "ranking (hypeR's one-sided KS test). Direction down ranks by the negated score, both tests each end as its own",
-    "query, and a categorical signature is ranked within each category."
+    "Ranks each signature's whole difexp table by score (not split by group label) and tests both ends of the ranking.",
+    "hypeR's KS test only finds genesets toward the top, so every signature gives two queries: up, ranked by score, and",
+    "down, ranked by the negated score, with the FDR adjusted across both. A categorical signature is ranked within",
+    "each category."
   ),
   fgsea = paste(
-    "Runs fgsea::fgseaMultilevel() once per difexp ranking and splits pathways by the sign of their enrichment",
-    "score: up (ES > 0) and down (ES < 0). Each run is seeded, so results repeat."
+    "Runs fgsea::fgseaMultilevel() once per whole difexp ranking (not split by group label), which tests both ends, and",
+    "splits pathways by the sign of their enrichment score: up (ES > 0) and down (ES < 0). Each run is seeded, so",
+    "results repeat."
   )
 )
 
@@ -43,8 +45,8 @@ annotate_module_ui <- function(id) {
   page_selector <- paste0("#", ns("annotate_page"))
 
   # A label with the runHypeR() default it starts at.
-  with_default <- function(label, name, test = NULL) {
-    tagList(label, " ", span(class = "annotate-default", annotate_default_text(name, test)))
+  with_default <- function(label, name) {
+    tagList(label, " ", span(class = "annotate-default", annotate_default_text(name)))
   }
   runtime_fetch <- runtime_msigdb_fetch_allowed()
   geneset_sources <- c("MSigDB" = "msigdb", "Custom" = "custom")
@@ -183,14 +185,18 @@ annotate_module_ui <- function(id) {
           div(
             class = "annotate-card",
             span(class = "annotate-step-label", "Step 2"),
-            tags$h3("Genesets"),
+            tags$h3("Organism and genesets"),
+            selectInput(ns("species"), "Organism (required)", choices = species_choices, selected = "Homo sapiens"),
+            helpText(
+              "The organism of every signature in the run, and the species MSigDB collections are loaded for.",
+              "A run tests one organism: signatures of another organism cannot run together."
+            ),
             radioButtons(ns("geneset_source"), NULL, choices = geneset_sources, inline = TRUE),
             conditionalPanel(
               condition = "input.geneset_source == 'msigdb'",
               ns = ns,
               div(
                 class = "annotate-facets",
-                selectInput(ns("species"), "Species", choices = species_choices, selected = "Homo sapiens"),
                 selectInput(ns("collection"), "Collection", choices = annotate_msigdb_collections("Homo sapiens"), selected = "H"),
                 selectInput(ns("subcollection"), "Subcollection", choices = c("None" = ""))
               ),
@@ -227,7 +233,7 @@ annotate_module_ui <- function(id) {
             class = "annotate-card",
             span(class = "annotate-step-label", "Step 3"),
             tags$h3("Test"),
-            selectInput(ns("test"), with_default("Test", "test"), choices = ANNOTATE_TEST_CHOICES, selected = ANNOTATE_DEFAULTS$test),
+            selectInput(ns("test"), "Test (required)", choices = ANNOTATE_TEST_CHOICES, selected = ANNOTATE_DEFAULTS$test),
             uiOutput(ns("test_help")),
 
             conditionalPanel(
@@ -240,17 +246,6 @@ annotate_module_ui <- function(id) {
               ),
               numericInput(ns("min_query_genes"), with_default("Min query genes in genesets", "min_query_genes"),
                            value = ANNOTATE_DEFAULTS$min_query_genes, min = 1, step = 1)
-            ),
-
-            conditionalPanel(
-              condition = "input.test != 'hypergeometric'",
-              ns = ns,
-              conditionalPanel(
-                condition = "input.test == 'fgsea' || input.source != 'genes'",
-                ns = ns,
-                selectInput(ns("direction"), with_default("Direction", "direction"), choices = c("up", "down", "both"),
-                            selected = ANNOTATE_DEFAULTS$direction)
-              )
             ),
 
             tags$h4("Background"),
@@ -287,7 +282,7 @@ annotate_module_ui <- function(id) {
             ),
             helpText(
               "Every other runHypeR() argument stays at its default: the ranked table is the difexp, ranked by the score",
-              "column, with power 1, no absolute scoring, fgsea's own sampling and seed, FDR pooled across the run, and",
+              "column and tested at both ends, with power 1, fgsea's own sampling and seed, FDR pooled across the run, and",
               "every geneset kept (filter the plots instead)."
             )
           ),
@@ -550,10 +545,17 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     })
 
     # A change to what would be loaded drops what was loaded, so a run never
-    # uses genesets the picker no longer shows.
-    observeEvent(list(input$geneset_source, input$species, input$collection, input$subcollection,
+    # uses genesets the picker no longer shows. The organism only picks MSigDB
+    # genesets, so it leaves custom genesets loaded.
+    observeEvent(list(input$geneset_source, input$collection, input$subcollection,
                       input$custom_file, input$clean), {
       if (!is.null(genesets_state())) {
+        genesets_state(NULL)
+      }
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$species, {
+      if (identical(genesets_state()$description$source, "msigdb")) {
         genesets_state(NULL)
       }
     }, ignoreInit = TRUE)
@@ -593,18 +595,6 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     output$test_help <- renderUI({
       helpText(ANNOTATE_TEST_HELP[[input$test %||% "hypergeometric"]])
     })
-
-    # fgsea tests both tails in one run, so its direction defaults to both.
-    observeEvent(input$test, {
-      test <- input$test
-      if (!identical(test, "hypergeometric")) {
-        updateSelectInput(
-          session, "direction",
-          label = paste("Direction", annotate_default_text("direction", test)),
-          selected = if (identical(test, "fgsea")) "both" else if (identical(isolate(input$direction), "both")) "both" else "up"
-        )
-      }
-    }, ignoreInit = TRUE)
 
     # The keys a per-signature background is given for: signature ids for
     # repository picks, list names for uploads.
@@ -663,15 +653,15 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       )
     })
 
-    # The tab exposes the test, how signatures are split, direction and the
+    # The tab exposes the organism, the test, how signatures are split and the
     # background; every other runHypeR() argument stays at its default, and is
     # named here so the R code and the defaults cannot drift apart.
     settings <- reactive({
       test <- input$test %||% ANNOTATE_DEFAULTS$test
       utils::modifyList(ANNOTATE_DEFAULTS, list(
+        organism = input$species %||% "",
         test = test,
         split = input$split %||% ANNOTATE_DEFAULTS$split,
-        direction = input$direction %||% annotate_default_direction(test),
         fgsea_args = ANNOTATE_FGSEA_DEFAULTS,
         background = background()$value
       ))
@@ -686,6 +676,9 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       s <- settings()
       problems <- character()
       notes <- character()
+      # runHypeR() stops when a signature is not of the requested organism;
+      # previewing the queries does not need it, so these block a run only.
+      organism_problems <- character()
 
       if (identical(source, "repository")) {
         rows <- picked_rows()
@@ -696,18 +689,16 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
           notes <- c(notes, sprintf("%s has no difexp table to rank and will be skipped.",
                                     paste(sprintf("'%s'", no_difexp), collapse = ", ")))
         }
-        state <- genesets_state()
-        species <- state$description$species
-        if (!is.null(species) && nrow(rows) > 0 && "organism" %in% names(rows)) {
-          other <- rows$signature_name[!is.na(rows$organism) & tolower(rows$organism) != tolower(species)]
-          if (length(other) > 0) {
-            notes <- c(notes, sprintf("%s %s not %s, the species of the loaded genesets.",
-                                      paste(sprintf("'%s'", other), collapse = ", "), if (length(other) == 1) "is" else "are", species))
-          }
+        if (nrow(rows) > 0 && "organism" %in% names(rows)) {
+          organism_problems <- annotate_organism_problem(rows$signature_name, rows$organism, s$organism)
         }
       } else if (identical(source, "upload")) {
         u <- uploads()
         if (!is.null(u$error)) problems <- c(problems, u$error)
+        if (length(u$signatures) > 0) {
+          organisms <- vapply(u$signatures, function(sig) as.character(sig$metadata$organism %||% NA_character_)[1], character(1))
+          organism_problems <- annotate_organism_problem(names(u$signatures), organisms, s$organism)
+        }
         if (length(u$signatures) == 0 && is.null(u$error)) problems <- c(problems, "Upload at least one OmicSignature .rds file.")
         if (length(u$signatures) > ANNOTATE_MAX_SIGNATURES) {
           problems <- c(problems, sprintf("A run takes at most %d signatures; the uploads hold %d.", ANNOTATE_MAX_SIGNATURES, length(u$signatures)))
@@ -717,6 +708,10 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         problems <- c(problems, if (!is.null(g$error)) g$error else annotate_check_gene_lists(g$lists, s$test))
       }
       preview_problems <- problems
+      if (!nzchar(s$organism %||% "")) {
+        problems <- c(problems, "Choose the organism of the signatures in Step 2.")
+      }
+      problems <- c(problems, organism_problems)
 
       if (identical(source, "genes") && identical(input$background_mode, "per_signature")) {
         problems <- c(problems, "A per-signature background needs repository or uploaded signatures; gene lists take one background.")

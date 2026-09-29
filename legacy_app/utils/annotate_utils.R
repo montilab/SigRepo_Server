@@ -15,14 +15,15 @@
 
 # ---- defaults ---------------------------------------------------------------
 
-# runHypeR()'s defaults for every setting the tab exposes. The inputs start at
-# these values and their labels print them; a test holds them to the function's
-# formals so the two cannot drift apart. direction is "up" except for fgsea,
-# where runHypeR() defaults a direction that was not passed to "both".
+# runHypeR()'s defaults for every optional setting the tab exposes. The inputs
+# start at these values and their labels print them; a test holds them to the
+# function's formals so the two cannot drift apart. `test` has no default in
+# runHypeR() (it is required, like `organism`); the tab starts at
+# hypergeometric. The ranked tests always test both ends of the ranking, so
+# there is no direction setting.
 ANNOTATE_DEFAULTS <- base::list(
   test = "hypergeometric",
   split = TRUE,
-  direction = "up",
   ks_source = "difexp",
   score_col = "score",
   min_query_genes = 4,
@@ -30,7 +31,6 @@ ANNOTATE_DEFAULTS <- base::list(
   seed = 1,
   background = NULL,
   power = 1,
-  absolute = FALSE,
   pval = 1,
   fdr = 1,
   msigdb_clean = FALSE
@@ -60,11 +60,8 @@ ANNOTATE_PROVENANCE_KEYS <- c(
 )
 
 # A default as the tab's labels print it: "default (0.05)".
-annotate_default_text <- function(name, test = NULL) {
+annotate_default_text <- function(name) {
   value <- if (name %in% base::names(ANNOTATE_FGSEA_DEFAULTS)) ANNOTATE_FGSEA_DEFAULTS[[name]] else ANNOTATE_DEFAULTS[[name]]
-  if (base::identical(name, "direction") && base::identical(test, "fgsea")) {
-    value <- "both"
-  }
   shown <- if (base::is.null(value)) {
     "auto"
   } else if (base::is.logical(value)) {
@@ -73,11 +70,6 @@ annotate_default_text <- function(name, test = NULL) {
     base::format(value)
   }
   base::sprintf("default (%s)", shown)
-}
-
-# The direction runHypeR() uses when none is passed.
-annotate_default_direction <- function(test) {
-  if (base::identical(test, "fgsea")) "both" else ANNOTATE_DEFAULTS$direction
 }
 
 # ---- gene lists (hypeR-native `signature` input) ------------------------------
@@ -477,9 +469,10 @@ annotate_parse_custom_geneset_file <- function(path, file_name) {
 # come from, and only that source's argument is sent, since runHypeR() takes
 # one: repository picks as signature_id, uploads as a named omic_signature
 # list, gene lists as hypeR-native `signature`. The connection goes with the
-# SigRepo sources (uploads use it to look up gene symbols). Test settings are
-# sent only for the test that uses them, and the ranking settings hypeR-native
-# input cannot take are left out.
+# SigRepo sources (uploads use it to look up gene symbols). `organism` and
+# `test` are required by runHypeR() and always sent. Test settings are sent
+# only for the test that uses them, and the ranking settings hypeR-native input
+# cannot take are left out.
 annotate_build_args <- function(source, conn_handler = NULL, signature_ids = NULL, omic_signatures = NULL,
                                 gene_lists = NULL, genesets, settings) {
   test <- settings$test %||% ANNOTATE_DEFAULTS$test
@@ -495,25 +488,20 @@ annotate_build_args <- function(source, conn_handler = NULL, signature_ids = NUL
   if (!native && base::is.null(conn_handler)) {
     args$conn_handler <- NULL
   }
-  args$genesets <- genesets
+  args$organism <- settings$organism
   args$test <- test
+  args$genesets <- genesets
 
   setting <- function(name) settings[[name]] %||% ANNOTATE_DEFAULTS[[name]]
   if (base::identical(test, "hypergeometric")) {
     if (!native) args$split <- setting("split")
     args$min_query_genes <- setting("min_query_genes")
   } else {
-    if (!native || base::identical(test, "fgsea")) {
-      args$direction <- settings$direction %||% annotate_default_direction(test)
-    }
     if (!native) {
       args$ks_source <- setting("ks_source")
       args$score_col <- setting("score_col")
     }
     args$power <- setting("power")
-    if (base::identical(test, "kstest")) {
-      args$absolute <- setting("absolute")
-    }
     if (base::identical(test, "fgsea")) {
       args$seed <- setting("seed")
       fgsea_args <- settings$fgsea_args %||% base::list()
@@ -544,6 +532,26 @@ annotate_build_args <- function(source, conn_handler = NULL, signature_ids = NUL
 # queries runHypeR() would test without testing them.
 annotate_prepare_args <- function(args) {
   args[base::intersect(base::names(args), base::names(base::formals(SigRepo::prepareHypeRSignatures)))]
+}
+
+# The readiness problem for signatures that are not of the run's organism, or
+# character() when they all are. runHypeR() compares organisms ignoring case and
+# surrounding spaces and stops on a mismatch, so the tab says so before a run.
+annotate_organism_problem <- function(names, organisms, organism) {
+  if (base::is.null(organism) || !base::nzchar(base::trimws(organism)) || base::length(names) == 0) {
+    return(base::character())
+  }
+  found <- base::trimws(base::as.character(organisms))
+  wrong <- base::is.na(found) | base::tolower(found) != base::tolower(base::trimws(organism))
+  if (!base::any(wrong)) {
+    return(base::character())
+  }
+  described <- base::sprintf("'%s' (%s)", names[wrong], base::ifelse(base::is.na(found[wrong]) | !base::nzchar(found[wrong]), "no organism recorded", found[wrong]))
+  base::sprintf(
+    "A run tests one organism: %s %s not %s. Change the organism in Step 2 or run %s separately.",
+    base::paste(described, collapse = ", "), if (base::sum(wrong) == 1) "is" else "are", organism,
+    if (base::sum(wrong) == 1) "it" else "them"
+  )
 }
 
 # ---- running --------------------------------------------------------------------
@@ -776,13 +784,13 @@ annotate_r_code <- function(args, genesets_description = NULL, plots = base::lis
   lines <- c(lines, genesets_line, "")
 
   differs <- function(nm) {
-    if (nm %in% by_reference || nm %in% c("signature_id", "test")) {
+    if (nm %in% by_reference || nm %in% c("signature_id", "organism", "test")) {
       return(TRUE)
     }
     if (nm == "verbose") {
       return(FALSE)
     }
-    default <- if (nm == "direction") annotate_default_direction(test) else if (nm == "fgsea_args") base::list() else ANNOTATE_DEFAULTS[[nm]]
+    default <- if (nm == "fgsea_args") base::list() else ANNOTATE_DEFAULTS[[nm]]
     !base::isTRUE(base::all.equal(args[[nm]], default, check.attributes = FALSE))
   }
   written <- base::Filter(differs, base::names(args))

@@ -63,15 +63,42 @@ test_that("a run needs signatures and loaded genesets, and says so", {
   })
 })
 
-test_that("ranked tests flag signatures without a difexp and a species mismatch", {
+test_that("ranked tests flag signatures without a difexp, and another organism blocks the run", {
   skip_without_hyper_client()
   run_annotate_module(args = list(geneset_loader = fixture_loader), {
     session$setInputs(source = "repository", test = "kstest", background_mode = "default")
     session$setInputs(signature_table_rows_selected = c(2, 3), load_genesets = 1)
-    notes <- readiness()$notes
-    expect_true(any(grepl("'beta' has no difexp table", notes)))
-    expect_true(any(grepl("'gamma' is not Homo sapiens", notes)))
+    r <- readiness()
+    expect_true(any(grepl("'beta' has no difexp table", r$notes)))
+    expect_false(r$ready)
+    expect_true(r$preview_ready)
+    expect_true(any(grepl("'gamma' (Mus musculus) is not Homo sapiens", r$problems, fixed = TRUE)))
+
+    # Picking only human signatures runs.
+    session$setInputs(signature_table_rows_selected = c(1, 2))
     expect_true(readiness()$ready)
+
+    # The organism is required.
+    session$setInputs(species = "")
+    expect_true(any(grepl("Choose the organism", readiness()$problems)))
+  })
+})
+
+test_that("changing the organism drops loaded MSigDB genesets but keeps custom ones", {
+  skip_without_hyper_client()
+  run_annotate_module(args = list(geneset_loader = fixture_loader), {
+    session$setInputs(geneset_source = "msigdb", load_genesets = 1)
+    expect_false(is.null(genesets_state()))
+    session$setInputs(species = "Mus musculus")
+    expect_null(genesets_state())
+  })
+  custom_loader <- function(request) {
+    list(genesets = annotate_fixture_genesets(), description = list(source = "custom", name = "Custom", n = 24L))
+  }
+  run_annotate_module(args = list(geneset_loader = custom_loader), {
+    session$setInputs(geneset_source = "custom", load_genesets = 1)
+    session$setInputs(species = "Mus musculus")
+    expect_false(is.null(genesets_state()))
   })
 })
 
@@ -103,7 +130,7 @@ test_that("preview and run call the client with the repository arguments", {
     skipped = data.frame(signature = character(), reason = character(), message = character())
   ))
   run_annotate_module(args = list(geneset_loader = fixture_loader, runner = run$runner, previewer = preview$runner), {
-    session$setInputs(source = "repository", test = "fgsea", direction = "both",
+    session$setInputs(source = "repository", test = "fgsea",
                       background_mode = "number", background_number = 20000)
     session$setInputs(signature_table_rows_selected = 1, load_genesets = 1)
 
@@ -117,13 +144,14 @@ test_that("preview and run call the client with the repository arguments", {
     session$setInputs(run = 1)
     args <- .(run$calls)()[[1]]
     expect_identical(args$signature_id, 11)
+    expect_identical(args$organism, "Homo sapiens")
     expect_identical(args$test, "fgsea")
     # Everything the tab no longer exposes is sent at runHypeR()'s own default,
     # so the R code leaves it out.
     expect_length(args$fgsea_args, 0)
     expect_identical(args[c("fdr_scope", "pval", "fdr", "ks_source", "score_col", "power", "seed")],
                      list(fdr_scope = "run", pval = 1, fdr = 1, ks_source = "difexp", score_col = "score", power = 1, seed = 1))
-    expect_false("absolute" %in% names(args))
+    expect_false(any(c("absolute", "direction") %in% names(args)))
     expect_identical(args$background, 20000)
     expect_identical(args$genesets, annotate_fixture_genesets())
     expect_identical(run_state()$result, .(res))
@@ -181,7 +209,7 @@ test_that("every result view renders for a real fgsea result", {
   skip_without_hyper_client()
   res <- annotate_fixture_results()$fgsea
   run_annotate_module(args = list(geneset_loader = fixture_loader, runner = function(...) res), {
-    session$setInputs(source = "genes", test = "fgsea", direction = "both", background_mode = "default",
+    session$setInputs(source = "genes", test = "fgsea", background_mode = "default",
                       gene_text = "# r\nTP53 2\nMYC -1", load_genesets = 1, run = 1)
     session$setInputs(dot_val = "fdr", dot_cutoff = 0.25, dot_top = 10, dot_color = "score", dot_size = "geneset",
                       dot_abrv = 50, dot_key = TRUE)
@@ -197,6 +225,7 @@ test_that("every result view renders for a real fgsea result", {
 
     code <- output$r_code
     expect_match(code, "SigRepo::runHypeR(", fixed = TRUE)
+    expect_match(code, "organism = \"Homo sapiens\"", fixed = TRUE)
     expect_match(code, "test = \"fgsea\"", fixed = TRUE)
     expect_match(code, "SigRepo::plotHypeRDots(res, fdr = 0.25, top = 10, color_by = \"score\")", fixed = TRUE)
     expect_match(code, sprintf("SigRepo::plotHypeREnrichment(res, geneset = \"%s\"", geneset), fixed = TRUE)

@@ -9,9 +9,13 @@ load_annotate_app()
 test_that("the tab's defaults are runHypeR()'s defaults", {
   skip_without_hyper_client()
   formal_defaults <- formals(SigRepo::runHypeR)
-  for (name in setdiff(names(ANNOTATE_DEFAULTS), "msigdb_clean")) {
+  # organism and test are required: runHypeR() gives them no default.
+  expect_identical(formal_defaults$organism, quote(expr = ))
+  expect_identical(formal_defaults$test, quote(expr = ))
+  expect_false(any(c("direction", "absolute") %in% c(names(formal_defaults), names(ANNOTATE_DEFAULTS))))
+  for (name in setdiff(names(ANNOTATE_DEFAULTS), c("msigdb_clean", "test"))) {
     expected <- eval(formal_defaults[[name]])
-    if (name %in% c("test", "direction", "ks_source", "fdr_scope")) {
+    if (name %in% c("ks_source", "fdr_scope")) {
       expected <- expected[1]
     }
     expect_identical(ANNOTATE_DEFAULTS[[name]], expected, info = name)
@@ -21,15 +25,11 @@ test_that("the tab's defaults are runHypeR()'s defaults", {
   expect_identical(ANNOTATE_PROVENANCE_KEYS, SigRepo:::HYPER_PROVENANCE_KEYS)
 })
 
-test_that("default labels print the value, with fgsea's own direction", {
+test_that("default labels print the value", {
   expect_identical(annotate_default_text("fdr_scope"), "default (run)")
   expect_identical(annotate_default_text("split"), "default (on)")
   expect_identical(annotate_default_text("background"), "default (auto)")
   expect_identical(annotate_default_text("maxSize"), "default (Inf)")
-  expect_identical(annotate_default_text("direction"), "default (up)")
-  expect_identical(annotate_default_text("direction", test = "fgsea"), "default (both)")
-  expect_identical(annotate_default_direction("kstest"), "up")
-  expect_identical(annotate_default_direction("fgsea"), "both")
 })
 
 # ---- gene lists -------------------------------------------------------------------
@@ -188,7 +188,28 @@ test_that("custom genesets parse from text, GMT and CSV", {
 
 # ---- arguments ----------------------------------------------------------------------
 
-annotate_settings <- function(...) utils::modifyList(ANNOTATE_DEFAULTS, list(...))
+annotate_settings <- function(...) utils::modifyList(ANNOTATE_DEFAULTS, utils::modifyList(list(organism = "Homo sapiens"), list(...)))
+
+test_that("organism and test are always sent, first after the signatures", {
+  gs <- structure(list(), class = "gsets")
+  for (source in c("repository", "upload", "genes")) {
+    args <- annotate_build_args(source, "conn", signature_ids = 11, omic_signatures = list(a = 1), gene_lists = list(g = "TP53"),
+                                genesets = gs, settings = annotate_settings(organism = "Mus musculus", test = "kstest"))
+    expect_identical(args$organism, "Mus musculus", info = source)
+    expect_identical(args$test, "kstest", info = source)
+    expect_false(any(c("direction", "absolute") %in% names(args)), info = source)
+  }
+})
+
+test_that("signatures of another organism are a problem, ignoring case", {
+  expect_identical(annotate_organism_problem(c("a", "b"), c("Homo sapiens", "homo SAPIENS "), "Homo sapiens"), character())
+  expect_identical(annotate_organism_problem("a", "Mus musculus", ""), character())
+  expect_identical(
+    annotate_organism_problem(c("a", "b", "c"), c("Homo sapiens", "Mus musculus", NA), "Homo sapiens"),
+    "A run tests one organism: 'b' (Mus musculus), 'c' (no organism recorded) are not Homo sapiens. Change the organism in Step 2 or run them separately."
+  )
+  expect_match(annotate_organism_problem("m", "Mus musculus", "Homo sapiens"), "'m' (Mus musculus) is not Homo sapiens. Change the organism in Step 2 or run it separately.", fixed = TRUE)
+})
 
 test_that("each source sends only its own signature argument", {
   gs <- structure(list(), class = "gsets")
@@ -212,38 +233,33 @@ test_that("each test sends only the settings it uses", {
                                settings = annotate_settings(split = FALSE, min_query_genes = 2, background = 20000))
   expect_identical(hyper[c("test", "split", "min_query_genes", "background")],
                    list(test = "hypergeometric", split = FALSE, min_query_genes = 2, background = 20000))
-  expect_false(any(c("direction", "ks_source", "power", "seed", "fgsea_args", "absolute") %in% names(hyper)))
+  expect_false(any(c("ks_source", "power", "seed", "fgsea_args") %in% names(hyper)))
   expect_false(hyper$verbose)
 
   ks <- annotate_build_args("repository", "conn", signature_ids = 11, genesets = gs,
-                            settings = annotate_settings(test = "kstest", direction = "both", ks_source = "signature"))
-  expect_identical(ks[c("direction", "ks_source", "score_col", "power", "absolute")],
-                   list(direction = "both", ks_source = "signature", score_col = "score", power = 1, absolute = FALSE))
+                            settings = annotate_settings(test = "kstest", ks_source = "signature"))
+  expect_identical(ks[c("ks_source", "score_col", "power")],
+                   list(ks_source = "signature", score_col = "score", power = 1))
   expect_false(any(c("split", "min_query_genes", "seed", "background") %in% names(ks)))
 
   fg <- annotate_build_args("upload", "conn", omic_signatures = list(a = 1), genesets = gs,
-                            settings = annotate_settings(test = "fgsea", direction = NULL, seed = 7,
+                            settings = annotate_settings(test = "fgsea", seed = 7,
                                                          fgsea_args = list(sampleSize = 101, minSize = 15, maxSize = Inf)))
-  expect_identical(fg$direction, "both")
   expect_identical(fg$seed, 7)
   expect_identical(fg$fgsea_args, list(minSize = 15))
-  expect_false("absolute" %in% names(fg))
 
   native_ks <- annotate_build_args("genes", gene_lists = list(g = c(A = 1)), genesets = gs, settings = annotate_settings(test = "kstest"))
-  expect_false(any(c("direction", "ks_source", "score_col") %in% names(native_ks)))
-  native_fg <- annotate_build_args("genes", gene_lists = list(g = c(A = 1)), genesets = gs,
-                                   settings = annotate_settings(test = "fgsea", direction = "up"))
-  expect_identical(native_fg$direction, "up")
+  expect_false(any(c("ks_source", "score_col") %in% names(native_ks)))
 })
 
 test_that("preview arguments are the ones prepareHypeRSignatures() takes", {
   skip_without_hyper_client()
   args <- annotate_build_args("upload", "conn", omic_signatures = list(a = 1), genesets = annotate_fixture_genesets(),
-                              settings = annotate_settings(test = "kstest", direction = "both"))
+                              settings = annotate_settings(test = "kstest"))
   prepared <- annotate_prepare_args(args)
   expect_true(all(names(prepared) %in% names(formals(SigRepo::prepareHypeRSignatures))))
-  expect_false(any(c("genesets", "fdr", "power") %in% names(prepared)))
-  expect_identical(prepared$direction, "both")
+  expect_false(any(c("genesets", "fdr", "power", "organism") %in% names(prepared)))
+  expect_identical(prepared$test, "kstest")
 })
 
 test_that("running keeps warnings and returns errors", {
@@ -367,7 +383,7 @@ test_that("an enrichment summary reports each test's own measures and genes", {
 
 test_that("the R code parses and writes only non-default arguments", {
   args <- annotate_build_args("repository", "conn", signature_ids = c(11, 12), genesets = structure(list(), class = "gsets"),
-                              settings = annotate_settings(test = "fgsea", direction = NULL, fdr_scope = "query",
+                              settings = annotate_settings(test = "fgsea", fdr_scope = "query",
                                                            fgsea_args = list(minSize = 15), background = list(`11` = 20000, `12` = "difexp")))
   code <- annotate_r_code(
     args,
@@ -380,6 +396,7 @@ test_that("the R code parses and writes only non-default arguments", {
   expect_match(code, "conn_handler <- SigRepo::newConnHandler(...)", fixed = TRUE)
   expect_match(code, "msigdb_species = \"Mus musculus\", msigdb_collection = \"M2\", msigdb_subcollection = \"CP:REACTOME\", msigdb_clean = TRUE)", fixed = TRUE)
   expect_match(code, "signature_id = c(11, 12)", fixed = TRUE)
+  expect_match(code, "organism = \"Homo sapiens\"", fixed = TRUE)
   expect_match(code, "test = \"fgsea\"", fixed = TRUE)
   expect_match(code, "fdr_scope = \"query\"", fixed = TRUE)
   expect_match(code, "fgsea_args = list(minSize = 15)", fixed = TRUE)
@@ -418,7 +435,7 @@ test_that("empty plot controls fall back to their default, others to at least th
 test_that("integer inputs from the browser compare equal to the defaults", {
   gs <- structure(list(), class = "gsets")
   args <- annotate_build_args("repository", "conn", signature_ids = 11, genesets = gs,
-                              settings = annotate_settings(test = "fgsea", direction = NULL, seed = 1L, power = 1L,
+                              settings = annotate_settings(test = "fgsea", seed = 1L, power = 1L,
                                                            fgsea_args = list(sampleSize = 101L, minSize = 15L, maxSize = Inf)))
   expect_identical(args$fgsea_args, list(minSize = 15))
   expect_identical(args$seed, 1)

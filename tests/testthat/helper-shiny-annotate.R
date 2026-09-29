@@ -20,12 +20,16 @@ load_annotate_app <- function() {
 }
 
 # The tab needs the overhauled hypeR client (SigRepo branch HypeR-Review): run
-# the tests with SIGREPO_DIR pointing at it, loaded through pkgload.
+# the tests with SIGREPO_DIR pointing at it, loaded through pkgload. It needs
+# the version where organism and test are required and the ranked tests always
+# test both ends (no direction argument).
 skip_without_hyper_client <- function() {
   testthat::skip_if_not_installed("hypeR")
+  runhyper_args <- names(formals(SigRepo::runHypeR))
   testthat::skip_if_not(
-    "fdr_scope" %in% names(formals(SigRepo::runHypeR)) && exists("plotHypeRDots", asNamespace("SigRepo")),
-    "installed SigRepo predates the hypeR client overhaul (runHypeR fdr_scope, plotHypeRDots)"
+    all(c("fdr_scope", "organism") %in% runhyper_args) && !("direction" %in% runhyper_args) &&
+      exists("plotHypeRDots", asNamespace("SigRepo")),
+    "installed SigRepo predates the hypeR client overhaul (runHypeR organism, no direction, plotHypeRDots)"
   )
 }
 
@@ -74,13 +78,15 @@ annotate_fixture_results <- local({
     gs <- annotate_fixture_genesets()
     quietly <- function(expr) suppressWarnings(suppressMessages(expr))
     cache <<- list(
-      hypergeometric = quietly(SigRepo::runHypeR(omic_signature = list(LLFS = sig, LLFS_copy = sig), genesets = gs, verbose = FALSE)),
-      kstest = quietly(SigRepo::runHypeR(omic_signature = sig, genesets = gs, test = "kstest", direction = "both", verbose = FALSE)),
-      kstest_single = quietly(SigRepo::runHypeR(omic_signature = sig, genesets = gs, test = "kstest", verbose = FALSE)),
-      fgsea = quietly(SigRepo::runHypeR(omic_signature = sig, genesets = gs, test = "fgsea", verbose = FALSE)),
+      hypergeometric = quietly(SigRepo::runHypeR(omic_signature = list(LLFS = sig, LLFS_copy = sig), organism = "Homo sapiens",
+                                                 test = "hypergeometric", genesets = gs, verbose = FALSE)),
+      kstest = quietly(SigRepo::runHypeR(omic_signature = sig, organism = "Homo sapiens", test = "kstest", genesets = gs, verbose = FALSE)),
+      kstest_single = quietly(SigRepo::runHypeR(omic_signature = sig, organism = "Homo sapiens", test = "kstest", genesets = gs,
+                                                verbose = FALSE)$data[[1]]),
+      fgsea = quietly(SigRepo::runHypeR(omic_signature = sig, organism = "Homo sapiens", test = "fgsea", genesets = gs, verbose = FALSE)),
       native = quietly(SigRepo::runHypeR(
         signature = list(top = gs$genesets$SET_TOP_1, bottom = gs$genesets$SET_BOTTOM_1),
-        genesets = gs
+        organism = "Homo sapiens", test = "hypergeometric", genesets = gs
       ))
     )
     cache
@@ -114,6 +120,12 @@ run_annotate_module <- function(expr, args = list()) {
     user_conn_handler = reactive("user-conn")
   )
   body <- do.call(bquote, list(substitute(expr), where = parent.frame()))
+  # The organism select starts at Homo sapiens in the app; testServer() starts
+  # every input empty.
+  body <- bquote({
+    session$setInputs(species = "Homo sapiens")
+    .(body)
+  })
   later::with_temp_loop(eval(bquote(testServer(
     annotate_module_server,
     args = .(utils::modifyList(defaults, args)),
