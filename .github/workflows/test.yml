@@ -39,7 +39,11 @@ jobs:
     # package builds :dev correctly and then fails its tests inside :latest,
     # which lacks that package -- and the only way to go green would be to merge
     # to master first, which is the loop the staging gate exists to break.
-    container: montilab/sigrepo:${{ github.ref_name == 'dev' && 'dev' || 'latest' }}
+    #
+    # On a pull request github.ref_name is the merge ref ("146/merge"), never
+    # "dev", so the line is read from github.base_ref there: a pull request into
+    # dev runs in :dev, like the push that follows its merge.
+    container: montilab/sigrepo:${{ (github.base_ref || github.ref_name) == 'dev' && 'dev' || 'latest' }}
     concurrency:
       group: test-${{ github.event_name != 'pull_request' || github.run_id }}
       cancel-in-progress: true
@@ -81,10 +85,17 @@ jobs:
       - name: Checkout SigRepo_Server
         uses: actions/checkout@v4
 
+      # The client is taken from the same line as the server: dev against the
+      # client's dev, which is the pairing montilab.bu.edu deploys, and
+      # everything else against the client's master. Without a ref this took
+      # the client's default branch, so dev was tested against a client it
+      # never runs with, and the Annotate tab's tests, which skip on a client
+      # without the rebuilt runHypeR(), skipped every time and stayed green.
       - name: Checkout SigRepo (client package, loaded in dev mode)
         uses: actions/checkout@v4
         with:
           repository: montilab/SigRepo
+          ref: ${{ (github.base_ref || github.ref_name) == 'dev' && 'dev' || 'master' }}
           path: external/SigRepo
 
       # The image ships libmysqlclient for RMySQL but not the mysql CLI, which

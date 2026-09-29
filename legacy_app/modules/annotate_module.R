@@ -1,197 +1,120 @@
+# annotate page modules
+#
+# A front end to SigRepo::runHypeR(). Signatures come from one source per run
+# (repository picks, uploaded OmicSignature objects, or hypeR-native gene
+# lists), genesets from the MSigDB cache or custom files, and
+# every argument of the chosen test is exposed with the function's own default,
+# which its label prints. prepareHypeRSignatures() previews the queries a run
+# would test. The result is read back with SigRepo's hypeR plot and data
+# functions and hypeR's own table. The helpers these call live in
+# utils/annotate_utils.R (and, shared with the Compare tab, utils/compare_utils.R).
+
+ANNOTATE_TABLE_COLUMNS <- c(
+  "signature_id", "signature_name", "organism", "type", "assay_type",
+  "phenotype", "has_difexp", "user_name"
+)
+
+ANNOTATE_SOURCE_CHOICES <- c(
+  "Repository" = "repository",
+  "Upload .rds" = "upload",
+  "Gene lists" = "genes"
+)
+
+ANNOTATE_TEST_HELP <- list(
+  hypergeometric = paste(
+    "Tests whether each query's genes overlap a geneset more than chance in a background population.",
+    "With split on, every group_label (e.g. the up and down arms of a bi-directional signature) is its own query;",
+    "categorical signatures are also split by score sign. Queries with fewer than min_query_genes genes found in",
+    "the genesets are skipped."
+  ),
+  kstest = paste(
+    "Ranks each signature's whole difexp table by score (not split by group label) and tests both ends of the ranking.",
+    "hypeR's KS test only finds genesets toward the top, so every signature gives two queries: up, ranked by score, and",
+    "down, ranked by the negated score, with the FDR adjusted across both. A categorical signature is ranked within",
+    "each category."
+  ),
+  fgsea = paste(
+    "Runs fgsea::fgseaMultilevel() once per whole difexp ranking (not split by group label), which tests both ends, and",
+    "splits pathways by the sign of their enrichment score: up (ES > 0) and down (ES < 0). Each run is seeded, so",
+    "results repeat."
+  )
+)
+
 annotate_module_ui <- function(id) {
   ns <- NS(id)
   page_selector <- paste0("#", ns("annotate_page"))
 
+  # A label with the runHypeR() default it starts at.
+  with_default <- function(label, name) {
+    tagList(label, " ", span(class = "annotate-default", annotate_default_text(name)))
+  }
+  geneset_sources <- c("MSigDB" = "msigdb", "Custom" = "custom")
+  species_choices <- unique(c(
+    "Homo sapiens", "Mus musculus",
+    tryCatch(msigdbr::msigdbr_species()$species_name, error = function(e) character())
+  ))
+
   tagList(
     tags$style(HTML(paste0("
-      ", page_selector, " {
-        padding-top: 28px;
-        padding-bottom: 32px;
-      }
-
+      ", page_selector, " { padding-top: 28px; padding-bottom: 32px; }
       ", page_selector, " .annotate-hero {
-        margin-bottom: 18px;
-        padding: 24px 28px;
-        border-radius: 14px;
+        margin-bottom: 18px; padding: 24px 28px; border-radius: 14px;
         background: linear-gradient(135deg, #0f3b63 0%, #1b5d8f 100%);
-        color: #ffffff;
-        box-shadow: 0 10px 24px rgba(15, 59, 99, 0.18);
+        color: #ffffff; box-shadow: 0 10px 24px rgba(15, 59, 99, 0.18);
       }
-
-      ", page_selector, " .annotate-hero h2 {
-        margin-top: 0;
-        margin-bottom: 8px;
-        font-weight: 700;
-      }
-
-      ", page_selector, " .annotate-hero p {
-        margin-bottom: 0;
-        color: rgba(255, 255, 255, 0.88);
-      }
-
+      ", page_selector, " .annotate-hero h2 { margin-top: 0; margin-bottom: 8px; font-weight: 700; }
+      ", page_selector, " .annotate-hero p { margin-bottom: 0; color: rgba(255, 255, 255, 0.88); }
       ", page_selector, " .annotate-card {
-        margin-bottom: 18px;
-        padding: 20px 22px;
-        border: 1px solid #d9e3ec;
-        border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
+        margin-bottom: 18px; padding: 20px 22px; border: 1px solid #d9e3ec; border-radius: 12px;
+        background: #ffffff; box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
       }
-
-      ", page_selector, " .annotate-card h3,
-      ", page_selector, " .annotate-card h4 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        color: #17324d;
-        font-weight: 600;
+      ", page_selector, " .annotate-card h3, ", page_selector, " .annotate-card h4 {
+        margin-top: 0; margin-bottom: 12px; color: #17324d; font-weight: 600;
       }
-
       ", page_selector, " .annotate-step-label {
-        display: inline-block;
-        margin-bottom: 10px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        background: #e9f2f9;
-        color: #0f4d7c;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        display: inline-block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
+        background: #e9f2f9; color: #0f4d7c; font-size: 12px; font-weight: 700;
+        letter-spacing: 0.04em; text-transform: uppercase;
       }
-
-      ", page_selector, " .annotate-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      ", page_selector, " .annotate-summary-item {
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: #f6f9fc;
-        border: 1px solid #e1ebf2;
-      }
-
+      ", page_selector, " .annotate-section + .annotate-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e1ebf2; }
+      ", page_selector, " .annotate-muted { color: #597189; }
+      ", page_selector, " .annotate-default { color: #597189; font-size: 12px; font-weight: normal; white-space: nowrap; }
+      ", page_selector, " .annotate-facets { display: flex; gap: 10px; flex-wrap: wrap; }
+      ", page_selector, " .annotate-facets .form-group { flex: 1 1 140px; min-width: 140px; margin-bottom: 8px; }
+      ", page_selector, " .annotate-list-summary { padding: 10px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2; margin-top: 12px; }
+      ", page_selector, " .annotate-list-summary ul { margin: 6px 0 0 0; padding-left: 18px; }
+      ", page_selector, " .annotate-source { color: #597189; font-size: 12px; }
+      ", page_selector, " .annotate-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+      ", page_selector, " .annotate-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
+      ", page_selector, " .annotate-summary-item { padding: 12px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2; }
       ", page_selector, " .annotate-summary-item strong {
-        display: block;
-        margin-bottom: 4px;
-        color: #0f3b63;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+        display: block; margin-bottom: 4px; color: #0f3b63; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
       }
-
-      ", page_selector, " .annotate-summary-item span {
-        color: #17324d;
-        font-size: 15px;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .annotate-feedback {
-        margin-top: 10px;
-      }
-
-      ", page_selector, " .annotate-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 14px;
-      }
-
-      ", page_selector, " .annotate-empty {
-        padding: 18px;
-        border: 1px dashed #c5d5e3;
-        border-radius: 10px;
-        background: #f8fbfd;
-        color: #4b647e;
-      }
-
-      ", page_selector, " .annotate-results-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
-      ", page_selector, " .annotate-results-actions .btn {
-        margin-left: 8px;
-      }
-
-      ", page_selector, " .annotate-results-body {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 22px;
-      }
-
-      ", page_selector, " .annotate-results-section h4 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        color: #17324d;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .annotate-signature-key {
-        margin-top: 14px;
-      }
-
-      ", page_selector, " .annotate-signature-key .dataTables_wrapper {
-        font-size: 12px;
-      }
-
-      ", page_selector, " .geneset-filter-group {
-        padding: 16px;
-        border: 1px solid #d9e3ec;
-        border-radius: 10px;
-        background: #f8fbfd;
-      }
-
-      ", page_selector, " .geneset-filter-heading h4 {
-        margin-top: 0;
-        margin-bottom: 6px;
-      }
-
-      ", page_selector, " .geneset-filter-heading p {
-        margin-bottom: 14px;
-        color: #597189;
-      }
-
-      ", page_selector, " .geneset-filter-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 12px;
-      }
-
-      ", page_selector, " .geneset-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        font-size: 13px;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .geneset-status-pending {
-        background: #eef3f7;
-        color: #4b647e;
-      }
-
-      ", page_selector, " .geneset-status-ready {
-        background: #e7f5ec;
-        color: #21663c;
-      }
-
-      ", page_selector, " .geneset-summary-text {
-        margin-top: 10px;
-        margin-bottom: 0;
-        color: #3f5873;
-        font-size: 13px;
-      }
+      ", page_selector, " .annotate-summary-item span { color: #17324d; font-size: 15px; font-weight: 600; }
+      ", page_selector, " .annotate-empty { padding: 18px; border: 1px dashed #c5d5e3; border-radius: 10px; background: #f8fbfd; color: #4b647e; }
+      ", page_selector, " .annotate-message { white-space: pre-wrap; margin-bottom: 8px; }
+      ", page_selector, " .annotate-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+      ", page_selector, " .annotate-controls .form-group { min-width: 130px; }
+      ", page_selector, " .annotate-controls .checkbox { margin-bottom: 18px; }
+      ", page_selector, " .annotate-status { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+      ", page_selector, " .annotate-status-pending { background: #eef3f7; color: #4b647e; }
+      ", page_selector, " .annotate-status-ready { background: #e7f5ec; color: #21663c; }
+      ", page_selector, " .annotate-status-error { background: #fdecea; color: #a12622; }
+      ", page_selector, " .annotate-readiness ul { margin: 4px 0 8px 0; padding-left: 18px; }
+      ", page_selector, " .annotate-readiness .annotate-problem { color: #a12622; }
+      ", page_selector, " .annotate-readiness .annotate-note { color: #8a5a00; }
+      ", page_selector, " .annotate-readiness .annotate-ok { color: #21663c; font-weight: 600; }
+      ", page_selector, " .annotate-genes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-height: 220px; overflow-y: auto; }
+      ", page_selector, " .annotate-genes span { padding: 2px 7px; border-radius: 6px; background: #e9f2f9; color: #0f3b63; font-size: 12px; font-family: monospace; }
+      ", page_selector, " .annotate-measures { width: 100%; margin-bottom: 12px; }
+      ", page_selector, " .annotate-measures td { padding: 4px 8px 4px 0; vertical-align: top; border-bottom: 1px solid #eef3f7; }
+      ", page_selector, " .annotate-measures td:first-child { color: #597189; white-space: nowrap; }
+      ", page_selector, " .annotate-background-table { width: 100%; }
+      ", page_selector, " .annotate-background-table td { padding: 2px 8px 2px 0; vertical-align: middle; }
+      ", page_selector, " .annotate-background-table .form-group { margin-bottom: 4px; }
+      ", page_selector, " .annotate-plot-scroll { overflow-x: auto; }
+      ", page_selector, " details > summary { cursor: pointer; margin: 6px 0; }
+      ", page_selector, " .tab-content { padding-top: 16px; }
     "))),
 
     div(
@@ -201,2194 +124,1100 @@ annotate_module_ui <- function(id) {
         class = "annotate-hero",
         tags$h2("Annotate Signatures"),
         tags$p(
-          "Configure an enrichment analysis, choose a geneset collection, review your selections, and run hypeR from a single workflow."
+          "Enrich signatures against genesets with hypergeometric, KS or GSEA (fgsea) tests using ",
+          tags$code(style = "color: #ffffff; background: rgba(255,255,255,0.15);", "SigRepo::runHypeR()"),
+          ", then explore the results with SigRepo's hypeR plots and get the R code that reproduces them."
         )
       ),
 
       fluidRow(
         column(
-          width = 4,
+          width = 8,
 
           div(
             class = "annotate-card",
             span(class = "annotate-step-label", "Step 1"),
-            tags$h3("Analysis Setup"),
-            textInput(
-              ns("experiment_label"),
-              "Experiment Label",
-              placeholder = "Example: Knockout Experiment"
-            ),
-            radioButtons(
-              ns("enrichment_type"),
-              "Enrichment Method",
-              choices = c(
-                "Hypergeometric" = "hypergeo",
-                "KS Test" = "kstest",
-                "GSEA" = "gsea",
-                "GEM Hypergeometric" = "gem_hypergeo",
-                "GEM Weighted" = "gem_weighted"
+            tags$h3("Signatures"),
+            radioButtons(ns("source"), "Where the signatures come from", choices = ANNOTATE_SOURCE_CHOICES, inline = TRUE),
+            conditionalPanel(
+              condition = "input.source == 'repository'",
+              ns = ns,
+              tags$p(class = "annotate-muted", sprintf(
+                "Pick up to %d signatures. Picks are kept by signature, so they stay when the filters change.", ANNOTATE_MAX_SIGNATURES
+              )),
+              div(
+                class = "annotate-facets",
+                lapply(names(COMPARE_FACETS), function(facet) {
+                  selectInput(ns(paste0("facet_", facet)), COMPARE_FACETS[[facet]], choices = c("All" = "all"))
+                })
               ),
-              inline = FALSE
+              DT::DTOutput(ns("signature_table")),
+              div(class = "annotate-actions", actionLink(ns("clear_picks"), "Clear picked signatures", icon = icon("xmark")))
             ),
-            helpText(
-              "Hypergeometric uses feature lists. KS Test and GSEA expect ranked signatures. GEM modes map metabolite signatures to genes before enrichment."
+            conditionalPanel(
+              condition = "input.source == 'upload'",
+              ns = ns,
+              fileInput(ns("upload"), "Upload OmicSignature .rds", multiple = TRUE, accept = ".rds", width = "100%"),
+              helpText(
+                "An OmicSignature, a named list of them, or an OmicSignatureCollection. List names become the query labels.",
+                "Gene symbols missing from a signature are looked up in the repository's reference tables."
+              )
             ),
-            uiOutput(ns("gem_options")),
-            numericInput(
-              ns("enrichment_thresh"),
-              "FDR Threshold",
-              value = 0.05,
-              min = 0,
-              max = 1,
-              step = 0.01
+            conditionalPanel(
+              condition = "input.source == 'genes'",
+              ns = ns,
+              textAreaInput(
+                ns("gene_text"), "Gene lists", rows = 8, width = "100%",
+                placeholder = "# Up in treatment\nTP53\nMYC, CDK4\n\n# Ranked by t statistic\nIL6 4.2\nTNF 3.1\nCXCL8 -2.7"
+              ),
+              fileInput(ns("gene_file"), "Or upload gene lists", accept = c(".txt", ".csv", ".tsv", ".gmt"), width = "100%"),
+              helpText(
+                "Start each list with '# name'. Genes can be separated by commas, spaces or new lines.",
+                "Lines of 'GENE score' make a ranked list, used in the order given: the KS test accepts plain or ranked lists,",
+                "GSEA needs ranked lists and the hypergeometric test plain ones.",
+                "Files: GMT, a CSV/TSV with gene (and optional score and list) columns, or text in the same format."
+              )
             ),
-            numericInput(
-              ns("enrichment_bg"),
-              "Background Gene Count",
-              value = 36000,
-              min = 1,
-              step = 100
-            )
+            uiOutput(ns("signature_summary"))
           ),
 
           div(
             class = "annotate-card",
             span(class = "annotate-step-label", "Step 2"),
-            tags$h3("Geneset Selection"),
-            tags$p(
-              "Use the filter set below to define the genesets included in this enrichment run."
+            tags$h3("Organism and genesets"),
+            selectInput(ns("species"), "Organism (required)", choices = species_choices, selected = "Homo sapiens"),
+            helpText(
+              "The organism of every signature in the run, and the species MSigDB collections are loaded for.",
+              "A run tests one organism: signatures of another organism cannot run together."
             ),
-            selectInput(
-              ns("species"),
-              "Species",
-              choices = msigdbr::msigdbr_species()$species_name,
-              selected = "Homo sapiens"
+            radioButtons(ns("geneset_source"), NULL, choices = geneset_sources, inline = TRUE),
+            conditionalPanel(
+              condition = "input.geneset_source == 'msigdb'",
+              ns = ns,
+              div(
+                class = "annotate-facets",
+                selectInput(ns("collection"), "Collection", choices = annotate_collection_choices("Homo sapiens")),
+                selectInput(ns("subcollection"), "Subcollection", choices = c("None" = ""))
+              ),
+              helpText(
+                "The collections offered are the ones in this server's MSigDB cache for the organism.",
+                "The largest (C2, C5) are left out: a run against them needs more memory than the server has.",
+                "For anything else, load custom genesets."
+              )
             ),
-            genesets_hypeR_UI(ns("genesets"))
+            conditionalPanel(
+              condition = "input.geneset_source == 'custom'",
+              ns = ns,
+              fileInput(ns("custom_file"), "GMT or CSV (geneset_name, gene_symbol)", accept = c(".gmt", ".csv"), width = "100%"),
+              tags$details(
+                tags$summary("Or type a single geneset"),
+                textInput(ns("custom_name"), "Geneset name"),
+                textAreaInput(ns("custom_genes"), "Genes", rows = 4, width = "100%", placeholder = "TP53, MYC, CDK4")
+              )
+            ),
+            checkboxInput(ns("clean"), with_default("Clean geneset labels (e.g. HALLMARK_MYC_TARGETS_V1 -> Myc Targets V1)", "msigdb_clean"),
+                          value = ANNOTATE_DEFAULTS$msigdb_clean),
+            div(
+              class = "annotate-actions",
+              actionButton(ns("load_genesets"), "Load genesets", class = "btn-primary", icon = icon("layer-group")),
+              uiOutput(ns("genesets_status"), inline = TRUE)
+            )
           )
         ),
 
         column(
-          width = 8,
-
+          width = 4,
           div(
             class = "annotate-card",
             span(class = "annotate-step-label", "Step 3"),
-            tags$h3("Select Signatures"),
-            tags$p(
-              "Choose up to 10 signatures from the repository, then add them to the analysis."
+            tags$h3("Test"),
+            selectInput(ns("test"), "Test (required)", choices = ANNOTATE_TEST_CHOICES, selected = ANNOTATE_DEFAULTS$test),
+            uiOutput(ns("test_help")),
+
+            conditionalPanel(
+              condition = "input.test == 'hypergeometric'",
+              ns = ns,
+              conditionalPanel(
+                condition = "input.source != 'genes'",
+                ns = ns,
+                checkboxInput(ns("split"), with_default("Split signatures by group label", "split"), value = ANNOTATE_DEFAULTS$split)
+              ),
+              numericInput(ns("min_query_genes"), with_default("Min query genes in genesets", "min_query_genes"),
+                           value = ANNOTATE_DEFAULTS$min_query_genes, min = 1, step = 1)
             ),
-            DT::DTOutput(ns("signature_hypeR")),
-            div(
-              class = "annotate-actions",
-              actionButton(
-                ns("signature_add"),
-                "Add Selected Signatures",
-                class = "btn-primary"
+
+            tags$h4("Background"),
+            selectInput(
+              ns("background_mode"), with_default("Background", "background"),
+              choices = c(
+                "Auto (difexp when complete, else 23467)" = "default",
+                "Population size" = "number",
+                "Each signature's difexp genes" = "difexp",
+                "Gene universe" = "genes",
+                "Per signature" = "per_signature"
               )
             ),
-            div(
-              class = "annotate-feedback",
-              uiOutput(ns("signature_feedback"))
+            conditionalPanel(
+              condition = "input.background_mode == 'number'",
+              ns = ns,
+              numericInput(ns("background_number"), "Population size", value = 23467, min = 1, step = 100)
+            ),
+            conditionalPanel(
+              condition = "input.background_mode == 'genes'",
+              ns = ns,
+              textAreaInput(ns("background_genes"), "Background genes", rows = 3, width = "100%",
+                            placeholder = "Every gene measured, separated by commas or new lines")
+            ),
+            conditionalPanel(
+              condition = "input.background_mode == 'per_signature'",
+              ns = ns,
+              uiOutput(ns("background_table"))
+            ),
+            helpText(
+              "Auto uses each signature's measured difexp genes for the hypergeometric test when the difexp looks complete,",
+              "and 23467 with a warning when it looks filtered. KS and GSEA rank the whole table, so a population size",
+              "does not change them; a gene universe or difexp background reduces queries and genesets to those genes."
+            ),
+            helpText(
+              "Every other runHypeR() argument stays at its default: the ranked table is the difexp, ranked by the score",
+              "column and tested at both ends, with power 1, fgsea's own sampling and seed, FDR pooled across the run, and",
+              "every geneset kept (filter the plots instead)."
             )
           ),
 
           div(
             class = "annotate-card",
             span(class = "annotate-step-label", "Step 4"),
-            tags$h3("Review and Run"),
-            uiOutput(ns("analysis_summary")),
+            tags$h3("Preview and run"),
+            uiOutput(ns("readiness")),
             div(
               class = "annotate-actions",
-              actionButton(
-                ns("enrichment_do"),
-                "Run Enrichment",
-                class = "btn-primary"
-              ),
-              actionButton(
-                ns("experiment_reset"),
-                "New Experiment",
-                class = "btn-default"
-              )
-            )
-          ),
-
-          div(
-            class = "annotate-card",
-            tags$h3("Current Selection"),
-            uiOutput(ns("signature_preview"))
+              actionButton(ns("preview"), "Preview queries", icon = icon("list-check")),
+              actionButton(ns("run"), "Run enrichment", class = "btn-primary", icon = icon("play"))
+            ),
+            uiOutput(ns("preview_output"))
           )
         )
       ),
 
       div(
         class = "annotate-card",
-        div(
-          class = "annotate-results-header",
-          div(
-            tagList(
-              span(class = "annotate-step-label", "Results"),
-              tags$h3("Experiment Results")
-            )
-          ),
-          div(
-            class = "annotate-results-actions",
-            downloadButton(ns("generate_report"), "Export Analysis Bundle"),
-            downloadButton(ns("export_hyp"), "Export Hype Object")
-          )
+        span(class = "annotate-step-label", "Results"),
+        uiOutput(ns("run_messages")),
+        conditionalPanel(
+          condition = "!output.has_result",
+          ns = ns,
+          div(class = "annotate-empty", "Run an enrichment to see the dot plot, enrichment curves, maps, tables and the equivalent R code.")
         ),
-        uiOutput(ns("enrichment"))
-      )
-    )
-  )
-}
-
-
-hype_dotplot_data <- function(hyp, fdr_threshold, top = 30, abrv = 50) {
-  if (is.null(fdr_threshold) || length(fdr_threshold) == 0 || is.na(fdr_threshold)) {
-    fdr_threshold <- 1
-  }
-
-  empty_df <- data.frame(
-    signature = character(),
-    label = character(),
-    fdr = numeric(),
-    geneset_size = numeric(),
-    stringsAsFactors = FALSE
-  )
-
-  hyp_entries <- if (methods::is(hyp, "multihyp")) {
-    hyp$data
-  } else if (is.list(hyp) && all(c("info", "data") %in% names(hyp))) {
-    list(Enrichment = hyp)
-  } else if (is.list(hyp) && length(hyp) > 0 && all(vapply(hyp, function(x) is.list(x) && all(c("info", "data") %in% names(x)), logical(1)))) {
-    hyp
-  } else {
-    list(Enrichment = hyp)
-  }
-
-  if (is.null(names(hyp_entries)) || any(!nzchar(names(hyp_entries)))) {
-    names(hyp_entries) <- paste("Signature", seq_along(hyp_entries))
-  }
-
-  plot_dfs <- lapply(seq_along(hyp_entries), function(i) {
-    hyp_entry <- hyp_entries[[i]]
-    hyp_df <- if (is.data.frame(hyp_entry)) hyp_entry else hyp_entry$data
-
-    if (is.null(hyp_df) || !is.data.frame(hyp_df) || nrow(hyp_df) == 0) {
-      return(NULL)
-    }
-
-    if (!all(c("label", "fdr") %in% names(hyp_df))) {
-      return(NULL)
-    }
-
-    hyp_df$fdr <- suppressWarnings(as.numeric(hyp_df$fdr))
-    hyp_df <- hyp_df[!is.na(hyp_df$fdr) & hyp_df$fdr <= fdr_threshold, , drop = FALSE]
-
-    if (nrow(hyp_df) == 0) {
-      return(NULL)
-    }
-
-    geneset_size <- rep(1, nrow(hyp_df))
-    if ("geneset" %in% names(hyp_df)) {
-      geneset_size <- suppressWarnings(as.numeric(hyp_df$geneset))
-      geneset_size[is.na(geneset_size) | geneset_size <= 0] <- 1
-    }
-
-    data.frame(
-      signature = names(hyp_entries)[[i]],
-      label = substr(as.character(hyp_df$label), 1, abrv),
-      fdr = hyp_df$fdr,
-      geneset_size = geneset_size,
-      stringsAsFactors = FALSE
-    )
-  })
-
-  plot_dfs <- plot_dfs[!vapply(plot_dfs, is.null, logical(1))]
-
-  if (length(plot_dfs) == 0) {
-    return(empty_df)
-  }
-
-  plot_df <- do.call(rbind, plot_dfs)
-  label_rank <- stats::aggregate(fdr ~ label, data = plot_df, FUN = min)
-  label_rank <- label_rank[order(label_rank$fdr), , drop = FALSE]
-  top_labels <- head(label_rank$label, top)
-  plot_df <- plot_df[plot_df$label %in% top_labels, , drop = FALSE]
-  plot_df[order(plot_df$fdr), , drop = FALSE]
-}
-
-
-build_dotplot_figure <- function(plot_df, title = "") {
-  ggplot2::ggplot(
-    plot_df,
-    ggplot2::aes(
-      x = signature_label,
-      y = label,
-      color = fdr_plot,
-      size = geneset_size
-    )
-  ) +
-    ggplot2::geom_point(alpha = 0.86) +
-    ggplot2::scale_color_continuous(
-      low = "#E53935",
-      high = "#114357",
-      trans = "log10",
-      guide = ggplot2::guide_colorbar(reverse = TRUE)
-    ) +
-    ggplot2::scale_size_continuous(trans = "log10") +
-    ggplot2::labs(
-      title = title,
-      x = NULL,
-      y = NULL,
-      color = "FDR",
-      size = "Geneset Size"
-    ) +
-    ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(
-      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
-      axis.text.x = ggplot2::element_text(face = "bold"),
-      panel.grid.major.y = ggplot2::element_line(color = "#e6edf3"),
-      panel.grid.minor = ggplot2::element_blank()
-    )
-}
-
-
-# Resolve raw feature identifiers (Ensembl or UniProt accessions) to gene
-# symbols through the assay's reference table, using an injected lookup so
-# the builders stay testable without a database.
-# `symbol_lookup(feature_names, organism, assay_type)` returns a named
-# character vector: names are feature_name, values are gene symbols, blank/NA
-# meaning unknown. Only assay types with a symbol-bearing reference table
-# (transcriptomics_features, proteomics_features -- see
-# enrichment_reference_table()) are resolved this way; metabolomics and
-# genetic variants keep whatever identifiers they carry.
-#
-# Returns list(symbols = <named vector or NULL>, note = <character>). The note
-# is only produced when some features could not be mapped, so a fully
-# resolved signature runs silently.
-resolve_symbols_by_reference <- function(feature_names, sig_obj, sig_name, symbol_lookup) {
-  none <- list(symbols = NULL, note = character())
-  if (is.null(symbol_lookup)) {
-    return(none)
-  }
-
-  assay_type <- tolower(trimws(as.character(sig_obj$metadata$assay_type %||% "")))
-  organism <- trimws(as.character(sig_obj$metadata$organism %||% ""))
-  if (is.null(enrichment_reference_table(assay_type)) || !nzchar(organism)) {
-    return(none)
-  }
-
-  names_in <- unique(as.character(feature_names))
-  names_in <- names_in[!is.na(names_in) & nzchar(names_in)]
-  if (length(names_in) == 0) {
-    return(none)
-  }
-
-  mapped <- tryCatch(symbol_lookup(names_in, organism, assay_type), error = function(e) character())
-  mapped <- mapped[!is.na(mapped) & nzchar(trimws(as.character(mapped)))]
-  if (length(mapped) == 0) {
-    return(none)
-  }
-
-  n_total <- length(names_in)
-  n_mapped <- sum(names_in %in% names(mapped))
-  note <- if (n_mapped < n_total) {
-    sprintf(
-      "%s: %d of %d features mapped to gene symbols through the reference table; %d without a symbol were dropped.",
-      sig_name, n_mapped, n_total, n_total - n_mapped
-    )
-  } else {
-    character()
-  }
-
-  list(symbols = mapped, note = note)
-}
-
-
-# A symbol_lookup backed by the reference tables, opened lazily on the
-# caller's own connection handler so it carries the caller's permissions.
-# Returns list(lookup = <function>, close = <function>); call close() when the
-# enrichment run is over. Any database problem degrades to "no symbols", which
-# makes the builders fall back to their raw-identifier warning instead of
-# aborting the run.
-make_reference_symbol_lookup <- function(conn_handler) {
-  conn <- NULL
-  organism_ids <- list()
-
-  get_conn <- function() {
-    if (is.null(conn)) {
-      conn <<- SigRepo::conn_init(conn_handler = conn_handler)
-    }
-    conn
-  }
-
-  lookup <- function(feature_names, organism, assay_type) {
-    ref_table <- enrichment_reference_table(assay_type)
-    if (is.null(ref_table)) {
-      return(character())
-    }
-    tryCatch({
-      cn <- get_conn()
-      if (is.null(organism_ids[[organism]])) {
-        row <- DBI::dbGetQuery(cn, sprintf(
-          "SELECT organism_id FROM organisms WHERE organism = %s LIMIT 1",
-          DBI::dbQuoteString(cn, organism)
-        ))
-        organism_ids[[organism]] <<- if (nrow(row) > 0) as.integer(row$organism_id[1]) else NA_integer_
-      }
-      lookup_gene_symbols_by_feature_name(cn, ref_table, feature_names, organism_ids[[organism]])
-    }, error = function(e) character())
-  }
-
-  close <- function() {
-    if (!is.null(conn)) {
-      suppressWarnings(try(DBI::dbDisconnect(conn), silent = TRUE))
-      conn <<- NULL
-    }
-  }
-
-  list(lookup = lookup, close = close)
-}
-
-
-build_enrichment_signatures <- function(sig_objs, sig_list, symbol_lookup = NULL) {
-  extract_signature_table <- function(sig_obj) {
-    table_candidates <- list(sig_obj$signature, sig_obj$difexp)
-
-    for (candidate in table_candidates) {
-      if (is.data.frame(candidate) && nrow(candidate) > 0) {
-        return(candidate)
-      }
-    }
-
-    NULL
-  }
-
-  find_first_column <- function(df, candidates) {
-    matched <- candidates[candidates %in% names(df)][1]
-    if (is.na(matched) || !nzchar(matched)) {
-      return(NULL)
-    }
-    matched
-  }
-
-  build_group_component <- function(group_label, suffix = NULL) {
-    clean_group <- if (is.null(group_label) || is.na(group_label) || !nzchar(group_label)) {
-      "All Features"
-    } else {
-      group_label
-    }
-
-    if (is.null(suffix) || !nzchar(suffix)) {
-      return(clean_group)
-    }
-
-    if (identical(clean_group, "All Features")) {
-      return(suffix)
-    }
-
-    paste0(clean_group, "_", suffix)
-  }
-
-  recover_symbol_column <- function(signature_df, sig_obj, symbol_col) {
-    if (!is.null(symbol_col)) {
-      return(list(data = signature_df, symbol_col = symbol_col))
-    }
-
-    difexp_df <- sig_obj$difexp
-    if (!is.data.frame(difexp_df) || nrow(difexp_df) == 0) {
-      return(list(data = signature_df, symbol_col = NULL))
-    }
-
-    # Deliberately NOT "feature_name". For transcriptomics that column holds
-    # the same Ensembl accession we are trying to translate away from, so
-    # including it made recovery "succeed" by mapping ENSG -> ENSG. hypeR then
-    # matched those accessions against symbol-keyed genesets and reported
-    # "Only 0% of signature was found" instead of a usable error.
-    difexp_symbol_col <- find_first_column(
-      difexp_df,
-      c("symbol", "gene_symbol", "geneSymbol", "hgnc_symbol", "mgi_symbol", "gene", "gene_name")
-    )
-    if (is.null(difexp_symbol_col)) {
-      return(list(data = signature_df, symbol_col = NULL))
-    }
-
-    map_col <- NULL
-    if ("probe_id" %in% names(signature_df) && "probe_id" %in% names(difexp_df)) {
-      map_col <- "probe_id"
-    } else if ("feature_name" %in% names(signature_df) && "feature_name" %in% names(difexp_df)) {
-      map_col <- "feature_name"
-    }
-
-    if (is.null(map_col)) {
-      return(list(data = signature_df, symbol_col = NULL))
-    }
-
-    key_values <- as.character(difexp_df[[map_col]])
-    symbol_values <- as.character(difexp_df[[difexp_symbol_col]])
-    valid <- !is.na(key_values) & nzchar(key_values) & !is.na(symbol_values) & nzchar(symbol_values)
-
-    if (!any(valid)) {
-      return(list(data = signature_df, symbol_col = NULL))
-    }
-
-    symbol_map <- stats::setNames(symbol_values[valid], key_values[valid])
-    signature_keys <- as.character(signature_df[[map_col]])
-    recovered_symbols <- unname(symbol_map[signature_keys])
-
-    if (all(is.na(recovered_symbols) | !nzchar(recovered_symbols))) {
-      return(list(data = signature_df, symbol_col = NULL))
-    }
-
-    signature_df$symbol <- recovered_symbols
-    list(data = signature_df, symbol_col = "symbol")
-  }
-
-  empty_result <- list(
-    vectors = list(),
-    notes = character(),
-    metadata = data.frame(
-      signature = character(),
-      signature_name = character(),
-      group_label = character(),
-      signature_order = numeric(),
-      group_order = numeric(),
-      stringsAsFactors = FALSE
-    )
-  )
-
-  if (length(sig_objs) == 0 || length(sig_list) == 0) {
-    return(empty_result)
-  }
-
-  sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
-  vectors <- list()
-  # Human-readable reasons a signature contributed nothing. Previously every
-  # one of these paths was a bare `next`, so a signature simply disappeared and
-  # the only symptom was hypeR reporting an unexplained 0% overlap.
-  notes <- character()
-  metadata <- vector("list", length(sig_objs))
-  metadata_idx <- 0
-
-  for (i in seq_along(sig_objs)) {
-    sig_obj <- sig_objs[[i]]
-    sig_name <- sig_names[[i]]
-
-    signature_df <- extract_signature_table(sig_obj)
-    if (is.null(signature_df)) {
-      notes <- c(notes, sprintf(
-        "%s: neither a signature table nor a difexp table was returned.", sig_name))
-      next
-    }
-
-    symbol_col <- find_first_column(
-      signature_df,
-      c("symbol", "gene_symbol", "feature_name", "gene", "gene_name")
-    )
-    if (identical(symbol_col, "feature_name")) {
-      recovered <- recover_symbol_column(signature_df, sig_obj, NULL)
-      signature_df <- recovered$data
-      if (!is.null(recovered$symbol_col)) {
-        symbol_col <- recovered$symbol_col
-      }
-    } else if (is.null(symbol_col)) {
-      recovered <- recover_symbol_column(signature_df, sig_obj, symbol_col)
-      signature_df <- recovered$data
-      symbol_col <- recovered$symbol_col
-    }
-
-    if (is.null(symbol_col)) {
-      notes <- c(notes, sprintf(
-        "%s: no gene-symbol column in the signature or its difexp.", sig_name))
-      next
-    }
-
-    if (identical(symbol_col, "feature_name")) {
-      # The difexp had no symbols; the reference table is the next place to
-      # look before settling for raw identifiers.
-      resolved <- resolve_symbols_by_reference(signature_df$feature_name, sig_obj, sig_name, symbol_lookup)
-      if (!is.null(resolved$symbols)) {
-        signature_df$symbol <- unname(resolved$symbols[as.character(signature_df$feature_name)])
-        signature_df <- signature_df[!is.na(signature_df$symbol) & nzchar(signature_df$symbol), , drop = FALSE]
-        symbol_col <- "symbol"
-        notes <- c(notes, resolved$note)
-      }
-    }
-
-    if (identical(symbol_col, "feature_name")) {
-      # Symbol recovery from the difexp did not fire, so hypeR is about to be
-      # handed raw feature identifiers. For transcriptomics those are Ensembl
-      # accessions and will match nothing. Say so here rather than leaving the
-      # user with a silent 0% result.
-      notes <- c(notes, sprintf(
-        "%s: enriching on raw feature_name values -- the difexp carried no gene-symbol column, so overlap may be 0%%.",
-        sig_name))
-    }
-
-    signature_df$symbol <- as.character(signature_df[[symbol_col]])
-    signature_df <- signature_df[!is.na(signature_df$symbol) & nzchar(signature_df$symbol), , drop = FALSE]
-
-    if (nrow(signature_df) == 0) {
-      notes <- c(notes, sprintf(
-        "%s: every gene symbol was blank or missing.", sig_name))
-      next
-    }
-
-    if ("group_label" %in% names(signature_df)) {
-      signature_df$group_label <- as.character(signature_df$group_label)
-      signature_df$group_label[is.na(signature_df$group_label) | !nzchar(signature_df$group_label)] <- "All Features"
-    } else {
-      signature_df$group_label <- "All Features"
-    }
-
-    score_col <- find_first_column(signature_df, c("score", "t_stat", "stat", "t", "logfc", "logFC"))
-    has_score <- !is.null(score_col)
-    if (has_score) {
-      signature_df$score_value <- suppressWarnings(as.numeric(signature_df[[score_col]]))
-      has_score <- any(!is.na(signature_df$score_value))
-    }
-
-    group_levels <- unique(signature_df$group_label)
-    group_order_index <- 0
-
-    for (group_label in group_levels) {
-      group_df <- signature_df[signature_df$group_label == group_label, , drop = FALSE]
-
-      if (!has_score) {
-        group_symbols <- unique(group_df$symbol)
-        if (length(group_symbols) == 0) {
-          next
-        }
-
-        group_component <- build_group_component(group_label)
-        signature_key <- sprintf("%s | %s", sig_name, group_component)
-        vectors[[signature_key]] <- group_symbols
-
-        group_order_index <- group_order_index + 1
-        metadata_idx <- metadata_idx + 1
-        metadata[[metadata_idx]] <- data.frame(
-          signature = signature_key,
-          signature_name = sig_name,
-          group_label = group_component,
-          signature_order = i,
-          group_order = group_order_index,
-          stringsAsFactors = FALSE
-        )
-        next
-      }
-
-      direction_specs <- list(
-        list(suffix = "up", keep = !is.na(group_df$score_value) & group_df$score_value >= 0),
-        list(suffix = "dn", keep = !is.na(group_df$score_value) & group_df$score_value < 0)
-      )
-
-      for (direction in direction_specs) {
-        group_symbols <- unique(group_df$symbol[direction$keep])
-        if (length(group_symbols) == 0) {
-          next
-        }
-
-        group_component <- build_group_component(group_label, direction$suffix)
-        signature_key <- sprintf("%s | %s", sig_name, group_component)
-        vectors[[signature_key]] <- group_symbols
-
-        group_order_index <- group_order_index + 1
-        metadata_idx <- metadata_idx + 1
-        metadata[[metadata_idx]] <- data.frame(
-          signature = signature_key,
-          signature_name = sig_name,
-          group_label = group_component,
-          signature_order = i,
-          group_order = group_order_index,
-          stringsAsFactors = FALSE
-        )
-      }
-    }
-  }
-
-  metadata <- metadata[seq_len(metadata_idx)]
-  metadata_df <- if (length(metadata) > 0) do.call(rbind, metadata) else empty_result$metadata
-
-  list(
-    vectors = vectors,
-    notes = notes,
-    metadata = metadata_df
-  )
-}
-
-
-build_ranked_enrichment_signatures <- function(sig_objs, sig_list, mode = c("ks", "gsea"), symbol_lookup = NULL) {
-  find_first_column <- function(df, candidates) {
-    matched <- candidates[candidates %in% names(df)][1]
-    if (is.na(matched) || !nzchar(matched)) {
-      return(NULL)
-    }
-    matched
-  }
-
-  build_group_component <- function(group_label, suffix = NULL) {
-    clean_group <- if (is.null(group_label) || is.na(group_label) || !nzchar(group_label)) {
-      "All Features"
-    } else {
-      group_label
-    }
-
-    if (is.null(suffix) || !nzchar(suffix)) {
-      return(clean_group)
-    }
-
-    if (identical(clean_group, "All Features")) {
-      return(suffix)
-    }
-
-    paste0(clean_group, "_", suffix)
-  }
-
-  mode <- match.arg(mode)
-  empty_result <- list(
-    vectors = list(),
-    notes = character(),
-    metadata = data.frame(
-      signature = character(),
-      signature_name = character(),
-      group_label = character(),
-      signature_order = numeric(),
-      group_order = numeric(),
-      stringsAsFactors = FALSE
-    )
-  )
-
-  if (length(sig_objs) == 0 || length(sig_list) == 0) {
-    return(empty_result)
-  }
-
-  sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
-  rank_candidates <- c("score", "t_stat", "stat", "t", "logfc", "logFC")
-  vectors <- list()
-  notes <- character()
-  metadata <- vector("list", length(sig_objs) * 4)
-  metadata_idx <- 0
-
-  for (i in seq_along(sig_objs)) {
-    sig_obj <- sig_objs[[i]]
-    sig_name <- sig_names[[i]]
-    difexp_df <- sig_obj$difexp
-
-    if (is.null(difexp_df) || !is.data.frame(difexp_df) || nrow(difexp_df) == 0) {
-      next
-    }
-
-    # A real symbol column wins. Failing that, resolve feature_name (Ensembl
-    # accessions) through the reference table; only if that yields nothing do
-    # we rank the raw identifiers, which was the previous behaviour.
-    symbol_col <- find_first_column(difexp_df, c("symbol", "gene_symbol", "gene", "gene_name"))
-    if (is.null(symbol_col) && "feature_name" %in% names(difexp_df)) {
-      resolved <- resolve_symbols_by_reference(difexp_df$feature_name, sig_obj, sig_name, symbol_lookup)
-      if (!is.null(resolved$symbols)) {
-        difexp_df$symbol <- unname(resolved$symbols[as.character(difexp_df$feature_name)])
-        difexp_df <- difexp_df[!is.na(difexp_df$symbol) & nzchar(difexp_df$symbol), , drop = FALSE]
-        symbol_col <- "symbol"
-        notes <- c(notes, resolved$note)
-      } else {
-        symbol_col <- "feature_name"
-      }
-    }
-    if (is.null(symbol_col)) {
-      next
-    }
-
-    rank_col <- find_first_column(difexp_df, rank_candidates)
-    if (is.null(rank_col)) {
-      next
-    }
-
-    difexp_df$symbol <- as.character(difexp_df[[symbol_col]])
-    difexp_df$rank_value <- suppressWarnings(as.numeric(difexp_df[[rank_col]]))
-    difexp_df <- difexp_df[!is.na(difexp_df$symbol) & nzchar(difexp_df$symbol) & !is.na(difexp_df$rank_value), , drop = FALSE]
-
-    if (nrow(difexp_df) == 0) {
-      next
-    }
-
-    if (identical(mode, "gsea")) {
-      rank_df <- difexp_df[, c("symbol", "rank_value"), drop = FALSE]
-      rank_df <- rank_df[order(-abs(rank_df$rank_value)), , drop = FALSE]
-      rank_df <- rank_df[!duplicated(rank_df$symbol), , drop = FALSE]
-
-      if (nrow(rank_df) == 0) {
-        next
-      }
-
-      ordered_df <- rank_df[order(rank_df$rank_value, decreasing = TRUE), , drop = FALSE]
-      ranked_signature <- stats::setNames(ordered_df$rank_value, ordered_df$symbol)
-
-      if (length(ranked_signature) == 0) {
-        next
-      }
-
-      signature_key <- sprintf("%s | Ranked", sig_name)
-      vectors[[signature_key]] <- ranked_signature
-
-      metadata_idx <- metadata_idx + 1
-      metadata[[metadata_idx]] <- data.frame(
-        signature = signature_key,
-        signature_name = sig_name,
-        group_label = "Ranked",
-        signature_order = i,
-        group_order = 1,
-        stringsAsFactors = FALSE
-      )
-    } else {
-      if ("group_label" %in% names(difexp_df)) {
-        difexp_df$group_label <- as.character(difexp_df$group_label)
-        difexp_df$group_label[is.na(difexp_df$group_label) | !nzchar(difexp_df$group_label)] <- "All Features"
-      } else {
-        difexp_df$group_label <- "All Features"
-      }
-
-      group_levels <- unique(difexp_df$group_label)
-      group_order_index <- 0
-      direction_specs <- list(
-        list(suffix = "up", decreasing = TRUE),
-        list(suffix = "dn", decreasing = FALSE)
-      )
-
-      for (group_label in group_levels) {
-        group_df <- difexp_df[difexp_df$group_label == group_label, , drop = FALSE]
-        rank_df <- group_df[, c("symbol", "rank_value"), drop = FALSE]
-        rank_df <- rank_df[order(-abs(rank_df$rank_value)), , drop = FALSE]
-        rank_df <- rank_df[!duplicated(rank_df$symbol), , drop = FALSE]
-
-        if (nrow(rank_df) == 0) {
-          next
-        }
-
-        for (direction in direction_specs) {
-          ordered_df <- rank_df[order(rank_df$rank_value, decreasing = direction$decreasing), , drop = FALSE]
-          ranked_signature <- stats::setNames(ordered_df$rank_value, ordered_df$symbol)
-
-          if (length(ranked_signature) == 0) {
-            next
-          }
-
-          group_component <- build_group_component(group_label, direction$suffix)
-          signature_key <- sprintf("%s | %s", sig_name, group_component)
-          vectors[[signature_key]] <- ranked_signature
-
-          group_order_index <- group_order_index + 1
-          metadata_idx <- metadata_idx + 1
-          metadata[[metadata_idx]] <- data.frame(
-            signature = signature_key,
-            signature_name = sig_name,
-            group_label = group_component,
-            signature_order = i,
-            group_order = group_order_index,
-            stringsAsFactors = FALSE
+        conditionalPanel(
+          condition = "output.has_result",
+          ns = ns,
+          uiOutput(ns("result_summary")),
+          tabsetPanel(
+            id = ns("result_tabs"),
+            tabPanel(
+              "Dot plot",
+              uiOutput(ns("dot_controls")),
+              uiOutput(ns("dot_hint")),
+              div(class = "annotate-plot-scroll", plotOutput(ns("dot_plot"), height = "auto", width = "auto")),
+              div(
+                class = "annotate-actions",
+                downloadButton(ns("download_dots_png"), "PNG"),
+                downloadButton(ns("download_dots_pdf"), "PDF")
+              ),
+              tags$h4(style = "margin-top: 18px;", "Signature key"),
+              DT::DTOutput(ns("signature_key"))
+            ),
+            tabPanel(
+              "Enrichment",
+              uiOutput(ns("enrichment_controls")),
+              fluidRow(
+                column(7, plotOutput(ns("enrichment_plot"), height = "480px")),
+                column(5, uiOutput(ns("enrichment_details")))
+              ),
+              div(
+                class = "annotate-actions",
+                downloadButton(ns("download_enrichment_png"), "PNG"),
+                downloadButton(ns("download_enrichment_pdf"), "PDF")
+              )
+            ),
+            tabPanel(
+              "Results",
+              helpText(
+                "Every query's hypeR table. Select a row to open its enrichment plot.",
+                "Copy, CSV and Excel export the rows that pass the column filters, at full precision."
+              ),
+              DT::DTOutput(ns("results_table"))
+            ),
+            tabPanel(
+              "hypeR table",
+              helpText("The result rendered by hypeR::rctbl_build(): it is hypeR's own hyp/multihyp, so every hypeR function works on it."),
+              uiOutput(ns("hyper_table"))
+            ),
+            tabPanel(
+              "R code",
+              helpText("The same run and the plots as currently set, from R."),
+              verbatimTextOutput(ns("r_code")),
+              div(
+                class = "annotate-actions",
+                downloadButton(ns("download_result"), "Result (.rds)"),
+                downloadButton(ns("download_excel"), "Excel (hypeRToExcel)"),
+                downloadButton(ns("download_genesets"), "Genesets (.rds)"),
+                uiOutput(ns("download_gene_lists_ui"), inline = TRUE)
+              )
+            )
           )
-        }
-      }
-    }
-  }
-
-  metadata <- metadata[seq_len(metadata_idx)]
-  metadata_df <- if (length(metadata) > 0) do.call(rbind, metadata) else empty_result$metadata
-
-  list(
-    vectors = vectors,
-    notes = notes,
-    metadata = metadata_df
-  )
-}
-
-
-extract_hyp_results_table <- function(hyp) {
-  if (inherits(hyp, "multihyp")) {
-    result_list <- Map(function(signature_name, hyp_obj) {
-      df <- hyp_obj$data
-      if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
-        return(NULL)
-      }
-
-      df$signature <- signature_name
-      df
-    }, names(hyp$data), hyp$data)
-
-    result_list <- result_list[!vapply(result_list, is.null, logical(1))]
-
-    if (length(result_list) == 0) {
-      return(data.frame())
-    }
-
-    return(do.call(rbind, result_list))
-  }
-
-  if (is.list(hyp) && all(c("info", "data") %in% names(hyp))) {
-    df <- hyp$data
-    if (is.null(df) || !is.data.frame(df)) {
-      return(data.frame())
-    }
-
-    if (!"signature" %in% names(df) || all(is.na(df$signature)) || !any(nzchar(as.character(df$signature)))) {
-      df$signature <- "Signature"
-    }
-    return(df)
-  }
-
-  if (is.list(hyp) && length(hyp) > 0 && all(vapply(hyp, function(x) is.list(x) && all(c("info", "data") %in% names(x)), logical(1)))) {
-    result_list <- Map(function(signature_name, hyp_obj) {
-      df <- hyp_obj$data
-      if (is.null(df) || !is.data.frame(df) || nrow(df) == 0) {
-        return(NULL)
-      }
-
-      df$signature <- signature_name
-      df
-    }, names(hyp), hyp)
-
-    result_list <- result_list[!vapply(result_list, is.null, logical(1))]
-
-    if (length(result_list) == 0) {
-      return(data.frame())
-    }
-
-    return(do.call(rbind, result_list))
-  }
-
-  df <- hyp$data
-  if (is.null(df) || !is.data.frame(df)) {
-    return(data.frame())
-  }
-
-  if (!"signature" %in% names(df) || all(is.na(df$signature)) || !any(nzchar(as.character(df$signature)))) {
-    df$signature <- "Signature"
-  }
-  df
-}
-
-
-hypergem_available <- function() {
-  isTRUE(getOption("sigrepo.hypergem_available", FALSE)) ||
-    "hypeR.GEM" %in% loadedNamespaces() ||
-    requireNamespace("hypeR.GEM", quietly = TRUE)
-}
-
-
-hypergem_export <- function(name) {
-  getExportedValue("hypeR.GEM", name)
-}
-
-
-build_gem_enrichment_signatures <- function(sig_objs, sig_list, reference_key = "refmet_name") {
-  empty_result <- list(
-    signatures = list(),
-    metadata = data.frame(
-      signature = character(),
-      signature_name = character(),
-      group_label = character(),
-      signature_order = numeric(),
-      group_order = numeric(),
-      stringsAsFactors = FALSE
-    )
-  )
-
-  if (length(sig_objs) == 0 || length(sig_list) == 0) {
-    return(empty_result)
-  }
-
-  sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
-  signatures <- list()
-  metadata <- vector("list", length(sig_objs) * 4)
-  metadata_idx <- 0
-
-  for (i in seq_along(sig_objs)) {
-    sig_obj <- sig_objs[[i]]
-    sig_name <- sig_names[[i]]
-    signature_df <- sig_obj$signature
-
-    if (!is.data.frame(signature_df) || nrow(signature_df) == 0) {
-      next
-    }
-
-    if (!reference_key %in% names(signature_df)) {
-      next
-    }
-
-    signature_df <- signature_df[!is.na(signature_df[[reference_key]]) & nzchar(as.character(signature_df[[reference_key]])), , drop = FALSE]
-    if (nrow(signature_df) == 0) {
-      next
-    }
-
-    if ("group_label" %in% names(signature_df)) {
-      signature_df$group_label <- as.character(signature_df$group_label)
-      signature_df$group_label[is.na(signature_df$group_label) | !nzchar(signature_df$group_label)] <- "All Features"
-    } else {
-      signature_df$group_label <- "All Features"
-    }
-
-    score_candidates <- c("score", "logfc", "logFC")
-    score_col <- score_candidates[score_candidates %in% names(signature_df)][1]
-    has_score <- !is.na(score_col) && nzchar(score_col)
-    if (has_score) {
-      signature_df$score_value <- suppressWarnings(as.numeric(signature_df[[score_col]]))
-      has_score <- any(!is.na(signature_df$score_value))
-    }
-
-    group_levels <- unique(signature_df$group_label)
-    group_order_index <- 0
-
-    for (group_label in group_levels) {
-      group_df <- signature_df[signature_df$group_label == group_label, , drop = FALSE]
-
-      if (!has_score) {
-        signature_key <- sprintf("%s | %s", sig_name, group_label)
-        signatures[[signature_key]] <- group_df
-
-        group_order_index <- group_order_index + 1
-        metadata_idx <- metadata_idx + 1
-        metadata[[metadata_idx]] <- data.frame(
-          signature = signature_key,
-          signature_name = sig_name,
-          group_label = group_label,
-          signature_order = i,
-          group_order = group_order_index,
-          stringsAsFactors = FALSE
         )
-        next
-      }
-
-      direction_specs <- list(
-        list(suffix = "up", keep = !is.na(group_df$score_value) & group_df$score_value >= 0),
-        list(suffix = "dn", keep = !is.na(group_df$score_value) & group_df$score_value < 0)
       )
-
-      for (direction in direction_specs) {
-        split_df <- group_df[direction$keep, , drop = FALSE]
-        if (nrow(split_df) == 0) {
-          next
-        }
-
-        group_component <- if (identical(group_label, "All Features")) {
-          direction$suffix
-        } else {
-          paste0(group_label, "_", direction$suffix)
-        }
-
-        signature_key <- sprintf("%s | %s", sig_name, group_component)
-        signatures[[signature_key]] <- split_df
-
-        group_order_index <- group_order_index + 1
-        metadata_idx <- metadata_idx + 1
-        metadata[[metadata_idx]] <- data.frame(
-          signature = signature_key,
-          signature_name = sig_name,
-          group_label = group_component,
-          signature_order = i,
-          group_order = group_order_index,
-          stringsAsFactors = FALSE
-        )
-      }
-    }
-  }
-
-  metadata <- metadata[seq_len(metadata_idx)]
-  metadata_df <- if (length(metadata) > 0) do.call(rbind, metadata) else empty_result$metadata
-
-  list(
-    signatures = signatures,
-    metadata = metadata_df
+    )
   )
 }
 
 
-compute_gsea_curve_data <- function(ranked_signature, geneset_genes, power = 1) {
-  signature_scores <- as.numeric(ranked_signature)
-  signature_genes <- names(ranked_signature)
-
-  valid <- !is.na(signature_scores) & !is.na(signature_genes) & nzchar(signature_genes)
-  signature_scores <- signature_scores[valid]
-  signature_genes <- signature_genes[valid]
-
-  if (length(signature_scores) == 0) {
-    stop("Ranked signature did not contain any valid values.", call. = FALSE)
-  }
-
-  geneset_genes <- unique(as.character(geneset_genes))
-  geneset_genes <- geneset_genes[!is.na(geneset_genes) & nzchar(geneset_genes)]
-
-  hit_index <- which(signature_genes %in% geneset_genes)
-  if (length(hit_index) == 0) {
-    stop("Selected geneset has no overlap with the ranked signature.", call. = FALSE)
-  }
-
-  hit_weights <- abs(signature_scores[hit_index])^power
-  weight_sum <- sum(hit_weights)
-  if (!is.finite(weight_sum) || weight_sum == 0) {
-    hit_weights <- rep(1, length(hit_index))
-    weight_sum <- sum(hit_weights)
-  }
-
-  n_total <- length(signature_scores)
-  n_miss <- n_total - length(hit_index)
-  miss_penalty <- if (n_miss > 0) 1 / n_miss else 0
-
-  increments <- rep(-miss_penalty, n_total)
-  increments[hit_index] <- hit_weights / weight_sum
-  running_score <- cumsum(increments)
-
-  max_idx <- which.max(running_score)
-  min_idx <- which.min(running_score)
-
-  if (abs(running_score[max_idx]) >= abs(running_score[min_idx])) {
-    es_index <- max_idx
-    es_score <- running_score[max_idx]
-    es_direction <- "positive"
-    leading_edge_hits <- hit_index[hit_index <= es_index]
-    trailing_edge_hits <- hit_index[hit_index > es_index]
-  } else {
-    es_index <- min_idx
-    es_score <- running_score[min_idx]
-    es_direction <- "negative"
-    leading_edge_hits <- hit_index[hit_index >= es_index]
-    trailing_edge_hits <- hit_index[hit_index < es_index]
-  }
-
-  curve_df <- data.frame(
-    position = seq_len(n_total),
-    gene = signature_genes,
-    score = signature_scores,
-    running_score = running_score,
-    hit = seq_len(n_total) %in% hit_index,
-    edge_group = ifelse(
-      seq_len(n_total) %in% leading_edge_hits,
-      "Leading Edge",
-      ifelse(seq_len(n_total) %in% trailing_edge_hits, "Trailing Edge", "Other")
-    ),
-    stringsAsFactors = FALSE
-  )
-
-  list(
-    curve = curve_df,
-    hit_index = hit_index,
-    es_index = es_index,
-    es_score = es_score,
-    es_direction = es_direction,
-    leading_edge_genes = signature_genes[leading_edge_hits],
-    trailing_edge_genes = signature_genes[trailing_edge_hits]
-  )
-}
-
-
-build_gsea_curve_figure <- function(curve_info) {
-  curve_df <- curve_info$curve
-
-  hit_df <- curve_df[curve_df$hit, , drop = FALSE]
-  hit_df$hit_height <- ifelse(hit_df$edge_group == "Leading Edge", -0.08, -0.14)
-
-  ggplot2::ggplot(curve_df, ggplot2::aes(x = position, y = running_score)) +
-    ggplot2::geom_hline(yintercept = 0, color = "#aab7c4", linewidth = 0.4) +
-    ggplot2::geom_line(color = "#0f4d7c", linewidth = 1) +
-    ggplot2::geom_vline(
-      xintercept = curve_info$es_index,
-      color = "#d04a02",
-      linetype = "dashed",
-      linewidth = 0.5
-    ) +
-    ggplot2::geom_segment(
-      data = hit_df,
-      ggplot2::aes(
-        x = position,
-        xend = position,
-        y = hit_height,
-        yend = 0,
-        color = edge_group
-      ),
-      inherit.aes = FALSE,
-      linewidth = 0.45,
-      show.legend = TRUE
-    ) +
-    ggplot2::scale_color_manual(
-      values = c("Leading Edge" = "#d04a02", "Trailing Edge" = "#6c8aa5", "Other" = "#6c8aa5"),
-      breaks = c("Leading Edge", "Trailing Edge"),
-      name = NULL
-    ) +
-    ggplot2::labs(
-      title = curve_info$geneset_name,
-      subtitle = sprintf(
-        "%s | ES = %.3f | Leading edge = %s genes | Trailing edge = %s genes",
-        curve_info$signature_key,
-        curve_info$es_score,
-        length(curve_info$leading_edge_genes),
-        length(curve_info$trailing_edge_genes)
-      ),
-      x = "Ranked Features",
-      y = "Running Enrichment Score"
-    ) +
-    ggplot2::coord_cartesian(clip = "off") +
-    ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(
-      plot.title = ggplot2::element_text(face = "bold"),
-      plot.subtitle = ggplot2::element_text(color = "#4e6782"),
-      panel.grid.minor = ggplot2::element_blank(),
-      legend.position = "top"
-    )
-}
-
-
-flatten_report_value <- function(value) {
-  if (is.null(value) || length(value) == 0) {
-    return(NA_character_)
-  }
-
-  if (is.list(value)) {
-    named_parts <- names(value)
-    if (is.null(named_parts) || all(is.na(named_parts)) || !any(nzchar(named_parts))) {
-      return(paste(vapply(value, flatten_report_value, character(1)), collapse = "; "))
-    }
-    part_values <- mapply(
-      function(name, item) sprintf("%s=%s", name, flatten_report_value(item)),
-      named_parts,
-      value,
-      SIMPLIFY = TRUE,
-      USE.NAMES = FALSE
-    )
-    return(paste(part_values, collapse = "; "))
-  }
-
-  pasted <- paste(as.character(value), collapse = ", ")
-  if (!nzchar(pasted)) {
-    NA_character_
-  } else {
-    pasted
-  }
-}
-
-
-`%||%` <- function(x, y) {
-  if (is.null(x) || length(x) == 0) y else x
-}
-
-
-build_signature_metadata_table <- function(sig_objs, sig_list) {
-  if (length(sig_objs) == 0 || length(sig_list) == 0) {
-    return(data.frame())
-  }
-
-  sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
-  rows <- lapply(seq_along(sig_objs), function(i) {
-    sig_obj <- sig_objs[[i]]
-    metadata <- sig_obj$metadata
-    if (is.null(metadata)) {
-      metadata <- list()
-    }
-
-    data.frame(
-      signature_name = sig_names[[i]],
-      signature_id = flatten_report_value(metadata$signature_id),
-      organism = flatten_report_value(metadata$organism),
-      assay_type = flatten_report_value(metadata$assay_type),
-      phenotype = flatten_report_value(metadata$phenotype),
-      # Deliberate belt-and-braces fallback, not a live code path: every
-      # metadata list reaching here from SigRepo::getSignature() already has
-      # `type` (checkOmicSignature() hard-fails on anything still carrying
-      # direction_type), so the direction_type side never fires against that
-      # source. It stays because this table can also be built from metadata
-      # that did not come through getSignature() -- see the author %||%
-      # user_name fallback a few lines below and the assay_type/organism
-      # fallbacks near the top of this file, which keep the same style for
-      # the same reason. The client's copy of this function (SigRepo's
-      # hypeR_examples.R) omits this fallback because its inputs are
-      # guaranteed to already be normalized.
-      type = flatten_report_value(metadata$type %||% metadata$direction_type),
-      description = flatten_report_value(metadata$description),
-      score_cutoff = flatten_report_value(metadata$score_cutoff),
-      adj_p_cutoff = flatten_report_value(metadata$adj_p_cutoff),
-      logfc_cutoff = flatten_report_value(metadata$logfc_cutoff),
-      p_value_cutoff = flatten_report_value(metadata$p_value_cutoff),
-      keywords = flatten_report_value(metadata$keywords),
-      sample_type = flatten_report_value(metadata$sample_type),
-      # Same deliberate fallback as `type` above, for the platform/
-      # platform_name rename; see the comment there.
-      platform = flatten_report_value(metadata$platform %||% metadata$platform_name),
-      covariates = flatten_report_value(metadata$covariates),
-      author = flatten_report_value(metadata$author %||% metadata$user_name),
-      year = flatten_report_value(metadata$year),
-      others = flatten_report_value(metadata$others),
-      stringsAsFactors = FALSE
-    )
-  })
-
-  do.call(rbind, rows)
-}
-
-
-sanitize_report_table <- function(df) {
-  if (!is.data.frame(df) || nrow(df) == 0) {
-    return(df)
-  }
-
-  out <- df
-  for (col_name in names(out)) {
-    column <- out[[col_name]]
-    if (is.list(column)) {
-      out[[col_name]] <- vapply(column, flatten_report_value, character(1))
-    }
-  }
-  out
-}
-
-
-build_report_settings_table <- function(experiment_label, context, geneset_names, fdr_threshold, background) {
-  method_label <- if (is.null(context$method)) {
-    "Unknown"
-  } else {
-    dplyr::recode(
-      context$method,
-      hypergeo = "Hypergeometric",
-      kstest = "KS Test",
-      gsea = "GSEA",
-      gem_hypergeo = "GEM Hypergeometric",
-      gem_weighted = "GEM Weighted",
-      .default = as.character(context$method)
-    )
-  }
-
-  data.frame(
-    Setting = c("Experiment", "Method", "Geneset Count", "FDR Threshold", "Background", "Generated"),
-    Value = c(
-      if (nzchar(experiment_label)) experiment_label else "Untitled analysis",
-      method_label,
-      length(geneset_names),
-      as.character(fdr_threshold),
-      as.character(background),
-      format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")
-    ),
-    stringsAsFactors = FALSE
-  )
-}
-
-
-annotate_module_server <- function(id, signature_db, user_conn_handler) {
+# `runner`, `previewer` and `geneset_loader` are the calls that do the work;
+# tests replace them. `geneset_loader(request)` takes the Step 2 request (source
+# plus that source's inputs) and returns list(genesets, description).
+annotate_module_server <- function(id, signature_db, user_conn_handler,
+                                   runner = SigRepo::runHypeR,
+                                   previewer = SigRepo::prepareHypeRSignatures,
+                                   geneset_loader = annotate_default_geneset_loader) {
   moduleServer(id, function(input, output, session) {
-    max_signature_count <- 10
-    active_signatures <- reactiveVal(list())
-    run_feedback <- reactiveVal(NULL)
-    hyp_result <- reactiveVal(NULL)
-    enrichment_context <- reactiveVal(NULL)
-    signature_plot_metadata <- reactiveVal(
-      data.frame(
-        signature = character(),
-        signature_name = character(),
-        group_label = character(),
-        stringsAsFactors = FALSE
-      )
-    )
+    ns <- session$ns
 
-    output$signature_hypeR <- renderDT({
+    # args, result, warnings, error of the last run; NULL before the first.
+    run_state <- reactiveVal(NULL)
+    preview_state <- reactiveVal(NULL)
+    # genesets, description, error of the last load.
+    genesets_state <- reactiveVal(NULL)
+    pick_message <- reactiveVal(NULL)
+
+    # ---- repository picker ----------------------------------------------------
+
+    db_table <- reactive({
       df <- signature_db()
+      if (!is.data.frame(df) || !"signature_id" %in% names(df)) {
+        return(data.frame(signature_id = numeric(), signature_name = character(), stringsAsFactors = FALSE))
+      }
+      df
+    })
 
-      DatatableFX(
-        df = df,
-        hidden_columns = c(0, 6, 7, 8, 9, 11, 12, 14, 15, 16, 18, 19, 21, 22, 24, 25, 26),
-        scrollY = "300px",
-        row_selection = "multiple"
-      )
+    observe({
+      df <- db_table()
+      for (facet in names(COMPARE_FACETS)) {
+        choices <- compare_facet_choices(df, facet)
+        current <- isolate(input[[paste0("facet_", facet)]])
+        updateSelectInput(session, paste0("facet_", facet), choices = choices,
+                          selected = if (isTRUE(current %in% choices)) current else "all")
+      }
+    })
+
+    # Ranked tests on the difexp table need signatures that have one.
+    observeEvent(input$test, {
+      if (!identical(input$test %||% "hypergeometric", "hypergeometric")) {
+        updateSelectInput(session, "facet_has_difexp", selected = "yes")
+      }
+    }, ignoreInit = TRUE)
+
+    view <- reactive({
+      df <- db_table()
+      facets <- lapply(stats::setNames(names(COMPARE_FACETS), names(COMPARE_FACETS)), function(facet) input[[paste0("facet_", facet)]])
+      compare_facet_filter(df[, intersect(ANNOTATE_TABLE_COLUMNS, names(df)), drop = FALSE], facets)
+    })
+    picks <- reactiveVal(character())
+
+    output$signature_table <- DT::renderDT({
+      v <- view()
+      selected <- which(as.character(v$signature_id) %in% isolate(picks()))
+      DatatableFX(v, hidden_columns = integer(), scrollY = "280px",
+                  row_selection = list(mode = "multiple", selected = selected))
     }, server = TRUE)
 
-    genesets <- genesets_hypeR_Server(
-      id = "genesets",
-      species = reactive(input$species),
-      clean = TRUE
-    )
+    proxy <- DT::dataTableProxy("signature_table")
 
-    output$gem_options <- renderUI({
-      if (!input$enrichment_type %in% c("gem_hypergeo", "gem_weighted")) {
-        return(NULL)
+    observeEvent(input$signature_table_rows_selected, {
+      v <- isolate(view())
+      rows <- input$signature_table_rows_selected
+      rows <- rows[rows >= 1 & rows <= nrow(v)]
+      updated <- compare_update_picks(picks(), v$signature_id, v$signature_id[rows])
+      if (length(updated) > ANNOTATE_MAX_SIGNATURES) {
+        pick_message(sprintf("A run takes at most %d signatures, so the last %d picked were left out.",
+                             ANNOTATE_MAX_SIGNATURES, length(updated) - ANNOTATE_MAX_SIGNATURES))
+        updated <- updated[seq_len(ANNOTATE_MAX_SIGNATURES)]
+        DT::selectRows(proxy, which(as.character(v$signature_id) %in% updated))
+      } else {
+        pick_message(NULL)
       }
+      picks(updated)
+    }, ignoreNULL = FALSE, ignoreInit = TRUE)
 
-      tagList(
-        textInput(
-          session$ns("gem_reference_key"),
-          "Metabolite Reference Column",
-          value = "refmet_name",
-          placeholder = "Example: refmet_name"
-        ),
-        selectInput(
-          session$ns("gem_species"),
-          "GEM Species",
-          choices = c("Human", "Mouse", "Rat", "Zebrafish", "Worm", "Other"),
-          selected = "Human"
-        ),
-        checkboxInput(
-          session$ns("gem_directional"),
-          "Use directional GEM mapping",
-          value = FALSE
-        ),
-        checkboxInput(
-          session$ns("gem_merge"),
-          "Merge compartment-specific metabolites",
-          value = TRUE
-        ),
-        numericInput(
-          session$ns("gem_promiscuous_threshold"),
-          "Promiscuous Metabolite Threshold",
-          value = 500,
-          min = 0,
-          step = 10
-        ),
-        numericInput(
-          session$ns("gem_min_metabolite"),
-          "Minimum Driving Metabolites per Geneset",
-          value = 0,
-          min = 0,
-          step = 1
-        ),
-        if (identical(input$enrichment_type, "gem_weighted")) {
-          textInput(
-            session$ns("gem_weighted_by"),
-            "Weight Column",
-            value = "one_minus_fdr",
-            placeholder = "Example: one_minus_fdr"
-          )
-        } else {
-          NULL
-        },
-        if (!hypergem_available()) {
-          div(
-            class = "alert alert-warning",
-            if (!is.null(getOption("sigrepo.hypergem_error"))) {
-              sprintf("hypeR.GEM could not be loaded: %s", getOption("sigrepo.hypergem_error"))
-            } else {
-              "hypeR.GEM is not currently available in this app environment."
-            }
-          )
-        } else {
-          NULL
-        }
+    observeEvent(input$clear_picks, {
+      picks(character())
+      pick_message(NULL)
+      DT::selectRows(proxy, NULL)
+    })
+
+    picked_rows <- reactive({
+      df <- db_table()
+      df[match(picks(), as.character(df$signature_id), nomatch = 0), , drop = FALSE]
+    })
+
+    # ---- uploads and gene lists ---------------------------------------------------
+
+    uploads <- reactive({
+      tryCatch(
+        list(signatures = compare_read_signature_uploads(input$upload), error = NULL),
+        error = function(e) list(signatures = list(), error = conditionMessage(e))
       )
     })
 
-    observeEvent(input$signature_add, {
-      selected_rows <- input$signature_hypeR_rows_selected
-
-      if (length(selected_rows) == 0) {
-        run_feedback(list(
-          type = "warning",
-          text = "Select at least one signature before adding it to the analysis."
-        ))
-        return()
-      }
-
-      df <- signature_db()
-      req(!is.null(df))
-
-      sig_rows <- df[selected_rows, , drop = FALSE]
-      current <- active_signatures()
-      added_count <- 0
-      skipped_limit_count <- 0
-
-      for (i in seq_len(nrow(sig_rows))) {
-        sig_row <- sig_rows[i, ]
-        key <- sig_row$signature_name
-
-        if (!key %in% names(current)) {
-          if (length(current) >= max_signature_count) {
-            skipped_limit_count <- skipped_limit_count + 1
-            next
-          }
-
-          current[[key]] <- list(
-            experiment = input$experiment_label,
-            signature_name = sig_row$signature_name,
-            signature_id = sig_row$signature_id,
-            perturbation = if ("perturbation" %in% names(sig_row)) sig_row$perturbation else NA_character_
-          )
-          added_count <- added_count + 1
+    gene_lists <- reactive({
+      tryCatch({
+        typed <- annotate_parse_gene_lists(input$gene_text)
+        filed <- if (!is.null(input$gene_file)) annotate_read_gene_list_file(input$gene_file$datapath, input$gene_file$name) else list()
+        both <- c(typed, filed)
+        if (anyDuplicated(names(both))) {
+          stop(sprintf("Gene list names must be unique: %s is both typed and in the file.",
+                       paste(sprintf("'%s'", unique(names(both)[duplicated(names(both))])), collapse = ", ")), call. = FALSE)
         }
+        list(lists = both, error = NULL)
+      }, error = function(e) list(lists = list(), error = conditionMessage(e)))
+    })
+
+    output$signature_summary <- renderUI({
+      source <- input$source %||% "repository"
+      item <- function(name, detail) tags$li(name, " ", span(class = "annotate-source", detail))
+      box <- function(title, items, error = NULL, message = NULL) {
+        tagList(
+          if (!is.null(error)) div(class = "alert alert-danger annotate-message", error),
+          if (!is.null(message)) div(class = "alert alert-warning annotate-message", message),
+          div(class = "annotate-list-summary", strong(title), if (length(items) > 0) tags$ul(items))
+        )
       }
+      plural <- function(n, word) sprintf("%d %s%s", n, word, if (n == 1) "" else "s")
 
-      active_signatures(current)
-      hyp_result(NULL)
-      enrichment_context(NULL)
-      signature_plot_metadata(signature_plot_metadata()[0, , drop = FALSE])
+      if (identical(source, "repository")) {
+        rows <- picked_rows()
+        box(
+          sprintf("%s picked (of %d)", plural(nrow(rows), "signature"), ANNOTATE_MAX_SIGNATURES),
+          lapply(seq_len(nrow(rows)), function(i) {
+            item(rows$signature_name[i], sprintf("(id %s, %s, %s%s)", rows$signature_id[i], rows$organism[i] %||% "",
+                                                 rows$type[i] %||% "",
+                                                 if (isTRUE(as.integer(rows$has_difexp[i]) == 1L)) ", difexp" else ", no difexp"))
+          }),
+          message = pick_message()
+        )
+      } else if (identical(source, "upload")) {
+        u <- uploads()
+        box(
+          sprintf("%s uploaded", plural(length(u$signatures), "signature")),
+          lapply(names(u$signatures), function(nm) {
+            meta <- u$signatures[[nm]]$metadata
+            # An upload saved before the rename still carries direction_type;
+            # it is shown here, and runHypeR() says why it cannot run.
+            item(nm, sprintf("(%s, %s%s)", meta$organism %||% "organism unknown",
+                             meta$type %||% meta$direction_type %||% "type unknown",
+                             if (is.null(u$signatures[[nm]]$difexp)) ", no difexp" else ", difexp"))
+          }),
+          error = u$error
+        )
+      } else {
+        g <- gene_lists()
+        p <- annotate_gene_list_preview(g$lists)
+        box(
+          sprintf("%s", plural(nrow(p), "gene list")),
+          lapply(seq_len(nrow(p)), function(i) item(p$name[i], sprintf("(%s, %s genes)", p$kind[i], p$n_genes[i]))),
+          error = g$error
+        )
+      }
+    })
 
-      run_feedback(list(
-        type = if (skipped_limit_count > 0) "warning" else if (added_count > 0) "success" else "info",
-        text = if (skipped_limit_count > 0) {
-          sprintf(
-            "%s signature(s) added. The analysis is limited to %s signatures, so %s selection(s) were skipped.",
-            added_count,
-            max_signature_count,
-            skipped_limit_count
+    # ---- genesets ---------------------------------------------------------------
+
+    observeEvent(input$species, {
+      choices <- annotate_collection_choices(input$species)
+      current <- isolate(input$collection)
+      updateSelectInput(session, "collection", choices = choices, selected = if (isTRUE(current %in% choices)) current else unname(choices)[1])
+    }, ignoreInit = TRUE)
+
+    # What is cached differs by organism, so the subcollections follow both.
+    observeEvent(list(input$species, input$collection), {
+      subs <- annotate_msigdb_subcollections(input$collection, input$species)
+      choices <- if (identical(subs, "")) c("None" = "") else stats::setNames(subs, subs)
+      updateSelectInput(session, "subcollection", choices = choices, selected = unname(choices)[1])
+    })
+
+    # A change to what would be loaded drops what was loaded, so a run never
+    # uses genesets the picker no longer shows. The organism only picks MSigDB
+    # genesets, so it leaves custom genesets loaded.
+    observeEvent(list(input$geneset_source, input$collection, input$subcollection,
+                      input$custom_file, input$clean), {
+      if (!is.null(genesets_state())) {
+        genesets_state(NULL)
+      }
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$species, {
+      if (identical(genesets_state()$description$source, "msigdb")) {
+        genesets_state(NULL)
+      }
+    }, ignoreInit = TRUE)
+
+    # The dropdowns can hold a value the picker no longer offers: the last
+    # organism's collection after the organism changed, or anything a browser
+    # chooses to send. Only what is offered for the organism is asked for, so
+    # a withheld collection cannot be loaded by any route.
+    offered_collection <- function() {
+      collection <- input$collection %||% ""
+      subcollection <- input$subcollection %||% ""
+      offered <- isTRUE(collection %in% annotate_msigdb_collections(input$species)) &&
+        isTRUE(subcollection %in% annotate_msigdb_subcollections(collection, input$species))
+      if (offered) list(collection = collection, subcollection = subcollection) else list(collection = "", subcollection = "")
+    }
+
+    geneset_request <- function() {
+      source <- input$geneset_source %||% "msigdb"
+      picked <- offered_collection()
+      switch(
+        source,
+        msigdb = list(source = source, species = input$species, collection = picked$collection,
+                      subcollection = picked$subcollection, clean = isTRUE(input$clean)),
+        custom = list(source = source, file = input$custom_file, name = input$custom_name,
+                      genes = input$custom_genes, clean = isTRUE(input$clean))
+      )
+    }
+
+    observeEvent(input$load_genesets, {
+      request <- geneset_request()
+      loaded <- withProgress(message = "Loading genesets", value = 0.3, {
+        tryCatch(c(geneset_loader(request), list(error = NULL)), error = function(e) list(genesets = NULL, description = NULL, error = conditionMessage(e)))
+      })
+      genesets_state(loaded)
+    })
+
+    output$genesets_status <- renderUI({
+      state <- genesets_state()
+      if (is.null(state)) {
+        span(class = "annotate-status annotate-status-pending", icon("circle"), "No genesets loaded")
+      } else if (!is.null(state$error)) {
+        span(class = "annotate-status annotate-status-error", icon("triangle-exclamation"), state$error)
+      } else {
+        span(class = "annotate-status annotate-status-ready", icon("circle-check"), annotate_genesets_label(state$description))
+      }
+    })
+
+    # ---- test settings ------------------------------------------------------------
+
+    output$test_help <- renderUI({
+      helpText(ANNOTATE_TEST_HELP[[input$test %||% "hypergeometric"]])
+    })
+
+    # The keys a per-signature background is given for: signature ids for
+    # repository picks, list names for uploads.
+    background_keys <- reactive({
+      source <- input$source %||% "repository"
+      if (identical(source, "repository")) {
+        rows <- picked_rows()
+        data.frame(key = as.character(rows$signature_id), label = rows$signature_name, stringsAsFactors = FALSE)
+      } else if (identical(source, "upload")) {
+        nms <- names(uploads()$signatures)
+        data.frame(key = nms, label = nms, stringsAsFactors = FALSE)
+      } else {
+        data.frame(key = character(), label = character(), stringsAsFactors = FALSE)
+      }
+    })
+
+    background_input_id <- function(key, part) {
+      sprintf("bg_%s_%s", digest::digest(key, algo = "crc32", serialize = FALSE), part)
+    }
+
+    output$background_table <- renderUI({
+      keys <- background_keys()
+      if (nrow(keys) == 0) {
+        return(helpText("Pick or upload signatures to set a background for each one. Gene lists take a single background."))
+      }
+      tags$table(
+        class = "annotate-background-table",
+        lapply(seq_len(nrow(keys)), function(i) {
+          mode_id <- background_input_id(keys$key[i], "mode")
+          value_id <- background_input_id(keys$key[i], "value")
+          tags$tr(
+            tags$td(div(keys$label[i])),
+            tags$td(selectInput(ns(mode_id), NULL, choices = c("Size" = "number", "difexp" = "difexp"),
+                                selected = isolate(input[[mode_id]]) %||% "number", width = "100px")),
+            tags$td(numericInput(ns(value_id), NULL, value = isolate(input[[value_id]]) %||% 23467, min = 1, width = "110px"))
           )
-        } else if (added_count > 0) {
-          sprintf("%s signature(s) added to the analysis.", added_count)
-        } else {
-          "All selected signatures are already in the current analysis."
-        }
+        })
+      )
+    })
+
+    background <- reactive({
+      mode <- input$background_mode %||% "default"
+      per_signature <- if (identical(mode, "per_signature")) {
+        keys <- background_keys()
+        data.frame(
+          key = keys$key,
+          mode = vapply(keys$key, function(k) input[[background_input_id(k, "mode")]] %||% "number", character(1)),
+          value = vapply(keys$key, function(k) as.character(input[[background_input_id(k, "value")]] %||% 23467), character(1)),
+          stringsAsFactors = FALSE
+        )
+      }
+      tryCatch(
+        list(value = annotate_build_background(mode, number = input$background_number, genes_text = input$background_genes,
+                                               per_signature = per_signature), error = NULL),
+        error = function(e) list(value = NULL, error = conditionMessage(e))
+      )
+    })
+
+    # The tab exposes the organism, the test, how signatures are split and the
+    # background; every other runHypeR() argument stays at its default, and is
+    # named here so the R code and the defaults cannot drift apart.
+    settings <- reactive({
+      test <- input$test %||% ANNOTATE_DEFAULTS$test
+      utils::modifyList(ANNOTATE_DEFAULTS, list(
+        organism = input$species %||% "",
+        test = test,
+        split = input$split %||% ANNOTATE_DEFAULTS$split,
+        fgsea_args = ANNOTATE_FGSEA_DEFAULTS,
+        background = background()$value
       ))
     })
 
-    observeEvent(input$experiment_reset, {
-      active_signatures(list())
-      hyp_result(NULL)
-      enrichment_context(NULL)
-      run_feedback(NULL)
-      signature_plot_metadata(signature_plot_metadata()[0, , drop = FALSE])
+    # ---- readiness -------------------------------------------------------------
 
-      updateTextInput(session, "experiment_label", value = "")
-      updateRadioButtons(session, "enrichment_type", selected = "hypergeo")
-      updateNumericInput(session, "enrichment_thresh", value = 0.05)
-      updateNumericInput(session, "enrichment_bg", value = 36000)
+    # problems stop a run (preview_problems stop a preview); notes are worth
+    # knowing but the client handles them.
+    readiness <- reactive({
+      source <- input$source %||% "repository"
+      s <- settings()
+      problems <- character()
+      notes <- character()
+      # runHypeR() stops when a signature is not of the requested organism;
+      # previewing the queries does not need it, so these block a run only.
+      organism_problems <- character()
 
-      DT::selectRows(DT::dataTableProxy("signature_hypeR", session = session), NULL)
-      showNotification("Experiment selections and results were reset.", type = "message")
+      if (identical(source, "repository")) {
+        rows <- picked_rows()
+        if (nrow(rows) == 0) problems <- c(problems, "Pick at least one signature from the repository.")
+        ranked_difexp <- !identical(s$test, "hypergeometric")
+        no_difexp <- rows$signature_name[!is.na(rows$has_difexp) & as.integer(rows$has_difexp) != 1L]
+        if (ranked_difexp && length(no_difexp) > 0) {
+          notes <- c(notes, sprintf("%s has no difexp table to rank and will be skipped.",
+                                    paste(sprintf("'%s'", no_difexp), collapse = ", ")))
+        }
+        if (nrow(rows) > 0 && "organism" %in% names(rows)) {
+          organism_problems <- annotate_organism_problem(rows$signature_name, rows$organism, s$organism)
+        }
+      } else if (identical(source, "upload")) {
+        u <- uploads()
+        if (!is.null(u$error)) problems <- c(problems, u$error)
+        if (length(u$signatures) > 0) {
+          organisms <- vapply(u$signatures, function(sig) as.character(sig$metadata$organism %||% NA_character_)[1], character(1))
+          organism_problems <- annotate_organism_problem(names(u$signatures), organisms, s$organism)
+        }
+        if (length(u$signatures) == 0 && is.null(u$error)) problems <- c(problems, "Upload at least one OmicSignature .rds file.")
+        if (length(u$signatures) > ANNOTATE_MAX_SIGNATURES) {
+          problems <- c(problems, sprintf("A run takes at most %d signatures; the uploads hold %d.", ANNOTATE_MAX_SIGNATURES, length(u$signatures)))
+        }
+      } else {
+        g <- gene_lists()
+        problems <- c(problems, if (!is.null(g$error)) g$error else annotate_check_gene_lists(g$lists, s$test))
+      }
+      preview_problems <- problems
+      if (!nzchar(s$organism %||% "")) {
+        problems <- c(problems, "Choose the organism of the signatures in Step 2.")
+      }
+      problems <- c(problems, organism_problems)
+
+      if (identical(source, "genes") && identical(input$background_mode, "per_signature")) {
+        problems <- c(problems, "A per-signature background needs repository or uploaded signatures; gene lists take one background.")
+      }
+      if (!is.null(background()$error)) problems <- c(problems, background()$error)
+      state <- genesets_state()
+      if (is.null(state$genesets)) problems <- c(problems, "Load genesets in Step 2.")
+
+      list(ready = length(problems) == 0, preview_ready = length(preview_problems) == 0,
+           problems = unique(problems), notes = unique(notes))
     })
 
-    output$signature_feedback <- renderUI({
-      feedback <- run_feedback()
-      if (is.null(feedback)) {
-        return(NULL)
-      }
-
-      class_name <- switch(
-        feedback$type,
-        success = "alert alert-success",
-        warning = "alert alert-warning",
-        info = "alert alert-info",
-        "alert alert-info"
-      )
-
-      tags$div(class = class_name, feedback$text)
-    })
-
-    output$analysis_summary <- renderUI({
-      sig_list <- active_signatures()
-      gsets <- genesets()
-
-      summary_value <- function(value, empty = "Not set") {
-        if (is.null(value) || identical(value, "") || (length(value) == 0)) empty else as.character(value)
-      }
-
+    output$readiness <- renderUI({
+      r <- readiness()
       div(
-        class = "annotate-summary-grid",
-        div(
-          class = "annotate-summary-item",
-          tags$strong("Experiment"),
-          tags$span(summary_value(input$experiment_label, "Untitled analysis"))
-        ),
-        div(
-          class = "annotate-summary-item",
-          tags$strong("Method"),
-          tags$span(
-            dplyr::recode(
-              input$enrichment_type,
-              hypergeo = "Hypergeometric",
-              kstest = "KS Test",
-              gsea = "GSEA",
-              gem_hypergeo = "GEM Hypergeometric",
-              gem_weighted = "GEM Weighted"
-            )
-          )
-        ),
-        div(
-          class = "annotate-summary-item",
-          tags$strong("Selected Signatures"),
-          tags$span(sprintf("%s / %s", length(sig_list), max_signature_count))
-        ),
-        div(
-          class = "annotate-summary-item",
-          tags$strong("Selected Genesets"),
-          tags$span(length(gsets))
-        ),
-        div(
-          class = "annotate-summary-item",
-          tags$strong("FDR Threshold"),
-          tags$span(summary_value(input$enrichment_thresh))
-        ),
-        div(
-          class = "annotate-summary-item",
-          tags$strong("Background"),
-          tags$span(summary_value(input$enrichment_bg))
-        )
+        class = "annotate-readiness",
+        if (r$ready) {
+          div(class = "annotate-ok", icon("circle-check"), " Ready to run.")
+        } else {
+          tags$ul(lapply(r$problems, function(p) tags$li(class = "annotate-problem", p)))
+        },
+        if (length(r$notes) > 0) tags$ul(lapply(r$notes, function(n) tags$li(class = "annotate-note", n)))
       )
     })
 
-    output$signature_preview <- renderUI({
-      sig_list <- active_signatures()
-      gsets <- genesets()
+    observe({
+      r <- readiness()
+      shinyjs::toggleState("run", condition = r$ready)
+      shinyjs::toggleState("preview", condition = r$preview_ready)
+    })
 
-      if (length(sig_list) == 0) {
-        return(
-          div(
-            class = "annotate-empty",
-            "No signatures have been added yet. Select signatures from the table above to start the analysis."
-          )
-        )
-      }
+    # ---- building, previewing and running ------------------------------------
 
-      sig_names <- vapply(sig_list, `[[`, character(1), "signature_name")
-      df <- signature_db()
-      req(df)
+    build_args <- function(genesets = genesets_state()$genesets) {
+      source <- input$source %||% "repository"
+      annotate_build_args(
+        source,
+        conn_handler = user_conn_handler(),
+        signature_ids = if (identical(source, "repository")) picked_rows()$signature_id,
+        omic_signatures = if (identical(source, "upload")) uploads()$signatures,
+        gene_lists = if (identical(source, "genes")) gene_lists()$lists,
+        genesets = genesets,
+        settings = settings()
+      )
+    }
 
-      selected_df <- df[df$signature_name %in% sig_names, , drop = FALSE]
-      preview_df <- selected_df[, intersect(c("signature_name", "signature_id", "perturbation"), names(selected_df)), drop = FALSE]
-      geneset_names <- names(gsets)
+    # What a run depends on, to tell when the inputs have moved on from it.
+    run_key <- function(args, description) {
+      keep <- setdiff(names(args), c("conn_handler", "genesets", "omic_signature"))
+      digest::digest(list(args[keep], names(args$omic_signature), description), algo = "md5")
+    }
 
+    observeEvent(input$preview, {
+      req(readiness()$preview_ready)
+      args <- build_args(genesets = NULL)
+      outcome <- withProgress(message = "Building queries", value = 0.3, annotate_preview(args, runner = previewer))
+      preview_state(c(outcome, list(stamp = format(Sys.time(), "%H:%M:%S"))))
+    })
+
+    output$preview_output <- renderUI({
+      state <- preview_state()
+      req(state)
       tagList(
-        tags$p(
-          "Review the selected signatures and genesets before running enrichment."
+        tags$h4(style = "margin-top: 16px;", sprintf("Query preview (%s)", state$stamp)),
+        if (!is.null(state$error)) div(class = "alert alert-danger annotate-message", state$error),
+        if (length(state$warnings) > 0) div(class = "alert alert-warning", lapply(state$warnings, function(w) div(class = "annotate-message", w))),
+        if (!is.null(state$result)) {
+          tagList(
+            DT::DTOutput(ns("preview_info")),
+            if (nrow(state$result$skipped) > 0) tagList(tags$h4("Skipped"), DT::DTOutput(ns("preview_skipped")))
+          )
+        }
+      )
+    })
+
+    small_table <- function(df) {
+      DT::datatable(df, rownames = FALSE, selection = "none", class = "compact stripe nowrap",
+                    options = list(dom = "t", paging = FALSE, scrollX = TRUE, ordering = FALSE))
+    }
+    output$preview_info <- DT::renderDT({
+      state <- preview_state()
+      req(state$result)
+      small_table(state$result$info)
+    })
+    output$preview_skipped <- DT::renderDT({
+      state <- preview_state()
+      req(state$result)
+      small_table(state$result$skipped)
+    })
+
+    observeEvent(input$run, {
+      req(readiness()$ready)
+      loaded <- genesets_state()
+      args <- build_args(genesets = loaded$genesets)
+      outcome <- withProgress(
+        message = "Running enrichment",
+        detail = if (identical(args$test, "fgsea")) "fgsea runs one ranking at a time; large collections take a while." else "Fetching signatures and testing genesets.",
+        value = 0.2,
+        annotate_run(args, runner = runner)
+      )
+      run_state(c(
+        list(
+          args = args,
+          source = input$source %||% "repository",
+          genesets_description = loaded$description,
+          key = run_key(args, loaded$description),
+          # Two runs in the same second are still two runs to observers.
+          run = input$run,
+          stamp = format(Sys.time(), "%Y%m%d_%H%M%S")
         ),
-        DT::datatable(
-          preview_df,
-          rownames = FALSE,
-          options = list(
-            scrollX = TRUE,
-            pageLength = 5,
-            dom = "tip"
-          ),
-          class = "compact stripe hover"
-        ),
-        tags$hr(),
-        tags$h4("Geneset Collections"),
-        if (length(geneset_names) > 0) {
-          tags$ul(lapply(head(geneset_names, 10), tags$li))
-        } else {
+        outcome
+      ))
+    })
+
+    result <- reactive({
+      run_state()$result
+    })
+
+    output$has_result <- reactive({
+      !is.null(result())
+    })
+    outputOptions(output, "has_result", suspendWhenHidden = FALSE)
+
+    output$run_messages <- renderUI({
+      state <- run_state()
+      req(state)
+      stale <- !is.null(state$result) && tryCatch(
+        !identical(run_key(build_args(genesets = NULL), genesets_state()$description), state$key),
+        error = function(e) TRUE
+      )
+      tagList(
+        if (!is.null(state$error)) {
+          div(class = "alert alert-danger annotate-message", strong("The enrichment could not run. "), state$error)
+        },
+        if (length(state$warnings) > 0) {
           div(
-            class = "annotate-empty",
-            "No genesets have been fetched yet. Choose a collection and subcategory, then fetch genesets."
+            class = "alert alert-warning",
+            strong(sprintf("%d warning%s from runHypeR()", length(state$warnings), if (length(state$warnings) == 1) "" else "s")),
+            lapply(state$warnings, function(w) div(class = "annotate-message", w))
           )
         },
-        if (length(geneset_names) > 10) {
-          tags$p(sprintf("Showing 10 of %s genesets selected.", length(geneset_names)))
+        if (stale) {
+          div(class = "alert alert-info", icon("circle-info"), " The settings have changed since this run. Run again to update the results.")
         }
       )
     })
 
-    observeEvent(input$enrichment_do, {
-      sig_list <- active_signatures()
-      gsets <- genesets()
-
-      if (length(sig_list) == 0) {
-        showNotification("Add at least one signature before running enrichment.", type = "error")
-        return()
-      }
-
-      if (length(gsets) == 0) {
-        showNotification("Fetch at least one geneset collection before running enrichment.", type = "error")
-        return()
-      }
-
-      sig_ids <- vapply(sig_list, function(sig) as.numeric(sig$signature_id), numeric(1))
-
-      sig_objs <- SigRepo::getSignature(
-        conn_handler = user_conn_handler(),
-        signature_id = sig_ids
-      )
-
-      enrichment_method <- input$enrichment_type
-      is_gem_method <- enrichment_method %in% c("gem_hypergeo", "gem_weighted")
-
-      if (is_gem_method) {
-        if (!hypergem_available()) {
-          showNotification("hypeR.GEM is not available in the current app environment.", type = "error")
-          return()
-        }
-
-        reference_key <- trimws(input$gem_reference_key)
-        if (!nzchar(reference_key)) {
-          showNotification("Provide a metabolite reference column for GEM enrichment.", type = "error")
-          return()
-        }
-
-        enrichment_inputs <- build_gem_enrichment_signatures(
-          sig_objs,
-          sig_list,
-          reference_key = reference_key
-        )
-        gem_signatures <- enrichment_inputs$signatures
-
-        if (length(gem_signatures) == 0) {
-          showNotification(
-            sprintf("No selected signatures contained the required GEM reference column '%s'.", reference_key),
-            type = "error"
-          )
-          return()
-        }
-
-        signature2gene_fn <- hypergem_export("signature2gene")
-        gem_enrichment_fn <- hypergem_export("enrichment")
-
-        gem_obj <- signature2gene_fn(
-          signatures = gem_signatures,
-          species = input$gem_species,
-          directional = isTRUE(input$gem_directional),
-          merge = isTRUE(input$gem_merge),
-          reference_key = reference_key,
-          promiscuous_threshold = input$gem_promiscuous_threshold,
-          ensemble_id = FALSE,
-          background = NULL
-        )
-
-        hyp <- gem_enrichment_fn(
-          hypeR_GEM_obj = gem_obj,
-          genesets = gsets,
-          genesets_name = "Selected Genesets",
-          method = if (identical(enrichment_method, "gem_weighted")) "weighted" else "unweighted",
-          weighted_by = if (!is.null(input$gem_weighted_by) && nzchar(input$gem_weighted_by)) input$gem_weighted_by else "one_minus_fdr",
-          min_metabolite = input$gem_min_metabolite,
-          background = input$enrichment_bg
-        )
-
-        hyp_result(hyp)
-        enrichment_context(list(
-          method = enrichment_method,
-          test = "gem",
-          engine = "hypeR_GEM",
-          genesets = gsets,
-          gem_reference_key = reference_key
-        ))
-        signature_plot_metadata(enrichment_inputs$metadata)
-        showNotification("GEM enrichment analysis completed.", type = "message")
-      } else {
-        enrichment_test <- dplyr::recode(
-          input$enrichment_type,
-          hypergeo = "hypergeo",
-          kstest = "ks",
-          gsea = "ks"
-        )
-
-        # Symbols missing from a difexp are resolved through the reference
-        # tables on the user's own connection; closed once the builders return.
-        reference <- make_reference_symbol_lookup(user_conn_handler())
-        on.exit(reference$close(), add = TRUE)
-        enrichment_inputs <- if (identical(enrichment_test, "hypergeo")) {
-          build_enrichment_signatures(sig_objs, sig_list, symbol_lookup = reference$lookup)
-        } else if (identical(enrichment_method, "gsea")) {
-          build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "gsea", symbol_lookup = reference$lookup)
-        } else {
-          build_ranked_enrichment_signatures(sig_objs, sig_list, mode = "ks", symbol_lookup = reference$lookup)
-        }
-        reference$close()
-        signature_vectors <- enrichment_inputs$vectors
-        # Both builders report these: dropped signatures, raw-identifier
-        # fallbacks, and partial reference-table mappings.
-        enrichment_notes <- enrichment_inputs$notes
-
-        if (length(signature_vectors) == 0) {
-          showNotification(
-            if (length(enrichment_notes) > 0) {
-              paste0(
-                "No valid signatures were available to run enrichment:\n",
-                paste(enrichment_notes, collapse = "\n")
-              )
-            } else if (identical(enrichment_test, "hypergeo")) {
-              "No valid signatures were available to run enrichment."
-            } else {
-              "No ranked signatures were available to run KS/GSEA-style enrichment. Check that the signatures contain numeric score columns."
-            },
-            type = "error",
-            duration = 20
-          )
-          return()
-        }
-
-        # Some signatures made it through but others did not, or are being
-        # enriched on identifiers rather than symbols. Without this the run
-        # looks successful while quietly returning nothing for those.
-        if (length(enrichment_notes) > 0) {
-          showNotification(
-            paste0(
-              "Enrichment ran with warnings:\n",
-              paste(enrichment_notes, collapse = "\n")
-            ),
-            type = "warning",
-            duration = 20
-          )
-        }
-
-        hype_args <- list(
-          signature = signature_vectors,
-          genesets = gsets,
-          test = enrichment_test,
-          background = input$enrichment_bg,
-          fdr = input$enrichment_thresh,
-          plotting = FALSE,
-          quiet = TRUE
-        )
-
-        if (identical(enrichment_method, "gsea")) {
-          hype_args$absolute <- FALSE
-          hype_args$power <- 1
-        }
-
-        hyp <- do.call(hypeR::hypeR, hype_args)
-
-        hyp_result(hyp)
-        enrichment_context(list(
-          method = enrichment_method,
-          test = enrichment_test,
-          engine = "hypeR",
-          signature_vectors = signature_vectors,
-          genesets = gsets
-        ))
-        signature_plot_metadata(enrichment_inputs$metadata)
-        showNotification(
-          if (identical(enrichment_method, "gsea")) {
-            "GSEA-style preranked enrichment completed."
-          } else {
-            "Enrichment analysis completed."
-          },
-          type = "message"
-        )
-      }
-    })
-
-    dotplot_data <- reactive({
-      hyp <- hyp_result()
-      req(hyp)
-
-      plot_df <- hype_dotplot_data(hyp, fdr_threshold = input$enrichment_thresh)
-      shiny::validate(shiny::need(nrow(plot_df) > 0, "No enriched genesets passed the selected FDR threshold."))
-
-      plot_metadata <- signature_plot_metadata()
-      shiny::validate(shiny::need(nrow(plot_metadata) > 0, "Signature grouping metadata was not available for plotting."))
-
-      signature_lookup <- unique(
-        plot_metadata[, c("signature", "signature_name", "group_label", "signature_order", "group_order"), drop = FALSE]
-      )
-      signature_lookup <- signature_lookup[order(signature_lookup$signature_order, signature_lookup$group_order), , drop = FALSE]
-
-      signature_id_lookup <- unique(signature_lookup[, c("signature_name", "signature_order"), drop = FALSE])
-      signature_id_lookup <- signature_id_lookup[order(signature_id_lookup$signature_order), , drop = FALSE]
-      signature_id_lookup$plot_id <- paste0("S", seq_len(nrow(signature_id_lookup)))
-
-      signature_lookup <- merge(
-        signature_lookup,
-        signature_id_lookup,
-        by = c("signature_name", "signature_order"),
-        all.x = TRUE,
-        sort = FALSE
-      )
-      signature_lookup <- signature_lookup[order(signature_lookup$signature_order, signature_lookup$group_order), , drop = FALSE]
-      signature_lookup$signature_label <- ifelse(
-        nzchar(signature_lookup$group_label) & signature_lookup$group_label != "All Features",
-        paste(signature_lookup$plot_id, signature_lookup$group_label),
-        signature_lookup$plot_id
-      )
-
-      plot_df <- merge(plot_df, signature_lookup, by = "signature", all.x = TRUE, sort = FALSE)
-      plot_df$signature_label <- factor(plot_df$signature_label, levels = signature_lookup$signature_label)
-      plot_df$label <- factor(plot_df$label, levels = rev(unique(plot_df$label)))
-
-      positive_fdr <- plot_df$fdr[plot_df$fdr > 0]
-      min_positive_fdr <- if (length(positive_fdr) > 0) min(positive_fdr, na.rm = TRUE) else .Machine$double.xmin
-      plot_df$fdr_plot <- pmax(plot_df$fdr, min_positive_fdr / 10)
-
-      list(
-        plot_df = plot_df,
-        signature_lookup = signature_lookup[, c("plot_id", "signature_label", "signature_name", "group_label"), drop = FALSE]
-      )
-    })
-
-    output$dotplot <- renderPlot({
-      plot_df <- dotplot_data()$plot_df
-      build_dotplot_figure(plot_df, title = input$experiment_label)
-    })
-
-    output$dotplot_signature_key <- DT::renderDT({
-      key_df <- dotplot_data()$signature_lookup
-      names(key_df) <- c("Signature ID", "Plot Label", "Signature", "Group Label")
-
-      DT::datatable(
-        key_df,
-        rownames = FALSE,
-        options = list(
-          pageLength = 10,
-          dom = "tip",
-          scrollX = TRUE
-        ),
-        class = "compact stripe hover"
-      )
-    })
-
-    output$generic_results_table <- DT::renderDT({
-      hyp <- hyp_result()
-      req(hyp)
-
-      results_df <- extract_hyp_results_table(hyp)
-      shiny::validate(shiny::need(nrow(results_df) > 0, "No results are available."))
-
-      DT::datatable(
-        results_df,
-        rownames = FALSE,
-        options = list(
-          pageLength = 15,
-          scrollX = TRUE
-        ),
-        class = "compact stripe hover"
-      )
-    })
-
-    gsea_detail_signature_choices <- reactive({
-      context <- enrichment_context()
-      req(context)
-      req(identical(context$method, "gsea"))
-
-      metadata_df <- signature_plot_metadata()
-      req(nrow(metadata_df) > 0)
-
-      signature_lookup <- unique(
-        metadata_df[, c("signature", "signature_name", "signature_order", "group_label"), drop = FALSE]
-      )
-      signature_lookup <- signature_lookup[order(signature_lookup$signature_order), , drop = FALSE]
-
-      label_df <- unique(signature_lookup[, c("signature_name", "signature_order"), drop = FALSE])
-      label_df <- label_df[order(label_df$signature_order), , drop = FALSE]
-      label_df$plot_id <- paste0("S", seq_len(nrow(label_df)))
-
-      signature_lookup <- merge(
-        signature_lookup,
-        label_df,
-        by = c("signature_name", "signature_order"),
-        all.x = TRUE,
-        sort = FALSE
-      )
-      signature_lookup$display_label <- paste(signature_lookup$plot_id, signature_lookup$group_label)
-
-      stats::setNames(signature_lookup$signature, signature_lookup$display_label)
-    })
-
-    gsea_results_table <- reactive({
-      context <- enrichment_context()
-      hyp <- hyp_result()
-      req(context, hyp)
-      req(identical(context$method, "gsea"))
-
-      results_df <- extract_hyp_results_table(hyp)
-      shiny::validate(shiny::need(nrow(results_df) > 0, "No GSEA results are available."))
-      results_df
-    })
-
-    observeEvent(gsea_detail_signature_choices(), {
-      choices <- gsea_detail_signature_choices()
-      selected <- isolate(input$gsea_detail_signature)
-
-      if (is.null(selected) || !selected %in% unname(choices)) {
-        selected <- unname(choices)[[1]]
-      }
-
-      updateSelectInput(
-        session,
-        "gsea_detail_signature",
-        choices = choices,
-        selected = selected
-      )
-    }, ignoreInit = FALSE)
-
-    observeEvent(
-      list(gsea_results_table(), input$gsea_detail_signature),
-      {
-        results_df <- gsea_results_table()
-        signature_key <- input$gsea_detail_signature
-        if (is.null(signature_key) || !nzchar(signature_key)) {
-          return()
-        }
-
-        signature_results <- results_df[results_df$signature == signature_key, , drop = FALSE]
-        signature_results <- signature_results[order(signature_results$fdr, -abs(signature_results$score)), , drop = FALSE]
-
-        geneset_choices <- unique(signature_results$label)
-        if (length(geneset_choices) == 0) {
-          return()
-        }
-
-        selected_geneset <- isolate(input$gsea_detail_geneset)
-        if (is.null(selected_geneset) || !selected_geneset %in% geneset_choices) {
-          selected_geneset <- geneset_choices[[1]]
-        }
-
-        updateSelectInput(
-          session,
-          "gsea_detail_geneset",
-          choices = geneset_choices,
-          selected = selected_geneset
-        )
-      },
-      ignoreInit = FALSE
-    )
-
-    gsea_curve_data <- reactive({
-      context <- enrichment_context()
-      req(context)
-      req(identical(context$method, "gsea"))
-
-      signature_key <- input$gsea_detail_signature
-      geneset_name <- input$gsea_detail_geneset
-      req(signature_key, geneset_name)
-
-      ranked_signature <- context$signature_vectors[[signature_key]]
-      geneset_genes <- context$genesets[[geneset_name]]
-      req(!is.null(ranked_signature), !is.null(geneset_genes))
-
-      curve_info <- compute_gsea_curve_data(
-        ranked_signature = ranked_signature,
-        geneset_genes = geneset_genes,
-        power = 1
-      )
-
-      curve_info$signature_key <- signature_key
-      curve_info$geneset_name <- geneset_name
-      curve_info
-    })
-
-    output$gsea_detail_controls <- renderUI({
-      context <- enrichment_context()
-
-      if (is.null(context) || !identical(context$method, "gsea")) {
-        return(NULL)
-      }
-
-      tagList(
-        div(
-          class = "annotate-actions",
-          selectInput(
-            session$ns("gsea_detail_signature"),
-            "Signature",
-            choices = gsea_detail_signature_choices()
-          ),
-          selectInput(
-            session$ns("gsea_detail_geneset"),
-            "Geneset",
-            choices = character(0)
-          )
-        )
-      )
-    })
-
-    output$gsea_curve_plot <- renderPlot({
-      curve_info <- gsea_curve_data()
-      build_gsea_curve_figure(curve_info)
-    })
-
-    output$gsea_edge_summary <- renderUI({
-      curve_info <- gsea_curve_data()
-
-      edge_text <- function(values) {
-        if (length(values) == 0) {
-          "None"
-        } else {
-          paste(utils::head(values, 12), collapse = ", ")
-        }
-      }
-
-      tagList(
-        div(
-          class = "annotate-summary-grid",
-          div(
-            class = "annotate-summary-item",
-            tags$strong("Enrichment Score"),
-            tags$span(sprintf("%.3f", curve_info$es_score))
-          ),
-          div(
-            class = "annotate-summary-item",
-            tags$strong("Direction"),
-            tags$span(if (identical(curve_info$es_direction, "positive")) "Leading edge at top" else "Leading edge at bottom")
-          )
-        ),
-        tags$p(
-          class = "geneset-summary-text",
-          tags$strong("Leading Edge: "),
-          edge_text(curve_info$leading_edge_genes)
-        ),
-        tags$p(
-          class = "geneset-summary-text",
-          tags$strong("Trailing Edge: "),
-          edge_text(curve_info$trailing_edge_genes)
-        )
-      )
-    })
-
-    output$enrichment <- renderUI({
-      hyp <- hyp_result()
-      context <- enrichment_context()
-
-      if (is.null(hyp)) {
-        return(
-          div(
-            class = "annotate-empty",
-            "Results will appear here after you run an enrichment analysis."
-          )
-        )
-      }
-
-      use_generic_results_table <- !is.null(context) && identical(context$engine, "hypeR_GEM")
-
-      gsea_detail_section <- if (!is.null(context) && identical(context$method, "gsea")) {
-        div(
-          class = "annotate-results-section",
-          tags$h4("Enrichment Curve Detail"),
-          uiOutput(session$ns("gsea_detail_controls")),
-          plotOutput(session$ns("gsea_curve_plot"), height = "420px", width = "100%"),
-          uiOutput(session$ns("gsea_edge_summary"))
-        )
-      } else {
-        NULL
-      }
-
+    output$result_summary <- renderUI({
+      res <- result()
+      req(res)
+      s <- annotate_summary(res, fdr = 0.05)
+      item <- function(label, value) div(class = "annotate-summary-item", strong(label), span(value))
       div(
-        class = "annotate-results-body",
-        div(
-          class = "annotate-results-section",
-          tags$h4("Results Table"),
-          if (use_generic_results_table) {
-            DT::DTOutput(session$ns("generic_results_table"))
-          } else {
-            hypeR::rctbl_build(hyp)
-          }
-        ),
-        div(
-          class = "annotate-results-section",
-          tags$h4("Dotplot"),
-          plotOutput(session$ns("dotplot"), height = "400px", width = "100%"),
-          div(
-            class = "annotate-signature-key",
-            tags$h4("Signature Key"),
-            DT::DTOutput(session$ns("dotplot_signature_key"))
-          )
-        ),
-        gsea_detail_section
+        class = "annotate-summary-grid",
+        item("Test", ANNOTATE_TEST_LABELS[[s$test]] %||% s$test),
+        item("Queries", s$n_queries),
+        item("Genesets", sprintf("%s: %s", s$genesets_name, format(s$n_genesets, big.mark = ","))),
+        item("Rows kept", format(s$n_rows, big.mark = ",")),
+        item("Genesets at FDR ≤ 0.05", s$n_significant),
+        item("FDR scope", paste(s$fdr_scope, collapse = ", ")),
+        item("Background", paste(s$backgrounds, collapse = ", "))
       )
     })
 
-    output$generate_report <- downloadHandler(
-      filename = function() {
-        label <- input$experiment_label
-        if (is.null(label) || !nzchar(label)) {
-          label <- "sigrepo_annotate_analysis_bundle"
+    # A new result starts on the dot plot with fresh selections.
+    observeEvent(run_state(), {
+      updateTabsetPanel(session, "result_tabs", selected = "Dot plot")
+    }, ignoreInit = TRUE)
+
+    export_name <- function(...) {
+      paste(c("sigrepo_annotate", ..., run_state()$stamp), collapse = "_")
+    }
+
+    # Outputs draw with tryCatch(..., error = conditionMessage), so a string is
+    # a failure to show in place. need() evaluates its message even when the
+    # check passes, so the message is only built for a failure.
+    # Runs a drawing step and returns its error message instead of raising it.
+    # req() stops with Shiny's silent error, which has to reach Shiny rather
+    # than be shown as a failure.
+    attempt <- function(expr) {
+      tryCatch(expr, error = function(e) {
+        if (inherits(e, "shiny.silent.error")) stop(e)
+        conditionMessage(e)
+      })
+    }
+
+    stop_if_failed <- function(value, what) {
+      failed <- is.character(value) && !inherits(value, "shiny.tag")
+      shiny::validate(shiny::need(!failed, if (failed) paste(what, value)))
+    }
+
+    keep_choice <- function(value, choices, fallback = choices[1]) {
+      if (!is.null(value) && isTRUE(value %in% choices)) value else fallback
+    }
+
+    # ---- dot plot ----------------------------------------------------------------
+
+    output$dot_controls <- renderUI({
+      res <- result()
+      req(res)
+      color_choices <- c("Significance" = "significance", if (annotate_is_ranked(res)) c("Score (NES / ES)" = "score"))
+      div(
+        class = "annotate-controls",
+        selectInput(ns("dot_val"), "Rank by", choices = c("FDR" = "fdr", "p-value" = "pval"),
+                    selected = keep_choice(isolate(input$dot_val), c("fdr", "pval")), width = "110px"),
+        numericInput(ns("dot_cutoff"), "Cutoff (≤)", value = isolate(input$dot_cutoff) %||% 0.05, min = 0, max = 1, step = 0.01, width = "100px"),
+        numericInput(ns("dot_top"), "Top genesets", value = isolate(input$dot_top) %||% 20, min = 1, max = 100, step = 1, width = "110px"),
+        selectInput(ns("dot_color"), "Colour", choices = color_choices,
+                    selected = keep_choice(isolate(input$dot_color), color_choices), width = "170px"),
+        selectInput(ns("dot_size"), "Dot size", choices = c("Geneset size" = "geneset", "Overlap" = "overlap", "None" = "none"),
+                    selected = keep_choice(isolate(input$dot_size), c("geneset", "overlap", "none")), width = "140px"),
+        numericInput(ns("dot_abrv"), "Label length", value = isolate(input$dot_abrv) %||% 50, min = 10, step = 5, width = "110px"),
+        checkboxInput(ns("dot_key"), "Short signature codes", value = isolate(input$dot_key) %||% TRUE)
+      )
+    })
+
+    dot_settings <- reactive({
+      res <- result()
+      req(res)
+      val <- keep_choice(input$dot_val, c("fdr", "pval"))
+      cutoff <- input$dot_cutoff
+      if (is.null(cutoff) || is.na(cutoff)) cutoff <- 1
+      color_choices <- c("significance", if (annotate_is_ranked(res)) "score")
+      out <- list(
+        val = val,
+        pval = if (identical(val, "pval")) cutoff else 1,
+        fdr = if (identical(val, "fdr")) cutoff else 1,
+        top = annotate_number_or(input$dot_top, 20, min = 1),
+        color_by = keep_choice(input$dot_color, color_choices),
+        size_by = keep_choice(input$dot_size, c("geneset", "overlap", "none")),
+        signature_key = input$dot_key %||% TRUE,
+        abrv = annotate_number_or(input$dot_abrv, 50, min = 10)
+      )
+      out
+    })
+
+    dot_data <- reactive({
+      s <- dot_settings()
+      tryCatch(
+        SigRepo::hypeRDotData(result(), val = s$val, pval = s$pval, fdr = s$fdr, top = s$top, size_by = s$size_by,
+                              signature_key = s$signature_key, abrv = s$abrv),
+        error = function(e) NULL
+      )
+    })
+
+    # plotHypeRDots() draws a blank panel when nothing passes; say what to change.
+    output$dot_hint <- renderUI({
+      dots <- dot_data()
+      req(!is.null(dots), nrow(dots) == 0)
+      s <- dot_settings()
+      cutoff <- if (identical(s$val, "fdr")) s$fdr else s$pval
+      div(class = "alert alert-info annotate-message", sprintf(
+        "No geneset has %s ≤ %s in any query. Raise the cutoff (up to 1) to see the strongest genesets anyway.",
+        if (identical(s$val, "fdr")) "FDR" else "p-value", format(cutoff)
+      ))
+    })
+
+    dot_size <- reactive({
+      annotate_dot_size(dot_data(), length(annotate_result_hyps(result())))
+    })
+
+    draw_dots <- function() {
+      do.call(SigRepo::plotHypeRDots, c(list(result()), dot_settings()))
+    }
+
+    output$dot_plot <- renderPlot({
+      req(result())
+      plot <- attempt(draw_dots())
+      stop_if_failed(plot, "The dot plot could not be drawn:")
+      plot
+    }, res = 96, height = function() round(dot_size()$height * 96), width = function() round(dot_size()$width * 96))
+
+    plot_download <- function(stem, device, size, draw) {
+      downloadHandler(
+        filename = function() paste0(export_name(stem), ".", device),
+        content = function(file) {
+          s <- size()
+          ggplot2::ggsave(file, plot = draw(), device = device, width = s$width, height = s$height, units = "in", dpi = 150)
         }
+      )
+    }
+    output$download_dots_png <- plot_download("dotplot", "png", dot_size, draw_dots)
+    output$download_dots_pdf <- plot_download("dotplot", "pdf", dot_size, draw_dots)
 
-        safe_label <- gsub("[^A-Za-z0-9_-]+", "_", label)
-        sprintf("%s_%s.zip", safe_label, format(Sys.time(), "%Y%m%d_%H%M%S"))
-      },
-      content = function(file) {
-        hyp <- hyp_result()
-        context <- enrichment_context()
-        req(hyp, context)
+    output$signature_key <- DT::renderDT({
+      res <- result()
+      req(res)
+      key <- SigRepo::hypeRSignatureKey(res)
+      DT::datatable(key, rownames = FALSE, selection = "none", class = "compact stripe",
+                    options = list(dom = "t", paging = FALSE, ordering = FALSE))
+    })
 
-        sig_list <- active_signatures()
-        sig_ids <- vapply(sig_list, function(sig) as.numeric(sig$signature_id), numeric(1))
-        sig_objs <- SigRepo::getSignature(
-          conn_handler = user_conn_handler(),
-          signature_id = sig_ids
+    # ---- enrichment ----------------------------------------------------------------
+
+    # The query and geneset last picked from the Results table. The controls
+    # are rebuilt from it rather than updated, since they may not have been
+    # rendered yet (the tab has never been opened) when a row is picked.
+    enrichment_pick <- reactiveVal(NULL)
+    observeEvent(run_state(), enrichment_pick(NULL))
+
+    output$enrichment_controls <- renderUI({
+      res <- result()
+      req(res)
+      queries <- names(annotate_result_hyps(res))
+      pick <- enrichment_pick()
+      query <- keep_choice(pick$query %||% isolate(input$enrichment_query), queries)
+      genesets <- annotate_query_genesets(res, query)
+      wanted <- if (identical(pick$query, query)) pick$geneset else isolate(input$enrichment_geneset)
+      div(
+        class = "annotate-controls",
+        selectInput(ns("enrichment_query"), "Query", choices = queries, selected = query, width = "580px"),
+        selectInput(ns("enrichment_geneset"), "Geneset", choices = genesets, selected = keep_choice(wanted, genesets), width = "440px")
+      )
+    })
+
+    # A different query lists its own genesets, keeping the picked one for it.
+    observeEvent(input$enrichment_query, {
+      res <- result()
+      req(res)
+      genesets <- annotate_query_genesets(res, input$enrichment_query)
+      pick <- enrichment_pick()
+      wanted <- if (identical(pick$query, input$enrichment_query)) pick$geneset else isolate(input$enrichment_geneset)
+      updateSelectInput(session, "enrichment_geneset", choices = genesets, selected = keep_choice(wanted, genesets))
+    })
+
+    enrichment_selection <- reactive({
+      res <- result()
+      req(res, input$enrichment_query, input$enrichment_geneset)
+      req(input$enrichment_query %in% names(annotate_result_hyps(res)))
+      req(input$enrichment_geneset %in% annotate_query_genesets(res, input$enrichment_query))
+      list(query = input$enrichment_query, geneset = input$enrichment_geneset)
+    })
+
+    draw_enrichment <- function() {
+      sel <- enrichment_selection()
+      SigRepo::plotHypeREnrichment(result(), sel$geneset, query = sel$query)
+    }
+
+    output$enrichment_plot <- renderPlot({
+      plot <- attempt(draw_enrichment())
+      stop_if_failed(plot, "The enrichment plot could not be drawn:")
+      plot
+    }, res = 96)
+
+    output$enrichment_details <- renderUI({
+      sel <- enrichment_selection()
+      details <- attempt(annotate_enrichment_summary(result(), sel$query, sel$geneset))
+      stop_if_failed(details, "The enrichment details could not be computed:")
+      tagList(
+        tags$table(
+          class = "annotate-measures",
+          lapply(seq_len(nrow(details$table)), function(i) tags$tr(tags$td(details$table$Measure[i]), tags$td(details$table$Value[i])))
+        ),
+        strong(sprintf("%s (%d)", details$genes_label, length(details$genes))),
+        if (length(details$genes) > 0) div(class = "annotate-genes", lapply(details$genes, tags$span))
+      )
+    })
+
+    enrichment_size <- function() list(width = 9, height = 6.5)
+    output$download_enrichment_png <- plot_download("enrichment", "png", enrichment_size, draw_enrichment)
+    output$download_enrichment_pdf <- plot_download("enrichment", "pdf", enrichment_size, draw_enrichment)
+
+    # ---- tables ------------------------------------------------------------------------
+
+    results_table <- reactive({
+      res <- result()
+      req(res)
+      annotate_results_table(res)
+    })
+
+    output$results_table <- DT::renderDT({
+      df <- results_table()
+      dt <- DT::datatable(
+        df,
+        extensions = "Buttons",
+        filter = "top",
+        rownames = FALSE,
+        selection = "single",
+        class = "compact stripe hover nowrap",
+        options = list(
+          pageLength = 25,
+          lengthMenu = c(10, 25, 50, 100, -1),
+          scrollX = TRUE,
+          dom = "Bfrtip",
+          buttons = annotate_export_buttons(export_name("results")),
+          columnDefs = list(list(targets = which(names(df) %in% c("hits", "le")) - 1, render = DT::JS(
+            "function(data, type) { return type === 'display' && data && data.length > 60 ? data.substr(0, 60) + '…' : data; }"
+          )))
         )
-
-        bundle_dir <- tempfile("annotate_analysis_bundle_")
-        dir.create(bundle_dir, recursive = TRUE, showWarnings = FALSE)
-        on.exit(unlink(bundle_dir, recursive = TRUE, force = TRUE), add = TRUE)
-
-        plots_dir <- file.path(bundle_dir, "plots")
-        dir.create(plots_dir, recursive = TRUE, showWarnings = FALSE)
-
-        plot_paths <- list()
-
-        dotplot_payload <- tryCatch(dotplot_data(), error = function(e) NULL)
-        if (!is.null(dotplot_payload) && is.data.frame(dotplot_payload$plot_df) && nrow(dotplot_payload$plot_df) > 0) {
-          dotplot_path <- file.path(plots_dir, "dotplot.png")
-          ggplot2::ggsave(
-            filename = dotplot_path,
-            plot = build_dotplot_figure(dotplot_payload$plot_df, title = input$experiment_label),
-            width = 11,
-            height = 7,
-            dpi = 150
-          )
-          plot_paths$dotplot <- file.path("plots", "dotplot.png")
-        }
-
-        if (identical(context$method, "gsea")) {
-          curve_info <- tryCatch(gsea_curve_data(), error = function(e) NULL)
-          if (!is.null(curve_info)) {
-            gsea_path <- file.path(plots_dir, "gsea_curve.png")
-            ggplot2::ggsave(
-              filename = gsea_path,
-              plot = build_gsea_curve_figure(curve_info),
-              width = 11,
-              height = 6,
-              dpi = 150
-            )
-            plot_paths$gsea_curve <- file.path("plots", "gsea_curve.png")
-          }
-        }
-
-        results_df <- sanitize_report_table(extract_hyp_results_table(hyp))
-        signature_key_df <- sanitize_report_table(
-          tryCatch(dotplot_data()$signature_lookup, error = function(e) data.frame())
-        )
-        metadata_df <- sanitize_report_table(build_signature_metadata_table(sig_objs, sig_list))
-        settings_df <- build_report_settings_table(
-          experiment_label = input$experiment_label,
-          context = context,
-          geneset_names = names(context$genesets %||% list()),
-          fdr_threshold = input$enrichment_thresh,
-          background = input$enrichment_bg
-        )
-
-        analysis_context <- list(
-          title = if (nzchar(input$experiment_label)) input$experiment_label else "SigRepo Annotate Analysis",
-          settings_df = settings_df,
-          signature_metadata_df = metadata_df,
-          signature_key_df = signature_key_df,
-          results_df = results_df,
-          geneset_names = names(context$genesets %||% list()),
-          plot_paths = plot_paths,
-          method = context$method %||% "unknown",
-          engine = context$engine %||% "hypeR"
-        )
-
-        saveRDS(hyp, file.path(bundle_dir, "hyp_result.rds"))
-        saveRDS(analysis_context, file.path(bundle_dir, "analysis_context.rds"))
-
-        readme_lines <- c(
-          "# SigRepo Annotate Analysis Bundle",
-          "",
-          "This bundle contains:",
-          "- `hyp_result.rds`: exported hype/hypGEM result object",
-          "- `analysis_context.rds`: analysis settings, metadata, results tables, and plot key",
-          "- `plots/`: exported figures captured at export time",
-          "",
-          "Suggested workflow:",
-          "1. Unzip this bundle.",
-          "2. Load `hyp_result.rds` and/or `analysis_context.rds` in R.",
-          "3. Reuse the PNG figures in `plots/` for slides or notes."
-        )
-        writeLines(readme_lines, con = file.path(bundle_dir, "README.md"))
-
-        old_wd <- getwd()
-        on.exit(setwd(old_wd), add = TRUE)
-        setwd(bundle_dir)
-        utils::zip(
-          zipfile = file,
-          files = list.files(".", recursive = TRUE, all.files = FALSE)
-        )
+      )
+      numeric_cols <- names(df)[vapply(df, is.double, logical(1))]
+      if (length(numeric_cols) > 0) {
+        dt <- DT::formatSignif(dt, columns = numeric_cols, digits = 4)
       }
+      dt
+    }, server = FALSE)
+
+    observeEvent(input$results_table_rows_selected, {
+      df <- isolate(results_table())
+      row <- input$results_table_rows_selected
+      req(length(row) == 1, row <= nrow(df))
+      enrichment_pick(list(query = df$query[row], geneset = df$label[row]))
+      updateTabsetPanel(session, "result_tabs", selected = "Enrichment")
+    })
+
+    output$hyper_table <- renderUI({
+      res <- result()
+      req(res)
+      table <- attempt(hypeR::rctbl_build(res))
+      stop_if_failed(table, "hypeR could not build its table:")
+      table
+    })
+
+    # ---- R code and downloads ------------------------------------------------------------
+
+    output$r_code <- renderText({
+      state <- run_state()
+      req(state$args, state$result)
+      dots <- isolate(tryCatch(dot_settings(), error = function(e) NULL))
+      enrichment <- tryCatch(enrichment_selection(), error = function(e) NULL)
+      plots <- list(
+        dots = if (!is.null(dots)) annotate_changed_args(
+          dots, list(val = "fdr", pval = 1, fdr = 1, top = 20, color_by = "significance", size_by = "geneset", signature_key = TRUE, abrv = 50)
+        ),
+        enrichment = if (!is.null(enrichment)) list(geneset = enrichment$geneset, query = enrichment$query)
+      )
+      annotate_r_code(state$args, state$genesets_description, plots = plots)
+    })
+
+    output$download_result <- downloadHandler(
+      filename = function() paste0(export_name("result"), ".rds"),
+      content = function(file) saveRDS(result(), file)
     )
 
-    output$export_hyp <- downloadHandler(
-      filename = function() {
-        label <- input$experiment_label
-        if (is.null(label) || !nzchar(label)) {
-          label <- "sigrepo_enrichment"
-        }
+    output$download_excel <- downloadHandler(
+      filename = function() paste0(export_name("results"), ".xlsx"),
+      content = function(file) SigRepo::hypeRToExcel(result(), file_path = file)
+    )
 
-        safe_label <- gsub("[^A-Za-z0-9_-]+", "_", label)
-        sprintf("%s_hype_%s.rds", safe_label, format(Sys.time(), "%Y%m%d_%H%M%S"))
-      },
-      content = function(file) {
-        hyp <- hyp_result()
-        req(hyp)
-        saveRDS(hyp, file)
-      }
+    output$download_genesets <- downloadHandler(
+      filename = function() "annotate_genesets.rds",
+      content = function(file) saveRDS(run_state()$args$genesets, file)
+    )
+
+    output$download_gene_lists_ui <- renderUI({
+      req(identical(run_state()$source, "genes"))
+      downloadButton(ns("download_gene_lists"), "Gene lists (.rds)")
+    })
+    output$download_gene_lists <- downloadHandler(
+      filename = function() "annotate_gene_lists.rds",
+      content = function(file) saveRDS(run_state()$args$signature, file)
+    )
+
+    list(
+      run_state = run_state,
+      preview_state = preview_state,
+      genesets_state = genesets_state,
+      picks = picks,
+      readiness = readiness,
+      settings = settings
     )
   })
+}
+
+
+# Load Step 2's genesets for real: the MSigDB cache (or msigdbr), or custom
+# files and text.
+# The collection dropdown for a species. With nothing cached for it the one
+# choice says so, and loading it explains what to do instead.
+annotate_collection_choices <- function(species) {
+  choices <- annotate_msigdb_collections(species)
+  if (length(choices) == 0) c("None cached for this organism" = "none") else choices
+}
+
+annotate_default_geneset_loader <- function(request) {
+  switch(
+    request$source,
+    msigdb = annotate_load_msigdb(request$species, request$collection, request$subcollection, clean = request$clean,
+                                  cache_dir = annotate_msigdb_cache_dir()),
+    custom = {
+      sets <- list()
+      if (!is.null(request$file)) {
+        sets <- annotate_parse_custom_geneset_file(request$file$datapath, request$file$name)
+      }
+      if (nzchar(trimws(request$name %||% "")) || nzchar(trimws(request$genes %||% ""))) {
+        sets <- c(sets, annotate_parse_custom_geneset_text(request$name, request$genes))
+      }
+      if (length(sets) == 0) {
+        stop("Upload a GMT or CSV file, or type a geneset.", call. = FALSE)
+      }
+      annotate_load_custom(sets, clean = request$clean)
+    }
+  )
 }

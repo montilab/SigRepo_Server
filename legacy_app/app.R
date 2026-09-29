@@ -19,9 +19,9 @@ source_app_file <- function(...) {
   sys.source(file.path(shiny_path, ...), envir = app_env)
 }
 
-# Shared with the API; the Annotate module calls these at run time.
+# The MSigDB cache helpers are shared with the API; the Annotate tab loads genesets with them.
 server_root <- if (nzchar(env_root)) normalizePath(env_root) else normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
-sys.source(file.path(server_root, "api", "lib", "symbols.R"), envir = app_env)
+sys.source(file.path(server_root, "api", "lib", "msigdb_cache.R"), envir = app_env)
 
 # Ensure app-local symbols are available in the same environment as ui/server.
 source_app_file("modules", "home_module.R")
@@ -32,7 +32,6 @@ source_app_file("modules", "compare_module.R")
 source_app_file("modules", "reference_module.R")
 source_app_file("modules", "resource_module.R")
 source_app_file("modules", "feedback_module.R")
-source_app_file("modules", "hypeR_module.R")
 source_app_file("modules", "test_module.R")
 source_app_file("modals", "manage_users_modal.R")
 source_app_file("modals", "delete_modal.R")
@@ -40,6 +39,7 @@ source_app_file("modals", "upload_modal.R")
 source_app_file("modals", "view_modal.R")
 source_app_file("utils", "utils.R")
 source_app_file("utils", "compare_utils.R")
+source_app_file("utils", "annotate_utils.R")
 source_app_file("utils", "validateUser.R")
 
 sys.source(file.path(shiny_path, "app_src", "app_ui.R"), envir = app_env)
