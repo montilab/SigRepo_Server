@@ -22,6 +22,16 @@ x-hyper-volume:
   source: /hypeR
   target: /hypeR
   
+# NOTE: this mount is NOT how a client change is deployed, despite appearances.
+# SigRepo is an R package, and the API, MCP and Shiny call SigRepo:: by
+# namespace, which resolves from the installed library -- inside the container
+# find.package("SigRepo") returns /usr/local/lib/R/site-library/SigRepo. Nothing
+# calls pkgload::load_all() on this path. The mount is there for inspection.
+#
+# So `git pull` in /SigRepo changes nothing that runs. A client change reaches
+# this server only by pulling an image rebuilt with SIGREPO_BRANCH. Contrast
+# /SigRepo_Server below, which IS live: its .R files are sourced by path, so a
+# pull plus restart really does deploy it.
 x-sigrepo-volume:
   &sigrepo-volume
   type: bind

@@ -5,10 +5,26 @@
 # simpler "just give me a SigRepo" arrangement. The difference matters:
 #
 #   * Production bind-mounts the SOURCE (/SigRepo_Server, /SigRepo) over the
-#     image's copies, so the API and MCP run the host checkout and a deploy is
-#     `git pull` + restart -- not an image pull. A local stack without those
-#     mounts runs the image's baked-in code, so it cannot reproduce how a code
-#     change actually reaches production.
+#     image's copies. A local stack without those mounts runs the image's
+#     baked-in code, so it cannot reproduce how a code change reaches
+#     production.
+#
+#     The two mounts do NOT behave the same way, and this matters:
+#
+#       /SigRepo_Server  IS live. The API, MCP and Shiny entrypoints source
+#                        their .R files by path, so a change here deploys with
+#                        `git pull` + restart, no image pull.
+#
+#       /SigRepo         is NOT live. It is an R package, and the server calls
+#                        SigRepo:: by namespace, which resolves from the
+#                        installed library: inside the container
+#                        find.package("SigRepo") returns
+#                        /usr/local/lib/R/site-library/SigRepo. Nothing calls
+#                        pkgload::load_all() on it. The mount is there for
+#                        inspection; it is not what runs. A client change
+#                        reaches the server only by rebuilding the image with
+#                        SIGREPO_BRANCH, which is what the repository_dispatch
+#                        in .github/workflows/docker-image.yml exists to do.
 #
 #   * Production keeps MySQL data and difexp on the host filesystem, not in
 #     named volumes, so the data is inspectable and survives `down -v`.
