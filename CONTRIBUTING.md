@@ -80,11 +80,11 @@ again.
 
 ## Reaching the staging instance
 
-montilab.bu.edu keeps every port bound to `127.0.0.1`. It is a shared,
-BU-managed host, the lab has already been warned once about an exposed port, and
-the staging database holds real signatures behind accounts that can edit them.
-So nothing there is published to the network, and reaching it means your own SSH
-tunnel with your own BU account:
+montilab.bu.edu is a shared, BU-managed host, the lab has already been warned
+once about an exposed port, and the staging database holds real signatures
+behind accounts that can edit them. So the database (3306), the API (8020) and
+the MCP proxy (8021) stay bound to `127.0.0.1`, and reaching them means your own
+SSH tunnel with your own BU account:
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
@@ -98,6 +98,14 @@ session open, that command returns immediately and the master process holds the
 forwards: the tunnel is live even though it looks like the command exited.
 
 Then open <http://127.0.0.1:9051>.
+
+The one exception is the Shiny interface. Since 2026-09-28 montilab sets
+`SHINY_BIND=0.0.0.0` in its gitignored `.env`, so 8051 is published to the BU
+network: lab members on the BU VPN or on campus open
+<http://montilab.bu.edu:8051> directly, with no SSH and no SCC account. Shiny
+has its own account login, and the database and API behind it are still
+loopback-only. Everywhere else `SHINY_BIND` is unset and 8051 stays on
+`127.0.0.1`.
 
 This needs SCC access. If you do not have it, ask for a walkthrough rather than
 a port.
