@@ -10,7 +10,7 @@
 # utils/annotate_utils.R (and, shared with the Compare tab, utils/compare_utils.R).
 
 ANNOTATE_TABLE_COLUMNS <- c(
-  "signature_id", "signature_name", "organism", "direction_type", "assay_type",
+  "signature_id", "signature_name", "organism", "type", "assay_type",
   "phenotype", "has_difexp", "user_name"
 )
 
@@ -503,7 +503,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
           sprintf("%s picked (of %d)", plural(nrow(rows), "signature"), ANNOTATE_MAX_SIGNATURES),
           lapply(seq_len(nrow(rows)), function(i) {
             item(rows$signature_name[i], sprintf("(id %s, %s, %s%s)", rows$signature_id[i], rows$organism[i] %||% "",
-                                                 rows$direction_type[i] %||% "",
+                                                 rows$type[i] %||% "",
                                                  if (isTRUE(as.integer(rows$has_difexp[i]) == 1L)) ", difexp" else ", no difexp"))
           }),
           message = pick_message()
@@ -514,7 +514,10 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
           sprintf("%s uploaded", plural(length(u$signatures), "signature")),
           lapply(names(u$signatures), function(nm) {
             meta <- u$signatures[[nm]]$metadata
-            item(nm, sprintf("(%s, %s%s)", meta$organism %||% "organism unknown", meta$direction_type %||% "direction unknown",
+            # An upload saved before the rename still carries direction_type;
+            # it is shown here, and runHypeR() says why it cannot run.
+            item(nm, sprintf("(%s, %s%s)", meta$organism %||% "organism unknown",
+                             meta$type %||% meta$direction_type %||% "type unknown",
                              if (is.null(u$signatures[[nm]]$difexp)) ", no difexp" else ", difexp"))
           }),
           error = u$error

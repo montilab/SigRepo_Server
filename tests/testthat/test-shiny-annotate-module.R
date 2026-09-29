@@ -26,7 +26,7 @@ test_that("repository picks are kept by id and capped at ten", {
   skip_without_hyper_client()
   many <- data.frame(
     signature_id = 1:12, signature_name = sprintf("sig%02d", 1:12), organism = "Homo sapiens",
-    direction_type = "bi-directional", assay_type = "transcriptomics", phenotype = "p", has_difexp = 1L,
+    type = "bi-directional", assay_type = "transcriptomics", phenotype = "p", has_difexp = 1L,
     user_name = "devadmin", stringsAsFactors = FALSE
   )
   run_annotate_module(args = list(signature_db = reactive(many)), {

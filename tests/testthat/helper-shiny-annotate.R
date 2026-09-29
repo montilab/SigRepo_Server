@@ -102,7 +102,7 @@ annotate_db_rows <- data.frame(
   signature_id = c(11, 12, 13),
   signature_name = c("alpha", "beta", "gamma"),
   organism = c("Homo sapiens", "Homo sapiens", "Mus musculus"),
-  direction_type = c("bi-directional", "uni-directional", "categorical"),
+  type = c("bi-directional", "uni-directional", "categorical"),
   assay_type = "transcriptomics",
   phenotype = c("a vs b", "c", "d"),
   has_difexp = c(1L, 0L, 1L),
