@@ -186,11 +186,15 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          # Concatenated, not a two-line block: matrix.build_args is a block
-          # scalar that already ends in a newline, so a literal two-line form
-          # would hand the action a blank line between the two. This yields
-          # exactly the arguments, with no blank lines.
-          build-args: ${{ matrix.build_args }}SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
+          # SIGREPO_BRANCH is concatenated onto matrix.build_args, not put on its
+          # own line: build_args is a block scalar that already ends in a newline,
+          # so a separate line would hand the action a blank line between the two.
+          # SOURCE_REFRESH is the commit sha, which the Dockerfile uses only to
+          # defeat the layer cache for the install_github() steps (see the ARG
+          # there); the mysql image declares no such ARG and ignores it.
+          build-args: |
+            ${{ matrix.build_args }}SIGREPO_BRANCH=${{ needs.decide.outputs.sigrepo_branch }}
+            SOURCE_REFRESH=${{ github.sha }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: |

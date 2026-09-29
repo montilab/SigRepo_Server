@@ -97,6 +97,15 @@ RUN Rscript "${SIGREPO_SERVER_DIR}/install_r_packages.R"
 # Install dependencies for OmicSignature 
 RUN R -e "BiocManager::install('limma')"
 
+# Every install_github() from here down fetches whatever its repo holds at build
+# time, but the RUN line itself never changes, so Docker reuses the cached layer
+# from an earlier build and the image silently keeps the old package. That is
+# how montilab/sigrepo:dev shipped OmicSignature 1.3.0 a day after 1.4.0 landed
+# and the API then refused to start (assert_omic_signature_version). CI passes
+# SOURCE_REFRESH=<commit sha>, so the value differs on every build and Docker
+# rebuilds from this point down. A local build that omits it behaves as before.
+ARG SOURCE_REFRESH=
+
 # Install OmicSignature 
 RUN R -e "remotes::install_github(repo = 'montilab/OmicSignature', dependencies = c('Depends','Imports','LinkingTo'))"
 
