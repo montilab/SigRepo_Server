@@ -4,9 +4,10 @@ on:
   push:
     # dev is the integration branch: work lands there first and only reaches
     # master for a release, so the suite has to run here or changes go
-    # unverified until release time. The image build (docker-image.yml)
-    # deliberately still fires on master only -- publishing on every dev merge
-    # is the expensive part, and nothing consumes a dev image.
+    # unverified until release time. The image build (docker-image.yml) now
+    # fires on dev too, but only when the R environment itself changes --
+    # publishing on every dev merge is the expensive part, and montilab.bu.edu
+    # is what consumes the resulting :dev image.
     branches: [main, master, dev]
     paths:
       - "api/**"
@@ -34,7 +35,11 @@ jobs:
     # suite that finished in 24 seconds. Both steps are uncached network work
     # and varied 100x between runs. The R library cache was never the problem --
     # it hit every time, including on that 98 minute run.
-    container: montilab/sigrepo:latest
+    # Run dev's suite in dev's own image. Otherwise a dev branch that adds an R
+    # package builds :dev correctly and then fails its tests inside :latest,
+    # which lacks that package -- and the only way to go green would be to merge
+    # to master first, which is the loop the staging gate exists to break.
+    container: montilab/sigrepo:${{ github.ref_name == 'dev' && 'dev' || 'latest' }}
     concurrency:
       group: test-${{ github.event_name != 'pull_request' || github.run_id }}
       cancel-in-progress: true
@@ -207,7 +212,7 @@ jobs:
           echo "$response" | grep -q '"search_geneset_resources"'
           echo "$response" | grep -q '"search_geneset_entries"'
           echo "$response" | grep -q '"search_features"'
-          echo "$response" | grep -q '"run_enrichment"'
+          echo "$response" | grep -q '"rummagene_enrich"'
           kill "$(cat /tmp/mcp.pid)" || true
 
       - name: Show MCP server log on failure

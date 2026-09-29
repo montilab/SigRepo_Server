@@ -49,7 +49,7 @@ compare_default_text <- function(name) {
 # The picker's facet dropdowns: signature table column -> dropdown label.
 COMPARE_FACETS <- c(
   assay_type = "Assay",
-  direction_type = "Direction",
+  type = "Direction",
   organism = "Organism",
   has_difexp = "Difexp table"
 )
@@ -187,7 +187,7 @@ compare_preview_list <- function(signature_db, signature_ids = NULL, omic_signat
 
   uploads <- if (base::is.null(omic_signatures)) base::list() else omic_signatures
   upload_direction <- base::vapply(uploads, function(s) {
-    d <- s$metadata$direction_type
+    d <- s$metadata$type
     if (base::length(d) > 0 && !base::is.na(d[1])) base::as.character(d[1]) else NA_character_
   }, base::character(1))
 
@@ -204,7 +204,7 @@ compare_preview_list <- function(signature_db, signature_ids = NULL, omic_signat
     name = c(fetched_names, base::names(uploads)),
     source = c(base::rep("database", base::nrow(rows)), base::rep("upload", base::length(uploads))),
     signature_id = c(base::as.character(rows$signature_id), base::rep(NA_character_, base::length(uploads))),
-    direction_type = c(base::as.character(rows$direction_type), base::unname(upload_direction)),
+    type = c(base::as.character(rows$type), base::unname(upload_direction)),
     labels_hint = c(db_hint, base::unname(upload_hint)),
     stringsAsFactors = FALSE
   )

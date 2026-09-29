@@ -43,6 +43,43 @@ load_repo_package <- function(repo_dir, package_name, required = TRUE) {
 # Load SigRepo package
 load_repo_package("SIGREPO_DIR", "SigRepo")
 
+# Fail loudly at boot if the installed OmicSignature is too old, rather than
+# as a failure deep inside a tool call. Mirrors the identical check in
+# api/api.R -- see the comment there for the full reasoning. This server has
+# no bind mount for OmicSignature either (see docker-compose-vm.yml:
+# omic-signature-volume is mounted only on sigrepo-shiny), so, like api.R,
+# whatever version the montilab/sigrepo image was built with is what runs
+# here regardless of any `git pull`.
+assert_omic_signature_version <- function(min_version = "1.4.0") {
+  installed_version <- base::tryCatch(
+    utils::packageVersion("OmicSignature"),
+    error = function(e) NULL
+  )
+
+  if (base::is.null(installed_version)) {
+    base::stop(base::sprintf(
+      "OmicSignature is not installed, but this MCP server requires OmicSignature >= %s.",
+      min_version
+    ))
+  }
+
+  if (installed_version < base::package_version(min_version)) {
+    base::stop(base::sprintf(
+      paste(
+        "Installed OmicSignature %s is older than the %s this MCP server",
+        "requires. Rebuild or re-pull the montilab/sigrepo image with an",
+        "updated OmicSignature -- a bind mount and restart will not fix",
+        "this, see mysql/migrations/README.md."
+      ),
+      base::as.character(installed_version),
+      min_version
+    ))
+  }
+
+  base::invisible(installed_version)
+}
+assert_omic_signature_version()
+
 ## Create a database handler (used by api/lib/auth.R's require_api_key, and
 ## by SigRepo:: functions like getSignature()/runHypeR() that round-trip
 ## through the REST API for the difexp table -- not just DB access).
@@ -77,30 +114,20 @@ conn_handler <- base::do.call(SigRepo::newConnHandler, conn_handler_args)
 # Get sigrepo server path
 sigrepo_server_path <- base::Sys.getenv("SIGREPO_SERVER_DIR")
 
-# Reuse the same auth/DB/signature/MSigDB logic the Plumber API is built
-# on, plus the new MCP-specific query and tool-definition files.
+# Reuse the same auth/DB/signature logic the Plumber API is built on, plus
+# the MCP-specific query and tool-definition files.
 for (lib_file in c(
   base::file.path(sigrepo_server_path, "api", "lib", "common.R"),
   base::file.path(sigrepo_server_path, "api", "lib", "auth.R"),
   base::file.path(sigrepo_server_path, "api", "lib", "signature.R"),
-  # msigdb_cache.R must come before msigdb_genesets_admin.R, which calls its
-  # default_msigdb_cache_dir()/msigdb_cache_file() helpers. api.R gets these by
-  # sourcing every api/lib/*.R file; this launcher lists them by hand, so a new
-  # dependency there has to be added here too.
-  base::file.path(sigrepo_server_path, "api", "lib", "msigdb_cache.R"),
-  base::file.path(sigrepo_server_path, "api", "lib", "msigdb_genesets_admin.R"),
+  # api.R sources every api/lib/*.R file; this launcher lists what the MCP
+  # tools need by hand, so a new dependency there has to be added here too.
   base::file.path(sigrepo_server_path, "api", "lib", "rummagene.R"),
   base::file.path(sigrepo_server_path, "mcp", "lib", "queries.R"),
   base::file.path(sigrepo_server_path, "mcp", "lib", "tools.R")
 )) {
   base::source(lib_file, local = TRUE)
 }
-
-# Resolved once at boot, same as api.R -- run_enrichment()'s msigdb_collection
-# path (mcp/lib/queries.R) reads/writes this same cache directory via
-# ensure_msigdb_geneset_resource(), so an agent-triggered fetch here and one
-# triggered through POST /geneset_resources/ensure land in the same place.
-msigdb_cache_dir <- default_msigdb_cache_dir(sigrepo_server_path)
 
 mcptools::mcp_server(
   tools = build_mcp_tools(),

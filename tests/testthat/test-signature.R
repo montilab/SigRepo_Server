@@ -127,8 +127,8 @@ test_that("delete_signature enforces caller role/ownership and removes child row
   make_test_signature <- function(hashkey, owner) {
     exec_sql(sprintf("DELETE FROM signatures WHERE signature_hashkey = '%s'", hashkey))
     exec_sql(sprintf("
-      INSERT INTO signatures (signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
-      SELECT 'Delete Test Signature', organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id, '%s', 1, '%s'
+      INSERT INTO signatures (signature_name, organism_id, type, assay_type, phenotype_id, platform_id, sample_type_id, user_name, visibility, signature_hashkey)
+      SELECT 'Delete Test Signature', organism_id, type, assay_type, phenotype_id, platform_id, sample_type_id, '%s', 1, '%s'
       FROM signatures WHERE signature_hashkey = 'ci_test_signature_hashkey_0000'
     ", owner, hashkey))
     query_sql(sprintf("SELECT signature_id FROM signatures WHERE signature_hashkey = '%s'", hashkey))$signature_id[1]
@@ -213,4 +213,14 @@ test_that("search_signatures sorts server-side, on an allowlist, with a stable t
   page1 <- search_signatures(conn, is_admin = TRUE, sort_by = "signature_name", sort_dir = "desc", limit = 1)
   expect_equal(page1$rows$signature_name[1], tail(asc$rows$signature_name, 1))
   expect_equal(page1$total, asc$total)
+})
+
+test_that("sort_by accepts the retired column names instead of silently sorting by name", {
+  ## An unknown sort_by falls through to s.signature_name, so a stale bookmark
+  ## or cached frontend sending direction_type would look like a broken sort
+  ## rather than a rejected parameter. Keep the old keys as input aliases.
+  expect_equal(.signature_sort_columns[["direction_type"]], .signature_sort_columns[["type"]])
+  expect_equal(.signature_sort_columns[["platform_name"]], .signature_sort_columns[["platform"]])
+  expect_equal(.signature_sort_columns[["type"]], "s.type")
+  expect_equal(.signature_sort_columns[["platform"]], "pl.platform")
 })

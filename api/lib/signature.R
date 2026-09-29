@@ -59,13 +59,19 @@ signature_visibility_clause <- function(conn, auth, is_admin, alias = "s") {
   signature_name = "s.signature_name",
   organism       = "o.organism",
   assay_type     = "s.assay_type",
-  direction_type = "s.direction_type",
+  type           = "s.type",
   phenotype      = "p.phenotype",
   sample_type    = "st.sample_type",
-  platform_name  = "pl.platform_name",
+  platform       = "pl.platform",
   year           = "s.year",
   user_name      = "s.user_name",
-  visibility     = "s.visibility"
+  visibility     = "s.visibility",
+  # Retired input names kept as aliases. An unrecognized sort_by falls through
+  # to s.signature_name, so without these a stale bookmark or a cached frontend
+  # bundle would sort by the wrong column with no error anywhere. Input only:
+  # responses never emit these names.
+  direction_type = "s.type",
+  platform_name  = "pl.platform"
 )
 
 search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_type = NULL,
@@ -136,7 +142,7 @@ search_signatures <- function(conn, organism = NULL, phenotype = NULL, assay_typ
   }
 
   query <- base::paste(
-    "SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform_name",
+    "SELECT s.*, o.organism, p.phenotype, st.sample_type, pl.platform",
     from_where,
     order_clause, "LIMIT", limit, "OFFSET", offset
   )
@@ -218,7 +224,7 @@ fetch_signature_context <- function(signature_hashkey, include_features = TRUE, 
     platform_tbl <- SigRepo::lookup_table_sql(
       conn = conn,
       db_table_name = "platforms",
-      return_var = c("platform_id", "platform_name"),
+      return_var = c("platform_id", "platform"),
       filter_coln_var = "platform_id",
       filter_coln_val = base::list("platform_id" = signature_tbl$platform_id),
       check_db_table = TRUE

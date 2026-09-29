@@ -64,7 +64,7 @@ compare_matrix_to_json <- function(m) {
 }
 
 # compare_omic_signatures() output -> a compact JSON payload the web UI can
-# render directly. `sig_meta` is a list of {name, hashkey, direction_type}, in
+# render directly. `sig_meta` is a list of {name, hashkey, type}, in
 # matrix row/col order, so the UI can map a clicked heatmap cell back to the
 # signatures it represents (needed for the GSEA leading-edge drill-down).
 compare_serialize_result <- function(res, skipped, sig_meta, sig_meta2 = NULL) {
@@ -208,7 +208,7 @@ compare_build_list <- function(auth, hashkeys, difexp_dir, used_names = base::ch
     sig_meta[[base::length(sig_meta) + 1L]] <- base::list(
       name = nm,
       hashkey = hk,
-      direction_type = base::tryCatch(base::as.character(os$metadata$direction_type)[1], error = function(e) NA_character_)
+      type = base::tryCatch(base::as.character(os$metadata$type)[1], error = function(e) NA_character_)
     )
   }
 

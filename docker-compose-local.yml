@@ -5,19 +5,38 @@
 # simpler "just give me a SigRepo" arrangement. The difference matters:
 #
 #   * Production bind-mounts the SOURCE (/SigRepo_Server, /SigRepo) over the
-#     image's copies, so the API and MCP run the host checkout and a deploy is
-#     `git pull` + restart -- not an image pull. A local stack without those
-#     mounts runs the image's baked-in code, so it cannot reproduce how a code
-#     change actually reaches production.
+#     image's copies. A local stack without those mounts runs the image's
+#     baked-in code, so it cannot reproduce how a code change reaches
+#     production.
+#
+#     The two mounts do NOT behave the same way, and this matters:
+#
+#       /SigRepo_Server  IS live. The API, MCP and Shiny entrypoints source
+#                        their .R files by path, so a change here deploys with
+#                        `git pull` + restart, no image pull.
+#
+#       /SigRepo         is NOT live. It is an R package, and the server calls
+#                        SigRepo:: by namespace, which resolves from the
+#                        installed library: inside the container
+#                        find.package("SigRepo") returns
+#                        /usr/local/lib/R/site-library/SigRepo. Nothing calls
+#                        pkgload::load_all() on it. The mount is there for
+#                        inspection; it is not what runs. A client change
+#                        reaches the server only by rebuilding the image with
+#                        SIGREPO_BRANCH, which is what the repository_dispatch
+#                        in .github/workflows/docker-image.yml exists to do.
 #
 #   * Production keeps MySQL data and difexp on the host filesystem, not in
 #     named volumes, so the data is inspectable and survives `down -v`.
 #
 # Differences from production, all deliberate:
 #
-#   * Every port binds to 127.0.0.1. Production publishes 8020/8050/3306 on
+#   * Every port binds to 127.0.0.1. Production publishes 8020/3306 on
 #     0.0.0.0, which is how they answer directly from the internet bypassing
 #     nginx and TLS. There is no reason to reproduce that on a laptop.
+#     The one knob is SHINY_BIND: montilab sets SHINY_BIND=0.0.0.0 in its
+#     .env so lab members on the BU network reach the Shiny interface (8051)
+#     without a tunnel. Unset, 8051 stays on 127.0.0.1 like everything else.
 #   * Paths are relative to this file, so the stack is portable rather than
 #     tied to one machine's home directory.
 #
@@ -36,6 +55,17 @@ x-difexp-volume: &difexp-volume
   type: bind
   source: ./.local-data/difexp
   target: /difexp
+
+# The image the API, Shiny and MCP services all run.
+#
+# montilab.bu.edu is the staging instance: it runs the dev line and sets
+# SIGREPO_IMAGE_TAG=dev in its own .env (gitignored). Everywhere else the
+# variable is unset and this resolves to :latest exactly as it always has, so a
+# checkout without a .env behaves identically to before this was parameterised.
+#
+# sigrepo-mysql is deliberately NOT parameterised: it is not built from the
+# branch under test, so staging runs the same one as everyone.
+x-sigrepo-image: &sigrepo-image montilab/sigrepo:${SIGREPO_IMAGE_TAG:-latest}
 
 # The sibling checkouts, mounted over the image's copies exactly as the VM does.
 x-sigrepo-volume: &sigrepo-volume
@@ -67,7 +97,7 @@ services:
   sigrepo-api:
     container_name: sigrepo-local-api
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: *sigrepo-image
     depends_on:
       - sigrepo-mysql
     networks:
@@ -82,41 +112,20 @@ services:
       - ./.Renviron.local-stack:/SigRepo_Server/.Renviron
     entrypoint: ["/bin/bash", "-c", "/SigRepo_Server/api/api-server.sh"]
 
-  sigrepo-web:
-    container_name: sigrepo-local-web
-    platform: linux/amd64
-    # image + build: pull the published one to match production exactly, or
-    # `docker compose -f docker-compose-local.yml build sigrepo-web` to test an
-    # uncommitted interface change.
-    image: montilab/sigrepo-web:latest
-    build:
-      context: ./web
-    depends_on:
-      - sigrepo-api
-    networks:
-      - db-net-local
-    ports:
-      - 127.0.0.1:8050:80
-    restart: unless-stopped
-
-  # The legacy R Shiny interface, restored alongside the React app rather than
-  # replacing it, so the two can be compared against the same database before
-  # any decision to switch. React stays on 8050; Shiny gets 8051.
-  #
-  # Note what this service does that sigrepo-web cannot: it bind-mounts the
-  # source, so `git pull` deploys a UI change with no image build. That is the
-  # deployment asymmetry that made the React app feel slow to iterate on.
+  # The SigRepo web interface: the R Shiny app in legacy_app/. It bind-mounts
+  # the source, so a UI change ships with `git pull` and a restart rather than
+  # an image build.
   sigrepo-shiny:
     container_name: sigrepo-local-shiny
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: *sigrepo-image
     depends_on:
       - sigrepo-mysql
       - sigrepo-api
     networks:
       - db-net-local
     ports:
-      - 127.0.0.1:8051:3838
+      - "${SHINY_BIND:-127.0.0.1}:8051:3838"
     restart: unless-stopped
     volumes:
       - *difexp-volume
@@ -128,7 +137,7 @@ services:
   sigrepo-mcp:
     container_name: sigrepo-local-mcp
     platform: linux/amd64
-    image: montilab/sigrepo:latest
+    image: *sigrepo-image
     depends_on:
       - sigrepo-mysql
     networks:

@@ -38,7 +38,7 @@ compare_db_rows <- data.frame(
   signature_id = c(11, 12),
   signature_name = c("alpha", "beta"),
   organism = "Homo sapiens",
-  direction_type = "bi-directional",
+  type = "bi-directional",
   assay_type = "transcriptomics",
   phenotype = c("a vs b", "c vs d"),
   has_difexp = c(1L, 0L),
