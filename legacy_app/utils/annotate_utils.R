@@ -312,16 +312,42 @@ ANNOTATE_MSIGDB_COLLECTIONS <- base::data.frame(
   stringsAsFactors = FALSE
 )
 
+# What the picker does not offer, for now: a whole collection ("C2") or one
+# subcollection ("C5/HPO"). These are too large for the servers the tab runs
+# on. A run happens inside the one R process every visitor shares, and R does
+# not hand memory back, so the cost is the app's, not the session's. Measured
+# in montilab/sigrepo:dev, one signature, hypergeometric, from 1.4 GB:
+#
+#   H          50 genesets    3 s   1.5 GB
+#   C5 GO:CC   1,080         21 s   2.3 GB
+#   C5 GO:MF   1,872         41 s   2.6 GB
+#   C2 CGP     3,555         75 s   3.8 GB
+#   C5 HPO     5,793         the process was killed for memory
+#   C5 GO:BP   7,538         the process was killed for memory
+#
+# Take an entry out to offer it again.
+ANNOTATE_MSIGDB_WITHHELD <- c("C2", "C5/HPO", "C5/GO:BP")
+
+# The rows of ANNOTATE_MSIGDB_COLLECTIONS the picker offers.
+annotate_msigdb_offered <- function() {
+  rows <- ANNOTATE_MSIGDB_COLLECTIONS
+  withheld <- rows$collection %in% ANNOTATE_MSIGDB_WITHHELD |
+    base::paste(rows$collection, rows$subcollection, sep = "/") %in% ANNOTATE_MSIGDB_WITHHELD
+  rows[!withheld, , drop = FALSE]
+}
+
 # Collection dropdown choices for a species, label -> collection.
 annotate_msigdb_collections <- function(species) {
-  rows <- ANNOTATE_MSIGDB_COLLECTIONS[!ANNOTATE_MSIGDB_COLLECTIONS$mouse_only | base::identical(species, "Mus musculus"), , drop = FALSE]
+  rows <- annotate_msigdb_offered()
+  rows <- rows[!rows$mouse_only | base::identical(species, "Mus musculus"), , drop = FALSE]
   rows <- rows[!base::duplicated(rows$collection), , drop = FALSE]
   stats::setNames(rows$collection, rows$label)
 }
 
 # Subcollections of a collection; "" alone when it has none.
 annotate_msigdb_subcollections <- function(collection) {
-  subs <- ANNOTATE_MSIGDB_COLLECTIONS$subcollection[ANNOTATE_MSIGDB_COLLECTIONS$collection == collection]
+  rows <- annotate_msigdb_offered()
+  subs <- rows$subcollection[rows$collection == collection]
   if (base::length(subs) == 0) "" else subs
 }
 

@@ -113,11 +113,19 @@ test_that("invalid backgrounds are errors the tab can show", {
 test_that("the MSigDB picker offers mouse collections only for mouse", {
   human <- annotate_msigdb_collections("Homo sapiens")
   mouse <- annotate_msigdb_collections("Mus musculus")
-  expect_true(all(c("H", "C2", "C5") %in% human))
+  expect_true(all(c("H", "C5") %in% human))
+  # C2 is withheld: one run against C2:CGP took the Shiny process from 1.6 GB
+  # to 3.8 GB, more than the servers the tab runs on can give it.
+  expect_false("C2" %in% human)
+  expect_false("C2" %in% annotate_msigdb_collections("Mus musculus"))
+  # Two C5 subcollections are larger still and are withheld on their own; the
+  # rest of C5 stays.
+  expect_identical(annotate_msigdb_subcollections("C5"), c("GO:CC", "GO:MF"))
+  expect_identical(annotate_msigdb_subcollections("C2"), "")
+  expect_identical(ANNOTATE_MSIGDB_WITHHELD, c("C2", "C5/HPO", "C5/GO:BP"))
   expect_false(any(c("MH", "M2") %in% human))
   expect_true(all(c("H", "MH", "M5") %in% mouse))
   expect_identical(annotate_msigdb_subcollections("H"), "")
-  expect_true("CP:REACTOME" %in% annotate_msigdb_subcollections("C2"))
   expect_identical(annotate_msigdb_subcollections("M5"), c("GO:BP", "GO:CC", "GO:MF", "MPT"))
 })
 
