@@ -20,7 +20,7 @@ signature_db_rows <- data.frame(
   signature_id = c(275, 9),
   signature_name = c("alpha", "beta"),
   organism = "Mus musculus",
-  direction_type = "bi-directional",
+  type = "bi-directional",
   assay_type = "transcriptomics",
   phenotype = c("old vs young", "treated vs control"),
   description = c("a long description", "another long description"),

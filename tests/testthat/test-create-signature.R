@@ -34,7 +34,7 @@ omic_signature_upload <- function(signature_name, feature_names = c("CI_UPLOAD_T
     OmicSignature::OmicSignature$new(
       metadata = list(
         signature_name = signature_name,
-        direction_type = "bi-directional",
+        type = "bi-directional",
         assay_type = "transcriptomics",
         organism = "CI Test Organism",
         phenotype = "CI Test Phenotype",
@@ -62,12 +62,12 @@ export_shape_upload <- function(signature_name, extra_features = data.frame()) {
   list(
     metadata = list(
       signature_name = signature_name,
-      direction_type = "bi-directional",
+      type = "bi-directional",
       assay_type = "transcriptomics",
       organism = "CI Test Organism",
       phenotype = "CI Test Phenotype",
       sample_type = "CI Test Sample Type",
-      platform_name = "CI Test Platform",
+      platform = "CI Test Platform",
       description = "A test signature",
       keywords = "test,upload"
     ),
@@ -108,12 +108,10 @@ test_that("normalize_upload recognizes a real OmicSignature object vs. the expor
   omic_norm <- normalize_upload(omic_signature_upload("Norm Test"))
   expect_true(omic_norm$ok)
   expect_equal(omic_norm$feature_key, "feature_name")
-  expect_equal(omic_norm$platform_field, "platform")
 
   export_norm <- normalize_upload(export_shape_upload("Norm Test"))
   expect_true(export_norm$ok)
   expect_equal(export_norm$feature_key, "feature_id")
-  expect_equal(export_norm$platform_field, "platform_name")
 
   bad_norm <- normalize_upload(list(foo = "bar"))
   expect_false(bad_norm$ok)
@@ -126,7 +124,13 @@ test_that("validate_upload_shape rejects missing metadata fields and missing fea
   err <- validate_upload_shape(bad_meta)
   expect_false(is.null(err))
   expect_equal(err$reason, "invalid_upload")
-  expect_match(err$message, "direction_type")
+  # A plain substring match on "type" would pass even if the code still
+  # reported the retired "direction_type" field, because "type" is also a
+  # substring of "assay_type" (which is genuinely missing here too). Match
+  # on a word boundary so this can only match the renamed field itself, and
+  # assert the retired name is gone, so this can actually fail on wrong code.
+  expect_match(err$message, "\\btype\\b", perl = TRUE)
+  expect_false(grepl("direction_type", err$message, fixed = TRUE))
 
   bad_features <- normalize_upload(list(
     metadata = as.list(setNames(rep("x", length(REQUIRED_UPLOAD_METADATA_FIELDS)), REQUIRED_UPLOAD_METADATA_FIELDS)),
@@ -492,4 +496,85 @@ test_that("resolve_feature_ids resolves metabolites case-insensitively, matching
   )
   expect_true(upper_case$ok)
   expect_equal(upper_case$feature_ids, as.integer(expected_id))
+})
+
+test_that("normalize_upload() accepts a legacy OmicSignature object carrying direction_type", {
+  skip_if_not(omic_signature_available, "OmicSignature package not installed")
+
+  # A real OmicSignature object -- the shape this task exists to keep
+  # working, since a pre-1.4.0 .rds carries `direction_type` on the wire.
+  # OmicSignature 1.4.0's own checkMetadata() normalizes direction_type to
+  # `type` the moment the object is constructed, so passing direction_type
+  # to OmicSignature$new() here would not actually exercise this API's own
+  # tolerance -- $metadata would already read `type` before normalize_upload()
+  # ever saw it. Build a normal object, then rewrite its private metadata
+  # directly, the way a real 1.3.0-era object deserializes off disk.
+  legacy_omic <- omic_signature_upload("legacy_upload")
+  legacy_omic$.__enclos_env__$private$.metadata[["type"]] <- NULL
+  legacy_omic$.__enclos_env__$private$.metadata[["direction_type"]] <- "uni-directional"
+  expect_true(inherits(legacy_omic, "OmicSignature"))
+
+  norm <- normalize_upload(legacy_omic)
+  expect_true(norm$ok)
+  expect_equal(norm$feature_key, "feature_name")
+  expect_equal(norm$metadata$type, "uni-directional")
+  expect_null(norm$metadata$direction_type)
+})
+
+test_that("normalize_upload() accepts a legacy /signatures/export list carrying platform_name", {
+  # This API's own /signatures/export output, from before the platform
+  # column rename -- the other accepted shape, keyed by feature_id rather
+  # than feature_name. This is a plain list, not an OmicSignature object, so
+  # it needs no OmicSignature package to construct or to exercise -- unlike
+  # the OmicSignature-object case above, this half must run in every
+  # environment, OmicSignature installed or not.
+  export_shape <- base::list(
+    metadata = base::list(
+      signature_name = "export_upload",
+      type = "uni-directional",
+      assay_type = "transcriptomics",
+      organism = "Homo sapiens",
+      phenotype = "test",
+      platform_name = "unknown"
+    ),
+    signature = base::data.frame(feature_id = 1L, score = 1)
+  )
+  norm2 <- normalize_upload(export_shape)
+  expect_true(norm2$ok)
+  expect_equal(norm2$feature_key, "feature_id")
+  expect_equal(norm2$metadata$platform, "unknown")
+  expect_null(norm2$metadata$platform_name)
+})
+
+test_that("normalize_upload() rejects metadata carrying both spellings", {
+  conflicting_type <- base::list(
+    metadata = base::list(
+      signature_name = "conflict",
+      type = "uni-directional",
+      direction_type = "bi-directional",
+      assay_type = "transcriptomics",
+      organism = "Homo sapiens",
+      phenotype = "test"
+    ),
+    signature = base::data.frame(feature_id = 1L, score = 1)
+  )
+  norm <- normalize_upload(conflicting_type)
+  expect_false(norm$ok)
+  expect_match(norm$message, "both")
+
+  conflicting_platform <- base::list(
+    metadata = base::list(
+      signature_name = "conflict_platform",
+      type = "uni-directional",
+      assay_type = "transcriptomics",
+      organism = "Homo sapiens",
+      phenotype = "test",
+      platform = "known",
+      platform_name = "known_legacy"
+    ),
+    signature = base::data.frame(feature_id = 1L, score = 1)
+  )
+  norm2 <- normalize_upload(conflicting_platform)
+  expect_false(norm2$ok)
+  expect_match(norm2$message, "both")
 })

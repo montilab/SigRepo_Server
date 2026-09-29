@@ -17,11 +17,11 @@ VALUES
 -- sample_types/platforms/signature_feature_set.
 INSERT INTO `organisms` (`organism`) VALUES ('CI Test Organism');
 INSERT INTO `phenotypes` (`phenotype`) VALUES ('CI Test Phenotype');
-INSERT INTO `platforms` (`platform_name`) VALUES ('CI Test Platform');
+INSERT INTO `platforms` (`platform`) VALUES ('CI Test Platform');
 INSERT INTO `sample_types` (`sample_type`) VALUES ('CI Test Sample Type');
 
 INSERT INTO `signatures`
-  (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `phenotype_id`,
+  (`signature_name`, `organism_id`, `type`, `assay_type`, `phenotype_id`,
    `platform_id`, `sample_type_id`, `user_name`, `visibility`, `signature_hashkey`)
 SELECT
   'CI Test Signature',
@@ -29,7 +29,7 @@ SELECT
   'uni-directional',
   'transcriptomics',
   (SELECT phenotype_id FROM phenotypes WHERE phenotype = 'CI Test Phenotype'),
-  (SELECT platform_id FROM platforms WHERE platform_name = 'CI Test Platform'),
+  (SELECT platform_id FROM platforms WHERE platform = 'CI Test Platform'),
   (SELECT sample_type_id FROM sample_types WHERE sample_type = 'CI Test Sample Type'),
   'ci_viewer',
   1,
@@ -48,7 +48,7 @@ UNION ALL SELECT
 -- compare_two_signatures/mcp compare_signatures happy-path tests) and a
 -- third, hidden signature (visibility = 0, for search visibility tests).
 INSERT INTO `signatures`
-  (`signature_name`, `organism_id`, `direction_type`, `assay_type`, `phenotype_id`,
+  (`signature_name`, `organism_id`, `type`, `assay_type`, `phenotype_id`,
    `platform_id`, `sample_type_id`, `user_name`, `visibility`, `signature_hashkey`)
 SELECT
   'CI Test Signature 2',
@@ -56,7 +56,7 @@ SELECT
   'uni-directional',
   'transcriptomics',
   (SELECT phenotype_id FROM phenotypes WHERE phenotype = 'CI Test Phenotype'),
-  (SELECT platform_id FROM platforms WHERE platform_name = 'CI Test Platform'),
+  (SELECT platform_id FROM platforms WHERE platform = 'CI Test Platform'),
   (SELECT sample_type_id FROM sample_types WHERE sample_type = 'CI Test Sample Type'),
   'ci_viewer',
   1,
@@ -67,7 +67,7 @@ UNION ALL SELECT
   'uni-directional',
   'transcriptomics',
   (SELECT phenotype_id FROM phenotypes WHERE phenotype = 'CI Test Phenotype'),
-  (SELECT platform_id FROM platforms WHERE platform_name = 'CI Test Platform'),
+  (SELECT platform_id FROM platforms WHERE platform = 'CI Test Platform'),
   (SELECT sample_type_id FROM sample_types WHERE sample_type = 'CI Test Sample Type'),
   'ci_viewer',
   0,

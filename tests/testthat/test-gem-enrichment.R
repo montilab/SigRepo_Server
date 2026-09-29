@@ -178,13 +178,13 @@ test_that("run_gem_enrichment does not load a difexp, and does not refuse a has_
 
   DBI::dbExecute(conn, base::sprintf("
     INSERT INTO signatures
-      (signature_name, organism_id, direction_type, assay_type, phenotype_id, platform_id, sample_type_id,
+      (signature_name, organism_id, type, assay_type, phenotype_id, platform_id, sample_type_id,
        user_name, visibility, has_difexp, signature_hashkey)
     SELECT
       'CI GEM Difexp Test', (SELECT organism_id FROM organisms WHERE organism = 'CI Test Organism'),
       'uni-directional', 'metabolomics',
       (SELECT phenotype_id FROM phenotypes WHERE phenotype = 'CI Test Phenotype'),
-      (SELECT platform_id FROM platforms WHERE platform_name = 'CI Test Platform'),
+      (SELECT platform_id FROM platforms WHERE platform = 'CI Test Platform'),
       (SELECT sample_type_id FROM sample_types WHERE sample_type = 'CI Test Sample Type'),
       'ci_viewer', 1, 1, '%s'", hashkey
   ))

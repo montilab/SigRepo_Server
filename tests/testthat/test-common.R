@@ -73,3 +73,16 @@ test_that("request_json_body parses valid JSON and tolerates missing/invalid bod
   parsed <- request_json_body(list(postBody = '{"a": 1}'))
   expect_equal(parsed$a, 1)
 })
+
+test_that("route_error_message keeps the failing call and message instead of flattening the condition (#130)", {
+  err <- tryCatch(stop("Table 'sigrepo.users' doesn't exist"), error = function(e) e)
+  err$call <- quote(DBI::dbSendQuery(conn, statement))
+
+  expect_equal(route_error_message(err), "ERROR: Table 'sigrepo.users' doesn't exist (in DBI::dbSendQuery(conn, statement))")
+})
+
+test_that("route_error_message reports a condition without a call as just its message (#130)", {
+  err <- simpleError("no call here")
+
+  expect_equal(route_error_message(err), "ERROR: no call here")
+})

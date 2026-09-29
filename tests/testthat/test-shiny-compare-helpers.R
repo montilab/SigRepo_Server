@@ -20,7 +20,7 @@ db_rows <- function() {
   data.frame(
     signature_id = c(1, 2, 3, 4),
     signature_name = c("alpha", "beta", "shared", "shared"),
-    direction_type = c("bi-directional", "uni-directional", "bi-directional", "bi-directional"),
+    type = c("bi-directional", "uni-directional", "bi-directional", "bi-directional"),
     stringsAsFactors = FALSE
   )
 }
@@ -53,7 +53,7 @@ facet_rows <- function() {
     signature_id = c(1, 2, 3, 4, 5),
     signature_name = c("a", "b", "c", "d", "e"),
     assay_type = c("transcriptomics", "transcriptomics", "proteomics", "transcriptomics", NA),
-    direction_type = c("bi-directional", "uni-directional", "bi-directional", "bi-directional", "bi-directional"),
+    type = c("bi-directional", "uni-directional", "bi-directional", "bi-directional", "bi-directional"),
     organism = c("Homo sapiens", "Homo sapiens", "Homo sapiens", "Mus musculus", "Homo sapiens"),
     has_difexp = c(1L, 0L, 1L, 1L, NA),
     stringsAsFactors = FALSE
@@ -69,7 +69,7 @@ test_that("facet choices are 'All' then the distinct values present, sorted", {
 
 test_that("facets combine, so a template like transcriptomics / bi-directional / Homo sapiens narrows to its rows", {
   got <- compare_facet_filter(facet_rows(), list(
-    assay_type = "transcriptomics", direction_type = "bi-directional", organism = "Homo sapiens", has_difexp = "all"
+    assay_type = "transcriptomics", type = "bi-directional", organism = "Homo sapiens", has_difexp = "all"
   ))
   expect_equal(got$signature_id, 1)
 })
@@ -179,7 +179,7 @@ test_that("uploaded signatures follow the fetched ones and report their own dire
   got <- compare_preview_list(db_rows(), signature_ids = 1, omic_signatures = uploads)
   expect_equal(got$name, c("alpha", names(uploads)))
   expect_equal(got$source, c("database", "upload"))
-  expect_equal(got$direction_type[2], uploads[[1]]$metadata$direction_type)
+  expect_equal(got$type[2], uploads[[1]]$metadata$type)
 })
 
 test_that("each previewed signature carries a hint of the labels it can be paired on", {

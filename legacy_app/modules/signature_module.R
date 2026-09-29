@@ -549,7 +549,7 @@ signature_module_server <- function(id,
       metadata <- list(
         signature_name = empty_string_to_null(input$create_signature_name),
         organism = empty_string_to_null(input$create_organism),
-        direction_type = empty_string_to_null(input$create_direction_type),
+        type = empty_string_to_null(input$create_type),
         assay_type = empty_string_to_null(input$create_assay_type),
         phenotype = empty_string_to_null(input$create_phenotype),
         covariates = empty_string_to_null(input$create_covariates),
@@ -568,7 +568,7 @@ signature_module_server <- function(id,
         others = others_list
       )
 
-      required_fields <- c("signature_name", "organism", "direction_type", "assay_type", "phenotype")
+      required_fields <- c("signature_name", "organism", "type", "assay_type", "phenotype")
       missing_fields <- required_fields[vapply(metadata[required_fields], is.null, logical(1))]
 
       if (length(missing_fields) > 0) {
@@ -819,7 +819,7 @@ signature_module_server <- function(id,
           "visibility",
           "organism",
           "phenotype",
-          "direction_type",
+          "type",
           "date_created"
         ),
         names(basket_df)
@@ -1210,8 +1210,8 @@ signature_module_server <- function(id,
               options = list(create = TRUE)
             ),
             selectizeInput(
-              ns("create_direction_type"),
-              "Direction Type",
+              ns("create_type"),
+              "Direction",
               choices = c("bi-directional", "up", "down"),
               selected = "bi-directional",
               options = list(create = TRUE)
