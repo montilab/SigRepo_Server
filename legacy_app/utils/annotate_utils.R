@@ -286,9 +286,10 @@ annotate_build_background <- function(mode = "default", number = NULL, genes_tex
 
 # ---- genesets -------------------------------------------------------------------
 
-# MSigDB collections the picker offers. Human collections are offered for every
-# species (msigdbr maps them to orthologs); the mouse-native ones only for
-# Mus musculus, where SigRepo::getHypeRGenesets() reads the mouse database.
+# The MSigDB collections the picker knows, with their labels. It offers the
+# ones this server has cached for the organism and does not withhold; see
+# annotate_msigdb_offered(). The mouse-native ones are for Mus musculus only,
+# where SigRepo::getHypeRGenesets() reads the mouse database.
 ANNOTATE_MSIGDB_COLLECTIONS <- base::data.frame(
   collection = c(
     "H", "C1", base::rep("C2", 8), base::rep("C3", 4), base::rep("C4", 3), base::rep("C5", 4), "C6", base::rep("C7", 2), "C8",
@@ -312,11 +313,12 @@ ANNOTATE_MSIGDB_COLLECTIONS <- base::data.frame(
   stringsAsFactors = FALSE
 )
 
-# What the picker does not offer, for now: a whole collection ("C2") or one
-# subcollection ("C5/HPO"). These are too large for the servers the tab runs
-# on. A run happens inside the one R process every visitor shares, and R does
-# not hand memory back, so the cost is the app's, not the session's. Measured
-# in montilab/sigrepo:dev, one signature, hypergeometric, from 1.4 GB:
+# What the picker does not offer even when it is cached, for now: a whole
+# collection ("C2") or one subcollection ("C5/HPO"). These are too large for
+# the servers the tab runs on. A run happens inside the one R process every
+# visitor shares, and R does not hand memory back, so the cost is the app's,
+# not the session's. Measured in montilab/sigrepo:dev, one signature,
+# hypergeometric, from 1.4 GB:
 #
 #   H          50 genesets    3 s   1.5 GB
 #   C5 GO:CC   1,080         21 s   2.3 GB
@@ -326,28 +328,41 @@ ANNOTATE_MSIGDB_COLLECTIONS <- base::data.frame(
 #   C5 GO:BP   7,538         the process was killed for memory
 #
 # Take an entry out to offer it again.
-ANNOTATE_MSIGDB_WITHHELD <- c("C2", "C5/HPO", "C5/GO:BP")
+ANNOTATE_MSIGDB_WITHHELD <- c("C2", "C5")
 
-# The rows of ANNOTATE_MSIGDB_COLLECTIONS the picker offers.
-annotate_msigdb_offered <- function() {
+# The rows of ANNOTATE_MSIGDB_COLLECTIONS the picker offers for a species:
+# cached on this server for that species, and not withheld. Offering only what
+# is cached keeps a choice from ending in "not in this server's MSigDB cache";
+# the collections the cache builder does not produce, which is most of them,
+# were offered and could not load.
+annotate_msigdb_offered <- function(species, cache_dir = annotate_msigdb_cache_dir()) {
   rows <- ANNOTATE_MSIGDB_COLLECTIONS
+  species <- species %||% ""
+  if (!base::nzchar(species) || base::nrow(rows) == 0) {
+    return(rows[0, , drop = FALSE])
+  }
   withheld <- rows$collection %in% ANNOTATE_MSIGDB_WITHHELD |
     base::paste(rows$collection, rows$subcollection, sep = "/") %in% ANNOTATE_MSIGDB_WITHHELD
-  rows[!withheld, , drop = FALSE]
+  for_species <- !rows$mouse_only | base::identical(species, "Mus musculus")
+  cached <- base::file.exists(base::mapply(
+    function(collection, subcollection) msigdb_cache_file(cache_dir, species, collection, subcollection),
+    rows$collection, rows$subcollection
+  ))
+  rows[!withheld & for_species & cached, , drop = FALSE]
 }
 
-# Collection dropdown choices for a species, label -> collection.
-annotate_msigdb_collections <- function(species) {
-  rows <- annotate_msigdb_offered()
-  rows <- rows[!rows$mouse_only | base::identical(species, "Mus musculus"), , drop = FALSE]
+# Collection dropdown choices for a species, label -> collection. Empty when
+# this server has nothing cached for it.
+annotate_msigdb_collections <- function(species, cache_dir = annotate_msigdb_cache_dir()) {
+  rows <- annotate_msigdb_offered(species, cache_dir)
   rows <- rows[!base::duplicated(rows$collection), , drop = FALSE]
   stats::setNames(rows$collection, rows$label)
 }
 
-# Subcollections of a collection; "" alone when it has none.
-annotate_msigdb_subcollections <- function(collection) {
-  rows <- annotate_msigdb_offered()
-  subs <- rows$subcollection[rows$collection == collection]
+# Subcollections of a collection offered for a species; "" alone when it has none.
+annotate_msigdb_subcollections <- function(collection, species, cache_dir = annotate_msigdb_cache_dir()) {
+  rows <- annotate_msigdb_offered(species, cache_dir)
+  subs <- rows$subcollection[rows$collection == (collection %||% "")]
   if (base::length(subs) == 0) "" else subs
 }
 
@@ -378,6 +393,12 @@ annotate_load_msigdb <- function(species, collection, subcollection = "", clean 
                                  allow_fetch = runtime_msigdb_fetch_allowed(),
                                  fetcher = SigRepo::getHypeRGenesets) {
   subcollection <- subcollection %||% ""
+  if (!base::nzchar(collection %||% "")) {
+    base::stop(base::sprintf(
+      "No MSigDB collection is cached on this server for %s. Load custom genesets instead.",
+      species
+    ), call. = FALSE)
+  }
   name <- if (base::nzchar(subcollection)) base::paste0(collection, ".", subcollection) else collection
   cache_file <- msigdb_cache_file(cache_dir, species, collection, subcollection)
   cached <- load_cached_msigdb_genesets(cache_dir, species, collection, subcollection)

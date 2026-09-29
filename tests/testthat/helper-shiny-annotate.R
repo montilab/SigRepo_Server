@@ -19,6 +19,16 @@ load_annotate_app <- function() {
   }
 }
 
+# A cache directory holding an (empty) file for each "collection/subcollection"
+# named, for one species.
+annotate_fixture_cache <- function(dir, species, entries) {
+  for (entry in entries) {
+    parts <- strsplit(entry, "/", fixed = TRUE)[[1]]
+    saveRDS(list(), msigdb_cache_file(dir, species, parts[1], if (length(parts) > 1) parts[2] else ""))
+  }
+  dir
+}
+
 # The tab needs the overhauled hypeR client (SigRepo branch HypeR-Review): run
 # the tests with SIGREPO_DIR pointing at it, loaded through pkgload. It needs
 # the version where organism and test are required and the ranked tests always

@@ -102,6 +102,43 @@ test_that("changing the organism drops loaded MSigDB genesets but keeps custom o
   })
 })
 
+test_that("only a collection the picker offers is asked for", {
+  # The dropdown can hold a value it no longer offers: the last organism's
+  # collection after a change of organism, or anything a browser sends. What
+  # is asked of the loader is checked against what is offered, so a withheld
+  # collection cannot be loaded by any route.
+  skip_without_hyper_client()
+  dir <- tempfile("msigdb-cache-")
+  dir.create(dir)
+  annotate_fixture_cache(dir, "Homo sapiens", c("H", "C2/CGP", "C3/TFT:GTRD"))
+  withr::local_envvar(MSIGDB_CACHE_DIR = dir)
+  asked <- list()
+  recording_loader <- function(request) {
+    asked[[length(asked) + 1]] <<- request
+    fixture_loader(request)
+  }
+  ask <- function(species, collection, subcollection) {
+    run_annotate_module(args = list(geneset_loader = recording_loader), {
+      session$setInputs(species = .(species))
+      session$setInputs(geneset_source = "msigdb", collection = .(collection), subcollection = .(subcollection),
+                        load_genesets = 1)
+    })
+    asked[[length(asked)]][c("species", "collection", "subcollection")]
+  }
+
+  expect_identical(ask(species = "Homo sapiens", collection = "H", subcollection = ""),
+                   list(species = "Homo sapiens", collection = "H", subcollection = ""))
+  expect_identical(ask(species = "Homo sapiens", collection = "C3", subcollection = "TFT:GTRD"),
+                   list(species = "Homo sapiens", collection = "C3", subcollection = "TFT:GTRD"))
+  # cached, but withheld
+  expect_identical(ask(species = "Homo sapiens", collection = "C2", subcollection = "CGP")$collection, "")
+  # offered for another organism
+  expect_identical(ask(species = "Rattus norvegicus", collection = "H", subcollection = "")$collection, "")
+  # a subcollection that is not cached
+  expect_identical(ask(species = "Homo sapiens", collection = "C3", subcollection = "MIR:MIRDB"),
+                   list(species = "Homo sapiens", collection = "", subcollection = ""))
+})
+
 test_that("gene lists are checked against the test before a run", {
   skip_without_hyper_client()
   run_annotate_module(args = list(geneset_loader = fixture_loader), {

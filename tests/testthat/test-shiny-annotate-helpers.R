@@ -110,23 +110,58 @@ test_that("invalid backgrounds are errors the tab can show", {
 
 # ---- genesets -------------------------------------------------------------------------
 
-test_that("the MSigDB picker offers mouse collections only for mouse", {
-  human <- annotate_msigdb_collections("Homo sapiens")
-  mouse <- annotate_msigdb_collections("Mus musculus")
-  expect_true(all(c("H", "C5") %in% human))
-  # C2 is withheld: one run against C2:CGP took the Shiny process from 1.6 GB
-  # to 3.8 GB, more than the servers the tab runs on can give it.
-  expect_false("C2" %in% human)
-  expect_false("C2" %in% annotate_msigdb_collections("Mus musculus"))
-  # Two C5 subcollections are larger still and are withheld on their own; the
-  # rest of C5 stays.
-  expect_identical(annotate_msigdb_subcollections("C5"), c("GO:CC", "GO:MF"))
-  expect_identical(annotate_msigdb_subcollections("C2"), "")
-  expect_identical(ANNOTATE_MSIGDB_WITHHELD, c("C2", "C5/HPO", "C5/GO:BP"))
-  expect_false(any(c("MH", "M2") %in% human))
-  expect_true(all(c("H", "MH", "M5") %in% mouse))
-  expect_identical(annotate_msigdb_subcollections("H"), "")
-  expect_identical(annotate_msigdb_subcollections("M5"), c("GO:BP", "GO:CC", "GO:MF", "MPT"))
+test_that("the MSigDB picker offers what this server has cached, and nothing else", {
+  dir <- tempfile("msigdb-cache-")
+  dir.create(dir)
+  annotate_fixture_cache(dir, "Homo sapiens", c("H", "C1", "C3/TFT:GTRD", "C3/MIR:MIRDB"))
+  annotate_fixture_cache(dir, "Mus musculus", c("H", "MH", "M5/GO:CC"))
+
+  # Offered in the order of the collection table, labelled as it labels them.
+  expect_identical(
+    annotate_msigdb_collections("Homo sapiens", cache_dir = dir),
+    c("Hallmark (H)" = "H", "Positional (C1)" = "C1", "Regulatory target (C3)" = "C3")
+  )
+  expect_identical(
+    unname(annotate_msigdb_collections("Mus musculus", cache_dir = dir)),
+    c("H", "MH", "M5")
+  )
+
+  # A subcollection is offered for the organism it is cached for.
+  expect_identical(annotate_msigdb_subcollections("C3", "Homo sapiens", cache_dir = dir), c("MIR:MIRDB", "TFT:GTRD"))
+  expect_identical(annotate_msigdb_subcollections("M5", "Mus musculus", cache_dir = dir), "GO:CC")
+  expect_identical(annotate_msigdb_subcollections("H", "Homo sapiens", cache_dir = dir), "")
+  expect_identical(annotate_msigdb_subcollections("C3", "Mus musculus", cache_dir = dir), "")
+
+  # The mouse database's collections are for mouse, even if a file says otherwise.
+  annotate_fixture_cache(dir, "Homo sapiens", "MH")
+  expect_false("MH" %in% annotate_msigdb_collections("Homo sapiens", cache_dir = dir))
+})
+
+test_that("an organism with nothing cached is offered nothing", {
+  dir <- tempfile("msigdb-cache-")
+  dir.create(dir)
+  annotate_fixture_cache(dir, "Homo sapiens", "H")
+
+  expect_length(annotate_msigdb_collections("Rattus norvegicus", cache_dir = dir), 0)
+  expect_length(annotate_msigdb_collections("Homo sapiens", cache_dir = tempfile("no-such-cache-")), 0)
+  expect_error(
+    annotate_load_msigdb("Rattus norvegicus", "", "", cache_dir = dir, allow_fetch = FALSE),
+    "No MSigDB collection is cached on this server for Rattus norvegicus"
+  )
+})
+
+test_that("the collections too large for the server are withheld even when cached", {
+  # A run happens inside the one R process every visitor shares. Against
+  # C5 GO:CC (1,080 genesets) it took that process from 1.4 GB to 2.3 GB, and
+  # against C5 HPO and GO:BP the process was killed for memory.
+  dir <- tempfile("msigdb-cache-")
+  dir.create(dir)
+  annotate_fixture_cache(dir, "Homo sapiens", c("H", "C2/CGP", "C2/CP:REACTOME", "C5/GO:BP", "C5/GO:CC", "C5/GO:MF", "C5/HPO"))
+
+  expect_identical(ANNOTATE_MSIGDB_WITHHELD, c("C2", "C5"))
+  expect_identical(unname(annotate_msigdb_collections("Homo sapiens", cache_dir = dir)), "H")
+  expect_identical(annotate_msigdb_subcollections("C5", "Homo sapiens", cache_dir = dir), "")
+  expect_identical(annotate_msigdb_subcollections("C2", "Homo sapiens", cache_dir = dir), "")
 })
 
 test_that("cached genesets load as gsets from both the list and the table form", {

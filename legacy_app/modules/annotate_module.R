@@ -48,7 +48,6 @@ annotate_module_ui <- function(id) {
   with_default <- function(label, name) {
     tagList(label, " ", span(class = "annotate-default", annotate_default_text(name)))
   }
-  runtime_fetch <- runtime_msigdb_fetch_allowed()
   geneset_sources <- c("MSigDB" = "msigdb", "Custom" = "custom")
   species_choices <- unique(c(
     "Homo sapiens", "Mus musculus",
@@ -197,14 +196,13 @@ annotate_module_ui <- function(id) {
               ns = ns,
               div(
                 class = "annotate-facets",
-                selectInput(ns("collection"), "Collection", choices = annotate_msigdb_collections("Homo sapiens"), selected = "H"),
+                selectInput(ns("collection"), "Collection", choices = annotate_collection_choices("Homo sapiens")),
                 selectInput(ns("subcollection"), "Subcollection", choices = c("None" = ""))
               ),
               helpText(
-                "Collections load from this server's MSigDB cache.",
-                if (runtime_fetch) "Anything not cached is fetched from msigdbr, which takes longer the first time." else
-                  "Collections that are not cached cannot be loaded on this server.",
-                "Mouse collections (MH, M1-M8) use the mouse database; other species map human collections to orthologs."
+                "The collections offered are the ones in this server's MSigDB cache for the organism.",
+                "The largest (C2, C5) are left out: a run against them needs more memory than the server has.",
+                "For anything else, load custom genesets."
               )
             ),
             conditionalPanel(
@@ -536,13 +534,14 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     # ---- genesets ---------------------------------------------------------------
 
     observeEvent(input$species, {
-      choices <- annotate_msigdb_collections(input$species)
+      choices <- annotate_collection_choices(input$species)
       current <- isolate(input$collection)
-      updateSelectInput(session, "collection", choices = choices, selected = if (isTRUE(current %in% choices)) current else choices[1])
+      updateSelectInput(session, "collection", choices = choices, selected = if (isTRUE(current %in% choices)) current else unname(choices)[1])
     }, ignoreInit = TRUE)
 
-    observeEvent(input$collection, {
-      subs <- annotate_msigdb_subcollections(input$collection)
+    # What is cached differs by organism, so the subcollections follow both.
+    observeEvent(list(input$species, input$collection), {
+      subs <- annotate_msigdb_subcollections(input$collection, input$species)
       choices <- if (identical(subs, "")) c("None" = "") else stats::setNames(subs, subs)
       updateSelectInput(session, "subcollection", choices = choices, selected = unname(choices)[1])
     })
@@ -563,12 +562,25 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       }
     }, ignoreInit = TRUE)
 
+    # The dropdowns can hold a value the picker no longer offers: the last
+    # organism's collection after the organism changed, or anything a browser
+    # chooses to send. Only what is offered for the organism is asked for, so
+    # a withheld collection cannot be loaded by any route.
+    offered_collection <- function() {
+      collection <- input$collection %||% ""
+      subcollection <- input$subcollection %||% ""
+      offered <- isTRUE(collection %in% annotate_msigdb_collections(input$species)) &&
+        isTRUE(subcollection %in% annotate_msigdb_subcollections(collection, input$species))
+      if (offered) list(collection = collection, subcollection = subcollection) else list(collection = "", subcollection = "")
+    }
+
     geneset_request <- function() {
       source <- input$geneset_source %||% "msigdb"
+      picked <- offered_collection()
       switch(
         source,
-        msigdb = list(source = source, species = input$species, collection = input$collection,
-                      subcollection = input$subcollection %||% "", clean = isTRUE(input$clean)),
+        msigdb = list(source = source, species = input$species, collection = picked$collection,
+                      subcollection = picked$subcollection, clean = isTRUE(input$clean)),
         custom = list(source = source, file = input$custom_file, name = input$custom_name,
                       genes = input$custom_genes, clean = isTRUE(input$clean))
       )
@@ -1182,6 +1194,13 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
 
 # Load Step 2's genesets for real: the MSigDB cache (or msigdbr), or custom
 # files and text.
+# The collection dropdown for a species. With nothing cached for it the one
+# choice says so, and loading it explains what to do instead.
+annotate_collection_choices <- function(species) {
+  choices <- annotate_msigdb_collections(species)
+  if (length(choices) == 0) c("None cached for this organism" = "none") else choices
+}
+
 annotate_default_geneset_loader <- function(request) {
   switch(
     request$source,
