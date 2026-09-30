@@ -9,10 +9,12 @@
 --
 -- `chemical_name` is dropped. It is a reference column no code has ever read
 -- or written, and keeping it would leave a migrated database different from a
--- fresh one.
+-- fresh one. It is dropped only while it holds nothing: a value someone put
+-- there by hand is still a value, so if any row has one this migration stops
+-- and says so instead of losing it.
 --
 -- Idempotent: each column and index is added only if absent, and
--- `chemical_name` is dropped only if present.
+-- `chemical_name` is dropped only if present and empty.
 
 SET @precondition_sql := IF(
   DATABASE() IS NULL,
@@ -73,8 +75,18 @@ DEALLOCATE PREPARE stmt;
 -- when its only column goes.
 SET @has := (SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'metabolite_reference' AND COLUMN_NAME = 'chemical_name');
+-- Counted through a prepared statement, because a plain SELECT on the column
+-- is an error on a database where it is already gone.
 SET @sql := IF(@has > 0,
-  'ALTER TABLE `metabolite_reference` DROP COLUMN `chemical_name`',
+  'SELECT COUNT(*) INTO @held FROM `metabolite_reference` WHERE `chemical_name` IS NOT NULL AND `chemical_name` <> ''''',
+  'SET @held := 0');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @sql := IF(@has > 0,
+  IF(@held > 0,
+    'SELECT `metabolite_reference.chemical_name holds values; move them before this column can go` FROM `migration_blocked`',
+    'ALTER TABLE `metabolite_reference` DROP COLUMN `chemical_name`'),
   'DO 0');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;

@@ -145,6 +145,9 @@ else
   bad "dna_binding_sites row (rc=$RC, value now '$KEPT')"; printf '%s\n' "$OUT" | tail -5
 fi
 
+# The 2026-07-07 shape: PRIMARY KEY (signature_id, group_label, probe_id).
+GROUPED=$(git -C "$ROOT" log --format=%h --abbrev=8 -1 12ed4be1 2>/dev/null)
+
 echo "--- a row holding two assay types stops the migration ---"
 
 # SET columns can hold several members. Nothing in SigRepo writes more than
@@ -167,6 +170,47 @@ else
   bad "two-member row (rc=$RC, value now '$KEPT')"; printf '%s\n' "$OUT" | tail -5
 fi
 
+echo "--- a row holding an old member beside another stops the migration too ---"
+
+# 'transcriptomics,snps' contains a member that has a current equivalent and
+# one that does not need one. Rewriting the whole value to genetic_variants
+# would silently drop transcriptomics; the migration must stop instead.
+fresh_db "$OLD"
+schema_at "$GROUPED" > "$WORK/schema.sql"
+db_load "$OLD" < "$WORK/schema.sql"
+db_load "$OLD" <<'SQL'
+SET FOREIGN_KEY_CHECKS=0;
+INSERT INTO signature_feature_set
+  (signature_id, feature_id, probe_id, score, group_label, assay_type, sig_feature_hashkey)
+VALUES (1, 10, 'p10', 1.0, 'All Features', 'transcriptomics,snps', 'h1');
+SQL
+OUT=$(bash "$MIGRATE" "${SCRIPT_ARGS[@]}" 2>&1); RC=$?
+KEPT=$(db_sql "$OLD" "SELECT assay_type FROM signature_feature_set")
+if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "FAILED   2026-08-26-assay-type-genetic-variants.sql" \
+   && [ "$KEPT" = "transcriptomics,snps" ]; then
+  ok "the run stops and the row still holds both members"
+else
+  bad "member beside snps (rc=$RC, value now '$KEPT')"; printf '%s\n' "$OUT" | tail -5
+fi
+
+echo "--- a chemical_name that holds data stops the metabolite migration ---"
+
+# The column is dropped because no code ever read it; a value someone put
+# there by hand is still a value, and dropping it would lose it silently.
+METABOLITE=$(git -C "$ROOT" log --format=%h --abbrev=8 -1 ea7c3522 2>/dev/null)
+fresh_db "$OLD"
+schema_at "$METABOLITE" > "$WORK/schema.sql"
+db_load "$OLD" < "$WORK/schema.sql"
+db_sql "$OLD" "INSERT INTO metabolite_reference (chemical_name, version, metabolite_hashkey) VALUES ('glucose', 1, 'm1')"
+OUT=$(bash "$MIGRATE" "${SCRIPT_ARGS[@]}" 2>&1); RC=$?
+KEPT=$(db_sql "$OLD" "SELECT chemical_name FROM metabolite_reference")
+if [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q "FAILED   2026-08-25-metabolite-reference-columns.sql" \
+   && [ "$KEPT" = "glucose" ]; then
+  ok "the run stops and the column and its value are still there"
+else
+  bad "chemical_name with data (rc=$RC, value now '$KEPT')"; printf '%s\n' "$OUT" | tail -5
+fi
+
 echo "--- a key change interrupted half way finishes on a re-run ---"
 
 # DDL commits statement by statement, so a dropped connection can leave the
@@ -186,8 +230,6 @@ fi
 
 echo "--- a feature repeated under one probe stops the key change ---"
 
-# The 2026-07-07 shape: PRIMARY KEY (signature_id, group_label, probe_id).
-GROUPED=$(git -C "$ROOT" log --format=%h --abbrev=8 -1 12ed4be1 2>/dev/null)
 fresh_db "$OLD"
 schema_at "$GROUPED" > "$WORK/schema.sql"
 db_load "$OLD" < "$WORK/schema.sql"

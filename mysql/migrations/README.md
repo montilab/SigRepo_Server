@@ -115,8 +115,9 @@ the commit before it no longer converges.
 
 ## When a migration stops on the data
 
-Two migrations can refuse a database because of what is stored in it. In both
-cases nothing has been changed by that migration, and the fix is in the data.
+Three migrations can refuse a database because of what is stored in it. In
+every case nothing has been changed by that migration, and the fix is in the
+data.
 
 **signature_feature_set duplicates.**
 `2026-09-13-signature-feature-set-keys.sql` stops with "signature_feature_set
@@ -138,9 +139,21 @@ migrations again.
 **An assay type with no equivalent.**
 `2026-08-26-assay-type-genetic-variants.sql` stops with "holds an assay_type
 with no current equivalent" when a row's `assay_type` is `dna_binding_sites`,
-which the first schema allowed and no later one does. Those signatures cannot
-be represented in the current schema; they have to be removed or re-uploaded
-under a current assay type before the migration can finish.
+which the first schema allowed and no later one does, or holds more than one
+member (a `SET` allows `transcriptomics,snps`; nothing in SigRepo writes
+that). Those signatures cannot be represented in the current schema; they
+have to be removed or re-uploaded under a current assay type before the
+migration can finish. Find them with
+`SELECT signature_id, assay_type FROM signatures WHERE assay_type NOT IN
+('transcriptomics','proteomics','metabolomics','methylomics','genetic_variants')`,
+and the same on `signature_feature_set`.
+
+**A `chemical_name` that holds values.**
+`2026-08-25-metabolite-reference-columns.sql` drops that column, which no
+code has ever read, but only while it is empty. If it stops with
+"chemical_name holds values", someone filled the column by hand; copy the
+values wherever they belong (`refmet_name`, most likely), set the column to
+NULL, and run the migrations again.
 
 ## Rolling back
 

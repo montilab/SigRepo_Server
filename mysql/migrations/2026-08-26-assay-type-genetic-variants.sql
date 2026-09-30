@@ -9,10 +9,13 @@
 --   since              ..., 'genetic_variants'
 --
 -- The first four members never changed. 'snps' and 'genetic_variations' both
--- mean what is now 'genetic_variants', so rows holding either are rewritten.
--- 'dna_binding_sites' has no equivalent: if any row holds it, this migration
--- stops before changing the member list and says so, rather than let MySQL
--- truncate the value to an empty string.
+-- mean what is now 'genetic_variants', so a row holding exactly one of them
+-- is rewritten. Anything else outside the final list stops the migration
+-- before the member list changes: 'dna_binding_sites', which has no
+-- equivalent, and a value with more than one member (SET columns allow it;
+-- nothing in SigRepo writes one), which is not something to guess a meaning
+-- for. Stopping is what keeps MySQL from truncating such a value to an
+-- empty string, and this file from quietly dropping one of its members.
 --
 -- mysql/migrations/README.md warns against restating a SET definition by
 -- hand, because the repository and a deployed table have disagreed on one
@@ -53,7 +56,7 @@ DEALLOCATE PREPARE stmt;
 SET @sql := IF(@cur = @final,
   'DO 0',
   'UPDATE `signatures` SET `assay_type` = ''genetic_variants''
-    WHERE FIND_IN_SET(''snps'', `assay_type`) > 0 OR FIND_IN_SET(''genetic_variations'', `assay_type`) > 0');
+    WHERE `assay_type` IN (''snps'', ''genetic_variations'')');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -86,7 +89,7 @@ DEALLOCATE PREPARE stmt;
 SET @sql := IF(@cur = @final,
   'DO 0',
   'UPDATE `signature_feature_set` SET `assay_type` = ''genetic_variants''
-    WHERE FIND_IN_SET(''snps'', `assay_type`) > 0 OR FIND_IN_SET(''genetic_variations'', `assay_type`) > 0');
+    WHERE `assay_type` IN (''snps'', ''genetic_variations'')');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
