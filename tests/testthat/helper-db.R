@@ -49,6 +49,26 @@ skip_if_no_test_db <- function() {
   )
 }
 
+# Tests that call reset_db_tables() or generate_db_schema() tear down every
+# table in the test database, which would break the other test-*.R files that
+# depend on tests/testthat/fixtures/seed.sql already being loaded (test files
+# run alphabetically in the same session). Reseed after each destructive
+# assertion so the database is left as the test file found it. The caller must
+# have sourced api/lib/schema_migrations.R and api/lib/database_admin.R.
+reseed_test_db <- function() {
+  sigrepo_server_path <- Sys.getenv("SIGREPO_SERVER_DIR", unset = testthat::test_path("../.."))
+  generate_db_schema(sigrepo_server_path)
+
+  conn <- db_connect_local()
+  on.exit(DBI::dbDisconnect(conn))
+  lines <- readLines(testthat::test_path("fixtures/seed.sql"))
+  lines <- lines[!grepl("^\\s*--", lines)]
+  seed_sql <- paste(lines, collapse = "\n")
+  for (stmt in Filter(nzchar, trimws(strsplit(seed_sql, ";")[[1]]))) {
+    DBI::dbGetQuery(conn, stmt)
+  }
+}
+
 # api/lib/common.R closes the pool it replaces each time a test file sources it
 # again, which leaves the last file's pool open. Close that one when the run
 # ends, so its maintenance task does not outlive the suite (issue #81).

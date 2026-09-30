@@ -13,6 +13,9 @@ on:
       - "api/**"
       - "mcp/**"
       - "mysql/schema/**"
+      - "mysql/migrations/**"
+      - "mysql/expected_schema.tsv"
+      - "scripts/**"
       - "tests/**"
       - "DESCRIPTION"
       - "install_r_packages.R"
@@ -180,6 +183,15 @@ jobs:
       - name: Seed test fixtures
         run: mysql -h"$DB_HOST" -uroot -psigrepo_root_pw sigrepo_test < tests/testthat/fixtures/seed.sql
 
+      # The schema was loaded from mysql/schema/ directly, not by /init_db, so
+      # nothing has recorded the migrations yet and the API's boot check below
+      # would refuse this database. On a current schema every migration takes
+      # its no-op branch, which this step also proves.
+      - name: Record the schema migrations
+        env:
+          MYSQL_PWD: sigrepo_root_pw
+        run: bash scripts/migrate.sh --host "$DB_HOST" --user root --database sigrepo_test
+
       - name: Run testthat
         run: testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
         shell: Rscript {0}
@@ -229,3 +241,39 @@ jobs:
       - name: Show MCP server log on failure
         if: failure()
         run: cat /tmp/mcp.log || true
+
+  # The migrations, which need no R. On the runner, not in the image: the
+  # history test needs git and the full history.
+  shell-tests:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: sigrepo_test
+          MYSQL_ROOT_PASSWORD: sigrepo_root_pw
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -psigrepo_root_pw"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      MYSQL_PWD: sigrepo_root_pw
+    steps:
+      - name: Checkout SigRepo_Server with its history
+        uses: actions/checkout@v4
+        with:
+          # test_history_upgrade.sh rebuilds every schema this repository has
+          # shipped, so it needs every commit that touched mysql/schema/.
+          fetch-depth: 0
+
+      - name: The migration runner
+        run: bash tests/shell/test_migrate.sh --host 127.0.0.1 --user root
+
+      - name: Every historical schema migrates to the current one
+        run: bash tests/shell/test_history_upgrade.sh --host 127.0.0.1 --user root
+
+      - name: mysql/expected_schema.tsv is current
+        run: bash tests/shell/test_expected_schema.sh --host 127.0.0.1 --user root
