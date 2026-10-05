@@ -1,0 +1,305 @@
+/* ============================================================================
+   Home tab, styled to match the React dashboard.
+
+   Tokens and rules are copied from web/src/index.css and web/src/App.css
+   (.page-titlebar, .stat-card, .card, .legend, .page-dash) and scoped under
+   .sr-dash so they override Bootstrap 3 inside navbarPage without touching
+   the other tabs. Class names are kept the same as the React ones so the two
+   files can be diffed.
+   ========================================================================== */
+
+.sr-dash {
+  /* Surfaces */
+  --bg: #eaf1fb;
+  --surface: #ffffff;
+  --surface-hover: #eef4fc;
+  --surface-sunken: #eef4fc;
+
+  /* Borders */
+  --border: #d7e3f2;
+  --border-strong: #bcd0e9;
+
+  /* Text */
+  --text: #101828;
+  --text-secondary: #545c6b;
+  --text-muted: #98a1b0;
+
+  /* Accent */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-subtle: #e8f0fe;
+
+  /* Data-viz palette and the matching tints for the stat-card icons */
+  --viz-1: #2563eb;
+  --viz-1-subtle: #e8f0fe;
+  --viz-2: #0ea5e9;
+  --viz-2-subtle: #e3f4fd;
+  --viz-3: #14b8a6;
+  --viz-3-subtle: #e2f7f4;
+  --viz-4: #f59e0b;
+  --viz-4-subtle: #fef3e0;
+
+  /* Radii and shadows */
+  --r-md: 8px;
+  --r-lg: 10px;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Bleed past navbarPage's container-fluid padding so the wash fills the
+     viewport like the React page background does. */
+  margin: 0 -15px;
+  padding: 50px 26px 28px;
+  min-height: calc(100vh - 70px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.sr-dash *,
+.sr-dash *::before,
+.sr-dash *::after {
+  box-sizing: border-box;
+}
+.sr-dash h1,
+.sr-dash h3,
+.sr-dash p {
+  margin: 0;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.sr-dash-inner {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ---------- Thin title bar (PageHeader variant="bar") ---------- */
+.sr-dash .page-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 2px 2px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sr-dash .page-titlebar-text {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.sr-dash .page-titlebar-text h1 {
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.sr-dash .page-titlebar-sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.sr-dash .page-titlebar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- Buttons (.btn-primary from App.css) ----------
+   Shiny's actionButton adds Bootstrap's .btn.btn-default, so the selectors
+   here carry enough weight to win over it. */
+.sr-dash .btn.sr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: none;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.sr-dash .btn.sr-btn-primary,
+.sr-dash .btn.sr-btn-primary:focus,
+.sr-dash .btn.sr-btn-primary:active {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: var(--shadow-xs);
+  outline: none;
+}
+.sr-dash .btn.sr-btn-primary:hover {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
+.sr-dash .btn.sr-btn-primary:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* ---------- Stat cards ---------- */
+.sr-dash .stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.sr-dash .stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-xs);
+}
+.sr-dash .stat-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sr-dash .stat-card-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.sr-dash .stat-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 13px;
+}
+/* Cycle the icons through the viz palette so the four stats read as
+   distinct categories, as on the React page. */
+.sr-dash .stat-row .stat-card:nth-child(4n + 1) .stat-card-icon {
+  background: var(--viz-1-subtle);
+  color: var(--viz-1);
+}
+.sr-dash .stat-row .stat-card:nth-child(4n + 2) .stat-card-icon {
+  background: var(--viz-2-subtle);
+  color: var(--viz-2);
+}
+.sr-dash .stat-row .stat-card:nth-child(4n + 3) .stat-card-icon {
+  background: var(--viz-3-subtle);
+  color: var(--viz-3);
+}
+.sr-dash .stat-row .stat-card:nth-child(4n + 4) .stat-card-icon {
+  background: var(--viz-4-subtle);
+  color: var(--viz-4);
+}
+.sr-dash .stat-card-value {
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* ---------- Card ---------- */
+.sr-dash .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.sr-dash .card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+.sr-dash .card-title {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.sr-dash .card-subtitle {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.sr-dash .card-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---------- Chart row ---------- */
+.sr-dash .dash-charts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.sr-dash .dash-chart {
+  display: flex;
+  flex-direction: column;
+}
+.sr-dash .chart-fill .shiny-plot-output {
+  width: 100% !important;
+}
+.sr-dash .chart-fill img {
+  max-width: 100%;
+}
+
+/* ---------- Legend ---------- */
+.sr-dash .legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.sr-dash .legend-compact {
+  flex-shrink: 0;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.sr-dash .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.sr-dash .legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.sr-dash .legend-label {
+  flex: 1;
+  color: var(--text-secondary);
+}
+.sr-dash .legend-value {
+  font-weight: 650;
+  color: var(--text);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1080px) {
+  .sr-dash .stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 1040px) {
+  .sr-dash .dash-charts {
+    grid-template-columns: 1fr;
+  }
+}
