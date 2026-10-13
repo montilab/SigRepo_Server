@@ -96,6 +96,30 @@ prettify_colnames <- function(columns) {
   labels
 }
 
+#' One display value from a one-row frame, with a default for anything missing.
+#'
+#' The Signature, Collection and Browsing tabs show the selected row's fields
+#' in summary tiles; a NULL frame, a missing column, NA or "" all read as the
+#' default rather than as an empty tile.
+#'
+#' @param df A one-row data.frame, or NULL.
+#' @param field The column to read.
+#' @param default What to show when there is nothing to show.
+#'
+#' @return A string.
+field_value <- function(df, field, default = "Not available") {
+  if (is.null(df) || !field %in% names(df)) {
+    return(default)
+  }
+
+  value <- df[[field]][1]
+  if (is.null(value) || is.na(value) || identical(as.character(value), "")) {
+    return(default)
+  }
+
+  as.character(value)
+}
+
 #' DatatableFX: A Customizable DT Wrapper
 #'
 #' @param df A data frame to render in a DataTable.

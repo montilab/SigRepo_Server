@@ -14,7 +14,7 @@ source(testthat::test_path("../../api/lib/msigdb_cache.R"), local = shell_env)
 for (file in c(
   "utils/utils.R", "utils/signature_utils.R", "utils/home_utils.R", "utils/compare_utils.R",
   "utils/annotate_utils.R", "modals/manage_users_modal.R", "modals/delete_modal.R",
-  "modals/upload_modal.R", "modules/home_module.R", "modules/signature_module.R",
+  "modals/upload_modal.R", "modules/auth_module.R", "modules/home_module.R", "modules/signature_module.R",
   "modules/collection_module.R", "modules/annotate_module.R", "modules/compare_module.R",
   "modules/reference_module.R", "modules/feedback_module.R", "app_src/app_ui.R"
 )) {

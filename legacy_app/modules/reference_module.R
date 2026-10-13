@@ -93,19 +93,6 @@ reference_module_server <- function(id, user_conn_handler) {
   moduleServer(id, function(input, output, session) {
     selected_feature <- reactiveVal(NULL)
 
-    reference_field_value <- function(feature_df, field, default = "Not available") {
-      if (is.null(feature_df) || !field %in% names(feature_df)) {
-        return(default)
-      }
-
-      value <- feature_df[[field]][1]
-      if (is.null(value) || is.na(value) || identical(as.character(value), "")) {
-        return(default)
-      }
-
-      as.character(value)
-    }
-
     ref_features <- eventReactive(input$search_ref_btn, {
       selected_feature(NULL)
 
@@ -249,7 +236,7 @@ reference_module_server <- function(id, user_conn_handler) {
         div(
           class = "sr-summary-item",
           tags$strong(gsub("_", " ", tools::toTitleCase(field))),
-          tags$span(reference_field_value(feature, field))
+          tags$span(field_value(feature, field))
         )
       })
 

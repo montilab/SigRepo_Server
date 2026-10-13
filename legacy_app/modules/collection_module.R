@@ -64,19 +64,6 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
     selected_collection <- reactiveVal(NULL)
     collection_object <- reactiveVal(NULL)
 
-    collection_field_value <- function(collection_df, field, default = "Not available") {
-      if (is.null(collection_df) || !field %in% names(collection_df)) {
-        return(default)
-      }
-
-      value <- collection_df[[field]][1]
-      if (is.null(value) || is.na(value) || identical(as.character(value), "")) {
-        return(default)
-      }
-
-      as.character(value)
-    }
-
     fetch_selected_collection <- function(collection_id) {
       SigRepo::getCollection(
         conn_handler = user_conn_handler(),
@@ -168,7 +155,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         div(
           class = "sr-selected",
           tags$span(class = "sr-selected-label", "Selected collection"),
-          tags$span(class = "sr-selected-name", collection_field_value(collection_selected, "collection_name"))
+          tags$span(class = "sr-selected-name", field_value(collection_selected, "collection_name"))
         ),
         div(
           class = "sr-actions",
@@ -202,22 +189,22 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
               div(
                 class = "sr-summary-item",
                 tags$strong("Collection"),
-                tags$span(collection_field_value(collection_selected, "collection_name"))
+                tags$span(field_value(collection_selected, "collection_name"))
               ),
               div(
                 class = "sr-summary-item",
                 tags$strong("Owner"),
-                tags$span(collection_field_value(collection_selected, "user_name"))
+                tags$span(field_value(collection_selected, "user_name"))
               ),
               div(
                 class = "sr-summary-item",
                 tags$strong("Visibility"),
-                tags$span(collection_field_value(collection_selected, "visibility"))
+                tags$span(field_value(collection_selected, "visibility"))
               ),
               div(
                 class = "sr-summary-item",
                 tags$strong("Signatures"),
-                tags$span(collection_field_value(collection_selected, "signature_count", "0"))
+                tags$span(field_value(collection_selected, "signature_count", "0"))
               )
             ),
             div(
@@ -234,22 +221,22 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
           div(
             class = "sr-summary-item",
             tags$strong("Collection"),
-            tags$span(collection_field_value(collection_selected, "collection_name"))
+            tags$span(field_value(collection_selected, "collection_name"))
           ),
           div(
             class = "sr-summary-item",
             tags$strong("Owner"),
-            tags$span(collection_field_value(collection_selected, "user_name"))
+            tags$span(field_value(collection_selected, "user_name"))
           ),
           div(
             class = "sr-summary-item",
             tags$strong("Visibility"),
-            tags$span(collection_field_value(collection_selected, "visibility"))
+            tags$span(field_value(collection_selected, "visibility"))
           ),
           div(
             class = "sr-summary-item",
             tags$strong("Signatures"),
-            tags$span(collection_field_value(collection_selected, "signature_count", "0"))
+            tags$span(field_value(collection_selected, "signature_count", "0"))
           )
         ),
         tabsetPanel(
@@ -275,7 +262,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
           collection_selected$collection_id[[1]],
           vapply(
             names(collection_selected)[names(collection_selected) != "collection_id"],
-            function(field) collection_field_value(collection_selected, field),
+            function(field) field_value(collection_selected, field),
             character(1)
           )
         ),

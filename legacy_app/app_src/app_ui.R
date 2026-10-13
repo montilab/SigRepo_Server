@@ -28,65 +28,7 @@ ui <- shiny::fluidPage(
     "))
   ),
 
-  shiny::div(
-    class = "login-wrapper", id = "login-wrapper",
-
-    shiny::div(
-      class = "login-card",
-
-      shiny::div(
-        class = "login-brand",
-        tags$img(src = "images/logo.png", alt = "SigRepo"),
-        shiny::div(
-          tags$h1(class = "login-title", "Sign in"),
-          shiny::p(class = "login-sub", "SigRepo signature repository")
-        )
-      ),
-
-      tags$form(
-        class = "login-form",
-
-        # Enter in either field clicks the button: login_keypress() in app.js
-        # reads the inline handler's `event`.
-        shiny::div(
-          class = "login-field",
-          tags$label(class = "login-label", `for` = "username", "Username"),
-          shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(event)' placeholder='Enter username'>")
-        ),
-
-        shiny::div(
-          class = "login-field",
-          tags$label(class = "login-label", `for` = "password", "Password"),
-          shiny::div(
-            class = "login-password",
-            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(event)' placeholder='Enter password'>"),
-            shiny::HTML("<span class='login-eye' onclick='toggle_password()'>👁️</span>")
-          )
-        ),
-
-        shiny::div(
-          class = "login-message",
-          shiny::uiOutput(outputId = "login_error_message")
-        ),
-
-        shiny::div(
-          class = "login-actions",
-          shiny::actionButton(
-            inputId = "sign_in_btn",
-            class = "login-button",
-            label = "Sign in"
-          ),
-          shiny::HTML("<a href='#' id='forget_password' class='action-button'>Forgot password?</a>")
-        ),
-
-        shiny::div(
-          class = "login-links",
-          "Don't have an account? ",
-          shiny::HTML("<a href='#' id='register' class='action-button'>Register here</a>")
-        )
-      )
-    )
-  ),
+  auth_signin_ui(),
 
   shiny::div(
     id = "content-wrapper",
