@@ -62,9 +62,8 @@ if (!isTRUE(js("!!document.querySelector('#sign_in_btn')"))) {
   report_fail("no sign-in button on the page")
 }
 
-# Set the inputs directly rather than typing into them. #sign_in_btn carries an
-# inline onclick="login_keypress(e)" helper for the Enter key, which throws on a
-# plain click because there is no key event for it to read.
+# Set the inputs directly rather than typing into them: the fields are plain
+# inputs whose keypress handler only acts on Enter.
 js(sprintf(
   "Shiny.setInputValue('username', '%s', {priority:'event'});
    Shiny.setInputValue('password', '%s', {priority:'event'}); 'set'",

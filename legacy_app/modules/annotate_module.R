@@ -42,11 +42,10 @@ ANNOTATE_TEST_HELP <- list(
 
 annotate_module_ui <- function(id) {
   ns <- NS(id)
-  page_selector <- paste0("#", ns("annotate_page"))
 
   # A label with the runHypeR() default it starts at.
   with_default <- function(label, name) {
-    tagList(label, " ", span(class = "annotate-default", annotate_default_text(name)))
+    tagList(label, " ", span(class = "sr-default", annotate_default_text(name)))
   }
   geneset_sources <- c("MSigDB" = "msigdb", "Custom" = "custom")
   species_choices <- unique(c(
@@ -54,105 +53,50 @@ annotate_module_ui <- function(id) {
     tryCatch(msigdbr::msigdbr_species()$species_name, error = function(e) character())
   ))
 
-  tagList(
-    tags$style(HTML(paste0("
-      ", page_selector, " { padding-top: 28px; padding-bottom: 32px; }
-      ", page_selector, " .annotate-hero {
-        margin-bottom: 18px; padding: 24px 28px; border-radius: 14px;
-        background: linear-gradient(135deg, #0f3b63 0%, #1b5d8f 100%);
-        color: #ffffff; box-shadow: 0 10px 24px rgba(15, 59, 99, 0.18);
-      }
-      ", page_selector, " .annotate-hero h2 { margin-top: 0; margin-bottom: 8px; font-weight: 700; }
-      ", page_selector, " .annotate-hero p { margin-bottom: 0; color: rgba(255, 255, 255, 0.88); }
-      ", page_selector, " .annotate-card {
-        margin-bottom: 18px; padding: 20px 22px; border: 1px solid #d9e3ec; border-radius: 12px;
-        background: #ffffff; box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
-      }
-      ", page_selector, " .annotate-card h3, ", page_selector, " .annotate-card h4 {
-        margin-top: 0; margin-bottom: 12px; color: #17324d; font-weight: 600;
-      }
-      ", page_selector, " .annotate-step-label {
-        display: inline-block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
-        background: #e9f2f9; color: #0f4d7c; font-size: 12px; font-weight: 700;
-        letter-spacing: 0.04em; text-transform: uppercase;
-      }
-      ", page_selector, " .annotate-section + .annotate-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #e1ebf2; }
-      ", page_selector, " .annotate-muted { color: #597189; }
-      ", page_selector, " .annotate-default { color: #597189; font-size: 12px; font-weight: normal; white-space: nowrap; }
-      ", page_selector, " .annotate-facets { display: flex; gap: 10px; flex-wrap: wrap; }
-      ", page_selector, " .annotate-facets .form-group { flex: 1 1 140px; min-width: 140px; margin-bottom: 8px; }
-      ", page_selector, " .annotate-list-summary { padding: 10px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2; margin-top: 12px; }
-      ", page_selector, " .annotate-list-summary ul { margin: 6px 0 0 0; padding-left: 18px; }
-      ", page_selector, " .annotate-source { color: #597189; font-size: 12px; }
-      ", page_selector, " .annotate-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
-      ", page_selector, " .annotate-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
-      ", page_selector, " .annotate-summary-item { padding: 12px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2; }
-      ", page_selector, " .annotate-summary-item strong {
-        display: block; margin-bottom: 4px; color: #0f3b63; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
-      }
-      ", page_selector, " .annotate-summary-item span { color: #17324d; font-size: 15px; font-weight: 600; }
-      ", page_selector, " .annotate-empty { padding: 18px; border: 1px dashed #c5d5e3; border-radius: 10px; background: #f8fbfd; color: #4b647e; }
-      ", page_selector, " .annotate-message { white-space: pre-wrap; margin-bottom: 8px; }
-      ", page_selector, " .annotate-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
-      ", page_selector, " .annotate-controls .form-group { min-width: 130px; }
-      ", page_selector, " .annotate-controls .checkbox { margin-bottom: 18px; }
-      ", page_selector, " .annotate-status { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
-      ", page_selector, " .annotate-status-pending { background: #eef3f7; color: #4b647e; }
-      ", page_selector, " .annotate-status-ready { background: #e7f5ec; color: #21663c; }
-      ", page_selector, " .annotate-status-error { background: #fdecea; color: #a12622; }
-      ", page_selector, " .annotate-readiness ul { margin: 4px 0 8px 0; padding-left: 18px; }
-      ", page_selector, " .annotate-readiness .annotate-problem { color: #a12622; }
-      ", page_selector, " .annotate-readiness .annotate-note { color: #8a5a00; }
-      ", page_selector, " .annotate-readiness .annotate-ok { color: #21663c; font-weight: 600; }
-      ", page_selector, " .annotate-genes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-height: 220px; overflow-y: auto; }
-      ", page_selector, " .annotate-genes span { padding: 2px 7px; border-radius: 6px; background: #e9f2f9; color: #0f3b63; font-size: 12px; font-family: monospace; }
-      ", page_selector, " .annotate-measures { width: 100%; margin-bottom: 12px; }
-      ", page_selector, " .annotate-measures td { padding: 4px 8px 4px 0; vertical-align: top; border-bottom: 1px solid #eef3f7; }
-      ", page_selector, " .annotate-measures td:first-child { color: #597189; white-space: nowrap; }
-      ", page_selector, " .annotate-background-table { width: 100%; }
-      ", page_selector, " .annotate-background-table td { padding: 2px 8px 2px 0; vertical-align: middle; }
-      ", page_selector, " .annotate-background-table .form-group { margin-bottom: 4px; }
-      ", page_selector, " .annotate-plot-scroll { overflow-x: auto; }
-      ", page_selector, " details > summary { cursor: pointer; margin: 6px 0; }
-      ", page_selector, " .tab-content { padding-top: 16px; }
-    "))),
-
+  div(
+    id = ns("annotate_page"),
+    class = "sr-page",
     div(
-      id = ns("annotate_page"),
+      class = "sr-page-inner",
 
-      div(
-        class = "annotate-hero",
-        tags$h2("Annotate Signatures"),
-        tags$p(
-          "Enrich signatures against genesets with hypergeometric, KS or GSEA (fgsea) tests using ",
-          tags$code(style = "color: #ffffff; background: rgba(255,255,255,0.15);", "SigRepo::runHypeR()"),
-          ", then explore the results with SigRepo's hypeR plots and get the R code that reproduces them."
+      tags$header(
+        class = "page-titlebar",
+        div(
+          class = "page-titlebar-text",
+          tags$h1("Annotate signatures"),
+          span(
+            class = "page-titlebar-sub",
+            "Enrich signatures against genesets with hypergeometric, KS or GSEA (fgsea) tests using ",
+            tags$code("SigRepo::runHypeR()"),
+            ", then explore the results and get the R code that reproduces them."
+          )
         )
       ),
 
-      fluidRow(
-        column(
-          width = 8,
+      div(
+        class = "sr-columns",
+        div(
+          class = "sr-column",
 
           div(
-            class = "annotate-card",
-            span(class = "annotate-step-label", "Step 1"),
+            class = "card",
+            span(class = "sr-step", "Step 1"),
             tags$h3("Signatures"),
             radioButtons(ns("source"), "Where the signatures come from", choices = ANNOTATE_SOURCE_CHOICES, inline = TRUE),
             conditionalPanel(
               condition = "input.source == 'repository'",
               ns = ns,
-              tags$p(class = "annotate-muted", sprintf(
+              tags$p(class = "sr-muted", sprintf(
                 "Pick up to %d signatures. Picks are kept by signature, so they stay when the filters change.", ANNOTATE_MAX_SIGNATURES
               )),
               div(
-                class = "annotate-facets",
+                class = "sr-facets",
                 lapply(names(COMPARE_FACETS), function(facet) {
                   selectInput(ns(paste0("facet_", facet)), COMPARE_FACETS[[facet]], choices = c("All" = "all"))
                 })
               ),
               DT::DTOutput(ns("signature_table")),
-              div(class = "annotate-actions", actionLink(ns("clear_picks"), "Clear picked signatures", icon = icon("xmark")))
+              div(class = "sr-actions", actionLink(ns("clear_picks"), "Clear picked signatures", icon = icon("xmark")))
             ),
             conditionalPanel(
               condition = "input.source == 'upload'",
@@ -182,8 +126,8 @@ annotate_module_ui <- function(id) {
           ),
 
           div(
-            class = "annotate-card",
-            span(class = "annotate-step-label", "Step 2"),
+            class = "card",
+            span(class = "sr-step", "Step 2"),
             tags$h3("Organism and genesets"),
             selectInput(ns("species"), "Organism (required)", choices = species_choices, selected = "Homo sapiens"),
             helpText(
@@ -195,7 +139,7 @@ annotate_module_ui <- function(id) {
               condition = "input.geneset_source == 'msigdb'",
               ns = ns,
               div(
-                class = "annotate-facets",
+                class = "sr-facets",
                 selectInput(ns("collection"), "Collection", choices = annotate_collection_choices("Homo sapiens")),
                 selectInput(ns("subcollection"), "Subcollection", choices = c("None" = ""))
               ),
@@ -218,18 +162,18 @@ annotate_module_ui <- function(id) {
             checkboxInput(ns("clean"), with_default("Clean geneset labels (e.g. HALLMARK_MYC_TARGETS_V1 -> Myc Targets V1)", "msigdb_clean"),
                           value = ANNOTATE_DEFAULTS$msigdb_clean),
             div(
-              class = "annotate-actions",
+              class = "sr-actions",
               actionButton(ns("load_genesets"), "Load genesets", class = "btn-primary", icon = icon("layer-group")),
               uiOutput(ns("genesets_status"), inline = TRUE)
             )
           )
         ),
 
-        column(
-          width = 4,
+        div(
+          class = "sr-column",
           div(
-            class = "annotate-card",
-            span(class = "annotate-step-label", "Step 3"),
+            class = "card",
+            span(class = "sr-step", "Step 3"),
             tags$h3("Test"),
             selectInput(ns("test"), "Test (required)", choices = ANNOTATE_TEST_CHOICES, selected = ANNOTATE_DEFAULTS$test),
             uiOutput(ns("test_help")),
@@ -286,12 +230,12 @@ annotate_module_ui <- function(id) {
           ),
 
           div(
-            class = "annotate-card",
-            span(class = "annotate-step-label", "Step 4"),
+            class = "card",
+            span(class = "sr-step", "Step 4"),
             tags$h3("Preview and run"),
             uiOutput(ns("readiness")),
             div(
-              class = "annotate-actions",
+              class = "sr-actions",
               actionButton(ns("preview"), "Preview queries", icon = icon("list-check")),
               actionButton(ns("run"), "Run enrichment", class = "btn-primary", icon = icon("play"))
             ),
@@ -301,13 +245,13 @@ annotate_module_ui <- function(id) {
       ),
 
       div(
-        class = "annotate-card",
-        span(class = "annotate-step-label", "Results"),
+        class = "card",
+        span(class = "sr-step", "Results"),
         uiOutput(ns("run_messages")),
         conditionalPanel(
           condition = "!output.has_result",
           ns = ns,
-          div(class = "annotate-empty", "Run an enrichment to see the dot plot, enrichment curves, maps, tables and the equivalent R code.")
+          div(class = "sr-empty", "Run an enrichment to see the dot plot, enrichment curves, maps, tables and the equivalent R code.")
         ),
         conditionalPanel(
           condition = "output.has_result",
@@ -319,13 +263,13 @@ annotate_module_ui <- function(id) {
               "Dot plot",
               uiOutput(ns("dot_controls")),
               uiOutput(ns("dot_hint")),
-              div(class = "annotate-plot-scroll", plotOutput(ns("dot_plot"), height = "auto", width = "auto")),
+              div(class = "sr-plot-scroll", plotOutput(ns("dot_plot"), height = "auto", width = "auto")),
               div(
-                class = "annotate-actions",
+                class = "sr-actions",
                 downloadButton(ns("download_dots_png"), "PNG"),
                 downloadButton(ns("download_dots_pdf"), "PDF")
               ),
-              tags$h4(style = "margin-top: 18px;", "Signature key"),
+              tags$h4("Signature key"),
               DT::DTOutput(ns("signature_key"))
             ),
             tabPanel(
@@ -336,7 +280,7 @@ annotate_module_ui <- function(id) {
                 column(5, uiOutput(ns("enrichment_details")))
               ),
               div(
-                class = "annotate-actions",
+                class = "sr-actions",
                 downloadButton(ns("download_enrichment_png"), "PNG"),
                 downloadButton(ns("download_enrichment_pdf"), "PDF")
               )
@@ -359,7 +303,7 @@ annotate_module_ui <- function(id) {
               helpText("The same run and the plots as currently set, from R."),
               verbatimTextOutput(ns("r_code")),
               div(
-                class = "annotate-actions",
+                class = "sr-actions",
                 downloadButton(ns("download_result"), "Result (.rds)"),
                 downloadButton(ns("download_excel"), "Excel (hypeRToExcel)"),
                 downloadButton(ns("download_genesets"), "Genesets (.rds)"),
@@ -485,12 +429,12 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
 
     output$signature_summary <- renderUI({
       source <- input$source %||% "repository"
-      item <- function(name, detail) tags$li(name, " ", span(class = "annotate-source", detail))
+      item <- function(name, detail) tags$li(name, " ", span(class = "sr-source", detail))
       box <- function(title, items, error = NULL, message = NULL) {
         tagList(
-          if (!is.null(error)) div(class = "alert alert-danger annotate-message", error),
-          if (!is.null(message)) div(class = "alert alert-warning annotate-message", message),
-          div(class = "annotate-list-summary", strong(title), if (length(items) > 0) tags$ul(items))
+          if (!is.null(error)) div(class = "alert alert-danger sr-message", error),
+          if (!is.null(message)) div(class = "alert alert-warning sr-message", message),
+          div(class = "sr-list-summary", strong(title), if (length(items) > 0) tags$ul(items))
         )
       }
       plural <- function(n, word) sprintf("%d %s%s", n, word, if (n == 1) "" else "s")
@@ -597,11 +541,11 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     output$genesets_status <- renderUI({
       state <- genesets_state()
       if (is.null(state)) {
-        span(class = "annotate-status annotate-status-pending", icon("circle"), "No genesets loaded")
+        span(class = "sr-status sr-status-pending", icon("circle"), "No genesets loaded")
       } else if (!is.null(state$error)) {
-        span(class = "annotate-status annotate-status-error", icon("triangle-exclamation"), state$error)
+        span(class = "sr-status sr-status-error", icon("triangle-exclamation"), state$error)
       } else {
-        span(class = "annotate-status annotate-status-ready", icon("circle-check"), annotate_genesets_label(state$description))
+        span(class = "sr-status sr-status-ready", icon("circle-check"), annotate_genesets_label(state$description))
       }
     })
 
@@ -636,7 +580,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
         return(helpText("Pick or upload signatures to set a background for each one. Gene lists take a single background."))
       }
       tags$table(
-        class = "annotate-background-table",
+        class = "sr-input-table",
         lapply(seq_len(nrow(keys)), function(i) {
           mode_id <- background_input_id(keys$key[i], "mode")
           value_id <- background_input_id(keys$key[i], "value")
@@ -742,13 +686,13 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
     output$readiness <- renderUI({
       r <- readiness()
       div(
-        class = "annotate-readiness",
+        class = "sr-readiness",
         if (r$ready) {
-          div(class = "annotate-ok", icon("circle-check"), " Ready to run.")
+          div(class = "sr-ok", icon("circle-check"), " Ready to run.")
         } else {
-          tags$ul(lapply(r$problems, function(p) tags$li(class = "annotate-problem", p)))
+          tags$ul(lapply(r$problems, function(p) tags$li(class = "sr-problem", p)))
         },
-        if (length(r$notes) > 0) tags$ul(lapply(r$notes, function(n) tags$li(class = "annotate-note", n)))
+        if (length(r$notes) > 0) tags$ul(lapply(r$notes, function(n) tags$li(class = "sr-note", n)))
       )
     })
 
@@ -791,8 +735,8 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       req(state)
       tagList(
         tags$h4(style = "margin-top: 16px;", sprintf("Query preview (%s)", state$stamp)),
-        if (!is.null(state$error)) div(class = "alert alert-danger annotate-message", state$error),
-        if (length(state$warnings) > 0) div(class = "alert alert-warning", lapply(state$warnings, function(w) div(class = "annotate-message", w))),
+        if (!is.null(state$error)) div(class = "alert alert-danger sr-message", state$error),
+        if (length(state$warnings) > 0) div(class = "alert alert-warning", lapply(state$warnings, function(w) div(class = "sr-message", w))),
         if (!is.null(state$result)) {
           tagList(
             DT::DTOutput(ns("preview_info")),
@@ -859,13 +803,13 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       )
       tagList(
         if (!is.null(state$error)) {
-          div(class = "alert alert-danger annotate-message", strong("The enrichment could not run. "), state$error)
+          div(class = "alert alert-danger sr-message", strong("The enrichment could not run. "), state$error)
         },
         if (length(state$warnings) > 0) {
           div(
             class = "alert alert-warning",
             strong(sprintf("%d warning%s from runHypeR()", length(state$warnings), if (length(state$warnings) == 1) "" else "s")),
-            lapply(state$warnings, function(w) div(class = "annotate-message", w))
+            lapply(state$warnings, function(w) div(class = "sr-message", w))
           )
         },
         if (stale) {
@@ -878,9 +822,9 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       res <- result()
       req(res)
       s <- annotate_summary(res, fdr = 0.05)
-      item <- function(label, value) div(class = "annotate-summary-item", strong(label), span(value))
+      item <- function(label, value) div(class = "sr-summary-item", strong(label), span(value))
       div(
-        class = "annotate-summary-grid",
+        class = "sr-summary",
         item("Test", ANNOTATE_TEST_LABELS[[s$test]] %||% s$test),
         item("Queries", s$n_queries),
         item("Genesets", sprintf("%s: %s", s$genesets_name, format(s$n_genesets, big.mark = ","))),
@@ -929,7 +873,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       req(res)
       color_choices <- c("Significance" = "significance", if (annotate_is_ranked(res)) c("Score (NES / ES)" = "score"))
       div(
-        class = "annotate-controls",
+        class = "sr-controls",
         selectInput(ns("dot_val"), "Rank by", choices = c("FDR" = "fdr", "p-value" = "pval"),
                     selected = keep_choice(isolate(input$dot_val), c("fdr", "pval")), width = "110px"),
         numericInput(ns("dot_cutoff"), "Cutoff (≤)", value = isolate(input$dot_cutoff) %||% 0.05, min = 0, max = 1, step = 0.01, width = "100px"),
@@ -978,7 +922,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       req(!is.null(dots), nrow(dots) == 0)
       s <- dot_settings()
       cutoff <- if (identical(s$val, "fdr")) s$fdr else s$pval
-      div(class = "alert alert-info annotate-message", sprintf(
+      div(class = "alert alert-info sr-message", sprintf(
         "No geneset has %s ≤ %s in any query. Raise the cutoff (up to 1) to see the strongest genesets anyway.",
         if (identical(s$val, "fdr")) "FDR" else "p-value", format(cutoff)
       ))
@@ -1036,7 +980,7 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       genesets <- annotate_query_genesets(res, query)
       wanted <- if (identical(pick$query, query)) pick$geneset else isolate(input$enrichment_geneset)
       div(
-        class = "annotate-controls",
+        class = "sr-controls",
         selectInput(ns("enrichment_query"), "Query", choices = queries, selected = query, width = "580px"),
         selectInput(ns("enrichment_geneset"), "Geneset", choices = genesets, selected = keep_choice(wanted, genesets), width = "440px")
       )
@@ -1077,11 +1021,11 @@ annotate_module_server <- function(id, signature_db, user_conn_handler,
       stop_if_failed(details, "The enrichment details could not be computed:")
       tagList(
         tags$table(
-          class = "annotate-measures",
+          class = "sr-measures",
           lapply(seq_len(nrow(details$table)), function(i) tags$tr(tags$td(details$table$Measure[i]), tags$td(details$table$Value[i])))
         ),
         strong(sprintf("%s (%d)", details$genes_label, length(details$genes))),
-        if (length(details$genes) > 0) div(class = "annotate-genes", lapply(details$genes, tags$span))
+        if (length(details$genes) > 0) div(class = "sr-genes", lapply(details$genes, tags$span))
       )
     })
 

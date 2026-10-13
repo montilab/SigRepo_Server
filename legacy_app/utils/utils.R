@@ -1,8 +1,4 @@
-
-
-# utils/DatatableFX.R
-
-library(DT)
+# Table helpers shared by every tab: the column labeller and DatatableFX().
 
 # Raw database column names shown to users as-is until issue #95. Tables built
 # from a fixed query (the signature table) could hard-code their headers, but
@@ -98,6 +94,30 @@ prettify_colnames <- function(columns) {
   }
 
   labels
+}
+
+#' One display value from a one-row frame, with a default for anything missing.
+#'
+#' The Signature, Collection and Browsing tabs show the selected row's fields
+#' in summary tiles; a NULL frame, a missing column, NA or "" all read as the
+#' default rather than as an empty tile.
+#'
+#' @param df A one-row data.frame, or NULL.
+#' @param field The column to read.
+#' @param default What to show when there is nothing to show.
+#'
+#' @return A string.
+field_value <- function(df, field, default = "Not available") {
+  if (is.null(df) || !field %in% names(df)) {
+    return(default)
+  }
+
+  value <- df[[field]][1]
+  if (is.null(value) || is.na(value) || identical(as.character(value), "")) {
+    return(default)
+  }
+
+  as.character(value)
 }
 
 #' DatatableFX: A Customizable DT Wrapper
@@ -241,8 +261,19 @@ DatatableFX <- function(df,
       order = list(),
       fixedHeader = TRUE,
       dom = 'frtipB',
-      # colvis lets users bring back columns hidden by default.
-      buttons = c('copy', 'csv', 'excel', 'colvis'),
+      # colvis lets users bring back columns hidden by default. It opens as a
+      # titled panel laid out in columns rather than a one-column dropdown, so
+      # a table with twenty-odd columns can be read at a glance; the
+      # stylesheet draws a check mark beside each shown column.
+      buttons = list(
+        'copy', 'csv', 'excel',
+        list(
+          extend = 'colvis',
+          text = 'Columns',
+          popoverTitle = 'Columns to show',
+          collectionLayout = 'fixed columns'
+        )
+      ),
       columnDefs = column_defs
     )),
     class = "compact stripe hover nowrap",
@@ -251,43 +282,3 @@ DatatableFX <- function(df,
     escape = escape
   )))
 }
-
-# === Reusable Delete Confirmation Modal ===
-# delete_modal_server <- function(id, delete_id, delete_fn, update_trigger) {
-#   moduleServer(id, function(input, output, session) {
-#     ns <- session$ns
-#     selected_id <- reactiveVal(NULL)
-#     
-#     observeEvent(delete_id(), {
-#       req(delete_id())
-#       selected_id(delete_id())
-#       
-#       showModal(modalDialog(
-#         title = "Confirm Delete",
-#         paste("Are you sure you want to delete ID", delete_id(), "?"),
-#         footer = tagList(
-#           modalButton("Cancel"),
-#           actionButton(ns("confirm_delete"), "Delete", class = "btn-danger")
-#         )
-#       ))
-#     })
-#     
-#     observeEvent(input$confirm_delete, {
-#       req(selected_id())
-#       tryCatch({
-#         delete_fn(selected_id())
-#         showNotification("Deleted successfully.", type = "message")
-#         update_trigger(isolate(update_trigger()) + 1)
-#       }, error = function(e) {
-#         showNotification(paste("Error deleting:", e$message), type = "error")
-#       })
-#       
-#       removeModal()
-#     })
-#   })
-# }
-
-# modals 
-
-
-

@@ -72,7 +72,7 @@ recording_grants <- function(fail_for = character(0)) {
 # It runs on a private later event loop, and the DB-backed test files leave
 # pool::dbPool() maintenance tasks rescheduling themselves on the global loop,
 # so in a full test_dir() run every output read hangs (issue #81).
-run_signature_module <- function(expr, grant_fn = NULL) {
+run_signature_module <- function(expr, grant_fn = NULL, add_fn = NULL) {
   later::with_temp_loop(eval(bquote(testServer(
     signature_module_server,
     args = list(
@@ -80,8 +80,32 @@ run_signature_module <- function(expr, grant_fn = NULL) {
       user_conn_handler = reactive("user-conn"),
       signature_trigger = reactiveVal(0),
       search_user_fn = function(...) signature_user_tbl,
-      grant_fn = .(grant_fn)
+      grant_fn = .(grant_fn),
+      add_signature_fn = .(add_fn)
     ),
     .(substitute(expr))
   )), envir = parent.frame()))
+}
+
+# Whether a DataTables button list offers column visibility, whether as the
+# bare "colvis" string or as a configured list(extend = "colvis", ...).
+# Works on the R list DatatableFX() builds and on jsonlite::fromJSON() of the
+# rendered widget, where a mixed array comes back as a list.
+colvis_offered <- function(buttons) {
+  any(vapply(buttons, function(button) {
+    identical(button, "colvis") || (is.list(button) && identical(button$extend, "colvis"))
+  }, logical(1)))
+}
+
+# Records every call to an injected add function (addSignature, addCollection)
+# so a test can see what the upload handler passed, visibility included.
+recording_adds <- function() {
+  calls <- list()
+  list(
+    calls = function() calls,
+    fn = function(...) {
+      calls[[length(calls) + 1]] <<- list(...)
+      invisible(NULL)
+    }
+  )
 }

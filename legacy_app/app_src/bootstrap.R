@@ -1,31 +1,23 @@
-# app for modules
+# Loads everything the Shiny app needs, once.
+#
+# app.R sets options(sigrepo.shiny_path) and sources this file into its own
+# environment. Everything sourced here lands in that same environment, so ui
+# and server find the modules, modals and helpers without a second pass.
 
-# loading in packages
-
-#installing sigrepo_client and then validating it is the correct branch
-#devtools::install_github("montilab/SigRepo")
-#packageDescription("SigRepo")$GithubRef
-
-
-
-# R packages for building shiny dashboard
+# Shiny itself, plus DT for every table in the app.
 library(shinyjs)
 library(shiny)
 library(DT)
 
-# Package for knitting PDF
-library(rmarkdown)
-
-# Packages for API
+# httr and jsonlite post feedback to Slack; dplyr and ggplot2 are used across
+# the modules.
 library(httr)
 library(jsonlite)
-
-# Package for data cleaning, extraction and manipulation
 library(dplyr)
-
-# Package for plotting
 library(ggplot2)
 
+# Attach a package from a checkout named by an environment variable when
+# pkgload or devtools can load it, otherwise from the installed package.
 load_repo_package <- function(repo_dir, package_name, required = TRUE) {
   repo_dir <- base::Sys.getenv(repo_dir, unset = repo_dir)
 
@@ -59,116 +51,58 @@ load_repo_package <- function(repo_dir, package_name, required = TRUE) {
   )
 }
 
-# Load SigRepo package
 load_repo_package("SIGREPO_DIR", "SigRepo")
-
-# Loading OmicSignature package
 load_repo_package("OMICSIG_DIR", "OmicSignature")
-
-# # Loading hypeR package
 load_repo_package("HYPER_DIR", "hypeR")
 
-hypgem_dir <- base::Sys.getenv("HYPERGEM_DIR", unset = "")
-if (!nzchar(hypgem_dir)) {
-  sibling_hypgem <- normalizePath(
-    file.path(dirname(normalizePath(getwd())), "hypeR-GEM"),
-    mustWork = FALSE
-  )
-  if (dir.exists(sibling_hypgem)) {
-    hypgem_dir <- sibling_hypgem
-  }
+shiny_path <- base::getOption("sigrepo.shiny_path", "")
+if (!base::nzchar(shiny_path)) {
+  base::stop("bootstrap.R expects options(sigrepo.shiny_path) to be set; run the app through app.R.")
 }
+shiny_path <- base::normalizePath(shiny_path)
 
-options(sigrepo.hypergem_available = FALSE)
-options(sigrepo.hypergem_error = NULL)
+bootstrap_env <- environment()
 
-if (nzchar(hypgem_dir) && dir.exists(hypgem_dir)) {
-  hypgem_loaded <- tryCatch({
-    if (requireNamespace("pkgload", quietly = TRUE)) {
-      pkgload::load_all(path = hypgem_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
-    } else if (requireNamespace("devtools", quietly = TRUE)) {
-      devtools::load_all(path = hypgem_dir, quiet = TRUE, export_all = FALSE, helpers = FALSE)
-    } else if (requireNamespace("hypeR.GEM", quietly = TRUE)) {
-      base::library("hypeR.GEM", character.only = TRUE)
-    } else {
-      base::stop("Neither pkgload/devtools nor an installed hypeR.GEM package were available.")
-    }
-    TRUE
-  }, error = function(e) {
-    options(sigrepo.hypergem_error = conditionMessage(e))
-    FALSE
-  })
-
-  options(sigrepo.hypergem_available = hypgem_loaded)
+source_app_file <- function(...) {
+  sys.source(file.path(shiny_path, ...), envir = bootstrap_env)
 }
-
-# Package for parallel processes
-library(promises)
-library(future)
-future::plan(multisession)
-
-
-shiny_path <- if (nzchar(getOption("sigrepo.shiny_path", ""))) {
-  normalizePath(getOption("sigrepo.shiny_path"))
-} else if (file.exists(file.path(getwd(), "app_src", "bootstrap.R"))) {
-  normalizePath(getwd())
-} else if (file.exists(file.path(getwd(), "legacy_app", "app_src", "bootstrap.R"))) {
-  normalizePath(file.path(getwd(), "legacy_app"))
-} else {
-  env_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
-  if (nzchar(env_root)) {
-    file.path(normalizePath(env_root), "legacy_app")
-  } else {
-    stop("Cannot resolve Shiny app path in bootstrap.")
-  }
-}
-
-# If the resolved directory is the repo root, shift to the shiny app directory.
-if (!file.exists(file.path(shiny_path, "modules", "home_module.R")) &&
-    file.exists(file.path(shiny_path, "legacy_app", "modules", "home_module.R"))) {
-  shiny_path <- normalizePath(file.path(shiny_path, "legacy_app"))
-}
-
-options(sigrepo.shiny_path = shiny_path)
-
-bootstrap_env <- .GlobalEnv
 
 # The on-disk MSigDB cache helpers are shared with the API
 # (api/lib/msigdb_cache.R); the Annotate tab loads genesets with them.
 server_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
-if (!nzchar(server_root)) {
-  server_root <- normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
+if (!base::nzchar(server_root)) {
+  server_root <- base::normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
 }
 sys.source(file.path(server_root, "api", "lib", "msigdb_cache.R"), envir = bootstrap_env)
 
-# sourcing modules
-sys.source(file.path(shiny_path, "modules", "home_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "signature_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "collection_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "annotate_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "compare_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "reference_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "resource_module.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modules", "feedback_module.R"), envir = bootstrap_env)
+# Registration, password reset and the mail-service call are the API's
+# (api/lib/user.R); the sign-in flows call them so the form and the routes
+# behave the same.
+sys.source(file.path(server_root, "api", "lib", "user.R"), envir = bootstrap_env)
 
-# sourcing modals
-sys.source(file.path(shiny_path, "modals", "manage_users_modal.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modals", "delete_modal.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modals", "upload_modal.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "modals", "view_modal.R"), envir = bootstrap_env)
+# Helpers first, then the modals the modules open, then the modules.
+source_app_file("utils", "utils.R")
+source_app_file("utils", "signature_utils.R")
+source_app_file("utils", "home_utils.R")
+source_app_file("utils", "compare_utils.R")
+source_app_file("utils", "annotate_utils.R")
+source_app_file("utils", "auth_utils.R")
 
-# testing module
-sys.source(file.path(shiny_path, "modules", "test_module.R"), envir = bootstrap_env)
+source_app_file("modals", "manage_users_modal.R")
+source_app_file("modals", "delete_modal.R")
+source_app_file("modals", "upload_modal.R")
 
-# utils
-sys.source(file.path(shiny_path, "utils", "utils.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "utils", "compare_utils.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "utils", "annotate_utils.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "utils", "signature_utils.R"), envir = bootstrap_env)
-sys.source(file.path(shiny_path, "utils", "validateUser.R"), envir = bootstrap_env)
+source_app_file("modules", "auth_module.R")
+source_app_file("modules", "home_module.R")
+source_app_file("modules", "signature_module.R")
+source_app_file("modules", "collection_module.R")
+source_app_file("modules", "annotate_module.R")
+source_app_file("modules", "compare_module.R")
+source_app_file("modules", "reference_module.R")
+source_app_file("modules", "feedback_module.R")
 
-# default connection handler for root, DONT USE IN MAIN APP
-
+# The server's own connection, used only to look users up before and during
+# sign-in. Every other call goes through the per-user handler a login creates.
 conn_handler <- SigRepo::newConnHandler(
   dbname = base::Sys.getenv("DB_NAME"),
   host = base::Sys.getenv("DB_HOST"),
@@ -177,3 +111,10 @@ conn_handler <- SigRepo::newConnHandler(
   password = base::Sys.getenv("DB_PASSWORD"),
   api_host = base::Sys.getenv("API_HOST")
 )
+
+# Without API_HOST the per-user handlers fall back to the SigRepo client's own
+# default address, so every API call from this app would leave this
+# deployment. The installer and compose files set it; say so if it is missing.
+if (!base::nzchar(base::Sys.getenv("API_HOST"))) {
+  base::message("API_HOST is not set: API calls from the Shiny app will go to the SigRepo client's default address. Set API_HOST (and API_PORT) in the app's .Renviron.")
+}

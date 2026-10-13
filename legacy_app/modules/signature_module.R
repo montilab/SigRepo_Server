@@ -2,291 +2,54 @@
 
 signature_module_ui <- function(id) {
   ns <- NS(id)
-  page_selector <- paste0("#", ns("signature_page"))
 
-  tagList(
-    tags$style(HTML(paste0("
-      ", page_selector, " {
-        padding-top: 28px;
-        padding-bottom: 32px;
-      }
-
-      ", page_selector, " .signature-hero {
-        margin-bottom: 18px;
-        padding: 22px 26px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #143a5a 0%, #245f86 100%);
-        color: #ffffff;
-        box-shadow: 0 10px 24px rgba(20, 58, 90, 0.16);
-      }
-
-      ", page_selector, " .signature-hero h2 {
-        margin: 0 0 8px 0;
-        font-weight: 700;
-      }
-
-      ", page_selector, " .signature-hero p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.88);
-      }
-
-      ", page_selector, " .signature-card {
-        margin-bottom: 18px;
-        padding: 20px 22px;
-        border: 1px solid #d9e3ec;
-        border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
-      }
-
-      ", page_selector, " .signature-card h3,
-      ", page_selector, " .signature-card h4 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        color: #17324d;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .signature-toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
-      ", page_selector, " .signature-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-
-      ", page_selector, " .signature-selected {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      ", page_selector, " .signature-selected .signature-label {
-        font-size: 12px;
-        font-weight: 700;
-        color: #4e6782;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      ", page_selector, " .signature-selected .signature-name {
-        font-size: 20px;
-        font-weight: 700;
-        color: #17324d;
-      }
-
-      ", page_selector, " .signature-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 18px;
-      }
-
-      ", page_selector, " .signature-summary-item {
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: #f6f9fc;
-        border: 1px solid #e1ebf2;
-      }
-
-      ", page_selector, " .signature-summary-item strong {
-        display: block;
-        margin-bottom: 4px;
-        color: #0f3b63;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      ", page_selector, " .signature-summary-item span {
-        color: #17324d;
-        font-size: 15px;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .signature-empty {
-        padding: 20px;
-        border: 1px dashed #c5d5e3;
-        border-radius: 10px;
-        background: #f8fbfd;
-        color: #4b647e;
-      }
-
-      ", page_selector, " .signature-helper {
-        margin-bottom: 14px;
-        color: #597189;
-      }
-
-      ", page_selector, " .signature-metadata-table .dataTables_wrapper {
-        margin-top: 8px;
-      }
-
-      ", page_selector, " .signature-basket-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-
-      ", page_selector, " .signature-toolbar-primary {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      ", page_selector, " .signature-toolbar-secondary {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      ", page_selector, " .signature-basket-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      ", page_selector, " .signature-basket-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 14px;
-        border: 1px solid #e1ebf2;
-        border-radius: 10px;
-        background: #f6f9fc;
-      }
-
-      ", page_selector, " .signature-basket-item-main {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      ", page_selector, " .signature-basket-item-title {
-        font-weight: 600;
-        color: #17324d;
-      }
-
-      ", page_selector, " .signature-basket-item-meta {
-        color: #597189;
-        font-size: 12px;
-      }
-
-      ", page_selector, " .signature-create-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
-      }
-
-      ", page_selector, " .signature-create-grid .form-group {
-        margin-bottom: 0;
-      }
-
-      ", page_selector, " .signature-create-section {
-        margin-top: 18px;
-        padding-top: 18px;
-        border-top: 1px solid #e1ebf2;
-      }
-
-      ", page_selector, " .signature-create-section h4 {
-        margin-top: 0;
-        margin-bottom: 10px;
-        color: #17324d;
-      }
-
-      ", page_selector, " .signature-create-help {
-        margin-bottom: 12px;
-        color: #597189;
-      }
-
-      ", page_selector, " .signature-actions .btn,
-      ", page_selector, " .signature-actions .btn-group {
-        margin-bottom: 0;
-      }
-
-      ", page_selector, " .signature-actions .dropdown-menu {
-        min-width: 190px;
-        padding: 6px 0;
-        border-radius: 10px;
-        border: 1px solid #d9e3ec;
-        box-shadow: 0 10px 24px rgba(15, 32, 56, 0.12);
-      }
-
-      ", page_selector, " .signature-actions .dropdown-menu .action-button {
-        display: block;
-        width: 100%;
-        padding: 8px 14px;
-        color: #17324d;
-        text-decoration: none;
-      }
-
-      ", page_selector, " .signature-actions .dropdown-menu .action-button:hover {
-        background: #f6f9fc;
-        text-decoration: none;
-      }
-
-      ", page_selector, " .signature-actions .dropdown-menu .signature-action-danger {
-        color: #a02a2a;
-      }
-    "))),
-
+  div(
+    id = ns("signature_page"),
+    class = "sr-page",
     div(
-      id = ns("signature_page"),
+      class = "sr-page-inner",
 
-      div(
-        class = "signature-hero",
-        tags$h2("Browse Signatures"),
-        tags$p(
-          "Select a signature from the repository to review metadata, raw signature values, and differential expression in one place."
+      tags$header(
+        class = "page-titlebar",
+        div(
+          class = "page-titlebar-text",
+          tags$h1("Signatures"),
+          span(
+            class = "page-titlebar-sub",
+            "Browse the repository, then open a signature's metadata, features and differential expression."
+          )
+        ),
+        div(
+          class = "page-titlebar-actions",
+          uiOutput(ns("basket_toggle")),
+          # The Create Signature button is withdrawn for now: the create path
+          # is untested. Its modal and the observers behind it are left in
+          # place below, so restoring the button is all that is needed to
+          # bring it back.
+          actionButton(
+            ns("open_upload_modal"),
+            "Upload signature",
+            icon = icon("upload"),
+            class = "btn-primary"
+          )
         )
       ),
 
       div(
-        class = "signature-card",
-        div(
-          class = "signature-toolbar",
-          div(
-            class = "signature-toolbar-primary",
-            # The Create Signature button is withdrawn for now: the create path
-            # is untested. Its modal and the observers behind it are left in
-            # place below, so restoring the button is all that is needed to
-            # bring it back.
-            actionButton(
-              ns("open_upload_modal"),
-              "Upload Signature",
-              icon = icon("upload"),
-              class = "btn-primary"
-            ),
-            uiOutput(ns("basket_toggle"))
-          ),
-          div(
-            class = "signature-toolbar-secondary",
-            uiOutput(ns("signature_actions"))
-          )
-        ),
+        class = "card",
+        uiOutput(ns("signature_actions")),
         p(
-          class = "signature-helper",
-          "Highlight one or more rows to add them to the basket. The most recently clicked row becomes the active selection, and View will load its full contents on demand."
+          class = "sr-helper",
+          "Highlight one or more rows to add them to the basket. The most recently clicked row becomes the active selection, and View loads its full contents on demand."
         ),
         DT::DTOutput(ns("signature_tbl"))
       ),
 
       div(
-        class = "signature-card",
-        tags$h3("Selected Signature"),
+        class = "card",
+        tags$h3("Selected signature"),
         p(
-          class = "signature-helper",
+          class = "sr-helper",
           "Selecting a row updates the active signature. Use View to load the full metadata and data tables below."
         ),
         uiOutput(ns("signature_detail_panel"))
@@ -297,17 +60,20 @@ signature_module_ui <- function(id) {
 
 
 # search_user_fn, grant_fn and access_fn are injected so the Manage Access path
-# can be tested without a database (tests/testthat/test-shiny-signature-access.R).
+# can be tested without a database (tests/testthat/test-shiny-signature-access.R);
+# add_signature_fn likewise for the upload path (test-shiny-signature-upload.R).
 signature_module_server <- function(id,
                                     signature_db,
                                     user_conn_handler,
                                     signature_trigger,
                                     search_user_fn = SigRepo::searchUser,
                                     grant_fn = grant_signature_access,
-                                    access_fn = fetch_signature_access) {
+                                    access_fn = fetch_signature_access,
+                                    add_signature_fn = SigRepo::addSignature) {
   if (is.null(grant_fn)) grant_fn <- grant_signature_access
   if (is.null(search_user_fn)) search_user_fn <- SigRepo::searchUser
   if (is.null(access_fn)) access_fn <- fetch_signature_access
+  if (is.null(add_signature_fn)) add_signature_fn <- SigRepo::addSignature
 
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -361,19 +127,6 @@ signature_module_server <- function(id,
       req(signature_feature_set())
       signature_feature_set()
     })
-
-    signature_field_value <- function(sig_df, field, default = "Not available") {
-      if (is.null(sig_df) || !field %in% names(sig_df)) {
-        return(default)
-      }
-
-      value <- sig_df[[field]][1]
-      if (is.null(value) || is.na(value) || identical(as.character(value), "")) {
-        return(default)
-      }
-
-      as.character(value)
-    }
 
     fetch_selected_signature <- function(sig_id) {
       SigRepo::getSignature(
@@ -747,9 +500,9 @@ signature_module_server <- function(id,
       if (is.null(sig)) {
         return(
           div(
-            class = "signature-selected",
-            tags$span(class = "signature-label", "Selection"),
-            tags$span(class = "signature-name", "No signature selected")
+            class = "sr-selected",
+            tags$span(class = "sr-selected-label", "Selection"),
+            tags$span(class = "sr-selected-name", "No signature selected")
           )
         )
       }
@@ -757,18 +510,18 @@ signature_module_server <- function(id,
       dropdown_items <- list(
         list(id = "update_btn", label = "Update Signature", class = ""),
         list(id = "access_btn", label = "Manage Access", class = ""),
-        list(id = "delete_btn", label = "Delete Signature", class = "signature-action-danger")
+        list(id = "delete_btn", label = "Delete Signature", class = "sr-danger")
       )
 
         div(
-          class = "signature-toolbar",
+          class = "sr-toolbar",
           div(
-            class = "signature-selected",
-            tags$span(class = "signature-label", "Selected Signature"),
-            tags$span(class = "signature-name", signature_field_value(sig, "signature_name"))
+            class = "sr-selected",
+            tags$span(class = "sr-selected-label", "Selected signature"),
+            tags$span(class = "sr-selected-name", field_value(sig, "signature_name"))
           ),
           div(
-            class = "signature-actions",
+            class = "sr-actions",
             actionButton(ns("view_btn"), "View", class = "btn-primary"),
             downloadButton(ns("download_btn"), "Download"),
             action_dropdown_ui(
@@ -798,7 +551,7 @@ signature_module_server <- function(id,
 
     output$basket_actions <- renderUI({
       div(
-        class = "signature-basket-actions",
+        class = "sr-actions",
         actionButton(ns("remove_from_basket_btn"), "Remove Last"),
         actionButton(ns("clear_basket_btn"), "Clear Basket"),
         downloadButton(ns("download_basket_btn"), "Download Basket")
@@ -845,7 +598,7 @@ signature_module_server <- function(id,
       if (is.null(sig)) {
         return(
           div(
-            class = "signature-empty",
+            class = "sr-empty",
             "Choose a signature from the table above to inspect it."
           )
         )
@@ -855,30 +608,30 @@ signature_module_server <- function(id,
         return(
           tagList(
             div(
-              class = "signature-summary-grid",
+              class = "sr-summary",
               div(
-                class = "signature-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Signature"),
-                tags$span(signature_field_value(sig, "signature_name"))
+                tags$span(field_value(sig, "signature_name"))
               ),
               div(
-                class = "signature-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Owner"),
-                tags$span(signature_field_value(sig, "user_name"))
+                tags$span(field_value(sig, "user_name"))
               ),
               div(
-                class = "signature-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Visibility"),
-                tags$span(signature_field_value(sig, "visibility"))
+                tags$span(field_value(sig, "visibility"))
               ),
               div(
-                class = "signature-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Created"),
-                tags$span(signature_field_value(sig, "date_created"))
+                tags$span(field_value(sig, "date_created"))
               )
             ),
             div(
-              class = "signature-empty",
+              class = "sr-empty",
               "The selected signature has not been loaded yet. Click View to fetch its signature feature set."
             )
           )
@@ -887,42 +640,42 @@ signature_module_server <- function(id,
 
       tagList(
         div(
-          class = "signature-summary-grid",
+          class = "sr-summary",
           div(
-            class = "signature-summary-item",
+            class = "sr-summary-item",
             tags$strong("Signature"),
-            tags$span(signature_field_value(sig, "signature_name"))
+            tags$span(field_value(sig, "signature_name"))
           ),
           div(
-            class = "signature-summary-item",
+            class = "sr-summary-item",
             tags$strong("Owner"),
-            tags$span(signature_field_value(sig, "user_name"))
+            tags$span(field_value(sig, "user_name"))
           ),
           div(
-            class = "signature-summary-item",
+            class = "sr-summary-item",
             tags$strong("Visibility"),
-            tags$span(signature_field_value(sig, "visibility"))
+            tags$span(field_value(sig, "visibility"))
           ),
           div(
-            class = "signature-summary-item",
+            class = "sr-summary-item",
             tags$strong("Created"),
-            tags$span(signature_field_value(sig, "date_created"))
+            tags$span(field_value(sig, "date_created"))
           )
         ),
         tabsetPanel(
           tabPanel(
             "Metadata",
-            div(class = "signature-metadata-table", DT::DTOutput(session$ns("signature_metadata_table")))
+            div(class = "sr-table", DT::DTOutput(session$ns("signature_metadata_table")))
           ),
           tabPanel("Signature", DT::DTOutput(session$ns("signature_file_table"))),
           tabPanel(
             "Differential Expression",
             div(
-              class = "signature-helper",
+              class = "sr-helper",
               "Differential expression is loaded separately to keep the signature view responsive."
             ),
             div(
-              class = "signature-actions",
+              class = "sr-actions",
               actionButton(ns("load_difexp_btn"), "Get Difexp")
             ),
             uiOutput(ns("difexp_panel"))
@@ -953,7 +706,7 @@ signature_module_server <- function(id,
       if (is.null(signature_difexp())) {
         return(
           div(
-            class = "signature-empty",
+            class = "sr-empty",
             "Differential expression has not been loaded yet."
           )
         )
@@ -1067,7 +820,7 @@ signature_module_server <- function(id,
           easyClose = TRUE,
           footer = modalButton("Close"),
           p(
-            class = "signature-helper",
+            class = "sr-helper",
             "Review the current basket, remove items if needed, or download everything together as a zip archive."
           ),
           uiOutput(ns("basket_actions")),
@@ -1103,7 +856,7 @@ signature_module_server <- function(id,
       if (is.null(detected)) {
         return(
           div(
-            class = "signature-empty",
+            class = "sr-empty",
             "Upload a CSV file to let the app detect the relevant columns automatically."
           )
         )
@@ -1117,7 +870,7 @@ signature_module_server <- function(id,
 
       tagList(
         p(
-          class = "signature-create-help",
+          class = "sr-helper",
           "Detected the most likely columns from the uploaded file. Common DESeq2, limma, and generic differential expression outputs should work without manual mapping."
         ),
         DT::DTOutput(ns("create_detected_columns_table"))
@@ -1196,11 +949,11 @@ signature_module_server <- function(id,
           size = "l",
           easyClose = TRUE,
           div(
-            class = "signature-create-help",
+            class = "sr-helper",
             "Enter the signature metadata, upload a CSV, map the input columns, and the app will generate an OmicSignature object for you."
           ),
           div(
-            class = "signature-create-grid",
+            class = "sr-form-grid",
             textInput(ns("create_signature_name"), "Signature Name"),
             selectizeInput(
               ns("create_organism"),
@@ -1242,10 +995,10 @@ signature_module_server <- function(id,
             )
           ),
           div(
-            class = "signature-create-section",
+            class = "sr-section",
             tags$h4("Input File"),
             p(
-              class = "signature-create-help",
+              class = "sr-helper",
               "Choose whether you are uploading a differential expression table that should be converted into a signature, or a prebuilt signature CSV."
             ),
             radioButtons(
@@ -1264,7 +1017,7 @@ signature_module_server <- function(id,
               condition = sprintf("input['%s'] === 'difexp'", ns("create_source_type")),
               ns = ns,
               div(
-                class = "signature-create-grid",
+                class = "sr-form-grid",
                 textInput(ns("create_score_cutoff"), "Score Cutoff", value = "0"),
                 textInput(ns("create_adj_p_cutoff"), "Adjusted P Cutoff", value = "0.05"),
                 textInput(ns("create_p_value_cutoff"), "P Value Cutoff"),
@@ -1289,12 +1042,12 @@ signature_module_server <- function(id,
             )
           ),
           div(
-            class = "signature-create-section",
+            class = "sr-section",
             tags$h4("Column Mapping"),
             uiOutput(ns("create_column_mapping"))
           ),
           div(
-            class = "signature-create-section",
+            class = "sr-section",
             tags$h4("File Preview"),
             uiOutput(ns("create_upload_error_ui")),
             DT::DTOutput(ns("create_upload_preview"))
@@ -1313,7 +1066,7 @@ signature_module_server <- function(id,
         return(NULL)
       }
 
-      div(class = "signature-empty", paste("Could not read uploaded CSV:", err))
+      div(class = "sr-empty", paste("Could not read uploaded CSV:", err))
     })
 
     observeEvent(input$create_signature_btn, {
@@ -1349,12 +1102,14 @@ signature_module_server <- function(id,
       tryCatch({
         rds_object <- readRDS(input$upload_file$datapath)
 
-        SigRepo::addSignature(
+        # The dialog's Private/Public choice arrives as "FALSE"/"TRUE".
+        add_signature_fn(
           conn_handler = user_conn_handler(),
-          omic_signature = rds_object
+          omic_signature = rds_object,
+          visibility = isTRUE(as.logical(input$visibility))
         )
 
-        showNotification("Signature uploaded and added successfully!")
+        showNotification("Signature uploaded and added successfully!", type = "message")
         signature_trigger(isolate(signature_trigger()) + 1)
       }, error = function(e) {
         showNotification(
@@ -1436,7 +1191,7 @@ signature_module_server <- function(id,
       output = output,
       session = session,
       entity_id = selected_signature_id,
-      entity_name = reactive(signature_field_value(selected_sig(), "signature_name")),
+      entity_name = reactive(field_value(selected_sig(), "signature_name")),
       user_conn_handler = user_conn_handler,
       grant_fn = grant_fn,
       current_access = current_access
@@ -1461,7 +1216,7 @@ signature_module_server <- function(id,
         manage_users_modal_ui(
           session$ns,
           entity_label = "signature",
-          entity_name = signature_field_value(selected_sig(), "signature_name"),
+          entity_name = field_value(selected_sig(), "signature_name"),
           user_tbl = user_tbl
         )
       )
