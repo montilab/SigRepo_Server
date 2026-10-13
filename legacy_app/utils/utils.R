@@ -237,8 +237,19 @@ DatatableFX <- function(df,
       order = list(),
       fixedHeader = TRUE,
       dom = 'frtipB',
-      # colvis lets users bring back columns hidden by default.
-      buttons = c('copy', 'csv', 'excel', 'colvis'),
+      # colvis lets users bring back columns hidden by default. It opens as a
+      # titled panel laid out in columns rather than a one-column dropdown, so
+      # a table with twenty-odd columns can be read at a glance; the
+      # stylesheet draws a check mark beside each shown column.
+      buttons = list(
+        'copy', 'csv', 'excel',
+        list(
+          extend = 'colvis',
+          text = 'Columns',
+          popoverTitle = 'Columns to show',
+          collectionLayout = 'fixed columns'
+        )
+      ),
       columnDefs = column_defs
     )),
     class = "compact stripe hover nowrap",

@@ -85,3 +85,13 @@ run_signature_module <- function(expr, grant_fn = NULL) {
     .(substitute(expr))
   )), envir = parent.frame()))
 }
+
+# Whether a DataTables button list offers column visibility, whether as the
+# bare "colvis" string or as a configured list(extend = "colvis", ...).
+# Works on the R list DatatableFX() builds and on jsonlite::fromJSON() of the
+# rendered widget, where a mixed array comes back as a list.
+colvis_offered <- function(buttons) {
+  any(vapply(buttons, function(button) {
+    identical(button, "colvis") || (is.list(button) && identical(button$extend, "colvis"))
+  }, logical(1)))
+}

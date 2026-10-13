@@ -1169,10 +1169,81 @@ pre {
   background: var(--surface-hover);
   color: var(--text);
 }
+/* The "Columns" panel: a titled, multi-column list where each shown column
+   carries a filled check box. Buttons' own cue for a shown column is a darker
+   gradient, which the button rules above would hide. */
+#content-wrapper div.dt-button-background {
+  background: rgba(16, 24, 40, 0.35);
+}
 #content-wrapper div.dt-button-collection {
+  width: auto;
+  min-width: 420px;
+  max-width: 760px;
+  padding: 8px;
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.12);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.18);
+}
+#content-wrapper div.dt-button-collection .dt-button-collection-title {
+  padding: 6px 10px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+}
+#content-wrapper div.dt-button-collection .dt-button,
+#content-wrapper div.dt-button-collection button.dt-button,
+#content-wrapper div.dt-button-collection div.dt-button,
+#content-wrapper div.dt-button-collection a.dt-button {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 190px;
+  margin: 0;
+  padding: 6px 10px 6px 32px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+}
+#content-wrapper div.dt-button-collection .dt-button:hover:not(.disabled) {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+#content-wrapper div.dt-button-collection .dt-button::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  margin-top: -8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 13px;
+  text-align: center;
+}
+/* Buttons 2.x marks a shown column with dt-button-active and its own ::after
+   tick on the right; the box on the left replaces that. */
+#content-wrapper div.dt-button-collection .dt-button.dt-button-active {
+  color: var(--text);
+  font-weight: 500;
+}
+#content-wrapper div.dt-button-collection .dt-button.dt-button-active::before {
+  content: "\2713";
+  border-color: var(--accent);
+  background: var(--accent);
+}
+#content-wrapper div.dt-button-collection .dt-button.dt-button-active::after {
+  content: none;
 }
 #content-wrapper .dataTables_wrapper .dataTables_scrollBody {
   border-bottom: 1px solid var(--border) !important;

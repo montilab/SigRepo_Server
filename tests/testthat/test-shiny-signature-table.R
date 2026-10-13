@@ -125,7 +125,7 @@ test_that("sorting is on and no default sort is imposed", {
 
     expect_true(options$ordering)
     expect_length(options$order, 0)
-    expect_true("colvis" %in% options$buttons)
+    expect_true(colvis_offered(options$buttons))
   })
 })
 
