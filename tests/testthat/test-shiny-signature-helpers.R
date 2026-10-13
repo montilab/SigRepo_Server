@@ -450,7 +450,7 @@ test_that("no sort order is imposed before the user picks one", {
 test_that("a column visibility control is offered", {
   # Hiding noisy columns by default is only reasonable if they can be brought
   # back without code changes.
-  expect_true("colvis" %in% DatatableFX(signature_rows(), hidden_columns = integer(0))$x$options$buttons)
+  expect_true(colvis_offered(DatatableFX(signature_rows(), hidden_columns = integer(0))$x$options$buttons))
 })
 
 test_that("supplied column labels replace the raw database names", {

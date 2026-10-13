@@ -1,10 +1,9 @@
 # modules/home_module.R
 #
-# The Home tab, laid out like the React dashboard (web/src/pages/
-# DashboardPage.tsx): a thin title bar with one "Browse signatures" button,
-# four stat cards, and three chart cards. Styling lives in
-# www/assets/css/home_dashboard.css; the numbers and figures come from
-# utils/home_utils.R so this file is only layout and wiring.
+# The Home tab, laid out like the React dashboard it replaced: a thin title
+# bar with one "Browse signatures" button, four stat cards, and three chart
+# cards. The numbers and figures come from utils/home_utils.R, so this file is
+# only layout and wiring; the look is www/assets/css/sigrepo.css.
 
 home_stat_card <- function(label, output_id, icon_name) {
   div(
@@ -20,7 +19,7 @@ home_stat_card <- function(label, output_id, icon_name) {
 
 home_chart_card <- function(title, subtitle, ...) {
   div(
-    class = "card dash-chart",
+    class = "card card-flush dash-chart",
     div(
       class = "card-head",
       div(
@@ -35,74 +34,54 @@ home_chart_card <- function(title, subtitle, ...) {
 home_module_ui <- function(id) {
   ns <- NS(id)
 
-  tagList(
-    tags$link(rel = "stylesheet", type = "text/css", href = "assets/css/home_dashboard.css"),
-
+  div(
+    id = ns("home_page"),
+    class = "sr-page",
     div(
-      id = ns("home_page"),
-      class = "sr-dash",
-      div(
-        class = "sr-dash-inner",
+      class = "sr-page-inner",
 
-        tags$header(
-          class = "page-titlebar",
-          div(
-            class = "page-titlebar-text",
-            tags$h1("Welcome to SigRepo"),
-            span(class = "page-titlebar-sub", "A snapshot of the repository.")
-          ),
-          div(
-            class = "page-titlebar-actions",
-            actionButton(
-              ns("go_signatures"),
-              label = tagList("Browse signatures", icon("arrow-right")),
-              class = "sr-btn sr-btn-primary"
-            )
-          )
-        ),
-
+      tags$header(
+        class = "page-titlebar",
         div(
-          class = "stat-row",
-          home_stat_card("Total signatures", ns("stat_signatures"), "dna"),
-          home_stat_card("Active users", ns("stat_users"), "users"),
-          home_stat_card("Organisms", ns("stat_organisms"), "microscope"),
-          home_stat_card("Assay types", ns("stat_assays"), "flask")
+          class = "page-titlebar-text",
+          tags$h1("Welcome to SigRepo"),
+          span(class = "page-titlebar-sub", "A snapshot of the repository.")
         ),
-
         div(
-          class = "dash-charts",
-          home_chart_card(
-            "By organism", "Distribution across organisms",
-            div(class = "chart-fill", plotOutput(ns("organism_plot"), height = "220px")),
-            uiOutput(ns("organism_legend"))
-          ),
-          home_chart_card(
-            "By assay", "Counts per assay type",
-            div(class = "chart-fill", plotOutput(ns("assay_plot"), height = "300px"))
-          ),
-          home_chart_card(
-            "Top contributors", "Most active by visible signatures",
-            div(class = "chart-fill", plotOutput(ns("top_users_plot"), height = "300px"))
+          class = "page-titlebar-actions",
+          actionButton(
+            ns("go_signatures"),
+            label = tagList("Browse signatures", icon("arrow-right")),
+            class = "sr-btn sr-btn-primary"
           )
         )
-      )
-    ),
+      ),
 
-    # navbarPage is fixed-top and wraps to two rows on laptop widths, so pad
-    # the page by the navbar's measured height instead of a guessed constant;
-    # the stylesheet's padding-top is the fallback before this runs.
-    tags$script(HTML("
-      (function () {
-        function padHomeForNavbar() {
-          var nav = document.querySelector('.navbar-fixed-top');
-          var page = document.querySelector('.sr-dash');
-          if (nav && page) { page.style.paddingTop = (nav.offsetHeight + 16) + 'px'; }
-        }
-        window.addEventListener('resize', padHomeForNavbar);
-        $(document).on('shiny:connected shiny:visualchange', padHomeForNavbar);
-        padHomeForNavbar();
-      })();
-    "))
+      div(
+        class = "stat-row",
+        home_stat_card("Total signatures", ns("stat_signatures"), "dna"),
+        home_stat_card("Active users", ns("stat_users"), "users"),
+        home_stat_card("Organisms", ns("stat_organisms"), "microscope"),
+        home_stat_card("Assay types", ns("stat_assays"), "flask")
+      ),
+
+      div(
+        class = "dash-charts",
+        home_chart_card(
+          "By organism", "Distribution across organisms",
+          div(class = "chart-fill", plotOutput(ns("organism_plot"), height = "220px")),
+          uiOutput(ns("organism_legend"))
+        ),
+        home_chart_card(
+          "By assay", "Counts per assay type",
+          div(class = "chart-fill", plotOutput(ns("assay_plot"), height = "300px"))
+        ),
+        home_chart_card(
+          "Top contributors", "Most active by visible signatures",
+          div(class = "chart-fill", plotOutput(ns("top_users_plot"), height = "300px"))
+        )
+      )
+    )
   )
 }
 

@@ -22,28 +22,27 @@ COMPARE_TABLE_COLUMNS <- c(
 
 compare_module_ui <- function(id) {
   ns <- NS(id)
-  page_selector <- paste0("#", ns("compare_page"))
 
   # A label with the compareSignatures() default it starts at.
   with_default <- function(label, name) {
-    tagList(label, " ", span(class = "compare-default", compare_default_text(name)))
+    tagList(label, " ", span(class = "sr-default", compare_default_text(name)))
   }
 
   list_panel <- function(k, title, description) {
     div(
-      class = "compare-list",
+      class = "sr-section",
       tags$h4(title),
-      tags$p(class = "compare-muted", description),
+      tags$p(class = "sr-muted", description),
       tags$label("Pick from the repository"),
       div(
-        class = "compare-facets",
+        class = "sr-facets",
         lapply(names(COMPARE_FACETS), function(facet) {
           selectInput(ns(paste0("list", k, "_facet_", facet)), COMPARE_FACETS[[facet]], choices = c("All" = "all"))
         })
       ),
       DT::DTOutput(ns(paste0("list", k, "_table"))),
       div(
-        class = "compare-actions",
+        class = "sr-actions",
         actionLink(ns(paste0("list", k, "_clear")), "Clear picked signatures", icon = icon("xmark"))
       ),
       br(),
@@ -59,90 +58,40 @@ compare_module_ui <- function(id) {
     )
   }
 
-  tagList(
-    tags$style(HTML(paste0("
-      ", page_selector, " { padding-top: 28px; padding-bottom: 32px; }
-      ", page_selector, " .compare-hero {
-        margin-bottom: 18px; padding: 24px 28px; border-radius: 14px;
-        background: linear-gradient(135deg, #0f3b63 0%, #1b5d8f 100%);
-        color: #ffffff; box-shadow: 0 10px 24px rgba(15, 59, 99, 0.18);
-      }
-      ", page_selector, " .compare-hero h2 { margin-top: 0; margin-bottom: 8px; font-weight: 700; }
-      ", page_selector, " .compare-hero p { margin-bottom: 0; color: rgba(255, 255, 255, 0.88); }
-      ", page_selector, " .compare-card {
-        margin-bottom: 18px; padding: 20px 22px; border: 1px solid #d9e3ec; border-radius: 12px;
-        background: #ffffff; box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
-      }
-      ", page_selector, " .compare-card h3, ", page_selector, " .compare-card h4 {
-        margin-top: 0; margin-bottom: 12px; color: #17324d; font-weight: 600;
-      }
-      ", page_selector, " .compare-step-label {
-        display: inline-block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px;
-        background: #e9f2f9; color: #0f4d7c; font-size: 12px; font-weight: 700;
-        letter-spacing: 0.04em; text-transform: uppercase;
-      }
-      ", page_selector, " .compare-list + .compare-list { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e1ebf2; }
-      ", page_selector, " .compare-muted { color: #597189; }
-      ", page_selector, " .compare-default { color: #597189; font-size: 12px; font-weight: normal; white-space: nowrap; }
-      ", page_selector, " .compare-facets { display: flex; gap: 10px; flex-wrap: wrap; }
-      ", page_selector, " .compare-facets .form-group { flex: 1 1 140px; min-width: 140px; margin-bottom: 8px; }
-      ", page_selector, " .compare-matrix { overflow-x: auto; margin-bottom: 14px; }
-      ", page_selector, " .compare-matrix table.dataTable { width: auto !important; margin: 0; }
-      ", page_selector, " .compare-matrix table.dataTable th,
-      ", page_selector, " .compare-matrix table.dataTable td { min-width: 64px; padding: 6px 10px; text-align: center; }
-      ", page_selector, " .compare-matrix table.dataTable tbody th,
-      ", page_selector, " .compare-matrix table.dataTable tbody td:first-child { font-weight: 600; background: #f6f9fc; }
-      ", page_selector, " .compare-list-summary {
-        padding: 10px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2;
-      }
-      ", page_selector, " .compare-list-summary ul { margin: 6px 0 0 0; padding-left: 18px; }
-      ", page_selector, " .compare-source { color: #597189; font-size: 12px; }
-      ", page_selector, " .compare-pairing-table { width: 100%; }
-      ", page_selector, " .compare-pairing-table td { padding: 2px 8px 2px 0; vertical-align: middle; }
-      ", page_selector, " .compare-pairing-table .form-group { margin-bottom: 4px; }
-      ", page_selector, " .compare-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
-      ", page_selector, " .compare-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
-      ", page_selector, " .compare-summary-item { padding: 12px 14px; border-radius: 10px; background: #f6f9fc; border: 1px solid #e1ebf2; }
-      ", page_selector, " .compare-summary-item strong {
-        display: block; margin-bottom: 4px; color: #0f3b63; font-size: 12px;
-        text-transform: uppercase; letter-spacing: 0.04em;
-      }
-      ", page_selector, " .compare-summary-item span { color: #17324d; font-size: 15px; font-weight: 600; }
-      ", page_selector, " .compare-empty {
-        padding: 18px; border: 1px dashed #c5d5e3; border-radius: 10px; background: #f8fbfd; color: #4b647e;
-      }
-      ", page_selector, " .compare-message { white-space: pre-wrap; margin-bottom: 8px; }
-      ", page_selector, " .compare-heatmap-controls { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
-      ", page_selector, " .compare-heatmap-controls .form-group { min-width: 150px; }
-      ", page_selector, " .tab-content { padding-top: 16px; }
-    "))),
-
+  div(
+    id = ns("compare_page"),
+    class = "sr-page",
     div(
-      id = ns("compare_page"),
+      class = "sr-page-inner",
 
-      div(
-        class = "compare-hero",
-        tags$h2("Compare Signatures"),
-        tags$p(
-          "Compare signatures by feature overlap or rank-based enrichment (KS and GSEA) with ",
-          tags$code(style = "color: #ffffff; background: rgba(255,255,255,0.15);", "SigRepo::compareSignatures()"),
-          ", either all against each other or a first list against a second."
+      tags$header(
+        class = "page-titlebar",
+        div(
+          class = "page-titlebar-text",
+          tags$h1("Compare signatures"),
+          span(
+            class = "page-titlebar-sub",
+            "Feature overlap or rank-based enrichment (KS and GSEA) with ",
+            tags$code("SigRepo::compareSignatures()"),
+            ", all against each other or a first list against a second."
+          )
         )
       ),
 
-      fluidRow(
-        column(
-          width = 8,
+      div(
+        class = "sr-columns",
+        div(
+          class = "sr-column",
           div(
-            class = "compare-card",
-            span(class = "compare-step-label", "Step 1"),
+            class = "card",
+            span(class = "sr-step", "Step 1"),
             tags$h3("Signatures"),
             list_panel(
               1, "List 1",
               "Each signature here is compared against every other one, or against List 2 when it is switched on. List 1 is the rows of every result."
             ),
             div(
-              class = "compare-list",
+              class = "sr-section",
               checkboxInput(ns("two_lists"), strong("Compare against a second list (List 2)"), value = FALSE),
               conditionalPanel(
                 condition = "input.two_lists",
@@ -156,32 +105,29 @@ compare_module_ui <- function(id) {
           )
         ),
 
-        column(
-          width = 4,
+        div(
+          class = "sr-column",
           div(
-            class = "compare-card",
-            span(class = "compare-step-label", "Step 2"),
+            class = "card",
+            span(class = "sr-step", "Step 2"),
             tags$h3("Comparison"),
-            selectInput(ns("method"), tagList("Method", " ", span(class = "compare-default", "default (Overlap)")),
+            selectInput(ns("method"), tagList("Method", " ", span(class = "sr-default", "default (Overlap)")),
                         choices = COMPARE_METHOD_CHOICES, selected = COMPARE_DEFAULTS$method),
             uiOutput(ns("method_help")),
-            fluidRow(
-              column(6, numericInput(ns("score_cutoff"), with_default("Score cutoff (|score| ≥)", "score_cutoff"),
-                                     value = COMPARE_DEFAULTS$score_cutoff, min = 0, step = 0.1)),
-              column(6, numericInput(ns("adj_p_cutoff"), with_default("Adj. p cutoff (≤)", "adj_p_cutoff"),
-                                     value = COMPARE_DEFAULTS$adj_p_cutoff, min = 0, max = 1, step = 0.01))
-            ),
-            fluidRow(
-              column(6, numericInput(ns("min_features"), with_default("Min features", "min_features"),
-                                     value = COMPARE_DEFAULTS$min_features, min = 3, step = 1)),
-              column(6, numericInput(ns("max_feature"), with_default("Max features", "max_feature"),
-                                     value = COMPARE_DEFAULTS$max_feature, min = 3, step = 10))
-            ),
-            fluidRow(
-              column(6, selectInput(ns("alternative"), with_default("Alternative", "alternative"),
-                                    choices = c("greater", "less", "two.sided"), selected = COMPARE_DEFAULTS$alternative)),
-              column(6, selectInput(ns("p_adjust_method"), with_default("P-value adjustment", "p_adjust_method"),
-                                    choices = stats::p.adjust.methods, selected = COMPARE_DEFAULTS$p_adjust_method))
+            div(
+              class = "sr-form-grid",
+              numericInput(ns("score_cutoff"), with_default("Score cutoff (|score| ≥)", "score_cutoff"),
+                           value = COMPARE_DEFAULTS$score_cutoff, min = 0, step = 0.1),
+              numericInput(ns("adj_p_cutoff"), with_default("Adj. p cutoff (≤)", "adj_p_cutoff"),
+                           value = COMPARE_DEFAULTS$adj_p_cutoff, min = 0, max = 1, step = 0.01),
+              numericInput(ns("min_features"), with_default("Min features", "min_features"),
+                           value = COMPARE_DEFAULTS$min_features, min = 3, step = 1),
+              numericInput(ns("max_feature"), with_default("Max features", "max_feature"),
+                           value = COMPARE_DEFAULTS$max_feature, min = 3, step = 10),
+              selectInput(ns("alternative"), with_default("Alternative", "alternative"),
+                          choices = c("greater", "less", "two.sided"), selected = COMPARE_DEFAULTS$alternative),
+              selectInput(ns("p_adjust_method"), with_default("P-value adjustment", "p_adjust_method"),
+                          choices = stats::p.adjust.methods, selected = COMPARE_DEFAULTS$p_adjust_method)
             ),
             checkboxInput(ns("adjust"), with_default("Adjust p-values within each comparison", "adjust"),
                           value = COMPARE_DEFAULTS$adjust),
@@ -191,11 +137,12 @@ compare_module_ui <- function(id) {
               tags$h4("GSEA"),
               selectInput(ns("gsea_score"), with_default("Score to report", "gsea_score"),
                           choices = c("NES", "ES", "log2err", "size"), selected = COMPARE_DEFAULTS$gsea_score),
-              fluidRow(
-                column(6, numericInput(ns("min_size"), with_default("minSize", "minSize"),
-                                       value = COMPARE_DEFAULTS$minSize, min = 1, step = 1)),
-                column(6, numericInput(ns("max_size"), tagList("maxSize", " ", span(class = "compare-default", "default (Inf: leave blank)")),
-                                       value = NA, min = 1, step = 1))
+              div(
+                class = "sr-form-grid",
+                numericInput(ns("min_size"), with_default("minSize", "minSize"),
+                             value = COMPARE_DEFAULTS$minSize, min = 1, step = 1),
+                numericInput(ns("max_size"), tagList("maxSize", " ", span(class = "sr-default", "default (Inf: leave blank)")),
+                             value = NA, min = 1, step = 1)
               )
             ),
             tags$details(
@@ -208,13 +155,12 @@ compare_module_ui <- function(id) {
                 rows = 3,
                 width = "100%"
               ),
-              fluidRow(
-                column(6, textInput(ns("feature_col"), with_default("Feature column", "feature_col"), value = COMPARE_DEFAULTS$feature_col)),
-                column(6, textInput(ns("score_col"), with_default("Score column", "score_col"), value = COMPARE_DEFAULTS$score_col))
-              ),
-              fluidRow(
-                column(6, textInput(ns("adj_p_col"), with_default("Adj. p column", "adj_p_col"), value = COMPARE_DEFAULTS$adj_p_col)),
-                column(6, textInput(ns("p_value_col"), with_default("P-value column", "p_value_col"), value = COMPARE_DEFAULTS$p_value_col))
+              div(
+                class = "sr-form-grid",
+                textInput(ns("feature_col"), with_default("Feature column", "feature_col"), value = COMPARE_DEFAULTS$feature_col),
+                textInput(ns("score_col"), with_default("Score column", "score_col"), value = COMPARE_DEFAULTS$score_col),
+                textInput(ns("adj_p_col"), with_default("Adj. p column", "adj_p_col"), value = COMPARE_DEFAULTS$adj_p_col),
+                textInput(ns("p_value_col"), with_default("P-value column", "p_value_col"), value = COMPARE_DEFAULTS$p_value_col)
               ),
               helpText(
                 "KS and GSEA rank by the p-value column. A signature without it is ranked by its pvalue column,",
@@ -232,26 +178,26 @@ compare_module_ui <- function(id) {
           ),
 
           div(
-            class = "compare-card",
-            span(class = "compare-step-label", "Step 3"),
+            class = "card",
+            span(class = "sr-step", "Step 3"),
             tags$h3("Run"),
             uiOutput(ns("run_readiness")),
             div(
-              class = "compare-actions",
-              actionButton(ns("run"), "Compare Signatures", class = "btn-primary", icon = icon("code-compare"))
+              class = "sr-actions",
+              actionButton(ns("run"), "Compare signatures", class = "btn-primary", icon = icon("code-compare"))
             )
           )
         )
       ),
 
       div(
-        class = "compare-card",
-        span(class = "compare-step-label", "Results"),
+        class = "card",
+        span(class = "sr-step", "Results"),
         uiOutput(ns("run_messages")),
         conditionalPanel(
           condition = "!output.has_result",
           ns = ns,
-          div(class = "compare-empty", "Run a comparison to see the heatmap, tables, and the equivalent R call.")
+          div(class = "sr-empty", "Run a comparison to see the heatmap, tables, and the equivalent R call.")
         ),
         conditionalPanel(
           condition = "output.has_result",
@@ -264,7 +210,7 @@ compare_module_ui <- function(id) {
               uiOutput(ns("heatmap_controls")),
               plotOutput(ns("heatmap"), height = "auto"),
               div(
-                class = "compare-actions",
+                class = "sr-actions",
                 downloadButton(ns("download_heatmap_png"), "PNG"),
                 downloadButton(ns("download_heatmap_pdf"), "PDF")
               )
@@ -284,7 +230,7 @@ compare_module_ui <- function(id) {
                 "Rows are List 1 (S1, S2, ...); columns are List 2 (R1, R2, ...), or List 1 again for a self-comparison.",
                 "The key below gives each label's signature. Exports use the full signature names."
               ),
-              div(class = "compare-matrix", DT::DTOutput(ns("matrix_table"))),
+              div(class = "sr-matrix", DT::DTOutput(ns("matrix_table"))),
               tags$h4("Key"),
               DT::DTOutput(ns("matrix_key"))
             ),
@@ -297,7 +243,7 @@ compare_module_ui <- function(id) {
               "R code",
               helpText("The same comparison from R. The result download can be passed straight to OmicSignature::signature_similarity_heatmap()."),
               verbatimTextOutput(ns("r_call")),
-              div(class = "compare-actions", downloadButton(ns("download_result"), "Download result (.rds)"))
+              div(class = "sr-actions", downloadButton(ns("download_result"), "Download result (.rds)"))
             )
           )
         )
@@ -423,15 +369,15 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
         r <- requests[[k]]()
         p <- previews[[k]]()
         tagList(
-          if (!is.null(r$upload_error)) div(class = "alert alert-danger compare-message", r$upload_error),
+          if (!is.null(r$upload_error)) div(class = "alert alert-danger sr-message", r$upload_error),
           div(
-            class = "compare-list-summary",
+            class = "sr-list-summary",
             strong(sprintf("%d signature%s in List %d", nrow(p), if (nrow(p) == 1) "" else "s", k)),
             if (nrow(p) > 0) {
               tags$ul(lapply(seq_len(nrow(p)), function(i) {
                 tags$li(
                   p$name[i], " ",
-                  span(class = "compare-source", sprintf("(%s%s)", p$source[i],
+                  span(class = "sr-source", sprintf("(%s%s)", p$source[i],
                                                          if (is.na(p$type[i])) "" else paste(",", p$type[i])))
                 )
               }))
@@ -465,13 +411,13 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
         tagList(
           strong(sprintf("List %d", k)),
           tags$table(
-            class = "compare-pairing-table",
+            class = "sr-input-table",
             lapply(names(ids), function(nm) {
               hint <- p$labels_hint[match(nm, p$name)]
               tags$tr(
                 tags$td(
                   div(nm),
-                  if (!is.na(hint) && nzchar(hint)) span(class = "compare-source", hint)
+                  if (!is.na(hint) && nzchar(hint)) span(class = "sr-source", hint)
                 ),
                 tags$td(textInput(ns(ids[[nm]][["level1"]]), NULL, value = isolate(input[[ids[[nm]][["level1"]]]]) %||% "",
                                   placeholder = "level 1", width = "110px")),
@@ -602,13 +548,13 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       req(state)
       tagList(
         if (!is.null(state$error)) {
-          div(class = "alert alert-danger compare-message", strong("The comparison could not run. "), state$error)
+          div(class = "alert alert-danger sr-message", strong("The comparison could not run. "), state$error)
         },
         if (length(state$warnings) > 0) {
           div(
             class = "alert alert-warning",
             strong(sprintf("%d warning%s from the comparison", length(state$warnings), if (length(state$warnings) == 1) "" else "s")),
-            lapply(state$warnings, function(w) div(class = "compare-message", w))
+            lapply(state$warnings, function(w) div(class = "sr-message", w))
           )
         }
       )
@@ -621,9 +567,9 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       first <- compare_result_matrix(res, names(comparisons)[1], compare_table_matrices(res)[1])
       self <- compare_is_self(res)
       method_label <- names(COMPARE_METHOD_CHOICES)[match(res$method, COMPARE_METHOD_CHOICES)]
-      item <- function(label, value) div(class = "compare-summary-item", strong(label), span(value))
+      item <- function(label, value) div(class = "sr-summary-item", strong(label), span(value))
       div(
-        class = "compare-summary-grid",
+        class = "sr-summary",
         item("Method", if (is.na(method_label)) res$method else method_label),
         item("List 1", sprintf("%d signatures", nrow(first))),
         item("List 2", if (self) "Self-comparison" else sprintf("%d signatures", ncol(first))),
@@ -643,7 +589,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       measure_labels <- c(jaccard = "Jaccard", score = "Score", pvalue = "-log10(p-value)")
       mode_labels <- c(separate = "Separate panels", combined = "Combined (split cells)", split = "Split triangles")
       div(
-        class = "compare-heatmap-controls",
+        class = "sr-controls",
         selectInput(ns("heatmap_measure"), "Measure",
                     choices = stats::setNames(measures, measure_labels[measures]),
                     selected = keep(isolate(input$heatmap_measure), measures)),
@@ -806,7 +752,7 @@ compare_module_server <- function(id, signature_db, user_conn_handler) {
       matrices <- compare_table_matrices(res)
       keep <- function(value, choices) if (!is.null(value) && value %in% choices) value else choices[1]
       div(
-        class = "compare-heatmap-controls",
+        class = "sr-controls",
         selectInput(ns("table_comparison"), "Comparison", choices = comparisons,
                     selected = keep(isolate(input$table_comparison), comparisons)),
         selectInput(ns("table_matrix"), "Matrix", choices = matrices,

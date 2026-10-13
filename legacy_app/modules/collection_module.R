@@ -2,179 +2,49 @@
 
 collection_module_ui <- function(id) {
   ns <- NS(id)
-  page_selector <- paste0("#", ns("collection_page"))
 
-  tagList(
-    tags$style(HTML(paste0("
-      ", page_selector, " {
-        padding-top: 28px;
-        padding-bottom: 32px;
-      }
-
-      ", page_selector, " .collection-hero {
-        margin-bottom: 18px;
-        padding: 22px 26px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #184766 0%, #2d6f8f 100%);
-        color: #ffffff;
-        box-shadow: 0 10px 24px rgba(24, 71, 102, 0.16);
-      }
-
-      ", page_selector, " .collection-hero h2 {
-        margin: 0 0 8px 0;
-        font-weight: 700;
-      }
-
-      ", page_selector, " .collection-hero p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.88);
-      }
-
-      ", page_selector, " .collection-card {
-        margin-bottom: 18px;
-        padding: 20px 22px;
-        border: 1px solid #d9e3ec;
-        border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
-      }
-
-      ", page_selector, " .collection-card h3,
-      ", page_selector, " .collection-card h4 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        color: #17324d;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .collection-toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-
-      ", page_selector, " .collection-toolbar-primary {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-
-      ", page_selector, " .collection-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-
-      ", page_selector, " .collection-selected {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-
-      ", page_selector, " .collection-selected .collection-label {
-        font-size: 12px;
-        font-weight: 700;
-        color: #4e6782;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      ", page_selector, " .collection-selected .collection-name {
-        font-size: 20px;
-        font-weight: 700;
-        color: #17324d;
-      }
-
-      ", page_selector, " .collection-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 18px;
-      }
-
-      ", page_selector, " .collection-summary-item {
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: #f6f9fc;
-        border: 1px solid #e1ebf2;
-      }
-
-      ", page_selector, " .collection-summary-item strong {
-        display: block;
-        margin-bottom: 4px;
-        color: #0f3b63;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      ", page_selector, " .collection-summary-item span {
-        color: #17324d;
-        font-size: 15px;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .collection-empty {
-        padding: 20px;
-        border: 1px dashed #c5d5e3;
-        border-radius: 10px;
-        background: #f8fbfd;
-        color: #4b647e;
-      }
-
-      ", page_selector, " .collection-helper {
-        margin-bottom: 14px;
-        color: #597189;
-      }
-
-      ", page_selector, " .collection-metadata-table .dataTables_wrapper {
-        margin-top: 8px;
-      }
-    "))),
-
+  div(
+    id = ns("collection_page"),
+    class = "sr-page",
     div(
-      id = ns("collection_page"),
+      class = "sr-page-inner",
 
-      div(
-        class = "collection-hero",
-        tags$h2("Browse Collections"),
-        tags$p(
-          "Select a collection from the repository to review metadata, member signatures, and collection-level details in one place."
+      tags$header(
+        class = "page-titlebar",
+        div(
+          class = "page-titlebar-text",
+          tags$h1("Collections"),
+          span(
+            class = "page-titlebar-sub",
+            "Browse the repository's collections, then open one to review its metadata and member signatures."
+          )
+        ),
+        div(
+          class = "page-titlebar-actions",
+          actionButton(
+            ns("open_upload_modal"),
+            "Upload collection",
+            icon = icon("upload"),
+            class = "btn-primary"
+          )
         )
       ),
 
       div(
-        class = "collection-card",
-        div(
-          class = "collection-toolbar",
-          div(
-            class = "collection-toolbar-primary",
-            actionButton(
-              ns("open_upload_modal"),
-              "Upload Collection",
-              icon = icon("upload"),
-              class = "btn-primary"
-            )
-          ),
-          uiOutput(ns("collection_actions"))
-        ),
+        class = "card",
+        uiOutput(ns("collection_actions")),
         p(
-          class = "collection-helper",
-          "Select a collection row to make it active. Use View to load the full collection details when you want to inspect it below."
+          class = "sr-helper",
+          "Select a collection row to make it active. Use View to load the full collection details below."
         ),
         DT::DTOutput(ns("collection_tbl"))
       ),
 
       div(
-        class = "collection-card",
-        tags$h3("Selected Collection"),
+        class = "card",
+        tags$h3("Selected collection"),
         p(
-          class = "collection-helper",
+          class = "sr-helper",
           "The active collection summary appears immediately. Use View to fetch the collection details and member signatures on demand."
         ),
         uiOutput(ns("collection_detail_panel"))
@@ -266,22 +136,22 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       if (is.null(collection_selected)) {
         return(
           div(
-            class = "collection-selected",
-            tags$span(class = "collection-label", "Selection"),
-            tags$span(class = "collection-name", "No collection selected")
+            class = "sr-selected",
+            tags$span(class = "sr-selected-label", "Selection"),
+            tags$span(class = "sr-selected-name", "No collection selected")
           )
         )
       }
 
       div(
-        class = "collection-toolbar",
+        class = "sr-toolbar",
         div(
-          class = "collection-selected",
-          tags$span(class = "collection-label", "Selected Collection"),
-          tags$span(class = "collection-name", collection_field_value(collection_selected, "collection_name"))
+          class = "sr-selected",
+          tags$span(class = "sr-selected-label", "Selected collection"),
+          tags$span(class = "sr-selected-name", collection_field_value(collection_selected, "collection_name"))
         ),
         div(
-          class = "collection-actions",
+          class = "sr-actions",
           actionButton(ns("view_btn"), "View", class = "btn-primary"),
           actionButton(ns("refresh_btn"), "Refresh"),
           actionButton(ns("update_btn"), "Update"),
@@ -298,7 +168,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       if (is.null(collection_selected)) {
         return(
           div(
-            class = "collection-empty",
+            class = "sr-empty",
             "Choose a collection from the table above to inspect it."
           )
         )
@@ -308,30 +178,30 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         return(
           tagList(
             div(
-              class = "collection-summary-grid",
+              class = "sr-summary",
               div(
-                class = "collection-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Collection"),
                 tags$span(collection_field_value(collection_selected, "collection_name"))
               ),
               div(
-                class = "collection-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Owner"),
                 tags$span(collection_field_value(collection_selected, "user_name"))
               ),
               div(
-                class = "collection-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Visibility"),
                 tags$span(collection_field_value(collection_selected, "visibility"))
               ),
               div(
-                class = "collection-summary-item",
+                class = "sr-summary-item",
                 tags$strong("Signatures"),
                 tags$span(collection_field_value(collection_selected, "signature_count", "0"))
               )
             ),
             div(
-              class = "collection-empty",
+              class = "sr-empty",
               "The selected collection has not been loaded yet. Click View to fetch its metadata and member signatures."
             )
           )
@@ -340,24 +210,24 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
 
       tagList(
         div(
-          class = "collection-summary-grid",
+          class = "sr-summary",
           div(
-            class = "collection-summary-item",
+            class = "sr-summary-item",
             tags$strong("Collection"),
             tags$span(collection_field_value(collection_selected, "collection_name"))
           ),
           div(
-            class = "collection-summary-item",
+            class = "sr-summary-item",
             tags$strong("Owner"),
             tags$span(collection_field_value(collection_selected, "user_name"))
           ),
           div(
-            class = "collection-summary-item",
+            class = "sr-summary-item",
             tags$strong("Visibility"),
             tags$span(collection_field_value(collection_selected, "visibility"))
           ),
           div(
-            class = "collection-summary-item",
+            class = "sr-summary-item",
             tags$strong("Signatures"),
             tags$span(collection_field_value(collection_selected, "signature_count", "0"))
           )
@@ -365,7 +235,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         tabsetPanel(
           tabPanel(
             "Metadata",
-            div(class = "collection-metadata-table", DT::DTOutput(ns("collection_metadata_table")))
+            div(class = "sr-table", DT::DTOutput(ns("collection_metadata_table")))
           ),
           tabPanel(
             "Signatures",
@@ -536,7 +406,7 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
           easyClose = TRUE,
           footer = modalButton("Close"),
           div(
-            class = "collection-helper",
+            class = "sr-helper",
             "Collection access management is still collection-specific and has not been modernized yet in this refactor."
           )
         )
