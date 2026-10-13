@@ -1,131 +1,37 @@
 reference_module_ui <- function(id) {
   ns <- NS(id)
-  page_selector <- paste0("#", ns("reference_page"))
 
-  tagList(
-    tags$style(HTML(paste0("
-      ", page_selector, " {
-        padding-top: 28px;
-        padding-bottom: 32px;
-      }
-
-      ", page_selector, " .reference-hero {
-        margin-bottom: 18px;
-        padding: 22px 26px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #17485f 0%, #2d758d 100%);
-        color: #ffffff;
-        box-shadow: 0 10px 24px rgba(23, 72, 95, 0.16);
-      }
-
-      ", page_selector, " .reference-hero h2 {
-        margin: 0 0 8px 0;
-        font-weight: 700;
-      }
-
-      ", page_selector, " .reference-hero p {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.88);
-      }
-
-      ", page_selector, " .reference-card {
-        margin-bottom: 18px;
-        padding: 20px 22px;
-        border: 1px solid #d9e3ec;
-        border-radius: 12px;
-        background: #ffffff;
-        box-shadow: 0 6px 18px rgba(15, 32, 56, 0.06);
-      }
-
-      ", page_selector, " .reference-card h3,
-      ", page_selector, " .reference-card h4 {
-        margin-top: 0;
-        margin-bottom: 12px;
-        color: #17324d;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .reference-filter-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      ", page_selector, " .reference-toolbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        flex-wrap: wrap;
-        margin-bottom: 14px;
-      }
-
-      ", page_selector, " .reference-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        margin-bottom: 18px;
-      }
-
-      ", page_selector, " .reference-summary-item {
-        padding: 12px 14px;
-        border-radius: 10px;
-        background: #f6f9fc;
-        border: 1px solid #e1ebf2;
-      }
-
-      ", page_selector, " .reference-summary-item strong {
-        display: block;
-        margin-bottom: 4px;
-        color: #0f3b63;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-      }
-
-      ", page_selector, " .reference-summary-item span {
-        color: #17324d;
-        font-size: 15px;
-        font-weight: 600;
-      }
-
-      ", page_selector, " .reference-empty {
-        padding: 20px;
-        border: 1px dashed #c5d5e3;
-        border-radius: 10px;
-        background: #f8fbfd;
-        color: #4b647e;
-      }
-
-      ", page_selector, " .reference-helper {
-        margin-bottom: 14px;
-        color: #597189;
-      }
-    "))),
-
+  div(
+    id = ns("reference_page"),
+    class = "sr-page",
     div(
-      id = ns("reference_page"),
+      class = "sr-page-inner",
 
-      div(
-        class = "reference-hero",
-        tags$h2("Reference Browser"),
-        tags$p(
-          "Search transcriptomic or proteomic reference features, review the result set, and inspect individual feature records inline."
+      tags$header(
+        class = "page-titlebar",
+        div(
+          class = "page-titlebar-text",
+          tags$h1("Reference browser"),
+          span(
+            class = "page-titlebar-sub",
+            "Search the transcriptomic and proteomic reference features, then inspect a record."
+          )
         )
       ),
 
-      fluidRow(
-        column(
-          width = 4,
+      div(
+        class = "sr-columns sr-columns-narrow-first",
+        div(
+          class = "sr-column",
           div(
-            class = "reference-card",
-            tags$h3("Search Filters"),
+            class = "card",
+            tags$h3("Search filters"),
             p(
-              class = "reference-helper",
-              "Choose an assay and organism, then optionally narrow the results to a specific feature name."
+              class = "sr-helper",
+              "Choose an organism and assay, then optionally narrow the results to one feature name."
             ),
             div(
-              class = "reference-filter-grid",
+              class = "sr-form-grid",
               selectInput(
                 inputId = ns("ref_organism"),
                 label = "Organism",
@@ -144,34 +50,35 @@ reference_module_ui <- function(id) {
             ),
             textInput(
               inputId = ns("feature_name"),
-              label = "Feature Name",
+              label = "Feature name",
               placeholder = "Optional: filter to a specific feature"
             ),
             actionButton(
               ns("search_ref_btn"),
-              "Search Features",
-              class = "btn-primary"
+              "Search features",
+              class = "btn-primary",
+              icon = icon("magnifying-glass")
             )
           )
         ),
-        column(
-          width = 8,
+        div(
+          class = "sr-column",
           div(
-            class = "reference-card",
+            class = "card",
             div(
-              class = "reference-toolbar",
-              tags$h3("Search Results"),
+              class = "sr-toolbar",
+              tags$h3("Search results"),
               uiOutput(ns("results_status"))
             ),
             uiOutput(ns("results_summary")),
             DT::DTOutput(ns("ref_feature_tbl"))
           ),
           div(
-            class = "reference-card",
-            tags$h3("Selected Feature"),
+            class = "card",
+            tags$h3("Selected feature"),
             p(
-              class = "reference-helper",
-              "Selecting a row loads the feature details below so you can inspect the full record without scanning every column in the table."
+              class = "sr-helper",
+              "Selecting a row loads the feature's full record below."
             ),
             uiOutput(ns("feature_detail_panel"))
           )
@@ -270,31 +177,31 @@ reference_module_server <- function(id, user_conn_handler) {
       if (is.null(features) || nrow(features) == 0) {
         return(
           div(
-            class = "reference-empty",
+            class = "sr-empty",
             "Run a search to browse reference features."
           )
         )
       }
 
       div(
-        class = "reference-summary-grid",
+        class = "sr-summary",
         div(
-          class = "reference-summary-item",
+          class = "sr-summary-item",
           tags$strong("Assay"),
           tags$span(tools::toTitleCase(input$ref_assay))
         ),
         div(
-          class = "reference-summary-item",
+          class = "sr-summary-item",
           tags$strong("Organism"),
           tags$span(input$ref_organism)
         ),
         div(
-          class = "reference-summary-item",
+          class = "sr-summary-item",
           tags$strong("Results"),
           tags$span(nrow(features))
         ),
         div(
-          class = "reference-summary-item",
+          class = "sr-summary-item",
           tags$strong("Feature Filter"),
           tags$span(if (nzchar(input$feature_name)) input$feature_name else "All features")
         )
@@ -327,7 +234,7 @@ reference_module_server <- function(id, user_conn_handler) {
       if (is.null(feature)) {
         return(
           div(
-            class = "reference-empty",
+            class = "sr-empty",
             "Select a feature from the results table to inspect its full record."
           )
         )
@@ -340,7 +247,7 @@ reference_module_server <- function(id, user_conn_handler) {
 
       summary_cards <- lapply(key_fields, function(field) {
         div(
-          class = "reference-summary-item",
+          class = "sr-summary-item",
           tags$strong(gsub("_", " ", tools::toTitleCase(field))),
           tags$span(reference_field_value(feature, field))
         )
@@ -349,7 +256,7 @@ reference_module_server <- function(id, user_conn_handler) {
       if (length(summary_cards) == 0) {
         summary_cards <- list(
           div(
-            class = "reference-summary-item",
+            class = "sr-summary-item",
             tags$strong("Feature"),
             tags$span("Record loaded")
           )
@@ -357,7 +264,7 @@ reference_module_server <- function(id, user_conn_handler) {
       }
 
       tagList(
-        div(class = "reference-summary-grid", summary_cards),
+        div(class = "sr-summary", summary_cards),
         DT::DTOutput(session$ns("feature_detail_tbl"))
       )
     })

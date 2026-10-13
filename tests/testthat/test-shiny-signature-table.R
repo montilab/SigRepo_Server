@@ -19,7 +19,7 @@ test_that("Upload Signature is still offered", {
   # Guards against the removal above taking the neighbouring button with it.
   markup <- as.character(signature_module_ui("signatures"))
 
-  expect_match(markup, "Upload Signature", fixed = TRUE)
+  expect_match(markup, "Upload signature", fixed = TRUE)
 })
 
 test_that("selecting a row makes that row the active signature", {

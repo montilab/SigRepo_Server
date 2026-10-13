@@ -1,0 +1,1209 @@
+/* ============================================================================
+   SigRepo Shiny app: the one stylesheet.
+
+   The tokens come from the React dashboard this app replaced (they first
+   reached the Shiny app on the Home tab, #152) and now style every tab, the
+   navbar, the sign-in card, the modals, Bootstrap's controls and DataTables.
+   Modules carry no CSS of their own; tests/testthat/test-shiny-stylesheet.R
+   checks that every class the app emits has a rule here.
+
+   Specificity notes: Bootstrap 3 loads before this file, so a tie goes to the
+   rule below. DataTables, nouislider and selectize load after it, so their
+   overrides are prefixed with #content-wrapper to win.
+   ========================================================================== */
+
+:root {
+  /* Surfaces */
+  --bg: #eaf1fb;
+  --surface: #ffffff;
+  --surface-hover: #eef4fc;
+  --surface-sunken: #eef4fc;
+
+  /* Borders */
+  --border: #d7e3f2;
+  --border-strong: #bcd0e9;
+
+  /* Text */
+  --text: #101828;
+  --text-secondary: #545c6b;
+  --text-muted: #98a1b0;
+
+  /* Accent: one primary button per view, the active tab, the selected row */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-subtle: #e8f0fe;
+
+  /* Status */
+  --ok: #1e7a45;
+  --ok-subtle: #e4f5ea;
+  --warn: #8a5a00;
+  --warn-subtle: #fdf3dc;
+  --danger: #b42318;
+  --danger-subtle: #fdecea;
+
+  /* Data-viz palette and the matching tints for the stat-card icons */
+  --viz-1: #2563eb;
+  --viz-1-subtle: #e8f0fe;
+  --viz-2: #0ea5e9;
+  --viz-2-subtle: #e3f4fd;
+  --viz-3: #14b8a6;
+  --viz-3-subtle: #e2f7f4;
+  --viz-4: #f59e0b;
+  --viz-4-subtle: #fef3e0;
+
+  /* Radii and shadows */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --nav-height: 52px;
+}
+
+/* ---------- Base ---------- */
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+h1, h2, h3, h4 {
+  margin: 0;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+a {
+  color: var(--accent);
+}
+a:hover,
+a:focus {
+  color: var(--accent-hover);
+}
+code {
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--accent-subtle);
+  color: var(--text);
+  font-size: 12.5px;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* navbarPage's container-fluid pads the tab content; the page bleeds past it
+   so the wash fills the viewport. */
+.container-fluid {
+  padding: 0;
+}
+
+/* ---------- Navbar ---------- */
+.navbar-default,
+.navbar-default.navbar-fixed-top {
+  min-height: var(--nav-height);
+  margin-bottom: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: var(--text);
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.35);
+}
+.navbar-default .navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--nav-height);
+  padding: 0 18px;
+  color: #ffffff;
+}
+.navbar-default .navbar-brand:hover,
+.navbar-default .navbar-brand:focus {
+  color: #ffffff;
+}
+.navbar-brand img {
+  height: 32px;
+  width: auto;
+}
+.navbar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+  font-size: 14px;
+}
+.navbar-user .action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.78);
+  text-decoration: none;
+}
+.navbar-user .action-button:hover,
+.navbar-user .action-button:focus {
+  color: #ffffff;
+  text-decoration: none;
+}
+.navbar-user-name {
+  color: #ffffff;
+  font-weight: 600;
+}
+.navbar-default .navbar-nav > li > a {
+  height: var(--nav-height);
+  padding: 0 14px;
+  line-height: var(--nav-height);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 14px;
+  font-weight: 500;
+}
+.navbar-default .navbar-nav > li > a:hover,
+.navbar-default .navbar-nav > li > a:focus {
+  background: transparent;
+  color: #ffffff;
+}
+.navbar-default .navbar-nav > .active > a,
+.navbar-default .navbar-nav > .active > a:hover,
+.navbar-default .navbar-nav > .active > a:focus {
+  background: transparent;
+  color: #ffffff;
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+.navbar-custom-logo {
+  position: absolute;
+  right: 18px;
+  top: 10px;
+  height: 32px;
+}
+/* Below this width the logo would sit on the last tab. The selector outranks
+   Bootstrap's .navbar-brand > img { display: block }. */
+@media (max-width: 1100px) {
+  .navbar-brand > img.navbar-custom-logo {
+    display: none;
+  }
+}
+
+/* ---------- Page skeleton ----------
+   Every tab is a .sr-page on the wash with a thin title bar above cards.
+   The padding-top clears the fixed navbar; app_ui.R measures the real
+   navbar height (it wraps to two rows on narrow windows) and overrides it. */
+.sr-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100vh;
+  padding: calc(var(--nav-height) + 16px) 26px 28px;
+  background: var(--bg);
+}
+.sr-page-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.page-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 2px 2px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.page-titlebar-text {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-titlebar-text h1 {
+  font-size: 19px;
+  font-weight: 650;
+}
+.page-titlebar-sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.page-titlebar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* Two columns of cards: the wide one first (Compare, Annotate) or the narrow
+   one first (the reference browser's filters). One column on narrow windows. */
+.sr-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.sr-columns-narrow-first {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+.sr-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ---------- Cards ---------- */
+.card {
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+}
+.card h3 {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.card h4 {
+  margin: 14px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.sr-toolbar h3 {
+  margin: 0;
+}
+/* A card whose header is a sunken band (the Home charts). */
+.card-flush {
+  padding: 0;
+  overflow: hidden;
+}
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+.card-title {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.card-subtitle {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+}
+
+/* ---------- Shared pieces ---------- */
+.sr-step {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.sr-section + .sr-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.sr-helper {
+  margin: 0 0 12px;
+  color: var(--text-secondary);
+}
+.sr-muted {
+  color: var(--text-secondary);
+}
+.sr-default,
+.sr-source {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: normal;
+  white-space: nowrap;
+}
+.sr-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.sr-toolbar-group,
+.sr-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.card > .sr-actions,
+.sr-section > .sr-actions,
+.tab-pane > .sr-actions {
+  margin-top: 14px;
+}
+.sr-selected {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* The readout stands alone when nothing is selected (no toolbar around it). */
+.card .shiny-html-output > .sr-selected {
+  margin-bottom: 14px;
+}
+.sr-selected-label {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+.sr-selected-name {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 650;
+}
+.sr-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.sr-summary-item {
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+}
+.sr-summary-item strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.sr-summary-item span {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sr-empty {
+  padding: 18px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.sr-facets {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sr-facets .form-group {
+  flex: 1 1 140px;
+  min-width: 140px;
+  margin-bottom: 8px;
+}
+.sr-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 14px;
+}
+.sr-list-summary {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+}
+.sr-list-summary ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.sr-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.sr-status-pending {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.sr-status-ready {
+  background: var(--ok-subtle);
+  color: var(--ok);
+}
+.sr-status-error {
+  background: var(--danger-subtle);
+  color: var(--danger);
+}
+.sr-readiness ul {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+.sr-problem {
+  color: var(--danger);
+}
+.sr-note {
+  color: var(--warn);
+}
+.sr-ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+.sr-message {
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+.sr-controls {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.sr-controls .form-group {
+  min-width: 140px;
+}
+.sr-controls .checkbox {
+  margin-bottom: 18px;
+}
+.sr-input-table {
+  width: 100%;
+}
+.sr-input-table td {
+  padding: 2px 8px 2px 0;
+  vertical-align: middle;
+}
+.sr-input-table .form-group {
+  margin-bottom: 4px;
+}
+.sr-genes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.sr-genes span {
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  background: var(--accent-subtle);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.sr-measures {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.sr-measures td {
+  padding: 4px 8px 4px 0;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.sr-measures td:first-child {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.sr-plot-scroll {
+  overflow-x: auto;
+}
+.sr-danger {
+  color: var(--danger) !important;
+}
+.sr-table .dataTables_wrapper {
+  margin-top: 8px;
+}
+details > summary {
+  cursor: pointer;
+  margin: 6px 0;
+  color: var(--text);
+}
+/* Inner tabsets (results, the selected signature) breathe below their tabs;
+   the navbar's own tab-content is the page itself and needs no padding. */
+.sr-page .tab-content {
+  padding-top: 16px;
+}
+
+/* The Compare matrix: narrow centred cells, bold row labels, no DataTables
+   scroll wrapper (the .sr-matrix box scrolls instead). */
+.sr-matrix {
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+#content-wrapper .sr-matrix table.dataTable {
+  width: auto !important;
+  margin: 0;
+}
+#content-wrapper .sr-matrix table.dataTable th,
+#content-wrapper .sr-matrix table.dataTable td {
+  min-width: 64px;
+  padding: 6px 10px;
+  text-align: center;
+}
+#content-wrapper .sr-matrix table.dataTable tbody th,
+#content-wrapper .sr-matrix table.dataTable tbody td:first-child {
+  font-weight: 600;
+  background: var(--surface-sunken);
+}
+
+/* ---------- Home ---------- */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.stat-card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+}
+.stat-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.stat-card-label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.stat-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-md);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 13px;
+}
+.stat-row .stat-card:nth-child(4n + 1) .stat-card-icon {
+  background: var(--viz-1-subtle);
+  color: var(--viz-1);
+}
+.stat-row .stat-card:nth-child(4n + 2) .stat-card-icon {
+  background: var(--viz-2-subtle);
+  color: var(--viz-2);
+}
+.stat-row .stat-card:nth-child(4n + 3) .stat-card-icon {
+  background: var(--viz-3-subtle);
+  color: var(--viz-3);
+}
+.stat-row .stat-card:nth-child(4n + 4) .stat-card-icon {
+  background: var(--viz-4-subtle);
+  color: var(--viz-4);
+}
+.stat-card-value {
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.dash-charts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.dash-chart {
+  display: flex;
+  flex-direction: column;
+}
+.chart-fill .shiny-plot-output {
+  width: 100% !important;
+}
+.chart-fill img {
+  max-width: 100%;
+}
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.legend-compact {
+  flex-shrink: 0;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.legend-label {
+  flex: 1;
+  color: var(--text-secondary);
+}
+.legend-value {
+  font-weight: 650;
+  color: var(--text);
+}
+
+/* ---------- Sign in ---------- */
+.login-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px 16px;
+  background: var(--bg);
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 28px 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.login-brand img {
+  height: 36px;
+}
+.login-title {
+  font-size: 19px;
+  font-weight: 650;
+}
+.login-sub {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.login-form {
+  margin: 0;
+}
+.login-field {
+  margin-bottom: 14px;
+}
+.login-label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+.login-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.login-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.login-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.login-password .login-input {
+  padding-right: 40px;
+}
+.login-eye {
+  position: absolute;
+  right: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.login-message {
+  min-height: 20px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.login-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.login-button,
+.login-actions .btn.login-button {
+  height: 38px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+.login-button:hover,
+.login-button:focus,
+.login-actions .btn.login-button:hover,
+.login-actions .btn.login-button:focus {
+  background: var(--accent-hover);
+  color: #ffffff;
+}
+.login-links {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+.error-message {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* The register and profile modals share the sign-in card's password rows. */
+#register-password {
+  width: 100%;
+  margin-bottom: 15px;
+}
+.register-password,
+.change-profile-password {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+#register_password,
+#new_profile_password,
+#new_profile_email,
+#profile_email {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  font: inherit;
+}
+#profile_email[disabled] {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.toggle-register-password,
+.toggle-change-password {
+  position: absolute;
+  right: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.profile-bullet {
+  margin-bottom: 8px;
+}
+.primary-btn {
+  font-weight: 600;
+}
+
+/* ---------- Bootstrap controls ---------- */
+.btn {
+  border-radius: var(--r-md);
+  font-weight: 550;
+  text-shadow: none;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.btn-default {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.btn-default:hover,
+.btn-default:focus,
+.btn-default:active,
+.open > .dropdown-toggle.btn-default {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.btn-primary,
+.btn.sr-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: var(--shadow-xs);
+}
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active,
+.btn.sr-btn-primary:hover,
+.btn.sr-btn-primary:focus {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #ffffff;
+}
+.btn-primary.disabled,
+.btn-primary[disabled] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.btn.sr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn .fa,
+.btn .fas,
+.btn .far {
+  margin-right: 4px;
+}
+.dropdown-menu {
+  min-width: 190px;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.12);
+}
+.dropdown-menu > li > a,
+.dropdown-menu .action-button {
+  display: block;
+  padding: 8px 14px;
+  color: var(--text);
+  text-decoration: none;
+}
+.dropdown-menu > li > a:hover,
+.dropdown-menu .action-button:hover {
+  background: var(--surface-sunken);
+  text-decoration: none;
+}
+.form-control {
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: none;
+  color: var(--text);
+}
+textarea.form-control {
+  height: auto;
+}
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+.form-group {
+  margin-bottom: 12px;
+}
+label,
+.control-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.help-block {
+  color: var(--text-secondary);
+}
+.radio label,
+.checkbox label {
+  font-weight: normal;
+}
+.alert {
+  border-radius: var(--r-md);
+}
+.alert-danger {
+  background: var(--danger-subtle);
+  border-color: #f5c6c2;
+  color: var(--danger);
+}
+.alert-warning {
+  background: var(--warn-subtle);
+  border-color: #f1dca3;
+  color: var(--warn);
+}
+.alert-info {
+  background: var(--accent-subtle);
+  border-color: #c7d9fb;
+  color: var(--text);
+}
+.label-default,
+.label-info {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.label-default {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+.label-info {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+.nav-tabs {
+  border-bottom: 1px solid var(--border);
+}
+.nav-tabs > li > a {
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  color: var(--text-secondary);
+}
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:hover,
+.nav-tabs > li.active > a:focus {
+  border-color: var(--border) var(--border) var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.modal-content {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.16);
+}
+.modal-header {
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  font-weight: 650;
+}
+.modal-footer {
+  border-top: 1px solid var(--border);
+}
+.shiny-notification {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+.shiny-file-input-progress {
+  margin-bottom: 0;
+}
+.progress {
+  border-radius: var(--r-sm);
+}
+pre {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+.shiny-plot-output img {
+  max-width: 100%;
+}
+
+/* ---------- Selectize ---------- */
+#content-wrapper .selectize-input {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: none;
+}
+#content-wrapper .selectize-input.focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+#content-wrapper .selectize-dropdown {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.12);
+}
+#content-wrapper .selectize-dropdown .active {
+  background: var(--accent-subtle);
+  color: var(--text);
+}
+
+/* ---------- DataTables ---------- */
+#content-wrapper .dataTables_wrapper {
+  font-size: 13px;
+}
+#content-wrapper table.dataTable {
+  margin: 10px 0 !important;
+  border-collapse: collapse;
+}
+#content-wrapper table.dataTable thead th,
+#content-wrapper table.dataTable thead td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+/* DataTables puts the sort arrows in the header's right padding. */
+#content-wrapper table.dataTable thead > tr > th.sorting,
+#content-wrapper table.dataTable thead > tr > th.sorting_asc,
+#content-wrapper table.dataTable thead > tr > th.sorting_desc,
+#content-wrapper table.dataTable thead > tr > th.sorting_asc_disabled,
+#content-wrapper table.dataTable thead > tr > th.sorting_desc_disabled {
+  padding-right: 30px;
+}
+#content-wrapper table.dataTable thead tr:last-child td {
+  padding: 6px 8px;
+}
+#content-wrapper table.dataTable tbody th,
+#content-wrapper table.dataTable tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+#content-wrapper table.dataTable.no-footer {
+  border-bottom: 1px solid var(--border);
+}
+#content-wrapper table.dataTable.stripe > tbody > tr.odd > *,
+#content-wrapper table.dataTable.display > tbody > tr.odd > * {
+  box-shadow: none;
+}
+#content-wrapper table.dataTable.hover > tbody > tr:hover > *,
+#content-wrapper table.dataTable.display > tbody > tr:hover > * {
+  box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, 0.05);
+}
+#content-wrapper table.dataTable > tbody > tr.selected > *,
+#content-wrapper table.dataTable.hover > tbody > tr.selected:hover > * {
+  box-shadow: inset 0 0 0 9999px var(--accent-subtle);
+  color: var(--text);
+}
+#content-wrapper table.dataTable > tbody > tr.selected > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 9999px var(--accent-subtle);
+}
+#content-wrapper table.dataTable thead .sorting:before,
+#content-wrapper table.dataTable thead .sorting:after,
+#content-wrapper table.dataTable thead .sorting_asc:before,
+#content-wrapper table.dataTable thead .sorting_asc:after,
+#content-wrapper table.dataTable thead .sorting_desc:before,
+#content-wrapper table.dataTable thead .sorting_desc:after {
+  opacity: 0.35;
+}
+#content-wrapper .dataTables_wrapper .dataTables_filter input,
+#content-wrapper .dataTables_wrapper .dataTables_length select,
+#content-wrapper .dataTables_wrapper thead input,
+#content-wrapper .dataTables_wrapper thead select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+#content-wrapper .dataTables_wrapper .dataTables_filter input:focus,
+#content-wrapper .dataTables_wrapper thead input:focus,
+#content-wrapper .dataTables_wrapper thead select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+#content-wrapper .dataTables_wrapper .dataTables_filter,
+#content-wrapper .dataTables_wrapper .dataTables_info,
+#content-wrapper .dataTables_wrapper .dataTables_length {
+  color: var(--text-secondary);
+}
+#content-wrapper .dataTables_wrapper .dataTables_paginate .paginate_button {
+  padding: 4px 10px;
+  margin-left: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--text-secondary) !important;
+}
+#content-wrapper .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  border-color: var(--border);
+  background: var(--surface-hover);
+  color: var(--text) !important;
+}
+#content-wrapper .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+#content-wrapper .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent) !important;
+}
+#content-wrapper .dt-buttons {
+  display: inline-flex;
+  gap: 6px;
+  margin: 8px 0;
+}
+#content-wrapper .dt-button,
+#content-wrapper button.dt-button,
+#content-wrapper div.dt-button,
+#content-wrapper a.dt-button {
+  padding: 4px 10px;
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+#content-wrapper .dt-button:hover,
+#content-wrapper button.dt-button:hover:not(.disabled),
+#content-wrapper div.dt-button:hover:not(.disabled),
+#content-wrapper a.dt-button:hover:not(.disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+#content-wrapper div.dt-button-collection {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.12);
+}
+#content-wrapper .dataTables_wrapper .dataTables_scrollBody {
+  border-bottom: 1px solid var(--border) !important;
+}
+#content-wrapper .dataTables_wrapper .noUi-target {
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+}
+#content-wrapper .dataTables_wrapper .noUi-connect {
+  background: var(--accent);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1080px) {
+  .stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 1040px) {
+  .dash-charts,
+  .sr-columns,
+  .sr-columns-narrow-first {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .sr-page {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .sr-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
