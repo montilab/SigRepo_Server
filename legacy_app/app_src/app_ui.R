@@ -46,10 +46,12 @@ ui <- shiny::fluidPage(
       tags$form(
         class = "login-form",
 
+        # Enter in either field clicks the button: login_keypress() in app.js
+        # reads the inline handler's `event`.
         shiny::div(
           class = "login-field",
           tags$label(class = "login-label", `for` = "username", "Username"),
-          shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(e)' placeholder='Enter username'>")
+          shiny::HTML("<input class='login-input' type='text' id='username' onkeypress='login_keypress(event)' placeholder='Enter username'>")
         ),
 
         shiny::div(
@@ -57,7 +59,7 @@ ui <- shiny::fluidPage(
           tags$label(class = "login-label", `for` = "password", "Password"),
           shiny::div(
             class = "login-password",
-            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(e)' placeholder='Enter password'>"),
+            shiny::HTML("<input class='login-input' type='password' id='password' onkeypress='login_keypress(event)' placeholder='Enter password'>"),
             shiny::HTML("<span class='login-eye' onclick='toggle_password()'>👁️</span>")
           )
         ),
@@ -72,8 +74,7 @@ ui <- shiny::fluidPage(
           shiny::actionButton(
             inputId = "sign_in_btn",
             class = "login-button",
-            label = "Sign in",
-            onclick = "login_keypress(e)"
+            label = "Sign in"
           ),
           shiny::HTML("<a href='#' id='forget_password' class='action-button'>Forgot password?</a>")
         ),

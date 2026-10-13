@@ -53,7 +53,12 @@ collection_module_ui <- function(id) {
   )
 }
 
-collection_module_server <- function(id, collection_db, user_conn_handler, collection_trigger) {
+# add_collection_fn is injected so the upload path can be tested without a
+# database (tests/testthat/test-shiny-collection-module.R).
+collection_module_server <- function(id, collection_db, user_conn_handler, collection_trigger,
+                                     add_collection_fn = SigRepo::addCollection) {
+  if (is.null(add_collection_fn)) add_collection_fn <- SigRepo::addCollection
+
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     selected_collection <- reactiveVal(NULL)
@@ -79,10 +84,25 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       )
     }
 
+    # One row per collection. searchCollection() returns one row per member
+    # signature, and a data.frame() with no columns at all when there are
+    # none, which group_by() cannot take: hand back the empty shape instead,
+    # which DatatableFX() renders as "No data available." (issue #159).
     grouped_collections <- reactive({
       req(user_conn_handler())
 
-      collection_db() %>%
+      df <- collection_db()
+      group_columns <- c("collection_id", "collection_name", "description", "user_name", "date_created", "visibility")
+      if (!is.data.frame(df) || nrow(df) == 0 || !all(group_columns %in% names(df))) {
+        return(data.frame(
+          collection_id = numeric(0), collection_name = character(0), description = character(0),
+          user_name = character(0), date_created = character(0), visibility = integer(0),
+          signature_count = integer(0), signature_preview = character(0),
+          stringsAsFactors = FALSE
+        ))
+      }
+
+      df %>%
         dplyr::group_by(
           collection_id,
           collection_name,
@@ -320,9 +340,11 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
       tryCatch({
         rds_object <- readRDS(input$upload_file$datapath)
 
-        SigRepo::addCollection(
+        # The dialog's Private/Public choice arrives as "FALSE"/"TRUE".
+        add_collection_fn(
           conn_handler = user_conn_handler(),
-          omic_collection = rds_object
+          omic_collection = rds_object,
+          visibility = isTRUE(as.logical(input$visibility))
         )
 
         showNotification("Collection uploaded and added successfully!", type = "message")
@@ -424,6 +446,13 @@ collection_module_server <- function(id, collection_db, user_conn_handler, colle
         collection_download <- fetch_selected_collection(selected_collection()$collection_id[[1]])
         saveRDS(collection_download, file)
       }
+    )
+
+    # Exposed so the tab's state can be asserted on in testServer(); the app
+    # itself does not read these.
+    list(
+      grouped = grouped_collections,
+      selected_collection = selected_collection
     )
   })
 }

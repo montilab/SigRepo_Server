@@ -60,17 +60,20 @@ signature_module_ui <- function(id) {
 
 
 # search_user_fn, grant_fn and access_fn are injected so the Manage Access path
-# can be tested without a database (tests/testthat/test-shiny-signature-access.R).
+# can be tested without a database (tests/testthat/test-shiny-signature-access.R);
+# add_signature_fn likewise for the upload path (test-shiny-signature-upload.R).
 signature_module_server <- function(id,
                                     signature_db,
                                     user_conn_handler,
                                     signature_trigger,
                                     search_user_fn = SigRepo::searchUser,
                                     grant_fn = grant_signature_access,
-                                    access_fn = fetch_signature_access) {
+                                    access_fn = fetch_signature_access,
+                                    add_signature_fn = SigRepo::addSignature) {
   if (is.null(grant_fn)) grant_fn <- grant_signature_access
   if (is.null(search_user_fn)) search_user_fn <- SigRepo::searchUser
   if (is.null(access_fn)) access_fn <- fetch_signature_access
+  if (is.null(add_signature_fn)) add_signature_fn <- SigRepo::addSignature
 
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -1112,12 +1115,14 @@ signature_module_server <- function(id,
       tryCatch({
         rds_object <- readRDS(input$upload_file$datapath)
 
-        SigRepo::addSignature(
+        # The dialog's Private/Public choice arrives as "FALSE"/"TRUE".
+        add_signature_fn(
           conn_handler = user_conn_handler(),
-          omic_signature = rds_object
+          omic_signature = rds_object,
+          visibility = isTRUE(as.logical(input$visibility))
         )
 
-        showNotification("Signature uploaded and added successfully!")
+        showNotification("Signature uploaded and added successfully!", type = "message")
         signature_trigger(isolate(signature_trigger()) + 1)
       }, error = function(e) {
         showNotification(
