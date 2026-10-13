@@ -75,18 +75,24 @@ if (!base::nzchar(server_root)) {
 }
 sys.source(file.path(server_root, "api", "lib", "msigdb_cache.R"), envir = bootstrap_env)
 
+# Registration, password reset and the mail-service call are the API's
+# (api/lib/user.R); the sign-in flows call them so the form and the routes
+# behave the same.
+sys.source(file.path(server_root, "api", "lib", "user.R"), envir = bootstrap_env)
+
 # Helpers first, then the modals the modules open, then the modules.
 source_app_file("utils", "utils.R")
 source_app_file("utils", "signature_utils.R")
 source_app_file("utils", "home_utils.R")
 source_app_file("utils", "compare_utils.R")
 source_app_file("utils", "annotate_utils.R")
-source_app_file("utils", "validateUser.R")
+source_app_file("utils", "auth_utils.R")
 
 source_app_file("modals", "manage_users_modal.R")
 source_app_file("modals", "delete_modal.R")
 source_app_file("modals", "upload_modal.R")
 
+source_app_file("modules", "auth_module.R")
 source_app_file("modules", "home_module.R")
 source_app_file("modules", "signature_module.R")
 source_app_file("modules", "collection_module.R")
@@ -105,3 +111,10 @@ conn_handler <- SigRepo::newConnHandler(
   password = base::Sys.getenv("DB_PASSWORD"),
   api_host = base::Sys.getenv("API_HOST")
 )
+
+# Without API_HOST the per-user handlers fall back to the SigRepo client's own
+# default address, so every API call from this app would leave this
+# deployment. The installer and compose files set it; say so if it is missing.
+if (!base::nzchar(base::Sys.getenv("API_HOST"))) {
+  base::message("API_HOST is not set: API calls from the Shiny app will go to the SigRepo client's default address. Set API_HOST (and API_PORT) in the app's .Renviron.")
+}

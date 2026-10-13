@@ -12,6 +12,16 @@
 
 SENDMAIL_BASE_URL <- "https://montilab.bu.edu/SigRepo/send_notifications"
 
+# One trimmed string from a JSON body field or a Shiny input; `default` when
+# it is absent. Kept here rather than taken from common.R so the Shiny app can
+# source this file (common.R opens the API's database pool when sourced).
+scalar_text <- function(x, default = "") {
+  if (base::is.null(x) || base::length(x) == 0 || base::is.na(x[1])) {
+    return(default)
+  }
+  base::trimws(base::as.character(x[1]))
+}
+
 sendmail_key <- function() {
   base::Sys.getenv("SENDMAIL_KEY")
 }
@@ -56,9 +66,9 @@ valid_email_format <- function(email) {
 # who has one.
 register_new_user <- function(user_name, password, user_email,
                               user_first = "", user_last = "", user_affiliation = "") {
-  user_name <- base::trimws(json_scalar(user_name))
+  user_name <- base::trimws(scalar_text(user_name))
   password <- base::as.character(password)[1]
-  user_email <- base::trimws(json_scalar(user_email))
+  user_email <- base::trimws(scalar_text(user_email))
 
   if (!base::nzchar(user_name)) {
     return(base::list(ok = FALSE, reason = "Username cannot be empty."))
@@ -102,9 +112,9 @@ register_new_user <- function(user_name, password, user_email,
     user_name = user_name,
     user_password = password,
     user_email = user_email,
-    user_first = json_scalar(user_first),
-    user_last = json_scalar(user_last),
-    user_affiliation = json_scalar(user_affiliation),
+    user_first = scalar_text(user_first),
+    user_last = scalar_text(user_last),
+    user_affiliation = scalar_text(user_affiliation),
     user_role = "editor",
     active = 0,
     stringsAsFactors = FALSE
@@ -141,7 +151,7 @@ register_new_user <- function(user_name, password, user_email,
 # caller is not logged in, and answering truthfully would turn the form into a
 # way to enumerate who has an account. The response is identical either way.
 request_password_reset <- function(identifier) {
-  identifier <- base::trimws(json_scalar(identifier))
+  identifier <- base::trimws(scalar_text(identifier))
 
   if (!base::nzchar(identifier)) {
     return(base::list(ok = FALSE, reason = "Enter your username or the email address on your account."))

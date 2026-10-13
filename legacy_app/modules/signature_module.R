@@ -128,19 +128,6 @@ signature_module_server <- function(id,
       signature_feature_set()
     })
 
-    signature_field_value <- function(sig_df, field, default = "Not available") {
-      if (is.null(sig_df) || !field %in% names(sig_df)) {
-        return(default)
-      }
-
-      value <- sig_df[[field]][1]
-      if (is.null(value) || is.na(value) || identical(as.character(value), "")) {
-        return(default)
-      }
-
-      as.character(value)
-    }
-
     fetch_selected_signature <- function(sig_id) {
       SigRepo::getSignature(
         conn_handler = user_conn_handler(),
@@ -531,7 +518,7 @@ signature_module_server <- function(id,
           div(
             class = "sr-selected",
             tags$span(class = "sr-selected-label", "Selected signature"),
-            tags$span(class = "sr-selected-name", signature_field_value(sig, "signature_name"))
+            tags$span(class = "sr-selected-name", field_value(sig, "signature_name"))
           ),
           div(
             class = "sr-actions",
@@ -625,22 +612,22 @@ signature_module_server <- function(id,
               div(
                 class = "sr-summary-item",
                 tags$strong("Signature"),
-                tags$span(signature_field_value(sig, "signature_name"))
+                tags$span(field_value(sig, "signature_name"))
               ),
               div(
                 class = "sr-summary-item",
                 tags$strong("Owner"),
-                tags$span(signature_field_value(sig, "user_name"))
+                tags$span(field_value(sig, "user_name"))
               ),
               div(
                 class = "sr-summary-item",
                 tags$strong("Visibility"),
-                tags$span(signature_field_value(sig, "visibility"))
+                tags$span(field_value(sig, "visibility"))
               ),
               div(
                 class = "sr-summary-item",
                 tags$strong("Created"),
-                tags$span(signature_field_value(sig, "date_created"))
+                tags$span(field_value(sig, "date_created"))
               )
             ),
             div(
@@ -657,22 +644,22 @@ signature_module_server <- function(id,
           div(
             class = "sr-summary-item",
             tags$strong("Signature"),
-            tags$span(signature_field_value(sig, "signature_name"))
+            tags$span(field_value(sig, "signature_name"))
           ),
           div(
             class = "sr-summary-item",
             tags$strong("Owner"),
-            tags$span(signature_field_value(sig, "user_name"))
+            tags$span(field_value(sig, "user_name"))
           ),
           div(
             class = "sr-summary-item",
             tags$strong("Visibility"),
-            tags$span(signature_field_value(sig, "visibility"))
+            tags$span(field_value(sig, "visibility"))
           ),
           div(
             class = "sr-summary-item",
             tags$strong("Created"),
-            tags$span(signature_field_value(sig, "date_created"))
+            tags$span(field_value(sig, "date_created"))
           )
         ),
         tabsetPanel(
@@ -1204,7 +1191,7 @@ signature_module_server <- function(id,
       output = output,
       session = session,
       entity_id = selected_signature_id,
-      entity_name = reactive(signature_field_value(selected_sig(), "signature_name")),
+      entity_name = reactive(field_value(selected_sig(), "signature_name")),
       user_conn_handler = user_conn_handler,
       grant_fn = grant_fn,
       current_access = current_access
@@ -1229,7 +1216,7 @@ signature_module_server <- function(id,
         manage_users_modal_ui(
           session$ns,
           entity_label = "signature",
-          entity_name = signature_field_value(selected_sig(), "signature_name"),
+          entity_name = field_value(selected_sig(), "signature_name"),
           user_tbl = user_tbl
         )
       )
