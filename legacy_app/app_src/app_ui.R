@@ -9,7 +9,6 @@ ui <- shiny::fluidPage(
     tags$head(
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/app_style.css"),
       tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/sign_in_style.css"),
-      tags$link(type = "text/css", rel = "stylesheet", href = "assets/css/fontawesome-all.min.css"),
       tags$script(src = "assets/js/app.js", type = "text/javascript"),
       tags$style(
         HTML(
@@ -68,35 +67,12 @@ ui <- shiny::fluidPage(
     position: fixed !important;
   }
 
-  $(document).on('click', '.delete-btn', function() {
-    var sigId = $(this).data('id');
-    Shiny.setInputValue('delete_signature_id', sigId, {priority: 'event'});
-  });
-
   "
         )
       )
     )
   ),
   
-  ## JS TAGS ####
-  
-  tags$script(
-    HTML(
-      "
-  $(document).on('click', '.sig-link', function(e) {
-    e.preventDefault();
-    const sig_id = $(this).data('sig_id');
-    const sig_name = $(this).data('sig_name');
-    Shiny.setInputValue('show_signature_info', {
-      signature_id: sig_id,
-      signature_name: sig_name,
-      nonce: Math.random()  // force re-trigger even if same sig clicked
-    });
-  });
-"
-    )
-  ),
   
   
   shiny::div(

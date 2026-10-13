@@ -8,8 +8,6 @@ server <- function(input, output, session) {
   user_conn_handler_rv <- shiny::reactiveVal()
   user_login_info <- shiny::reactiveVal()
   
-  shinyjs::hide("oms_download_wrapper")
-  
   # reactive values for triggers to refresh tables
   signature_trigger <- reactiveVal(0)
   collection_trigger <- reactiveVal(0)
@@ -968,9 +966,6 @@ server <- function(input, output, session) {
   
   ### SERVER MODULES ####
   
-  # testing module
-  test_module_server("test1", signature_db = signature_db)
-  
   
   home_module_server(
     "home",
@@ -1007,7 +1002,4 @@ server <- function(input, output, session) {
   reference_module_server("references", user_conn_handler = user_conn_handler_rv)
   feedbackServer("feedback")
 
-  # in progress modules
-  # resourcesServer("resources")
-  
 } # end bracket, dont touch !!!

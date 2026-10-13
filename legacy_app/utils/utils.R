@@ -1,8 +1,4 @@
-
-
-# utils/DatatableFX.R
-
-library(DT)
+# Table helpers shared by every tab: the column labeller and DatatableFX().
 
 # Raw database column names shown to users as-is until issue #95. Tables built
 # from a fixed query (the signature table) could hard-code their headers, but
@@ -251,43 +247,3 @@ DatatableFX <- function(df,
     escape = escape
   )))
 }
-
-# === Reusable Delete Confirmation Modal ===
-# delete_modal_server <- function(id, delete_id, delete_fn, update_trigger) {
-#   moduleServer(id, function(input, output, session) {
-#     ns <- session$ns
-#     selected_id <- reactiveVal(NULL)
-#     
-#     observeEvent(delete_id(), {
-#       req(delete_id())
-#       selected_id(delete_id())
-#       
-#       showModal(modalDialog(
-#         title = "Confirm Delete",
-#         paste("Are you sure you want to delete ID", delete_id(), "?"),
-#         footer = tagList(
-#           modalButton("Cancel"),
-#           actionButton(ns("confirm_delete"), "Delete", class = "btn-danger")
-#         )
-#       ))
-#     })
-#     
-#     observeEvent(input$confirm_delete, {
-#       req(selected_id())
-#       tryCatch({
-#         delete_fn(selected_id())
-#         showNotification("Deleted successfully.", type = "message")
-#         update_trigger(isolate(update_trigger()) + 1)
-#       }, error = function(e) {
-#         showNotification(paste("Error deleting:", e$message), type = "error")
-#       })
-#       
-#       removeModal()
-#     })
-#   })
-# }
-
-# modals 
-
-
-
