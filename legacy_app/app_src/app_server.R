@@ -16,13 +16,13 @@ server <- function(input, output, session) {
   # Print this when a session starts ####
   base::cat("\nSession started.\n")
   
-  # Anything that calls autoInvalidate will automatically invalidate every 2 seconds.
-  autoInvalidate <- shiny::reactiveTimer(2000)
-  
-  # Prevent Shiny from graying out ####
+  # A periodic flush keeps the websocket busy behind a proxy with an idle
+  # timeout (nginx drops a quiet connection after 60 seconds by default), so a
+  # tab left open does not grey out. It used to fire every two seconds and
+  # print a dot to the log each time (issue #159).
+  keepalive <- shiny::reactiveTimer(20000)
   shiny::observe({
-    autoInvalidate()
-    base::cat(".")
+    keepalive()
   })
   
   # Observe when session ends ####
@@ -133,17 +133,6 @@ server <- function(input, output, session) {
       # Update message ####
       login_error_message(NULL)
       
-      # Update URL search string ####
-      shiny::updateQueryString(
-        session,
-        queryString = sprintf(
-          "#user_id=%s&token=%s",
-          user_name,
-          digest::digest(user_password, algo = "md5", serialize = TRUE)
-        ),
-        mode = "push"
-      )
-      
       # Get user connection info ####
       user_conn_handler_rv(user_conn)
       
@@ -185,7 +174,6 @@ server <- function(input, output, session) {
     user_login_info(NULL)
     shinyjs::hide(id = "content-wrapper")
     shinyjs::show(id = "login-wrapper")
-    shiny::updateQueryString(session, queryString = "#login", mode = "push")
     
   })
   

@@ -5,6 +5,12 @@
 
 function login_keypress(e){
   if(e.which === 13){
+    e.preventDefault();
+    // Shiny's text bindings send keystrokes after a short debounce, so the
+    // server could still be holding the last characters typed when the click
+    // arrives. Send both fields first; they and the click travel in order.
+    Shiny.setInputValue("username", document.getElementById("username").value);
+    Shiny.setInputValue("password", document.getElementById("password").value);
     document.getElementById("sign_in_btn").click();
   }
 }
