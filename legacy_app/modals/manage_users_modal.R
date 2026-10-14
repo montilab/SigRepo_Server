@@ -79,13 +79,13 @@ manage_users_modal_server <- function(input,
 
     if (is.null(access)) {
       return(div(
-        class = "signature-empty",
+        class = "sr-empty",
         "Current access could not be loaded. You can still grant access below."
       ))
     }
 
     if (nrow(access) == 0) {
-      return(div(class = "signature-empty", "No users have been granted access yet."))
+      return(div(class = "sr-empty", "No users have been granted access yet."))
     }
 
     DT::DTOutput(session$ns("user_access_tbl"))

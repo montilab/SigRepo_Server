@@ -97,8 +97,20 @@ RUN Rscript "${SIGREPO_SERVER_DIR}/install_r_packages.R"
 # Install dependencies for OmicSignature 
 RUN R -e "BiocManager::install('limma')"
 
-# Install OmicSignature 
-RUN R -e "remotes::install_github(repo = 'montilab/OmicSignature', dependencies = c('Depends','Imports','LinkingTo'))"
+# Every install_github() from here down fetches whatever its repo holds at build
+# time, but the RUN line itself never changes, so Docker reuses the cached layer
+# from an earlier build and the image silently keeps the old package. That is
+# how montilab/sigrepo:dev shipped OmicSignature 1.3.0 a day after 1.4.0 landed
+# and the API then refused to start (assert_omic_signature_version). CI passes
+# SOURCE_REFRESH=<commit sha>, so the value differs on every build and Docker
+# rebuilds from this point down. A local build that omits it behaves as before.
+ARG SOURCE_REFRESH=
+
+# Install OmicSignature. Every install_github() step here ends with a
+# requireNamespace() check: install.packages() reports a failed install as a
+# warning, so without it `R -e` exits 0 and the build ships without the package
+# (which is exactly what happened to SigRepo in #144).
+RUN R -e "remotes::install_github(repo = 'montilab/OmicSignature', dependencies = c('Depends','Imports','LinkingTo')); stopifnot(requireNamespace('OmicSignature', quietly = TRUE))"
 
 # Install dependencies for OmicSignature 
 RUN R -e "BiocManager::install('biomaRt')"
@@ -110,19 +122,26 @@ RUN R -e "BiocManager::install('biomaRt')"
 # Fail the build rather than ship an image where those silently do not work.
 RUN R -e "BiocManager::install(c('ComplexHeatmap', 'circlize', 'cba', 'fgsea'), ask = FALSE, update = FALSE); stopifnot(all(vapply(c('ComplexHeatmap', 'circlize', 'cba', 'fgsea'), requireNamespace, logical(1), quietly = TRUE)))"
 
-# Install SigRepo 
-RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); remotes::install_github(repo = 'montilab/SigRepo', ref = branch, dependencies = c('Depends','Imports','LinkingTo'))"
-
-# Install hypeR 
-RUN R -e "remotes::install_github(repo = 'montilab/hypeR', dependencies = c('Depends','Imports','LinkingTo'))"
+# Install hypeR BEFORE SigRepo. SigRepo imports hypeR (>= 2.0.0) with no
+# Remotes: entry for it, so if hypeR is absent when SigRepo installs, remotes
+# fetches hypeR from the CRAN snapshot, where the only release (2.0.0) no longer
+# builds against the current msigdbr. hypeR then fails, SigRepo is removed as
+# "dependency not available", and the image ships without SigRepo (#144). With
+# the GitHub hypeR already installed, SigRepo's resolution finds it and moves on.
+RUN R -e "remotes::install_github(repo = 'montilab/hypeR', dependencies = c('Depends','Imports','LinkingTo')); stopifnot(requireNamespace('hypeR', quietly = TRUE))"
 
 # Install hypeR.GEM -- backs the "GEM Hypergeometric" / "GEM Weighted" methods
 # on the Annotate page, which map metabolites onto enzyme-coding genes through
 # a genome-scale metabolic model. The models ship as package data, so this adds
-# roughly 32 MB. The API degrades to a clear 503 without it rather than
-# failing obscurely, so this is deliberately the last install: it is the one
-# that can be dropped from a build that never serves metabolomics signatures.
-RUN R -e "remotes::install_github(repo = 'montilab/hypeR-GEM', dependencies = c('Depends','Imports','LinkingTo'))"
+# roughly 32 MB. It used to be the deliberately-last, droppable install; it no
+# longer is, because SigRepo now imports hypeR.GEM and lists it in Remotes, so
+# SigRepo's own install would pull it anyway. Installing it here first keeps the
+# failure, if any, on its own line.
+RUN R -e "remotes::install_github(repo = 'montilab/hypeR-GEM', dependencies = c('Depends','Imports','LinkingTo')); stopifnot(requireNamespace('hypeR.GEM', quietly = TRUE))"
+
+# Install SigRepo, the client, from the branch CI selects (dev for the staging
+# image, master for :latest). Its GitHub dependencies are all installed above.
+RUN R -e "branch <- base::Sys.getenv('SIGREPO_BRANCH'); remotes::install_github(repo = 'montilab/SigRepo', ref = branch, dependencies = c('Depends','Imports','LinkingTo')); stopifnot(requireNamespace('SigRepo', quietly = TRUE))"
 
 # Expose app at port 3838
 EXPOSE 3838

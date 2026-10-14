@@ -4,7 +4,7 @@ source(testthat::test_path("helper-db.R"), local = FALSE)
 
 # Reference feature search, backing the Browse page.
 #
-# The page this replaced rendered five hardcoded genes from web/src/data/mock.ts
+# The page this replaced rendered five hardcoded genes from a mock-data module
 # and, worse, misrepresented the schema: it showed a "chromosome" column for
 # transcriptomics features (that table has none) and put the gene SYMBOL in
 # feature_name with the Ensembl id in a "gene_id" column, which is backwards.
@@ -121,14 +121,4 @@ test_that("only current feature versions are returned", {
   live <- DBI::dbGetQuery(conn, "
     SELECT COUNT(*) AS n FROM transcriptomics_features WHERE is_current = 1")$n[1]
   testthat::expect_equal(base::as.integer(res$total), base::as.integer(live))
-})
-
-test_that("the mock data module is gone, not merely unreferenced", {
-  # It was fake AND wrong about the schema, so leaving it importable invites its
-  # return.
-  testthat::expect_false(base::file.exists(testthat::test_path("../../web/src/data/mock.ts")))
-  browse <- base::paste(base::readLines(
-    testthat::test_path("../../web/src/pages/BrowsePage.tsx"), warn = FALSE), collapse = "\n")
-  testthat::expect_false(base::grepl("data/mock", browse, fixed = TRUE))
-  testthat::expect_match(browse, "searchFeatures", fixed = TRUE)
 })

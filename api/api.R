@@ -669,7 +669,7 @@ compare_signatures_route <- function(req, res, api_key = "", signature_hashkeys 
 
   body <- request_json_body(req)
   api_key <- if (identical(json_scalar(api_key), "")) json_scalar(body$api_key) else json_scalar(api_key)
-  # The React client POSTs signature_hashkeys as a JSON array. Read it straight
+  # Browser clients POST signature_hashkeys as a JSON array. Read it straight
   # from the parsed body first: plumber also binds that array onto the
   # signature_hashkeys parameter, so testing the parameter with json_scalar()
   # (which only sees its first element) would wrongly take the comma-split

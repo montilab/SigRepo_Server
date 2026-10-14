@@ -1,47 +1,24 @@
-# Thin app entrypoint
-env_root <- base::Sys.getenv("SIGREPO_SERVER_DIR", unset = "")
+# Shiny entry point.
+#
+# app_src/bootstrap.R attaches the packages, loads the SigRepo, OmicSignature
+# and hypeR packages and sources every module, modal and helper into this
+# environment. This file only finds the app directory, so bootstrap.R knows
+# where to source from, and wires ui and server together.
 
 shiny_path <- if (file.exists(file.path(getwd(), "app_src", "bootstrap.R"))) {
   normalizePath(getwd())
 } else if (file.exists(file.path(getwd(), "legacy_app", "app_src", "bootstrap.R"))) {
   normalizePath(file.path(getwd(), "legacy_app"))
-} else if (nzchar(env_root)) {
-  file.path(normalizePath(env_root), "legacy_app")
+} else if (nzchar(Sys.getenv("SIGREPO_SERVER_DIR"))) {
+  file.path(normalizePath(Sys.getenv("SIGREPO_SERVER_DIR")), "legacy_app")
 } else {
   stop("Cannot resolve Shiny app path. Set SIGREPO_SERVER_DIR or run from the repo/app directory.")
 }
 
 options(sigrepo.shiny_path = shiny_path)
+
 app_env <- environment()
 sys.source(file.path(shiny_path, "app_src", "bootstrap.R"), envir = app_env)
-
-source_app_file <- function(...) {
-  sys.source(file.path(shiny_path, ...), envir = app_env)
-}
-
-# Shared with the API; the Annotate module calls these at run time.
-server_root <- if (nzchar(env_root)) normalizePath(env_root) else normalizePath(file.path(shiny_path, ".."), mustWork = FALSE)
-sys.source(file.path(server_root, "api", "lib", "symbols.R"), envir = app_env)
-
-# Ensure app-local symbols are available in the same environment as ui/server.
-source_app_file("modules", "home_module.R")
-source_app_file("modules", "signature_module.R")
-source_app_file("modules", "collection_module.R")
-source_app_file("modules", "annotate_module.R")
-source_app_file("modules", "compare_module.R")
-source_app_file("modules", "reference_module.R")
-source_app_file("modules", "resource_module.R")
-source_app_file("modules", "feedback_module.R")
-source_app_file("modules", "hypeR_module.R")
-source_app_file("modules", "test_module.R")
-source_app_file("modals", "manage_users_modal.R")
-source_app_file("modals", "delete_modal.R")
-source_app_file("modals", "upload_modal.R")
-source_app_file("modals", "view_modal.R")
-source_app_file("utils", "utils.R")
-source_app_file("utils", "compare_utils.R")
-source_app_file("utils", "validateUser.R")
-
 sys.source(file.path(shiny_path, "app_src", "app_ui.R"), envir = app_env)
 sys.source(file.path(shiny_path, "app_src", "app_server.R"), envir = app_env)
 

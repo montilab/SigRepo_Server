@@ -1,4 +1,5 @@
-# delete modals for signature and collection
+# The delete confirmation the Signature tab opens. The caller observes
+# confirm_delete_signature and does the deleting.
 
 delete_modal_ui <- function(ns, name, type) {
   modalDialog(
@@ -15,8 +16,3 @@ delete_modal_ui <- function(ns, name, type) {
     )
   )
 }
-
-# delete_modal_server <- function( input, output, session, name, type, id, user_conn_handler){
-#   
-#   
-# }

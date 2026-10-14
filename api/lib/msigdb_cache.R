@@ -12,8 +12,8 @@
 # functions testable in isolation without booting the whole API.
 
 # The same fixed Collection/Subcollection matrix Shiny's picker uses (see
-# hypeR_module.R's msigdb_collection_metadata) -- exposed over REST so the
-# React picker doesn't need to hardcode a second copy.
+# hypeR_module.R's msigdb_collection_metadata) -- exposed over REST so no
+# other client needs to hardcode a second copy.
 msigdb_collection_metadata <- function() {
   base::data.frame(
     collection = c(

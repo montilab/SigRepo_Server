@@ -121,39 +121,6 @@ mcp_search_features <- function(api_key, assay_type, feature_name = NULL, organi
   ))
 }
 
-mcp_run_enrichment <- function(api_key, signature_hashkey, geneset_resource_id = NULL,
-                                msigdb_species = NULL, msigdb_collection = NULL, msigdb_subcollection = NULL,
-                                method = "hypergeo", background = NULL, fdr = 0.05,
-                                split_by_group = FALSE, split_by_direction = FALSE, limit = 20) {
-  auth <- require_api_key(api_key)
-
-  context <- fetch_signature_context(
-    signature_hashkey = signature_hashkey,
-    include_features = FALSE,
-    auth = auth
-  )
-  if (is.null(context)) {
-    stop(base::sprintf(
-      "No signature found for signature_hashkey = '%s', or you do not have access to it.",
-      signature_hashkey
-    ))
-  }
-
-  mcp_json(run_enrichment(
-    signature_id = context$signature$signature_id,
-    geneset_resource_id = geneset_resource_id,
-    msigdb_species = msigdb_species,
-    msigdb_collection = msigdb_collection,
-    msigdb_subcollection = msigdb_subcollection,
-    method = method,
-    background = background,
-    fdr = fdr,
-    split_by_group = split_by_group,
-    split_by_direction = split_by_direction,
-    limit = limit
-  ))
-}
-
 mcp_rummagene_enrich <- function(api_key, genes, limit = 25) {
   require_api_key(api_key)
   # rummagene_enrich() comes from api/lib/rummagene.R (sourced by
@@ -271,25 +238,6 @@ build_mcp_tools <- function() {
         limit = ellmer::type_integer("Maximum number of results (default 50, max 200)", required = FALSE)
       ),
       name = "search_features"
-    ),
-    ellmer::tool(
-      mcp_run_enrichment,
-      "Run gene-set enrichment (hypeR) against one SigRepo signature. Provide exactly one of: geneset_resource_id (from search_geneset_resources -- an already-registered collection), or msigdb_collection (+ optional msigdb_species/msigdb_subcollection) to use one by name instead -- if that collection isn't registered yet, it's fetched from MSigDB and added to the shared catalog automatically on this call (a one-time cost; every later call for the same collection, from anyone, hits the cache). Returns the top results ranked by FDR.",
-      arguments = list(
-        api_key = ellmer::type_string("SigRepo API key"),
-        signature_hashkey = ellmer::type_string("The signature's hashkey to test for enrichment"),
-        geneset_resource_id = ellmer::type_integer("A geneset_resource_id from search_geneset_resources (already registered)", required = FALSE),
-        msigdb_species = ellmer::type_string("Species, e.g. 'Homo sapiens' (default). Only used with msigdb_collection.", required = FALSE),
-        msigdb_collection = ellmer::type_string("MSigDB collection by name, e.g. 'H' or 'C2' -- registered on demand if not already cached. Ignored if geneset_resource_id is supplied.", required = FALSE),
-        msigdb_subcollection = ellmer::type_string("Optional MSigDB subcollection, e.g. 'CP:KEGG_LEGACY'", required = FALSE),
-        method = ellmer::type_enum(c("hypergeo", "kstest", "gsea"), "Enrichment test to run (default hypergeo)", required = FALSE),
-        background = ellmer::type_integer("Background gene universe size passed to hypeR", required = FALSE),
-        fdr = ellmer::type_number("FDR threshold passed to hypeR (default 0.05)", required = FALSE),
-        split_by_group = ellmer::type_boolean("Run enrichment separately per signature group_label (default FALSE)", required = FALSE),
-        split_by_direction = ellmer::type_boolean("For method=hypergeo, split each group into up/down feature sets by score sign (default FALSE)", required = FALSE),
-        limit = ellmer::type_integer("Maximum ranked results returned per query (default 20, max 100)", required = FALSE)
-      ),
-      name = "run_enrichment"
     ),
     ellmer::tool(
       mcp_rummagene_enrich,
