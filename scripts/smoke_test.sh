@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # API level verification of a SigRepo stack.
 #
-#   scripts/smoke_test.sh --host 127.0.0.1 --port 8020 --api-key KEY [--containment]
+#   scripts/smoke_test.sh --host 127.0.0.1 --port 8020 --api-key KEY [--containment] [--public-ports 8051,...]
 #
 # No R, no browser and (by default) no docker, so this runs on montilab.bu.edu,
 # which has no browser installed, as well as from a laptop through an SSH
@@ -22,6 +22,10 @@ HOST=127.0.0.1
 PORT=8020
 API_KEY=""
 CONTAINMENT=0
+# Host ports allowed off 127.0.0.1 by --containment, comma separated. montilab
+# publishes the Shiny port on SHINY_BIND=0.0.0.0 on purpose (#142), and a check
+# that fails on an intended condition is one people learn to ignore.
+PUBLIC_PORTS=""
 TIMEOUT=30
 # Enrichment and compare are genuinely slow on montilab: 2 CPUs, ~3.4 GB free
 # against other people's workloads, and a single R worker that serialises every
@@ -36,6 +40,7 @@ while [ $# -gt 0 ]; do
     --timeout)     TIMEOUT=$2; shift 2 ;;
     --long-timeout) LONG_TIMEOUT=$2; shift 2 ;;
     --containment) CONTAINMENT=1; shift ;;
+    --public-ports) PUBLIC_PORTS=$2; shift 2 ;;
     -h|--help)     sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -231,9 +236,21 @@ if [ "$CONTAINMENT" -eq 1 ]; then
     nonloopback=$(printf '%s\n' "$published" \
       | grep -oE '[][0-9a-fA-F.:*]+:[0-9]+->' \
       | grep -vE '^127\.0\.0\.1:' || true)
+    # --public-ports names the HOST ports that are published off loopback on
+    # purpose. Only the port is matched, so 0.0.0.0, a routable address and the
+    # IPv6 wildcard are all allowed for a listed port and still caught for any
+    # other. A listed port that is on loopback after all is not an error.
+    allowed=""
+    if [ -n "$PUBLIC_PORTS" ]; then
+      port_re=$(printf '%s' "$PUBLIC_PORTS" | tr -d ' ' | tr ',' '|')
+      allowed=$(printf '%s\n' "$nonloopback" | grep -E ":(${port_re})->$" || true)
+      nonloopback=$(printf '%s\n' "$nonloopback" | grep -vE ":(${port_re})->$" || true)
+    fi
     if [ -n "$nonloopback" ]; then
       fail "containment" "published off 127.0.0.1: $(printf '%s' "$nonloopback" | tr '\n' ' ')"
       printf '%s\n' "$published"
+    elif [ -n "$allowed" ]; then
+      pass "containment (every published port on 127.0.0.1, except by --public-ports: $(printf '%s' "$allowed" | tr '\n' ' '))"
     else
       pass "containment (every published port on 127.0.0.1)"
     fi
