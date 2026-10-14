@@ -1,25 +1,7 @@
 source(testthat::test_path("../../api/lib/common.R"), local = FALSE)
+source(testthat::test_path("../../api/lib/schema_migrations.R"), local = FALSE)
 source(testthat::test_path("../../api/lib/database_admin.R"), local = FALSE)
 source(testthat::test_path("helper-db.R"), local = FALSE)
-
-# Both tests below tear down every table in the test database, which would
-# break other test-*.R files that depend on tests/testthat/fixtures/seed.sql
-# already being loaded (test files run alphabetically in the same session).
-# Reseed after each destructive assertion so the DB is left as this test
-# file found it.
-reseed_test_db <- function() {
-  sigrepo_server_path <- Sys.getenv("SIGREPO_SERVER_DIR", unset = testthat::test_path("../.."))
-  generate_db_schema(sigrepo_server_path)
-
-  conn <- db_connect_local()
-  on.exit(DBI::dbDisconnect(conn))
-  lines <- readLines(testthat::test_path("fixtures/seed.sql"))
-  lines <- lines[!grepl("^\\s*--", lines)]
-  seed_sql <- paste(lines, collapse = "\n")
-  for (stmt in Filter(nzchar, trimws(strsplit(seed_sql, ";")[[1]]))) {
-    DBI::dbGetQuery(conn, stmt)
-  }
-}
 
 test_that("generate_db_schema (re)creates every expected table regardless of the configured DB name", {
   skip_if_no_test_db()
@@ -37,7 +19,7 @@ test_that("generate_db_schema (re)creates every expected table regardless of the
     "organisms", "phenotypes", "platforms", "proteomics_features", "sample_types",
     "signature_access", "signature_collection_access", "signature_feature_set", "signatures",
     "transcriptomics_features", "users", "metabolite_reference", "metabolite_xref",
-    "signature_feature_set_ambiguity", "genetic_variants_features"
+    "signature_feature_set_ambiguity", "genetic_variants_features", "schema_migrations"
   )
   expect_true(all(expected %in% tables))
 })

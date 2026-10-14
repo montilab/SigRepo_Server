@@ -1,0 +1,233 @@
+column	collection	collection_hashkey	varchar(32)	NO	NULL	
+column	collection	collection_id	int unsigned	NO	NULL	auto_increment
+column	collection	collection_name	varchar(255)	NO	NULL	
+column	collection	date_created	datetime	YES	CURRENT_TIMESTAMP	DEFAULT_GENERATED
+column	collection	description	text	YES	NULL	
+column	collection	user_name	varchar(255)	NO	NULL	
+column	collection	visibility	tinyint(1)	YES	0	
+column	collection_access	access_collection_hashkey	varchar(32)	NO	NULL	
+column	collection_access	access_type	set('owner','editor','viewer')	NO	NULL	
+column	collection_access	collection_id	int unsigned	NO	NULL	
+column	collection_access	user_name	varchar(255)	NO	NULL	
+column	geneset_entries	description	text	YES	NULL	
+column	geneset_entries	geneset_entry_hashkey	varchar(32)	NO	NULL	
+column	geneset_entries	geneset_entry_id	int unsigned	NO	NULL	auto_increment
+column	geneset_entries	geneset_name	varchar(255)	NO	NULL	
+column	geneset_entries	geneset_resource_id	int unsigned	NO	NULL	
+column	geneset_entries	n_features	int unsigned	YES	NULL	
+column	geneset_resources	checksum	varchar(128)	YES	NULL	
+column	geneset_resources	collection	varchar(128)	NO	NULL	
+column	geneset_resources	created_at	datetime	NO	CURRENT_TIMESTAMP	DEFAULT_GENERATED
+column	geneset_resources	format	varchar(32)	NO	rds	
+column	geneset_resources	geneset_resource_hashkey	varchar(32)	NO	NULL	
+column	geneset_resources	geneset_resource_id	int unsigned	NO	NULL	auto_increment
+column	geneset_resources	is_current	tinyint(1)	YES	1	
+column	geneset_resources	n_features	int unsigned	YES	NULL	
+column	geneset_resources	n_genesets	int unsigned	YES	NULL	
+column	geneset_resources	notes	text	YES	NULL	
+column	geneset_resources	source	varchar(64)	NO	NULL	
+column	geneset_resources	source_version	varchar(64)	YES	NULL	
+column	geneset_resources	species	varchar(128)	NO	NULL	
+column	geneset_resources	storage_path	varchar(512)	NO	NULL	
+column	geneset_resources	subcollection	varchar(128)	YES	NULL	
+column	geneset_resources	updated_at	datetime	NO	CURRENT_TIMESTAMP	DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+column	geneset_resources	version	varchar(64)	NO	NULL	
+column	genetic_variants_features	annotation	varchar(50)	YES	NULL	
+column	genetic_variants_features	chromosome	varchar(10)	YES	NULL	
+column	genetic_variants_features	feature_hashkey	char(32)	YES	NULL	
+column	genetic_variants_features	feature_id	int unsigned	NO	NULL	auto_increment
+column	genetic_variants_features	feature_name	varchar(255)	NO	NULL	
+column	genetic_variants_features	is_current	tinyint(1)	NO	1	
+column	genetic_variants_features	organism_id	int unsigned	NO	NULL	
+column	genetic_variants_features	position	int unsigned	YES	NULL	
+column	genetic_variants_features	version	int	YES	NULL	
+column	keywords	keyword	varchar(255)	NO	NULL	
+column	keywords	keyword_id	int unsigned	NO	NULL	auto_increment
+column	metabolite_reference	hmdb_id	varchar(255)	YES	NULL	
+column	metabolite_reference	inchikey	varchar(64)	YES	NULL	
+column	metabolite_reference	is_current	tinyint(1)	NO	1	
+column	metabolite_reference	metabolite_hashkey	varchar(32)	NO	NULL	
+column	metabolite_reference	metabolite_id	int unsigned	NO	NULL	auto_increment
+column	metabolite_reference	refmet_id	varchar(255)	YES	NULL	
+column	metabolite_reference	refmet_name	varchar(255)	YES	NULL	
+column	metabolite_reference	smiles	text	YES	NULL	
+column	metabolite_reference	version	int	NO	NULL	
+column	metabolite_xref	is_primary	tinyint(1)	NO	0	
+column	metabolite_xref	metabolite_id	int unsigned	NO	NULL	
+column	metabolite_xref	source_db	varchar(32)	NO	NULL	
+column	metabolite_xref	source_value	varchar(255)	NO	NULL	
+column	metabolite_xref	xref_hashkey	varchar(32)	NO	NULL	
+column	metabolite_xref	xref_id	int unsigned	NO	NULL	auto_increment
+column	organisms	biomart_dataset	varchar(255)	YES	NULL	
+column	organisms	biomart_db	varchar(255)	YES	NULL	
+column	organisms	biomart_description	varchar(255)	YES	NULL	
+column	organisms	biomart_updated_date	varchar(255)	YES	NULL	
+column	organisms	biomart_version	varchar(255)	YES	NULL	
+column	organisms	organism	varchar(255)	NO	NULL	
+column	organisms	organism_id	int unsigned	NO	NULL	auto_increment
+column	organisms	prot_organism_code	varchar(255)	YES	NULL	
+column	organisms	prot_organism_taxid	varchar(255)	YES	NULL	
+column	organisms	prot_updated_date	varchar(255)	YES	NULL	
+column	phenotypes	phenotype	varchar(255)	NO	NULL	
+column	phenotypes	phenotype_id	int unsigned	NO	NULL	auto_increment
+column	platforms	platform	varchar(255)	NO	NULL	
+column	platforms	platform_id	int unsigned	NO	NULL	auto_increment
+column	proteomics_features	feature_hashkey	varchar(32)	NO	NULL	
+column	proteomics_features	feature_id	int unsigned	NO	NULL	auto_increment
+column	proteomics_features	feature_name	varchar(255)	NO	NULL	
+column	proteomics_features	gene_symbol	text	YES	NULL	
+column	proteomics_features	is_current	tinyint(1)	YES	1	
+column	proteomics_features	organism_id	int unsigned	NO	NULL	
+column	proteomics_features	version	datetime	YES	CURRENT_TIMESTAMP	DEFAULT_GENERATED
+column	sample_types	brenda_accession	varchar(255)	YES	NULL	
+column	sample_types	sample_type	varchar(255)	NO	NULL	
+column	sample_types	sample_type_id	int unsigned	NO	NULL	auto_increment
+column	signature_access	access_sig_hashkey	varchar(32)	NO	NULL	
+column	signature_access	access_type	set('owner','editor','viewer')	NO	NULL	
+column	signature_access	signature_id	int unsigned	NO	NULL	
+column	signature_access	user_name	varchar(255)	NO	NULL	
+column	signature_collection_access	collection_id	int unsigned	NO	NULL	
+column	signature_collection_access	signature_collection_hashkey	varchar(32)	NO	NULL	
+column	signature_collection_access	signature_id	int unsigned	NO	NULL	
+column	signature_feature_set	assay_type	set('transcriptomics','proteomics','metabolomics','methylomics','genetic_variants')	NO	NULL	
+column	signature_feature_set	feature_id	int unsigned	YES	NULL	
+column	signature_feature_set	group_label	varchar(255)	YES	NULL	
+column	signature_feature_set	match_status	varchar(32)	YES	NULL	
+column	signature_feature_set	nomenclature_type	varchar(64)	YES	NULL	
+column	signature_feature_set	probe_id	varchar(255)	YES	NULL	
+column	signature_feature_set	score	decimal(12,8)	YES	NULL	
+column	signature_feature_set	sig_feature_hashkey	varchar(32)	NO	NULL	
+column	signature_feature_set	signature_id	int unsigned	NO	NULL	
+column	signature_feature_set_ambiguity	ambiguity_id	int unsigned	NO	NULL	auto_increment
+column	signature_feature_set_ambiguity	candidate_metabolite_id	int unsigned	NO	NULL	
+column	signature_feature_set_ambiguity	sig_feature_hashkey	varchar(32)	NO	NULL	
+column	signatures	PMID	int	YES	NULL	
+column	signatures	adj_p_cutoff	decimal(12,8)	YES	NULL	
+column	signatures	assay_type	set('transcriptomics','proteomics','metabolomics','methylomics','genetic_variants')	NO	NULL	
+column	signatures	covariates	text	YES	NULL	
+column	signatures	cutoff_description	text	YES	NULL	
+column	signatures	date_created	datetime	YES	CURRENT_TIMESTAMP	DEFAULT_GENERATED
+column	signatures	description	text	YES	NULL	
+column	signatures	has_difexp	tinyint(1)	YES	0	
+column	signatures	keywords	text	YES	NULL	
+column	signatures	logfc_cutoff	decimal(12,8)	YES	NULL	
+column	signatures	num_down_regulated	int	YES	NULL	
+column	signatures	num_of_difexp	int	YES	NULL	
+column	signatures	num_up_regulated	int	YES	NULL	
+column	signatures	organism_id	int unsigned	NO	NULL	
+column	signatures	others	text	YES	NULL	
+column	signatures	p_value_cutoff	decimal(12,8)	YES	NULL	
+column	signatures	phenotype_id	int unsigned	NO	NULL	
+column	signatures	platform_id	int unsigned	NO	NULL	
+column	signatures	sample_type_id	int unsigned	NO	NULL	
+column	signatures	score_cutoff	decimal(12,8)	YES	NULL	
+column	signatures	signature_hashkey	varchar(32)	NO	NULL	
+column	signatures	signature_id	int unsigned	NO	NULL	auto_increment
+column	signatures	signature_name	varchar(255)	NO	NULL	
+column	signatures	type	set('uni-directional','bi-directional','categorical')	NO	NULL	
+column	signatures	user_name	varchar(255)	NO	NULL	
+column	signatures	visibility	tinyint(1)	YES	0	
+column	signatures	year	int	YES	NULL	
+column	transcriptomics_features	feature_hashkey	varchar(32)	NO	NULL	
+column	transcriptomics_features	feature_id	int unsigned	NO	NULL	auto_increment
+column	transcriptomics_features	feature_name	varchar(255)	NO	NULL	
+column	transcriptomics_features	gene_symbol	text	YES	NULL	
+column	transcriptomics_features	is_current	tinyint(1)	YES	1	
+column	transcriptomics_features	organism_id	int unsigned	NO	NULL	
+column	transcriptomics_features	version	int	NO	NULL	
+column	users	active	tinyint(1)	YES	0	
+column	users	api_key	varchar(32)	NO	NULL	
+column	users	date_created	datetime	YES	CURRENT_TIMESTAMP	DEFAULT_GENERATED
+column	users	user_affiliation	text	YES	NULL	
+column	users	user_email	varchar(255)	NO	NULL	
+column	users	user_first	varchar(255)	YES	NULL	
+column	users	user_hashkey	varchar(32)	NO	NULL	
+column	users	user_last	varchar(255)	YES	NULL	
+column	users	user_name	varchar(255)	NO	NULL	
+column	users	user_password_hashkey	varchar(255)	NO	NULL	
+column	users	user_role	set('admin','editor','viewer')	NO	NULL	
+fk	collection	user_name	users	user_name
+fk	collection_access	collection_id	collection	collection_id
+fk	collection_access	user_name	users	user_name
+fk	geneset_entries	geneset_resource_id	geneset_resources	geneset_resource_id
+fk	genetic_variants_features	organism_id	organisms	organism_id
+fk	metabolite_xref	metabolite_id	metabolite_reference	metabolite_id
+fk	proteomics_features	organism_id	organisms	organism_id
+fk	signature_access	signature_id	signatures	signature_id
+fk	signature_access	user_name	users	user_name
+fk	signature_collection_access	collection_id	collection	collection_id
+fk	signature_collection_access	signature_id	signatures	signature_id
+fk	signature_feature_set	signature_id	signatures	signature_id
+fk	signature_feature_set_ambiguity	candidate_metabolite_id	metabolite_reference	metabolite_id
+fk	signatures	organism_id	organisms	organism_id
+fk	signatures	phenotype_id	phenotypes	phenotype_id
+fk	signatures	platform_id	platforms	platform_id
+fk	signatures	sample_type_id	sample_types	sample_type_id
+fk	signatures	user_name	users	user_name
+fk	transcriptomics_features	organism_id	organisms	organism_id
+index	collection	PRIMARY	0	collection_id
+index	collection	collection_name	0	collection_name,user_name
+index	collection	user_name	1	user_name
+index	collection_access	PRIMARY	0	collection_id,user_name
+index	collection_access	collection_id	0	collection_id,user_name
+index	collection_access	user_name	1	user_name
+index	geneset_entries	PRIMARY	0	geneset_entry_id
+index	geneset_entries	geneset_entry_hashkey	0	geneset_entry_hashkey
+index	geneset_entries	geneset_resource_id	0	geneset_resource_id,geneset_name
+index	geneset_resources	PRIMARY	0	geneset_resource_id
+index	geneset_resources	geneset_resource_hashkey	0	geneset_resource_hashkey
+index	geneset_resources	source	0	source,species,collection,subcollection,version
+index	genetic_variants_features	PRIMARY	0	feature_id
+index	genetic_variants_features	feature_organism_ukey	0	feature_name,organism_id
+index	genetic_variants_features	organism_id_idx	1	organism_id
+index	keywords	PRIMARY	0	keyword_id
+index	keywords	keyword	0	keyword
+index	metabolite_reference	PRIMARY	0	metabolite_id
+index	metabolite_reference	idx_hmdb_id	1	hmdb_id
+index	metabolite_reference	idx_inchikey	1	inchikey
+index	metabolite_reference	idx_refmet_id	1	refmet_id
+index	metabolite_reference	idx_refmet_name	1	refmet_name
+index	metabolite_reference	idx_smiles	1	smiles(255)
+index	metabolite_reference	uq_metabolite_hash	0	metabolite_hashkey
+index	metabolite_xref	PRIMARY	0	xref_id
+index	metabolite_xref	idx_metabolite_id	1	metabolite_id
+index	metabolite_xref	idx_source_lookup	1	source_db,source_value
+index	metabolite_xref	uq_source_value_metabolite	0	source_db,source_value,metabolite_id
+index	metabolite_xref	uq_xref_hash	0	xref_hashkey
+index	organisms	PRIMARY	0	organism_id
+index	organisms	organism	0	organism
+index	phenotypes	PRIMARY	0	phenotype_id
+index	phenotypes	phenotype	0	phenotype
+index	platforms	PRIMARY	0	platform_id
+index	platforms	platform	0	platform
+index	proteomics_features	PRIMARY	0	feature_id
+index	proteomics_features	feature_organism	0	feature_name,organism_id
+index	proteomics_features	organism_id	1	organism_id
+index	proteomics_features	pf_gene_symbol	1	gene_symbol(64)
+index	sample_types	PRIMARY	0	sample_type_id
+index	sample_types	sample_type	0	sample_type
+index	signature_access	PRIMARY	0	signature_id,user_name
+index	signature_access	signature_id	0	signature_id,user_name
+index	signature_access	user_name	1	user_name
+index	signature_collection_access	PRIMARY	0	collection_id,signature_id
+index	signature_collection_access	collection_id	0	collection_id,signature_id
+index	signature_collection_access	signature_id	1	signature_id
+index	signature_feature_set	idx_signature_nomenclature	1	assay_type,nomenclature_type
+index	signature_feature_set	sfs_feature_id	1	feature_id
+index	signature_feature_set	sig_feature_assay_probe	0	signature_id,feature_id,assay_type,probe_id
+index	signature_feature_set_ambiguity	PRIMARY	0	ambiguity_id
+index	signature_feature_set_ambiguity	idx_candidate_metabolite_id	1	candidate_metabolite_id
+index	signature_feature_set_ambiguity	idx_sig_feature_hashkey	1	sig_feature_hashkey
+index	signatures	PRIMARY	0	signature_id
+index	signatures	organism_id	1	organism_id
+index	signatures	phenotype_id	1	phenotype_id
+index	signatures	platform_id	1	platform_id
+index	signatures	sample_type_id	1	sample_type_id
+index	signatures	signature_name	0	signature_name,user_name
+index	signatures	user_name	1	user_name
+index	transcriptomics_features	PRIMARY	0	feature_id
+index	transcriptomics_features	feature_name	0	feature_name,organism_id
+index	transcriptomics_features	organism_id	1	organism_id
+index	transcriptomics_features	tf_gene_symbol	1	gene_symbol(64)
+index	users	PRIMARY	0	user_name
+index	users	user_name	0	user_name

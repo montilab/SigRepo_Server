@@ -436,7 +436,7 @@ delete_signature <- function(auth, signature_hashkey) {
 #
 # The reverse of the Rummagene lookup, and the direction that lets someone
 # arrive with a gene list and discover signatures without knowing any of them by
-# name. Needs the indexes from scripts/migrate_gene_search_indexes.R to be fast;
+# name. Needs the indexes from mysql/migrations/2026-08-19-gene-search-indexes.sql to be fast;
 # it is correct without them, just slow.
 #
 # The join is keyed on BOTH feature_id and assay_type, which is load-bearing:
