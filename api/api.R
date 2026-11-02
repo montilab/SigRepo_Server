@@ -401,6 +401,45 @@ update_proteomics <- function(res, admin_key, organism = NULL){
   ))
 }
 
+#* Load or refresh the babelgene mouse to human ortholog pairs in gene_orthologs
+#* (SigRepo::updateOrthologFeatureSet()). Human is the target side of every
+#* pair and is never updated itself; this release loads Mus musculus only.
+#* @param admin_key
+#* @param organism
+#' @post /update_orthologs
+update_orthologs <- function(res, admin_key, organism = NULL){
+  admin_error <- require_admin_key(res, admin_key)
+  if (!is.null(admin_error)) {
+    return(admin_error)
+  }
+
+  organism <- parse_organism_filter(organism)
+
+  print("Getting organisms from the database...")
+  # Beta scope: the client accepts Mus musculus only, so a bare call (no
+  # organism) must not fan out to every organism in the table and fail on
+  # each of the others. Widen this filter when the client does.
+  organism_tbl <- SigRepo::searchOrganism(conn_handler = conn_handler, organism = organism) |>
+    dplyr::filter(base::tolower(base::trimws(.data$organism)) %in% "mus musculus")
+
+  if (base::nrow(organism_tbl) == 0) {
+    return(json_response(res, 200, base::data.frame(MESSAGES = "There are no organisms returned from the search parameters (ortholog updates cover Mus musculus in this release).")))
+  }
+
+  print("Updating ortholog pairs in the database for each given organism...")
+  result <- run_feature_updates(organism_tbl, function(organism) {
+    SigRepo::updateOrthologFeatureSet(conn_handler = conn_handler, organism = organism)
+  })
+
+  json_response(res, if (result$ok) 200 else 500, base::data.frame(
+    MESSAGES = c(
+      if (result$ok) "Finish updating ortholog pairs." else "Updating ortholog pairs failed for at least one organism.",
+      result$messages
+    ),
+    stringsAsFactors = FALSE
+  ))
+}
+
 #* Show a list of tables in the database
 #* @param admin_key
 #' @get /show_db_tables
@@ -1327,6 +1366,59 @@ features_search_route <- function(res, api_key = "", assay_type = "transcriptomi
       json_error(res, 400, base::conditionMessage(err))
     } else {
       json_error(res, 500, base::sprintf("Feature search failed: %s", err$message))
+    }
+  }, finally = {
+    if (!base::is.null(conn)) base::suppressWarnings(DBI::dbDisconnect(conn))
+  })
+}
+
+#* Translate feature ids between mouse and human through gene_orthologs.
+#*
+#* A UniProt accession or Ensembl gene id first resolves to its gene symbol
+#* through the reference table of `from`; the symbol (or an Entrez id
+#* directly) joins gene_orthologs and the other organism's symbol, Ensembl and
+#* Entrez ids come back with babelgene's support count. Every ortholog is
+#* returned (`ambiguous` is true when an id has several) and an id that maps
+#* to nothing is returned with empty target fields, so coverage is visible in
+#* one call. One of `from` and `to` must be Homo sapiens.
+#* @param api_key
+#* @param ids Comma-separated feature ids, at most 2000 distinct.
+#* @param from Organism the ids belong to, e.g. Mus musculus.
+#* @param to Organism to map to. Default Homo sapiens.
+#* @param id_type auto (default), uniprot, ensembl, entrez or symbol.
+#' @get /features/orthologs
+features_orthologs_route <- function(res, api_key = "", ids = "", from = "", to = "Homo sapiens", id_type = "auto"){
+  auth <- validate_api_key(res, api_key)
+  if (is_json_error(auth)) {
+    return(auth)
+  }
+  conn <- NULL
+  base::tryCatch({
+    conn <- db_connect_local()
+    id_list <- json_vector(base::unlist(base::strsplit(base::as.character(json_vector(ids)), ",", fixed = TRUE)))
+    result <- lookup_orthologs(
+      conn = conn,
+      ids = id_list,
+      from = json_scalar(from),
+      to = json_scalar(to, "Homo sapiens"),
+      id_type = json_scalar(id_type, "auto")
+    )
+    # Empty strings rather than NA for unmapped fields: jsonlite would write
+    # the string "NA" for a character NA, which reads like an identifier.
+    rows <- result$rows
+    for (column in base::c("query_symbol", "symbol", "ensembl", "entrez")) {
+      rows[[column]][base::is.na(rows[[column]])] <- ""
+    }
+    json_response(res, 200, payload = base::list(
+      count = result$total,
+      columns = result$columns,
+      orthologs = compact_table(rows, max_rows = 20000)
+    ))
+  }, error = function(err) {
+    if (is_ortholog_caller_error(base::conditionMessage(err))) {
+      json_error(res, 400, base::conditionMessage(err))
+    } else {
+      json_error(res, 500, base::sprintf("Ortholog lookup failed: %s", err$message))
     }
   }, finally = {
     if (!base::is.null(conn)) base::suppressWarnings(DBI::dbDisconnect(conn))
