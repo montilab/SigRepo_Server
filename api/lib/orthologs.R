@@ -16,8 +16,8 @@
 # flagged ambiguous) and an id that maps to nothing is kept as an NA row, so
 # a caller sees coverage without a second request.
 #
-# Deliberately dependency-free beyond DBI, like api/lib/symbols.R. Depends on
-# api/lib/common.R only for nothing: it is sourced beside it.
+# Deliberately dependency-free beyond DBI, like api/lib/symbols.R, so the
+# tests and the Shiny app can source it on its own.
 
 ORTHOLOG_RESULT_COLUMNS <- base::c(
   "query", "query_type", "query_symbol", "organism", "symbol", "ensembl", "entrez", "support_n", "ambiguous"
@@ -80,9 +80,18 @@ ortholog_reference_symbols <- function(conn, ref_table, feature_names, organism_
   base::do.call(base::rbind, frames)
 }
 
-# The within-species step: query -> query_symbol (NA when unknown).
+# The within-species step: query -> query_symbol (NA when unknown) and the
+# type each id was finally read as. Dozens of real human symbols fit the
+# UniProt pattern (H2AC11, B3GAT1, P2RY12, ...), so an accession-shaped id
+# the proteomics table does not know is read as the symbol it is. Same rule
+# as the client's lookupFeatureSymbols(); keep the two in step.
 ortholog_query_symbols <- function(conn, ids, id_types, organism_id) {
-  out <- base::data.frame(query = ids, query_symbol = base::rep(NA_character_, base::length(ids)), stringsAsFactors = FALSE)
+  out <- base::data.frame(
+    query = ids,
+    query_symbol = base::rep(NA_character_, base::length(ids)),
+    query_type = base::as.character(id_types),
+    stringsAsFactors = FALSE
+  )
   is_symbol <- !base::is.na(id_types) & id_types == "symbol"
   out$query_symbol[is_symbol] <- ids[is_symbol]
   sources <- base::c(uniprot = "proteomics_features", ensembl = "transcriptomics_features")
@@ -95,6 +104,11 @@ ortholog_query_symbols <- function(conn, ids, id_types, organism_id) {
     symbol <- base::trimws(base::as.character(found$gene_symbol[hit[resolved]]))
     symbol[base::is.na(symbol) | !base::nzchar(symbol)] <- NA_character_
     out$query_symbol[resolved] <- symbol
+    if (type == "uniprot") {
+      fallback <- sel & !resolved
+      out$query_symbol[fallback] <- ids[fallback]
+      out$query_type[fallback] <- "symbol"
+    }
   }
   out
 }
@@ -193,7 +207,9 @@ lookup_orthologs <- function(conn, ids, from, to = "Homo sapiens", id_type = "au
 
   types <- if (id_type == "auto") classify_feature_id_type(ids) else base::rep(id_type, base::length(ids))
   symbols_tbl <- ortholog_query_symbols(conn, ids, types, from_row$organism_id[1])
-  query_symbol <- base::as.character(symbols_tbl$query_symbol[base::match(ids, symbols_tbl$query)])
+  hit <- base::match(ids, symbols_tbl$query)
+  query_symbol <- base::as.character(symbols_tbl$query_symbol[hit])
+  types <- base::as.character(symbols_tbl$query_type[hit])
   entrez_ids <- ids[!base::is.na(types) & types == "entrez"]
 
   pairs <- ortholog_pairs(

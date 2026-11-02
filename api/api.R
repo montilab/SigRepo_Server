@@ -1403,8 +1403,9 @@ features_orthologs_route <- function(res, api_key = "", ids = "", from = "", to 
       to = json_scalar(to, "Homo sapiens"),
       id_type = json_scalar(id_type, "auto")
     )
-    # Empty strings rather than NA for unmapped fields: jsonlite would write
-    # the string "NA" for a character NA, which reads like an identifier.
+    # Empty strings rather than NA for unmapped fields: every row then has the
+    # same string-typed shape, which table-building consumers (Shiny, MCP)
+    # handle without special-casing nulls.
     rows <- result$rows
     for (column in base::c("query_symbol", "symbol", "ensembl", "entrez")) {
       rows[[column]][base::is.na(rows[[column]])] <- ""

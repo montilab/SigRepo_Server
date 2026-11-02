@@ -92,6 +92,20 @@ test_that("caller mistakes are plain errors", {
   expect_error(lookup_orthologs(conn, base::character(), from = "Mus musculus"), "No ids")
 })
 
+test_that("an accession-shaped human symbol unknown to the proteomics table is read as a symbol", {
+  conn <- ortholog_conn()
+  base::on.exit(base::suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  # H2AC11 is a real human symbol that fits the UniProt pattern. On CI's
+  # seed it maps to nothing (one empty row); on a loaded stack the histone
+  # cluster gives it many mouse orthologs. Either way it is read as a symbol.
+  out <- lookup_orthologs(conn, "H2AC11", from = "Homo sapiens", to = "Mus musculus")
+
+  expect_gte(base::nrow(out$rows), 1)
+  expect_true(base::all(out$rows$query_type == "symbol"))
+  expect_true(base::all(out$rows$query_symbol == "H2AC11"))
+})
+
 test_that("the id classifier matches the client's rules", {
   expect_equal(
     classify_feature_id_type(c("ENSMUSG00000059552", "P02340", "22059", "Trp53", "", NA, "Q60590-2", "ensg00000141510")),
