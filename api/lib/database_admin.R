@@ -83,6 +83,7 @@ generate_db_schema <- function(sigrepo_server_path = base::Sys.getenv("SIGREPO_S
   run_schema_file("mysql/schema/geneset_resources.sql", "geneset_resources")
   run_schema_file("mysql/schema/geneset_entries.sql", "geneset_entries")
   run_schema_file("mysql/schema/organisms.sql", "organisms")
+  run_schema_file("mysql/schema/gene_orthologs.sql", "gene_orthologs")
   run_schema_file("mysql/schema/phenotypes.sql", "phenotypes")
   run_schema_file("mysql/schema/platforms.sql", "platforms")
   run_schema_file("mysql/schema/proteomics_features.sql", "proteomics_features")

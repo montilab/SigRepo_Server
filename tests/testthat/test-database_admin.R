@@ -37,7 +37,7 @@ test_that("generate_db_schema (re)creates every expected table regardless of the
     "organisms", "phenotypes", "platforms", "proteomics_features", "sample_types",
     "signature_access", "signature_collection_access", "signature_feature_set", "signatures",
     "transcriptomics_features", "users", "metabolite_reference", "metabolite_xref",
-    "signature_feature_set_ambiguity", "genetic_variants_features"
+    "signature_feature_set_ambiguity", "genetic_variants_features", "gene_orthologs"
   )
   expect_true(all(expected %in% tables))
 })
