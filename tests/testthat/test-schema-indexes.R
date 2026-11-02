@@ -75,3 +75,17 @@ test_that("a gene-to-signature lookup can be planned through the new indexes", {
     info = sprintf("plan used keys: %s", keys)
   )
 })
+
+test_that("gene_orthologs can be entered from either species", {
+  skip_if_no_test_db()
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  # The ortholog lookup joins this table from the non-human side (a mouse
+  # symbol resolved through its reference table) or from the human side (a
+  # human symbol or Ensembl id), so both entry points need a leading index.
+  expect_equal(index_columns(conn, "gene_orthologs", "go_organism_symbol"), c("organism_id", "gene_symbol"))
+  expect_equal(index_columns(conn, "gene_orthologs", "go_human_symbol"), "human_symbol")
+  expect_equal(index_columns(conn, "gene_orthologs", "go_ensembl"), "ensembl_gene_id")
+  expect_equal(index_columns(conn, "gene_orthologs", "go_human_ensembl"), "human_ensembl_gene_id")
+})
