@@ -151,3 +151,31 @@ INSERT INTO `metabolite_xref`
 SELECT
   (SELECT metabolite_id FROM metabolite_reference WHERE metabolite_hashkey = 'ci_metabolite_hashkey_01'),
   'hmdb', 'HMDB0000001', 1, 'ci_metabolite_xref_hk_01';
+
+-- Ortholog lookup (api/lib/orthologs.R, GET /features/orthologs). Real ids of
+-- three mouse genes so tests/testthat/test-orthologs.R holds here and on a
+-- development stack that ran /update_orthologs: Adipoq (one human ortholog),
+-- Orm1 (two: ORM1 and ORM2) and Trp53. The proteomics and transcriptomics rows
+-- give the within-species step (accession or Ensembl id -> symbol) something
+-- to resolve.
+INSERT INTO `organisms` (`organism`, `prot_organism_taxid`) VALUES ('Mus musculus', '10090'), ('Homo sapiens', '9606');
+
+INSERT INTO `proteomics_features` (`feature_name`, `organism_id`, `gene_symbol`, `is_current`, `feature_hashkey`)
+SELECT 'Q60994', (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Adipoq', 1, 'ci_feat_hashkey_prot_mm_adipoq'
+UNION ALL SELECT 'Q60590', (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Orm1', 1, 'ci_feat_hashkey_prot_mm_orm1';
+
+INSERT INTO `transcriptomics_features` (`feature_name`, `organism_id`, `gene_symbol`, `is_current`, `version`, `feature_hashkey`)
+SELECT 'ENSMUSG00000022878', (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Adipoq', 1, 116, 'ci_feat_hashkey_tx_mm_adipoq'
+UNION ALL SELECT 'ENSG00000181092', (SELECT organism_id FROM organisms WHERE organism = 'Homo sapiens'), 'ADIPOQ', 1, 116, 'ci_feat_hashkey_tx_hs_adipoq';
+
+INSERT INTO `gene_orthologs`
+  (`organism_id`, `gene_symbol`, `ensembl_gene_id`, `entrez_id`, `human_symbol`, `human_ensembl_gene_id`, `human_entrez_id`,
+   `support`, `support_n`, `is_current`, `version`, `ortholog_hashkey`)
+SELECT (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Adipoq', 'ENSMUSG00000022878', 11450,
+       'ADIPOQ', 'ENSG00000181092', 9370, 'CI', 10, 1, 'ci', 'ci_ortholog_hashkey_0000000001'
+UNION ALL SELECT (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Orm1', 'ENSMUSG00000039196', 18405,
+       'ORM1', 'ENSG00000229314', 5004, 'CI', 8, 1, 'ci', 'ci_ortholog_hashkey_0000000002'
+UNION ALL SELECT (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Orm1', 'ENSMUSG00000039196', 18405,
+       'ORM2', 'ENSG00000228278', 5005, 'CI', 8, 1, 'ci', 'ci_ortholog_hashkey_0000000003'
+UNION ALL SELECT (SELECT organism_id FROM organisms WHERE organism = 'Mus musculus'), 'Trp53', 'ENSMUSG00000059552', 22059,
+       'TP53', 'ENSG00000141510', 7157, 'CI', 12, 1, 'ci', 'ci_ortholog_hashkey_0000000004';
