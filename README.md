@@ -44,9 +44,8 @@ The server is a set of containerized services:
   <a href="https://modelcontextprotocol.io" target="_blank">Model Context
   Protocol</a> endpoint that lets AI agents search signatures, retrieve
   signature context, compare signatures and browse gene sets, grounded
-  in the stored data. It sits behind a
-  rate-limiting reverse proxy and is reachable at
-  <https://sigrepo.org/mcp/>.
+  in the stored data. It sits behind a rate-limiting reverse proxy and
+  is reachable at <https://sigrepo.org/mcp/>.
 
 Because analyses are exposed as discrete API endpoints over a common
 signature representation, additional analysis engines and external
