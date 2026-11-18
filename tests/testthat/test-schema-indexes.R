@@ -63,15 +63,33 @@ test_that("a gene-to-signature lookup can be planned through the new indexes", {
     WHERE tf.gene_symbol IN ('TP53','MDM2')
     GROUP BY s.signature_id")
 
-  # Deliberately not asserting a specific join order. Which table the optimizer
-  # starts from depends on table statistics: on a large repository it enters at
-  # the gene index, on CI's small fixture database it enters at
-  # sfs_feature_id instead, and both are correct. What must hold either way is
-  # that at least one of the indexes this migration adds is actually usable for
-  # this query -- if they were missing or unusable, none would appear.
-  keys <- paste(as.character(plan$key), collapse = " ")
+  # Deliberately not asserting a specific join order or a specific chosen key.
+  # Which table the optimizer starts from, and which index it picks, depends on
+  # table statistics: on a large repository it enters at the gene index, on
+  # CI's fixture of a handful of rows it may enter at sfs_feature_id or decide
+  # that scanning the covering unique key is cheaper still, and all of those
+  # are correct. What must hold either way is that at least one of the indexes
+  # this migration adds is usable for this query, which is what EXPLAIN's
+  # possible_keys reports -- if they were missing or unusable, none would
+  # appear there.
+  candidates <- paste(as.character(plan$possible_keys), collapse = " ")
+  chosen <- paste(as.character(plan$key), collapse = " ")
   expect_true(
-    grepl("sfs_feature_id", keys, fixed = TRUE) || grepl("gene_symbol", keys, fixed = TRUE),
-    info = sprintf("plan used keys: %s", keys)
+    grepl("sfs_feature_id", candidates, fixed = TRUE) || grepl("gene_symbol", candidates, fixed = TRUE),
+    info = sprintf("plan candidates: %s; chosen: %s", candidates, chosen)
   )
+})
+
+test_that("gene_orthologs can be entered from either species", {
+  skip_if_no_test_db()
+  conn <- db_connect_local()
+  on.exit(suppressWarnings(DBI::dbDisconnect(conn)), add = TRUE)
+
+  # The ortholog lookup joins this table from the non-human side (a mouse
+  # symbol resolved through its reference table) or from the human side (a
+  # human symbol or Ensembl id), so both entry points need a leading index.
+  expect_equal(index_columns(conn, "gene_orthologs", "go_organism_symbol"), c("organism_id", "gene_symbol"))
+  expect_equal(index_columns(conn, "gene_orthologs", "go_human_symbol"), "human_symbol")
+  expect_equal(index_columns(conn, "gene_orthologs", "go_ensembl"), "ensembl_gene_id")
+  expect_equal(index_columns(conn, "gene_orthologs", "go_human_ensembl"), "human_ensembl_gene_id")
 })

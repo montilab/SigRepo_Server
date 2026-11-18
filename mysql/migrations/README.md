@@ -201,3 +201,10 @@ Re-running the provided script carries none of that risk.
   `RENAME INDEX`, not `CHANGE COLUMN`); see the comments in the forward
   script for why `CHANGE COLUMN` is avoided for the `SET(...)` column, and
   for why the index needs its own explicit rename.
+- `2026-11-02-gene-orthologs.sql` / `2026-11-02-gene-orthologs-rollback.sql`:
+  creates the `gene_orthologs` reference table (babelgene mouse to human
+  ortholog pairs, SigRepo #280) with `CREATE TABLE IF NOT EXISTS`, identical
+  to `mysql/schema/gene_orthologs.sql`. The table is empty after the
+  migration; fill it with `POST /update_orthologs` (admin key) once the API
+  runs a SigRepo client that has `updateOrthologFeatureSet()`. The rollback
+  drops the table; it holds only reference data that the route recreates.
