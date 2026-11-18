@@ -167,6 +167,13 @@ for (lib_file in base::sort(base::list.files(base::file.path(sigrepo_server_path
   base::source(lib_file, local = TRUE)
 }
 
+# Refuse to serve a database that is missing a schema migration this code
+# ships (api/lib/schema_migrations.R). Same idea as
+# assert_omic_signature_version() above: fail at startup, where the cause is
+# named, not per request with "Unknown column". It reads and never applies;
+# scripts/migrate.sh and update_sigrepo.sh are what apply.
+assert_schema_migrated(db_connect_local, sigrepo_server_path)
+
 # Resolved once at boot (default_msigdb_cache_dir lives in api/lib/msigdb_cache.R)
 # so /init_db_genesets, /geneset_resources/ensure, /init_db's combined
 # bootstrap, and every /annotate/* request all share the same cache lookup.

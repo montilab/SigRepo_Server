@@ -98,6 +98,11 @@ generate_db_schema <- function(sigrepo_server_path = base::Sys.getenv("SIGREPO_S
   run_schema_file("mysql/schema/signature_feature_set_ambiguity.sql", "signature_feature_set_ambiguity")
   run_schema_file("mysql/schema/genetic_variants_features.sql", "genetic_variants_features")
 
+  # The schema just built is the current one, so it already contains every
+  # change in mysql/migrations/. Record them as applied (api/lib/schema_migrations.R),
+  # or the API's boot check would treat this database as never migrated.
+  record_schema_migrations(conn, sigrepo_server_path)
+
   # Disconnect from database ####
   base::suppressWarnings(DBI::dbDisconnect(conn))
 
